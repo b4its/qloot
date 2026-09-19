@@ -314,12 +314,52 @@ async def main() -> None:
     # --- simulate student activity: attempts, grading, rewards -------------
     await _simulate_activity(teacher, students)
 
+    # --- simulate career guidance data -------------------------------------
+    await _simulate_career(students)
+
     log.info(
         "seed_done",
         admin=str(admin.id),
         teacher=str(teacher.id),
         students=len(students),
     )
+
+
+async def _simulate_career(students: list[User]) -> None:
+    """Seed grades, personality, recommendations, roadmap and BK sessions."""
+    from app.services.career_service import CareerService
+
+    grade_sets = [
+        {"Fisika": 92, "Matematika": 85, "Kimia": 64, "B. Inggris": 78, "B. Indonesia": 88},
+        {"Fisika": 78, "Matematika": 90, "Kimia": 72, "B. Inggris": 82, "B. Indonesia": 80},
+        {"Fisika": 70, "Matematika": 68, "Kimia": 85, "Biologi": 90, "B. Inggris": 76},
+    ]
+    answers = [5, 5, 3, 4, 2] * 6
+
+    async with session_scope() as session:
+        svc = CareerService(session)
+        await svc.ensure_resources()
+        for student, grades in zip(students[:3], grade_sets, strict=False):
+            existing = await svc.list_grades(student.id)
+            if existing:
+                continue
+            for subject, grade in grades.items():
+                await svc.upsert_grade(student.id, subject, grade, "2025/2026-genap")
+            await svc.score_personality(student, answers)
+            await svc.generate_recommendations(student)
+            await svc.create_consultation(
+                student,
+                counselor="Bu Ratna Wijaya",
+                topic="Konsultasi Pemilihan Jurusan",
+                notes="Diskusi hasil analisis AI.",
+            )
+            log.info("seed_career_student", student=str(student.id))
+
+        # Approve + activate roadmap for the first student.
+        first = students[0]
+        if not await svc.list_milestones(first.id):
+            await svc.approve(first)
+            log.info("seed_career_roadmap_activated", student=str(first.id))
 
 
 async def _simulate_activity(teacher: User, students: list[User]) -> None:
