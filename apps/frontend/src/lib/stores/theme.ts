@@ -4,20 +4,38 @@ import { browser } from "$app/environment";
 export type Theme = "light" | "dark";
 const KEY = "qloot-theme";
 
+function safeStorage(): Storage | null {
+  try {
+    if (!browser || typeof localStorage === "undefined") return null;
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
 function initial(): Theme {
-  if (!browser) return "light";
-  const stored = localStorage.getItem(KEY) as Theme | null;
+  const stored = safeStorage()?.getItem(KEY) as Theme | null;
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  try {
+    if (browser && typeof window !== "undefined" && window.matchMedia) {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+  } catch {
+    /* ignore */
+  }
+  return "light";
 }
 
 function createThemeStore() {
-  const { subscribe, set, update } = writable<Theme>(initial());
+  const { subscribe, set, update } = writable<Theme>("light");
 
   function apply(theme: Theme) {
-    if (!browser) return;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem(KEY, theme);
+    try {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      safeStorage()?.setItem(KEY, theme);
+    } catch {
+      /* ignore */
+    }
   }
 
   return {

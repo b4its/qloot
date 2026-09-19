@@ -1,0 +1,9 @@
+# Frontend build & deps
+node_modules/
+.svelte-kit/
+build/
+vite.config.ts.timestamp-*
+playwright-report/
+test-results/
+.env
+.env.*
