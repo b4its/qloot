@@ -270,11 +270,7 @@
             <li><a class="hover:text-white" href="/faq">FAQ</a></li>
             <li><a class="hover:text-white" href="/certificates">Sertifikat</a></li>
             <li>
-              <a
-                class="hover:text-white"
-                href={`${API_BASE}/docs`}
-                target="_blank"
-                rel="noopener"
+              <a class="hover:text-white" href={`${API_BASE}/docs`} target="_blank" rel="noopener"
                 >Dokumentasi API</a
               >
             </li>

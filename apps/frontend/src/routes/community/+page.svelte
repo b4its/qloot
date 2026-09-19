@@ -2,6 +2,19 @@
   import Icon from "$lib/components/Icon.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
+  import { auth } from "$lib/stores/auth";
+  import { relativeTime } from "$lib/utils/format";
+
+  interface Post {
+    id: number;
+    author: string;
+    handle: string;
+    at: string;
+    text: string;
+    likes: number;
+    liked: boolean;
+    replies: number;
+  }
 
   const topics = [
     { name: "Desain & UX", threads: 1284, icon: "pen-ruler" },
@@ -10,29 +23,35 @@
     { name: "Karier & Portofolio", threads: 588, icon: "briefcase" },
   ];
 
-  const feed = [
+  let posts: Post[] = [
     {
+      id: 1,
       author: "Alya P.",
       handle: "0xa1f4",
-      time: "2 jam lalu",
+      at: new Date(Date.now() - 2 * 3600_000).toISOString(),
       text: "Tips menyusun studi kasus portofolio: mulai dari masalah, bukan dari visual.",
       likes: 42,
+      liked: false,
       replies: 8,
     },
     {
+      id: 2,
       author: "Rangga W.",
       handle: "0x9c2b",
-      time: "4 jam lalu",
+      at: new Date(Date.now() - 4 * 3600_000).toISOString(),
       text: "Sesi minggu ini: membedah model rekomendasi sederhana. Rekaman tersedia di kelas.",
       likes: 31,
+      liked: false,
       replies: 5,
     },
     {
+      id: 3,
       author: "Nadia K.",
       handle: "0x4d18",
-      time: "6 jam lalu",
+      at: new Date(Date.now() - 6 * 3600_000).toISOString(),
       text: "Kumpulan dataset publik untuk latihan visualisasi — silakan cek tautan di ruang Data & AI.",
       likes: 57,
+      liked: false,
       replies: 12,
     },
   ];
@@ -44,6 +63,34 @@
     { rank: 4, name: "Bima Aditya", points: 3980, handle: "0x2e60" },
     { rank: 5, name: "Lala Nurhaliza", points: 3760, handle: "0x9f33" },
   ];
+
+  let draft = "";
+  let activeTopic = "Desain & UX";
+
+  function post() {
+    const text = draft.trim();
+    if (text.length < 2) return;
+    posts = [
+      {
+        id: Date.now(),
+        author: $auth.user?.full_name ?? "Kamu",
+        handle: "0x" + ($auth.user?.chain_user_ref?.slice(4, 12) ?? "kamu0"),
+        at: new Date().toISOString(),
+        text,
+        likes: 0,
+        liked: false,
+        replies: 0,
+      },
+      ...posts,
+    ];
+    draft = "";
+  }
+
+  function toggleLike(p: Post) {
+    p.liked = !p.liked;
+    p.likes += p.liked ? 1 : -1;
+    posts = [...posts];
+  }
 </script>
 
 <svelte:head><title>Komunitas — QLoot</title></svelte:head>
@@ -74,53 +121,71 @@
   <div class="space-y-6">
     <div class="flex flex-wrap gap-2">
       {#each topics as t}
-        <span class="btn-pill"><Icon name={t.icon} size="11px" /> {t.name} · {t.threads}</span>
+        <button
+          class="btn-pill transition-colors"
+          class:!border-primary={activeTopic === t.name}
+          class:!text-primary={activeTopic === t.name}
+          on:click={() => (activeTopic = t.name)}
+        >
+          <Icon name={t.icon} size="11px" />
+          {t.name} · {t.threads}
+        </button>
       {/each}
     </div>
 
     <div class="card">
       <div class="flex items-center gap-3">
         <span
-          class="grid h-9 w-9 place-items-center rounded-full text-white"
+          class="grid h-9 w-9 flex-none place-items-center rounded-full text-white"
           style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
         >
           <Icon name="user" size="13px" />
         </span>
         <input
           class="input"
-          placeholder="Mulai diskusi atau ajukan pertanyaan…"
+          placeholder={`Tulis diskusi di ${activeTopic}…`}
           aria-label="Tulis diskusi"
+          bind:value={draft}
+          on:keydown={(e) => e.key === "Enter" && post()}
         />
-        <button class="btn-primary"><Icon name="paper-plane" size="12px" /> Kirim</button>
+        <button class="btn-primary" on:click={post} disabled={draft.trim().length < 2}>
+          <Icon name="paper-plane" size="12px" /> Kirim
+        </button>
       </div>
     </div>
 
-    {#each feed as f}
+    {#each posts as f (f.id)}
       <article class="card">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <WalletChip
-              address={`0x${f.handle.slice(2)}d41a2b3c4d5e6f708192a3b4c5d6e7f8`}
+              address={`0x${f.handle.replace("0x", "")}d41a2b3c4d5e6f708192a3b4c5d6e7f8`}
               label={f.handle}
               size={30}
             />
             <div>
               <p class="text-sm font-medium">{f.author}</p>
-              <p class="text-xs muted">{f.time}</p>
+              <p class="text-xs muted">{relativeTime(f.at)}</p>
             </div>
           </div>
         </div>
         <p class="mt-3 text-sm">{f.text}</p>
         <div class="mt-3 flex items-center gap-4 border-t pt-3 text-xs muted">
-          <button class="inline-flex items-center gap-1.5 hover:text-primary"
-            ><Icon name="heart" size="12px" /> {f.likes}</button
+          <button
+            class="inline-flex items-center gap-1.5 transition-colors hover:text-tertiary"
+            class:text-tertiary={f.liked}
+            on:click={() => toggleLike(f)}
           >
-          <button class="inline-flex items-center gap-1.5 hover:text-primary"
-            ><Icon name="comment" size="12px" /> {f.replies}</button
-          >
-          <button class="inline-flex items-center gap-1.5 hover:text-primary"
-            ><Icon name="share-nodes" size="12px" /> Bagikan</button
-          >
+            <Icon name="heart" size="12px" />
+            {f.likes}
+          </button>
+          <button class="inline-flex items-center gap-1.5 hover:text-primary">
+            <Icon name="comment" size="12px" />
+            {f.replies}
+          </button>
+          <button class="inline-flex items-center gap-1.5 hover:text-primary">
+            <Icon name="share-nodes" size="12px" /> Bagikan
+          </button>
         </div>
       </article>
     {/each}
@@ -145,12 +210,15 @@
       <ul class="mt-3 space-y-2 text-sm">
         {#each topics as t}
           <li>
-            <a href="/community" class="flex items-center justify-between hover:text-primary">
+            <button
+              class="flex w-full items-center justify-between hover:text-primary"
+              on:click={() => (activeTopic = t.name)}
+            >
               <span class="inline-flex items-center gap-2"
                 ><Icon name={t.icon} size="12px" /> {t.name}</span
               >
               <Icon name="chevron-right" size="10px" />
-            </a>
+            </button>
           </li>
         {/each}
       </ul>

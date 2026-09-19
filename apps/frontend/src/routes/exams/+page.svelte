@@ -3,6 +3,9 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Exam } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
+  import Icon from "$lib/components/Icon.svelte";
+  import { reveal } from "$lib/actions/reveal";
+  import { formatDate } from "$lib/utils/format";
 
   let exams: Exam[] = [];
   let loading = true;
@@ -13,7 +16,7 @@
     try {
       exams = await api.get<Exam[]>("/exams");
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load exams";
+      error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
     } finally {
       loading = false;
     }
@@ -22,41 +25,69 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Exams — QLoot</title></svelte:head>
+<svelte:head><title>Ujian — QLoot</title></svelte:head>
 
-<div class="flex items-center justify-between">
-  <h1 class="text-2xl font-bold">Exams</h1>
-  {#if canManage}<a href="/teacher/exams" class="btn-primary">＋ Manage exams</a>{/if}
-</div>
-
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{/if}
-
-{#if loading}
-  <p class="mt-6 muted">Loading exams…</p>
-{:else if exams.length === 0}
-  <div class="card mt-6 text-center"><p class="muted">No exams available.</p></div>
-{:else}
-  <div class="mt-6 grid gap-4 sm:grid-cols-2">
-    {#each exams as exam}
-      <a href={`/exams/${exam.id}`} class="card block transition hover:border-primary">
-        <div class="flex items-center justify-between">
-          <h2 class="font-semibold">{exam.title}</h2>
-          <span
-            class="badge"
-            class:bg-green-100={exam.is_active}
-            class:text-secondary={exam.is_active}
-          >
-            {exam.is_active ? "open" : exam.status}
-          </span>
-        </div>
-        <p class="mt-1 text-sm muted">
-          {exam.duration_minutes} min · pass {(exam.passing_score_bp / 100).toFixed(0)}%
-        </p>
-      </a>
-    {/each}
+<div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mono-label">Asesmen</p>
+      <h1 class="mt-1 font-display text-4xl font-bold">Ujian</h1>
+      <p class="mt-2 muted">Kerjakan ujian dengan timer server-authoritative dan feedback AI.</p>
+    </div>
+    {#if canManage}
+      <a href="/teacher/exams" class="btn-primary"><Icon name="plus" size="12px" /> Kelola Ujian</a>
+    {/if}
   </div>
-{/if}
+
+  {#if error}
+    <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+  {/if}
+
+  {#if loading}
+    <div class="mt-6 grid gap-5 sm:grid-cols-2">
+      {#each Array(2) as _}<div class="skeleton h-32"></div>{/each}
+    </div>
+  {:else if exams.length === 0}
+    <div class="card mt-6 grid place-items-center py-16 text-center">
+      <Icon name="file-pen" size="28px" class="muted" />
+      <p class="mt-3 font-semibold">Belum ada ujian</p>
+      <p class="text-sm muted">Ujian yang dipublikasikan akan muncul di sini.</p>
+    </div>
+  {:else}
+    <div class="mt-6 grid gap-5 sm:grid-cols-2">
+      {#each exams as exam, i}
+        <a href={`/exams/${exam.id}`} use:reveal={{ delay: i * 40 }} class="card lift block">
+          <div class="flex items-center justify-between">
+            <span
+              class="grid h-11 w-11 place-items-center rounded-xl text-white"
+              style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
+            >
+              <Icon name="file-pen" size="17px" />
+            </span>
+            <span
+              class="badge"
+              class:badge-mint={exam.is_active}
+              class:badge-neutral={!exam.is_active}
+            >
+              <Icon name={exam.is_active ? "lock-open" : "lock"} size="9px" />
+              {exam.is_active ? "terbuka" : exam.status}
+            </span>
+          </div>
+          <h2 class="mt-3 font-display text-lg font-bold">{exam.title}</h2>
+          <div class="mono-label mt-2 flex flex-wrap items-center gap-3">
+            <span><Icon name="clock" size="10px" /> {exam.duration_minutes} menit</span>
+            <span>·</span>
+            <span
+              ><Icon name="bullseye" size="10px" /> lulus {(exam.passing_score_bp / 100).toFixed(
+                0,
+              )}%</span
+            >
+          </div>
+          {#if exam.opens_at}<p class="mt-2 text-xs muted">
+              Mulai {formatDate(exam.opens_at)}
+            </p>{/if}
+        </a>
+      {/each}
+    </div>
+  {/if}
+</div>
