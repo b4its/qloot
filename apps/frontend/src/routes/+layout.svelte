@@ -20,6 +20,8 @@
     { href: "/ranking", label: "Ranking", icon: "📊" },
     { href: "/wallet", label: "Wallet", icon: "💎" },
     { href: "/badges", label: "Badges", icon: "🏅" },
+    { href: "/career", label: "Career", icon: "🧭" },
+    { href: "/assistant", label: "AI Assistant", icon: "🤖" },
   ];
 
   let mobileOpen = false;
@@ -43,7 +45,7 @@
         QLoot
       </a>
 
-      <nav class="hidden items-center gap-1 md:flex">
+      <nav class="hidden flex-wrap items-center gap-1 lg:flex">
         {#each nav as item}
           <a
             href={item.href}

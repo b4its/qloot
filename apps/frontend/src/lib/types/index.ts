@@ -311,3 +311,93 @@ export interface SubmissionRow {
   feedback?: string | null;
   similarity_bp?: number | null;
 }
+
+// --- Career guidance (simulated) ------------------------------------------
+export interface GradeRow {
+  subject: string;
+  grade: number;
+  term: string;
+}
+
+export interface Insight {
+  kind: string;
+  title: string;
+  detail: string;
+}
+
+export interface AcademicDashboard {
+  average: number;
+  strong_subject?: string | null;
+  weak_subject?: string | null;
+  subjects: { subject: string; grade: number }[];
+  trend: { month: string; value: number }[];
+  radar: { dimension: string; value: number }[];
+  insights: Insight[];
+}
+
+export interface Personality {
+  openness: number;
+  conscientiousness: number;
+  extraversion: number;
+  agreeableness: number;
+  neuroticism: number;
+  summary?: string | null;
+  created_at: string;
+}
+
+export interface Recommendation {
+  id: string;
+  major: string;
+  fit_score: number;
+  academic_fit: number;
+  personality_fit: number;
+  rationale?: string | null;
+  universities?: string[] | null;
+  admission_paths?: string[] | null;
+  skills?: string[] | null;
+  careers?: string[] | null;
+  rank: number;
+  status: string;
+}
+
+export interface Milestone {
+  id: string;
+  title: string;
+  description?: string | null;
+  period: string;
+  position: number;
+  progress_percent: number;
+  status: string;
+  tasks?: string[] | null;
+}
+
+export interface Counselor {
+  name: string;
+  role: string;
+  focus: string;
+}
+
+export interface Consultation {
+  id: string;
+  counselor: string;
+  topic: string;
+  scheduled_at?: string | null;
+  status: string;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface ResourceItem {
+  code: string;
+  category: string;
+  title: string;
+  description?: string | null;
+  provider?: string | null;
+  is_free: boolean;
+  tags?: string[] | null;
+}
+
+export interface AssistantReply {
+  answer: string;
+  confidence_bp: number;
+}

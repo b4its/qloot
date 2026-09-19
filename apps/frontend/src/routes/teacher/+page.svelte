@@ -26,6 +26,12 @@
       desc: "Set reward rules and finalize winners",
       icon: "🏆",
     },
+    {
+      href: "/teacher/submissions",
+      label: "Submissions",
+      desc: "Student answers, feedback and analytics",
+      icon: "📥",
+    },
     { href: "/teacher/rankings", label: "Rankings", desc: "Inspect leaderboards", icon: "📊" },
   ];
 </script>
