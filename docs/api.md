@@ -150,6 +150,66 @@ GET   /admin/audit-logs
 GET   /admin/config
 ```
 
+## Notifications & badges
+
+```
+GET  /notifications
+GET  /notifications/unread-count
+POST /notifications/{notification_id}/read
+POST /notifications/read-all
+POST /admin/notifications            (admin broadcast)
+
+GET  /badges
+GET  /me/badges
+```
+
+## Teacher
+
+```
+GET  /teacher/submissions
+GET  /teacher/analytics
+```
+
+## Career guidance (simulated)
+
+```
+GET   /career/dashboard
+GET   /career/grades
+POST  /career/grades
+
+GET   /career/personality
+POST  /career/personality
+
+GET   /career/recommendations
+POST  /career/recommendations/generate
+POST  /career/recommendations/submit
+POST  /career/recommendations/approve
+
+GET   /career/roadmap
+PATCH /career/roadmap/{milestone_id}
+
+GET   /career/counselors
+GET   /career/consultations
+POST  /career/consultations
+POST  /career/consultations/{consultation_id}/cancel
+
+GET   /career/resources            (?category=course|extracurricular|material)
+POST  /career/assistant
+```
+
+## Learning extras
+
+```
+POST /courses/{course_id}/enroll
+GET  /me/enrollments
+GET  /materials/{material_id}/summary
+POST /materials/{material_id}/ask
+GET  /rooms/{room_id}/live
+GET  /rooms/{room_id}/events
+POST /rooms/{room_id}/invite
+POST /rooms/invitations/accept
+```
+
 ## Conventions
 
 - Scores use **integer basis points** (`10000 = 100.00%`).

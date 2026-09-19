@@ -59,7 +59,6 @@ run even on error.
    scores/feedback in integer basis points; attempt gets an overall score.
 
 ## Reward flow (the §11.3 model)
-
 ```
 quest.finalize()
   → select winners (deterministic)         ┐ single DB transaction
@@ -92,3 +91,29 @@ both the database (`reward_key` unique, `(quest,user,type)` unique) and contract
 - Prometheus metrics at `/api/v1/metrics` (requests, durations, ai jobs, rewards,
   blockchain transactions/failures).
 - Grafana + Loki available under the `monitoring` profile.
+
+## Career guidance module (simulated)
+
+A self-contained, deterministic module adapted from an academic-path planner:
+
+```
+grades ─┐
+        ├─► RecommendationEngine ─► recommendations ─► [counsellor approve] ─► roadmap
+Big Five┘                                                        │
+                                                     consultations / notifications
+```
+
+- **Determinism**: no external AI calls. The recommendation engine computes,
+  for each major, a weighted academic score over subject grades and a
+  personality score over Big Five traits (negative weights invert a trait, e.g.
+  lower neuroticism is better).
+- **Human-in-the-loop**: recommendations are `draft` → `in_review` →
+  `approved`; the roadmap only generates on approval, mirroring the safety
+  requirement that a human validates AI output.
+- **Data**: `academic_grades`, `personality_results`, `career_recommendations`,
+  `roadmap_milestones`, `consultations`, `resource_items`.
+- **Assistant**: a rule-based keyword responder (also deterministic) that can be
+  swapped for the real AI provider later.
+
+Everything is seeded by `python -m app.db.seed`, so the UI is populated and
+demonstrable without any external service.

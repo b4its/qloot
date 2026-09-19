@@ -13,16 +13,26 @@ a FastAPI + SvelteKit monorepo with proper testing, transactions, and Web3 rewar
 ## Highlights
 
 - **Learning**: courses, lessons, progress tracking, PDF material upload.
-- **AI**: question generation from PDFs and essay grading — with structured output,
-  validation, retries and a mock provider for offline dev.
+- **AI**: question generation from PDFs, essay grading, material summaries and
+  grounded Q&A — with structured output, validation, retries and a mock
+  provider for offline dev.
 - **Exams**: server-authoritative timer, autosave, idempotent submit, AI feedback,
   similarity scores.
 - **Gamification**: rooms (WebSocket live presence/leaderboard), quests with
-  deterministic fastest-valid winner selection, tasks, global/room/quest rankings.
+  deterministic fastest-valid winner selection, tasks, global/room/quest rankings,
+  notifications and badges.
+- **Career guidance** (simulated): academic dashboard (grades, trend, interest
+  radar, AI insights), Big Five personality test, AI major recommendations with a
+  human-in-the-loop counsellor approval step, a milestone roadmap, a BK counselling
+  room, a resource library and a rule-based AI assistant.
 - **Web3 rewards**: shared treasury + **double-entry ledger**, idempotent reward keys,
   transactional outbox → blockchain worker → indexer, Etherscan links, withdrawals.
 - **Security**: Argon2id, hashed sessions with expiry/revocation, object-level RBAC,
   CSRF-safe cookies, strict CORS, rate limiting, secret redaction in logs.
+
+> The career-guidance module and all AI providers run as **deterministic
+> simulations** by default (no external calls), so the whole platform is
+> reproducible offline.
 
 ## Architecture
 
