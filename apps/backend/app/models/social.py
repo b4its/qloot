@@ -58,6 +58,8 @@ class Badge(Base):
     description: Mapped[str | None] = mapped_column(String(512))
     icon: Mapped[str] = mapped_column(String(16), default="🏅", nullable=False)
     points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Numeric id used on-chain for badge proof tokens (1..255), auto-assigned.
+    on_chain_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

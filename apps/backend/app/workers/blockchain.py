@@ -22,7 +22,7 @@ log = get_logger("blockchain_worker")
 
 _shutdown = asyncio.Event()
 
-TOPICS = ("reward", "withdrawal", "pause", "unpause")
+TOPICS = ("reward", "xp", "badge", "withdrawal", "pause", "unpause")
 
 
 async def _claim(session) -> TransactionOutbox | None:

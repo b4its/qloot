@@ -23,15 +23,56 @@ log = get_logger("chain")
 OPC_ABI_MIN = [
     {
         "inputs": [
-            {"internalType": "bytes32", "name": "rewardKey", "type": "bytes32"},
-            {"internalType": "bytes32", "name": "questRef", "type": "bytes32"},
-            {"internalType": "bytes32", "name": "userRef", "type": "bytes32"},
-            {"internalType": "uint8", "name": "rank", "type": "uint8"},
             {"internalType": "address", "name": "to", "type": "address"},
-            {"internalType": "uint256", "name": "tokenId", "type": "uint256"},
+            {"internalType": "uint256", "name": "amount", "type": "uint256"},
+            {"internalType": "bytes32", "name": "reason", "type": "bytes32"},
+            {"internalType": "uint256", "name": "idempotencyKey", "type": "uint256"},
+        ],
+        "name": "rewardUser",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [
+            {"internalType": "address", "name": "account", "type": "address"},
             {"internalType": "uint256", "name": "amount", "type": "uint256"},
         ],
-        "name": "recordReward",
+        "name": "addXp",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [
+            {"internalType": "uint8", "name": "badgeId", "type": "uint8"},
+            {"internalType": "string", "name": "uri", "type": "string"},
+            {"internalType": "bool", "name": "soulbound", "type": "bool"},
+        ],
+        "name": "registerBadge",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [
+            {"internalType": "address", "name": "to", "type": "address"},
+            {"internalType": "uint8", "name": "badgeId", "type": "uint8"},
+            {"internalType": "string", "name": "uri", "type": "string"},
+        ],
+        "name": "awardBadge",
+        "outputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [
+            {"internalType": "uint256", "name": "courseId", "type": "uint256"},
+            {"internalType": "uint256", "name": "rewardAmount", "type": "uint256"},
+            {"internalType": "uint8", "name": "badgeId", "type": "uint8"},
+            {"internalType": "bool", "name": "active", "type": "bool"},
+        ],
+        "name": "createCourse",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function",
@@ -61,6 +102,27 @@ OPC_ABI_MIN = [
             {"internalType": "uint256", "name": "id", "type": "uint256"},
         ],
         "name": "balanceOf",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+        "name": "xp",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+        "name": "level",
+        "outputs": [{"internalType": "uint32", "name": "", "type": "uint32"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+        "name": "userBadgeCount",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
         "stateMutability": "view",
         "type": "function",
@@ -107,35 +169,67 @@ class ChainClient:
     def _fake_hash(self, *parts: str) -> str:
         return "0x" + hashlib.sha256("|".join(parts).encode()).hexdigest()
 
-    async def record_reward(
+    async def reward_user(
         self,
         *,
         reward_key: str,
-        quest_ref: str,
         user_ref: str,
-        rank: int,
         amount: int,
-        token_id: int,
-        treasury: str | None = None,
+        reason: str = "reward",
+        to: str | None = None,
     ) -> TxReceipt:
+        """Pay an idempotent OPC reward via the v2 `rewardUser` function.
+
+        The contract keys idempotency on a uint256; we derive it deterministically
+        from the off-chain `reward_key` so retries never double-pay.
+        """
+        # Derive a stable uint256 key from the bytes32/hex reward key.
+        idem = int(reward_key, 16) if reward_key.startswith("0x") else _stable_uint(reward_key)
+        idem &= (1 << 256) - 1
+
         if self.dry_run:
             tx_hash = self._fake_hash("reward", reward_key, user_ref, str(amount))
-            log.info("dry_run_record_reward", reward_key=reward_key, amount=amount)
+            log.info("dry_run_reward_user", reward_key=reward_key, amount=amount)
             return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
 
         assert self._contract is not None and self._account is not None and self._w3 is not None
-        to = treasury or settings.treasury_address
-        if not to:
+        recipient = to or settings.treasury_address
+        if not recipient:
             raise ChainError("TREASURY_ADDRESS is not configured")
-        fn = self._contract.functions.recordReward(
-            _b32(reward_key),
-            _b32(quest_ref),
-            _b32(user_ref),
-            int(rank),
-            self._w3.to_checksum_address(to),
-            int(token_id),
+        fn = self._contract.functions.rewardUser(
+            self._w3.to_checksum_address(recipient),
             int(amount),
+            _b32(reason),
+            idem,
         )
+        return await self._send(fn)
+
+    async def add_xp(self, *, to: str, amount: int, user_ref: str = "") -> TxReceipt:
+        if self.dry_run:
+            tx_hash = self._fake_hash("xp", user_ref or to, str(amount))
+            return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
+        assert self._contract is not None and self._w3 is not None
+        fn = self._contract.functions.addXp(self._w3.to_checksum_address(to), int(amount))
+        return await self._send(fn)
+
+    async def award_badge(self, *, to: str, badge_id: int, uri: str = "") -> TxReceipt:
+        if self.dry_run:
+            tx_hash = self._fake_hash("badge", to, str(badge_id))
+            return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
+        assert self._contract is not None and self._w3 is not None
+        fn = self._contract.functions.awardBadge(
+            self._w3.to_checksum_address(to), int(badge_id), uri
+        )
+        return await self._send(fn)
+
+    async def register_badge(
+        self, *, badge_id: int, uri: str = "", soulbound: bool = False
+    ) -> TxReceipt:
+        if self.dry_run:
+            tx_hash = self._fake_hash("badge_register", str(badge_id))
+            return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
+        assert self._contract is not None
+        fn = self._contract.functions.registerBadge(int(badge_id), uri, bool(soulbound))
         return await self._send(fn)
 
     async def complete_withdrawal(
@@ -225,6 +319,11 @@ class ChainClient:
 def _b32(hexstr: str) -> bytes:
     s = hexstr[2:] if hexstr.startswith("0x") else hexstr
     return bytes.fromhex(s.zfill(64))
+
+
+def _stable_uint(value: str) -> int:
+    """Deterministically map an arbitrary string to a uint256 integer."""
+    return int.from_bytes(hashlib.sha256(value.encode("utf-8")).digest(), "big")
 
 
 _client: ChainClient | None = None

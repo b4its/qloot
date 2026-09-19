@@ -61,21 +61,43 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
     try:
         if item.topic == "reward":
             payload = item.payload or {}
-            receipt = await client.record_reward(
+            receipt = await client.reward_user(
                 reward_key=payload["reward_key"],
-                quest_ref=payload.get("quest_ref") or "0x" + "0" * 64,
-                user_ref=payload["user_ref"],
-                rank=int(payload.get("rank", 0)),
+                user_ref=payload.get("user_ref", ""),
                 amount=int(payload["amount"]),
-                token_id=int(payload.get("token_id", 0)),
+                reason=payload.get("reward_type", "reward"),
             )
-            tx.method = "recordReward"
+            tx.method = "rewardUser"
             if payload.get("allocation_id"):
                 allocation = await session.get(
                     RewardAllocation, uuid.UUID(payload["allocation_id"])
                 )
                 if allocation is not None:
                     allocation.blockchain_transaction_id = tx.id
+        elif item.topic == "xp":
+            payload = item.payload or {}
+            receipt = await client.add_xp(
+                to=payload["to"],
+                amount=int(payload["amount"]),
+                user_ref=payload.get("user_ref", ""),
+            )
+            tx.method = "addXp"
+        elif item.topic == "badge":
+            payload = item.payload or {}
+            if payload.get("register"):
+                receipt = await client.register_badge(
+                    badge_id=int(payload["badge_id"]),
+                    uri=payload.get("uri", ""),
+                    soulbound=bool(payload.get("soulbound", False)),
+                )
+                tx.method = "registerBadge"
+            else:
+                receipt = await client.award_badge(
+                    to=payload["to"],
+                    badge_id=int(payload["badge_id"]),
+                    uri=payload.get("uri", ""),
+                )
+                tx.method = "awardBadge"
         elif item.topic == "withdrawal":
             payload = item.payload or {}
             receipt = await client.complete_withdrawal(
@@ -166,7 +188,7 @@ async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
 
 async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> None:
     args = tx.arguments or {}
-    if tx.method == "recordReward" and args.get("allocation_id"):
+    if tx.method in ("rewardUser", "recordReward") and args.get("allocation_id"):
         allocation = await session.get(RewardAllocation, uuid.UUID(args["allocation_id"]))
         if allocation is not None:
             allocation.status = "confirmed"

@@ -70,7 +70,7 @@ async def test_outbox_processed_into_transaction(session):
     )
     assert tx is not None
     assert tx.transaction_hash is not None
-    assert tx.method == "recordReward"
+    assert tx.method == "rewardUser"
     assert tx.idempotency_key
 
     refreshed_alloc = await session.get(RewardAllocation, alloc.id)

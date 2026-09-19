@@ -7,6 +7,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.errors import NotFoundError
 from app.core.logging import get_logger
 from app.models.identity import User
@@ -104,7 +105,7 @@ class BadgeService:
         self.session = session
 
     async def ensure_catalog(self) -> None:
-        """Idempotently seed the badge catalog."""
+        """Idempotently seed the badge catalog and assign on-chain ids."""
         catalog = [
             ("first_quest", "First Quest", "Completed your first quest", "🎯", 10),
             ("quiz_master", "Quiz Master", "Scored 100% on a lesson quiz", "🧠", 25),
@@ -122,6 +123,56 @@ class BadgeService:
                 self.session.add(
                     Badge(code=code, name=name, description=desc, icon=icon, points=points)
                 )
+        await self.session.flush()
+        await self._assign_on_chain_ids()
+
+    async def _assign_on_chain_ids(self) -> None:
+        """Assign sequential on-chain badge ids (1..255) to unassigned badges."""
+        rows = (
+            (
+                await self.session.execute(
+                    select(Badge)
+                    .where(Badge.on_chain_id.is_(None))
+                    .order_by(Badge.points, Badge.code)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not rows:
+            return
+        used = {
+            b.on_chain_id
+            for b in (
+                await self.session.execute(select(Badge).where(Badge.on_chain_id.is_not(None)))
+            )
+            .scalars()
+            .all()
+        }
+        next_id = 1
+        for badge in rows:
+            while next_id in used:
+                next_id += 1
+            if next_id > 255:
+                break
+            badge.on_chain_id = next_id
+            used.add(next_id)
+        await self.session.flush()
+        # Enqueue on-chain registration for newly assigned badges.
+        from app.models.wallet import TransactionOutbox
+        from app.services.keys import tx_idempotency_key
+
+        for badge in rows:
+            if not badge.on_chain_id:
+                continue
+            self.session.add(
+                TransactionOutbox(
+                    topic="badge",
+                    idempotency_key=tx_idempotency_key("badge_register", badge.code),
+                    payload={"badge_id": badge.on_chain_id, "uri": "", "register": True},
+                    status="pending",
+                )
+            )
         await self.session.flush()
 
     async def award(
@@ -145,6 +196,26 @@ class BadgeService:
         ub = UserBadge(user_id=user.id, badge_id=badge.id, meta=meta)
         self.session.add(ub)
         await self.session.flush()
+        # Mirror the badge award on-chain (best-effort; custodial model mints to
+        # the treasury address and records the user ref).
+        if badge.on_chain_id and settings.treasury_address:
+            from app.models.wallet import TransactionOutbox
+            from app.services.keys import tx_idempotency_key
+
+            self.session.add(
+                TransactionOutbox(
+                    topic="badge",
+                    idempotency_key=tx_idempotency_key("badge_award", code, str(user.id)),
+                    payload={
+                        "to": settings.treasury_address,
+                        "badge_id": badge.on_chain_id,
+                        "uri": "",
+                        "user_ref": user.chain_user_ref,
+                    },
+                    status="pending",
+                )
+            )
+            await self.session.flush()
         if notify:
             await NotificationService(self.session).notify(
                 user_id=user.id,
