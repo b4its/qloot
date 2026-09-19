@@ -21,7 +21,7 @@ os.environ.setdefault("LOG_LEVEL", "WARNING")
 
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://qloot:change-me@localhost:55432/qloot_test",
+    "postgresql+asyncpg://qloot:change-me@localhost:55433/qloot_test",
 )
 os.environ["DATABASE_URL"] = TEST_DB_URL
 
