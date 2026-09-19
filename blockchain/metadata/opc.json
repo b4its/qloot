@@ -1,0 +1,21 @@
+{
+  "name": "OryphemCoin",
+  "symbol": "OPC",
+  "description": "OryphemCoin (OPC) is the gamified reward currency of the QLoot learning platform. It is an ERC-1155 multi-token with token id 0 used as the primary reward balance, treated as an integer point unit (decimals = 0).",
+  "standard": "ERC-1155",
+  "decimals": 0,
+  "primary_token_id": 0,
+  "image": "ipfs://REPLACE_ME/opc.png",
+  "external_url": "https://qloot.example",
+  "properties": {
+    "platform": "QLoot",
+    "chain": "sepolia",
+    "utility": [
+      "Reward for learning, quests and exams",
+      "Leaderboard ranking currency",
+      "Platform marketplace (future)"
+    ],
+    "transferable": true,
+    "custodial_note": "Treasury holds tokens on-chain; per-user balances are tracked in the QLoot off-chain double-entry ledger and can be withdrawn to a personal wallet."
+  }
+}
