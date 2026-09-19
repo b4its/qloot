@@ -135,7 +135,6 @@ async def test_repeated_transfers_do_not_collide(client, engine):
 async def test_room_ranking_excludes_unrelated_exams(client, engine):
     """Scores from exams not tied to a room must not appear in its ranking."""
 
-
     # Teacher creates a room and an exam NOT linked to it.
     await _register(client, "t_room@ex.com", "teacher")
     room = await client.post("/api/v1/rooms", json={"name": "Audit Room"})
@@ -192,3 +191,41 @@ async def test_global_ranking_uses_best_per_exam(client):
     assert entry is not None
     # One exam answered -> total equals a single attempt's score (<= 10000).
     assert entry["score_bp"] <= 10000
+
+
+async def test_reserved_domain_email_does_not_break_user_listing(client, engine):
+    """A legacy email with a reserved TLD must not turn reads into a 500."""
+    from sqlalchemy import select, update
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.identity import Role, User, UserRole
+
+    r = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "legacy_admin@example.com",
+            "full_name": "Legacy Admin",
+            "password": "Password123!",
+            "role": "teacher",
+        },
+    )
+    assert r.status_code == 201, r.text
+    user_id = uuid.UUID(r.json()["id"])
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        # Promote to admin and set a reserved-domain email (simulating legacy data).
+        admin_role = (await s.execute(select(Role).where(Role.name == "admin"))).scalar_one()
+        await s.execute(select(UserRole).where(UserRole.user_id == user_id))
+        for ur in (
+            (await s.execute(select(UserRole).where(UserRole.user_id == user_id))).scalars().all()
+        ):
+            await s.delete(ur)
+        await s.flush()
+        s.add(UserRole(user_id=user_id, role_id=admin_role.id))
+        await s.execute(update(User).where(User.id == user_id).values(email="legacy@qloot.local"))
+        await s.commit()
+
+    listed = await client.get("/api/v1/admin/users")
+    assert listed.status_code == 200, listed.text
+    assert any(u["email"] == "legacy@qloot.local" for u in listed.json())

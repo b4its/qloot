@@ -29,7 +29,9 @@ class RoleOut(ORMModel):
 
 class UserOut(ORMModel):
     id: uuid.UUID
-    email: EmailStr
+    # Output uses a plain string: never re-validate stored data on the way out,
+    # otherwise a legacy/reserved-domain email would turn a read into a 500.
+    email: str
     full_name: str
     is_active: bool
     chain_user_ref: str
