@@ -81,17 +81,21 @@ EXAM=$(api "$TEACHER" -X POST "$API/exams" -H 'Content-Type: application/json' \
   -d '{"title":"E2E AI Exam","duration_minutes":30,"passing_score_bp":5000}')
 EXAM_ID=$(echo "$EXAM" | jqget "['id']")
 
-# Attach the AI-generated questions to the exam (POST per question).
+# Attach the AI-generated questions to the exam, capturing the created ids.
+: > "$TMP/qids.txt"
 echo "$GEN" | python3 -c "
 import sys, json
 for q in json.load(sys.stdin):
     print(json.dumps({'prompt': q['prompt'], 'correct_answer': q.get('correct_answer') or ''}))
 " | while IFS= read -r body; do
-  api "$TEACHER" -X POST "$API/exams/$EXAM_ID/questions" \
-    -H 'Content-Type: application/json' -d "$body" >/dev/null
+  CREATED=$(api "$TEACHER" -X POST "$API/exams/$EXAM_ID/questions" \
+    -H 'Content-Type: application/json' -d "$body")
+  echo "$CREATED" | jqget "['id']" >> "$TMP/qids.txt"
 done
+QIDS=$(cat "$TMP/qids.txt")
+NQID=$(echo "$QIDS" | grep -c .)
 PUB=$(api "$TEACHER" -X POST "$API/exams/$EXAM_ID/publish")
-ok "exam published and active"
+ok "exam published with $NQID questions"
 
 say "5. Teacher creates a quest with 3 reward ranks (100/60/40 OPC)"
 QUEST=$(api "$TEACHER" -X POST "$API/quests" -H 'Content-Type: application/json' \
@@ -110,8 +114,9 @@ for i in 1 2 3; do
   ATT=$(api "$JAR" -X POST "$API/exams/$EXAM_ID/attempts")
   ATT_ID=$(echo "$ATT" | jqget "['id']")
   ATTEMPT_IDS+=("$ATT_ID")
-  # Answer every question.
-  echo "$GEN" | python3 -c "import sys,json; [print(q['id']) for q in json.load(sys.stdin)]" | while read -r qid; do
+  # Answer every question that belongs to this exam.
+  echo "$QIDS" | while read -r qid; do
+    [ -z "$qid" ] && continue
     api "$JAR" -X PUT "$API/attempts/$ATT_ID/answers/$qid" -H 'Content-Type: application/json' \
       -d '{"answer_text":"Machine learning is a branch of artificial intelligence that uses labelled data."}' >/dev/null
   done
