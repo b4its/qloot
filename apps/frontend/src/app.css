@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-50: #eff6ff;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+
+  /* Light theme */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --border: #e2e8f0;
+  --primary: #2563eb;
+}
+
+html.dark {
+  /* Dark theme */
+  --bg: #020617;
+  --surface: #0f172a;
+  --text: #f8fafc;
+  --border: #1e293b;
+  --primary: #60a5fa;
+}
+
+@layer base {
+  html {
+    background-color: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+  }
+  * {
+    border-color: var(--border);
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border p-5 shadow-card;
+    background-color: var(--surface);
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition;
+  }
+  .btn-primary {
+    @apply btn text-white;
+    background-color: var(--primary);
+  }
+  .btn-primary:hover {
+    filter: brightness(0.92);
+  }
+  .btn-ghost {
+    @apply btn border;
+    background-color: transparent;
+  }
+  .input {
+    @apply w-full rounded-lg border px-3 py-2 text-sm outline-none;
+    background-color: var(--surface);
+    color: var(--text);
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .surface {
+    background-color: var(--surface);
+  }
+  .muted {
+    opacity: 0.66;
+  }
+}
+
+/* Prevent theme flash: applied before hydration in app.html */
+html.theme-init * {
+  transition: none;
+}

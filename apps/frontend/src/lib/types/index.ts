@@ -1,0 +1,240 @@
+/** Shared API types (mirroring the FastAPI schemas). */
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+  chain_user_ref: string;
+  avatar_url?: string | null;
+  created_at: string;
+  roles: string[];
+}
+
+export interface SessionInfo {
+  id: string;
+  user_agent?: string | null;
+  ip_address?: string | null;
+  created_at: string;
+  expires_at: string;
+  revoked_at?: string | null;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  owner_id: string;
+  is_published: boolean;
+  cover_url?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Lesson {
+  id: string;
+  course_id: string;
+  title: string;
+  content_md?: string | null;
+  video_url?: string | null;
+  position: number;
+  is_published: boolean;
+}
+
+export interface Progress {
+  id: string;
+  lesson_id: string;
+  course_id: string;
+  progress_percent: number;
+  completed: boolean;
+  completed_at?: string | null;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  code: string;
+  owner_id: string;
+  course_id?: string | null;
+  status: string;
+  max_participants: number;
+  is_public: boolean;
+  opens_at?: string | null;
+  closes_at?: string | null;
+  created_at: string;
+}
+
+export interface Question {
+  id: string;
+  exam_id?: string | null;
+  prompt: string;
+  correct_answer?: string | null;
+  max_score_bp: number;
+  position: number;
+  qtype: string;
+  source: string;
+  review_status: string;
+}
+
+export interface Exam {
+  id: string;
+  title: string;
+  owner_id: string;
+  room_id?: string | null;
+  course_id?: string | null;
+  duration_minutes: number;
+  status: string;
+  is_active: boolean;
+  passing_score_bp: number;
+  opens_at?: string | null;
+  closes_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  questions?: Question[];
+}
+
+export interface Attempt {
+  id: string;
+  exam_id: string;
+  user_id: string;
+  attempt_number: number;
+  status: string;
+  score_bp?: number | null;
+  passed?: boolean | null;
+  started_at: string;
+  submitted_at?: string | null;
+  graded_at?: string | null;
+}
+
+export interface Answer {
+  id: string;
+  question_id: string;
+  answer_text?: string | null;
+  score_bp?: number | null;
+  max_score_bp: number;
+  feedback?: string | null;
+  similarity_bp?: number | null;
+}
+
+export interface QuestRule {
+  rank: number;
+  reward_amount: number;
+  min_score_bp?: number | null;
+}
+
+export interface Quest {
+  id: string;
+  title: string;
+  description?: string | null;
+  owner_id: string;
+  room_id?: string | null;
+  exam_id?: string | null;
+  status: string;
+  kind: string;
+  top_n_winners: number;
+  reward_version: number;
+  opens_at?: string | null;
+  closes_at?: string | null;
+  finalized_at?: string | null;
+  created_at: string;
+  rules?: QuestRule[];
+}
+
+export interface Winner {
+  rank: number;
+  user_id: string;
+  score_bp: number;
+  submitted_at: string;
+  reward_key: string;
+  reward_amount: number;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string | null;
+  kind: string;
+  reward_amount: number;
+  is_active: boolean;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  created_at: string;
+}
+
+export interface Wallet {
+  user_id: string;
+  token_id: number;
+  available: number;
+  pending: number;
+  withdrawal_address?: string | null;
+}
+
+export interface LedgerEntry {
+  id: string;
+  entry_type: string;
+  amount: number;
+  balance_after: number;
+  reference_type: string;
+  reference_id: string;
+  description?: string | null;
+  created_at: string;
+}
+
+export interface Reward {
+  id: string;
+  reward_key: string;
+  reward_type: string;
+  rank?: number | null;
+  amount: number;
+  status: string;
+  quest_id?: string | null;
+  task_id?: string | null;
+  created_at: string;
+}
+
+export interface BlockchainStatus {
+  dry_run: boolean;
+  network: string;
+  chain_id: number;
+  contract_address?: string | null;
+  treasury_address?: string | null;
+  token_id: number;
+  confirmations_required: number;
+}
+
+export interface BlockchainTx {
+  id: string;
+  method: string;
+  status: string;
+  network: string;
+  chain_id: number;
+  transaction_hash?: string | null;
+  block_number?: number | null;
+  confirmation_count: number;
+  explorer_url?: string | null;
+  created_at: string;
+}
+
+export interface RankingEntry {
+  user_id: string;
+  rank: number;
+  score_bp: number;
+  opc_earned: number;
+}
+
+export interface RankingResponse {
+  scope: string;
+  scope_id?: string;
+  entries: RankingEntry[];
+}
+
+export interface Material {
+  id: string;
+  owner_id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  status: string;
+  created_at: string;
+}
