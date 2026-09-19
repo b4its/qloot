@@ -1,0 +1,238 @@
+# ============================================================================
+# QLoot — Docker Compose (development + local chain)
+# All secrets come from .env. Nothing secret is baked into this file.
+# ============================================================================
+
+name: qloot
+
+x-backend-env: &backend-env
+  env_file:
+    - .env
+  environment:
+    POSTGRES_HOST: postgres
+    REDIS_URL: redis://redis:6379/0
+
+x-backend-build: &backend-build
+  build:
+    context: ./apps/backend
+    dockerfile: Dockerfile
+  image: qloot/backend:dev
+  restart: unless-stopped
+
+services:
+  # --------------------------------------------------------------------------
+  # Data stores
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-qloot}
+      POSTGRES_USER: ${POSTGRES_USER:-qloot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qloot} -d ${POSTGRES_DB:-qloot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - data-network
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - data-network
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - data-network
+
+  # --------------------------------------------------------------------------
+  # Migrations (one-shot)
+  # --------------------------------------------------------------------------
+  migrate:
+    <<: *backend-build
+    <<: *backend-env
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data-network
+    profiles: ["tools", "migrate"]
+
+  # --------------------------------------------------------------------------
+  # Application
+  # --------------------------------------------------------------------------
+  backend:
+    <<: *backend-build
+    <<: *backend-env
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health/live', timeout=3).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    networks:
+      - application-network
+      - data-network
+      - blockchain-network
+
+  worker:
+    <<: *backend-build
+    <<: *backend-env
+    command: ["python", "-m", "app.workers.main"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - application-network
+      - data-network
+
+  blockchain-worker:
+    <<: *backend-build
+    <<: *backend-env
+    command: ["python", "-m", "app.workers.blockchain"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - application-network
+      - data-network
+      - blockchain-network
+
+  blockchain-indexer:
+    <<: *backend-build
+    <<: *backend-env
+    command: ["python", "-m", "app.workers.indexer"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - application-network
+      - data-network
+      - blockchain-network
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+      args:
+        PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    image: qloot/frontend:dev
+    environment:
+      PORT: 3000
+      HOST: 0.0.0.0
+      ORIGIN: ${APP_URL:-http://localhost:3000}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - application-network
+
+  reverse-proxy:
+    image: traefik:v3.1
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "${PROXY_PORT:-8080}:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - application-network
+    profiles: ["proxy"]
+
+  # --------------------------------------------------------------------------
+  # Local blockchain (profile: local-chain)
+  # --------------------------------------------------------------------------
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:stable
+    entrypoint: ["anvil"]
+    command: ["--host", "0.0.0.0", "--chain-id", "31337"]
+    ports:
+      - "8545:8545"
+    networks:
+      - blockchain-network
+    profiles: ["local-chain"]
+
+  # Hardhat toolbox for compile/deploy/verify inside docker (profile: blockchain-tools)
+  blockchain-toolbox:
+    build:
+      context: ./blockchain
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      HARDHAT_NETWORK: ${BLOCKCHAIN_NETWORK:-localhost}
+    volumes:
+      - ./blockchain:/app
+      - blockchain_deployments:/app/ignition/deployments
+    working_dir: /app
+    networks:
+      - blockchain-network
+      - application-network
+    profiles: ["blockchain-tools"]
+
+networks:
+  application-network:
+    name: qloot-application
+  data-network:
+    name: qloot-data
+    internal: true
+  blockchain-network:
+    name: qloot-blockchain
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  blockchain_deployments:

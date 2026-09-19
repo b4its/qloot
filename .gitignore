@@ -1,0 +1,50 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+dist/
+build/
+
+# Node
+node_modules/
+.pnpm-store/
+.svelte-kit/
+build/
+.turbo/
+
+# Hardhat
+blockchain/cache/
+blockchain/artifacts/
+blockchain/typechain/
+blockchain/typechain-types/
+blockchain/ignition/deployments/chain-31337/
+blockchain/coverage/
+blockchain/coverage.json
+
+# Deployments / secrets
+blockchain/deployments/private/
+infrastructure/proxy/certs/
+
+# Data volumes
+data/
+
+# Test / e2e
+playwright-report/
+test-results/
+
+# OS
+.DS_Store
+*.log
