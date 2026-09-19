@@ -411,6 +411,11 @@ html.theme-init * {
   html.dark .nav-active {
     color: #b3a9ff;
   }
+
+  /* Current user's row in a leaderboard --------------------------------- */
+  .row-me {
+    background-color: rgba(91, 72, 255, 0.08);
+  }
 }
 
 /* ==========================================================================

@@ -4,85 +4,100 @@
   import type { RankingResponse } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import { formatNumber } from "$lib/utils/format";
+  import Icon from "$lib/components/Icon.svelte";
+  import StatCounter from "$lib/components/StatCounter.svelte";
 
   let global: RankingResponse | null = null;
   let me: { total_score_bp: number; opc_balance: number } | null = null;
   let loading = true;
   let error = "";
 
-  async function load() {
+  const medal: Record<number, string> = { 1: "medal", 2: "medal", 3: "medal" };
+  const medalColor: Record<number, string> = {
+    1: "text-highlight",
+    2: "text-ink2",
+    3: "text-tertiary",
+  };
+
+  onMount(async () => {
     try {
-      global = await api.get<RankingResponse>("/rankings/global");
-      me = await api.get("/rankings/me");
+      [global, me] = await Promise.all([
+        api.get<RankingResponse>("/rankings/global"),
+        api.get<{ total_score_bp: number; opc_balance: number }>("/rankings/me"),
+      ]);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load rankings";
+      error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
     } finally {
       loading = false;
     }
-  }
-
-  onMount(load);
+  });
 </script>
 
-<svelte:head><title>Ranking — QLoot</title></svelte:head>
+<svelte:head><title>Peringkat — QLoot</title></svelte:head>
 
-<h1 class="text-2xl font-bold">Global Ranking</h1>
+<div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+  <p class="mono-label">Papan Peringkat</p>
+  <h1 class="mt-2 font-display text-4xl font-bold">Peringkat global</h1>
 
-{#if me}
-  <div class="card mt-4">
-    <h2 class="font-semibold">Your standing</h2>
-    <div class="mt-2 grid gap-3 sm:grid-cols-2">
-      <div>
-        <div class="text-2xl font-bold text-primary-600">
-          {(me.total_score_bp / 100).toFixed(0)}%
+  {#if error}
+    <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+  {/if}
+
+  {#if me}
+    <div class="mt-6 card flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <span class="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary">
+          <Icon name="user-astronaut" size="20px" />
+        </span>
+        <div>
+          <p class="mono-label">Peringkatmu</p>
+          <p class="font-display text-2xl font-bold">{(me.total_score_bp / 100).toFixed(0)}%</p>
         </div>
-        <div class="text-sm muted">Total score</div>
       </div>
-      <div>
-        <div class="text-2xl font-bold text-accent-gold">{formatNumber(me.opc_balance)} OPC</div>
-        <div class="text-sm muted">OPC earned</div>
+      <div class="text-right">
+        <p class="mono-label">OPC diperoleh</p>
+        <p class="font-display text-2xl font-bold text-highlight">{formatNumber(me.opc_balance)}</p>
       </div>
     </div>
-  </div>
-{/if}
+  {/if}
 
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{/if}
-
-{#if loading}
-  <p class="mt-6 muted">Loading leaderboard…</p>
-{:else if global && global.entries.length}
-  <div class="card mt-4 overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-left muted">
-        <tr>
-          <th class="py-2">#</th>
-          <th>User</th>
-          <th class="text-right">Score</th>
-          <th class="text-right">OPC</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each global.entries as e}
-          <tr
-            class="border-t"
-            class:bg-primary-50={e.user_id === $auth.user?.id}
-            class:dark:bg-slate-800={e.user_id === $auth.user?.id}
-          >
-            <td class="py-2 font-medium">
-              {#if e.rank === 1}🥇{:else if e.rank === 2}🥈{:else if e.rank === 3}🥉{:else}{e.rank}{/if}
-            </td>
-            <td class="font-mono">{e.user_id.slice(0, 8)}…</td>
-            <td class="text-right">{(e.score_bp / 100).toFixed(1)}%</td>
-            <td class="text-right font-mono">{formatNumber(e.opc_earned)}</td>
+  {#if loading}
+    <div class="mt-6 space-y-2">
+      {#each Array(5) as _}<div class="skeleton h-12 w-full"></div>{/each}
+    </div>
+  {:else if global && global.entries.length}
+    <div class="mt-6 card overflow-x-auto !p-0">
+      <table class="w-full text-sm">
+        <thead class="text-left">
+          <tr class="mono-label border-b">
+            <th class="px-5 py-3">#</th>
+            <th class="px-5 py-3">Pengguna</th>
+            <th class="px-5 py-3 text-right">Skor</th>
+            <th class="px-5 py-3 text-right">OPC</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-{:else}
-  <div class="card mt-4 text-center"><p class="muted">No ranking data yet.</p></div>
-{/if}
+        </thead>
+        <tbody>
+          {#each global.entries as e}
+            <tr class="border-b last:border-0" class:row-me={e.user_id === $auth.user?.id}>
+              <td class="px-5 py-3">
+                {#if e.rank <= 3}
+                  <Icon name={medal[e.rank]} size="14px" klass={medalColor[e.rank]} />
+                {:else}
+                  <span class="mono">{e.rank}</span>
+                {/if}
+              </td>
+              <td class="px-5 py-3 font-mono text-xs">{e.user_id.slice(0, 8)}…</td>
+              <td class="px-5 py-3 text-right">{(e.score_bp / 100).toFixed(1)}%</td>
+              <td class="px-5 py-3 text-right font-mono">{formatNumber(e.opc_earned)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {:else}
+    <div class="card mt-6 grid place-items-center py-14 text-center">
+      <Icon name="ranking-star" size="26px" class="muted" />
+      <p class="mt-3 font-semibold">Belum ada data peringkat</p>
+    </div>
+  {/if}
+</div>

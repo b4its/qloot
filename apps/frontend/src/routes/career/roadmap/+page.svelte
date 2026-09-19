@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Recommendation, Milestone } from "$lib/types";
@@ -179,25 +180,37 @@
         <div>
           <p class="text-xs font-mono uppercase muted">Universities</p>
           <ul class="mt-1 space-y-1 text-sm">
-            {#each top.universities ?? [] as u}<li>🎓 {u}</li>{/each}
+            {#each top.universities ?? [] as u}<li class="flex items-center gap-2">
+                <Icon name="graduation-cap" size="11px" class="text-primary" />
+                {u}
+              </li>{/each}
           </ul>
         </div>
         <div>
           <p class="text-xs font-mono uppercase muted">Admission paths</p>
           <ul class="mt-1 space-y-1 text-sm">
-            {#each top.admission_paths ?? [] as p}<li>✅ {p}</li>{/each}
+            {#each top.admission_paths ?? [] as p}<li class="flex items-center gap-2">
+                <Icon name="circle-check" size="11px" class="text-secondary" />
+                {p}
+              </li>{/each}
           </ul>
         </div>
         <div>
           <p class="text-xs font-mono uppercase muted">Skills needed</p>
           <ul class="mt-1 space-y-1 text-sm">
-            {#each top.skills ?? [] as s}<li>⚡ {s}</li>{/each}
+            {#each top.skills ?? [] as s}<li class="flex items-center gap-2">
+                <Icon name="bolt" size="11px" class="text-highlight" />
+                {s}
+              </li>{/each}
           </ul>
         </div>
         <div>
           <p class="text-xs font-mono uppercase muted">Careers</p>
           <ul class="mt-1 space-y-1 text-sm">
-            {#each top.careers ?? [] as c}<li>💼 {c}</li>{/each}
+            {#each top.careers ?? [] as c}<li class="flex items-center gap-2">
+                <Icon name="briefcase" size="11px" class="text-primary" />
+                {c}
+              </li>{/each}
           </ul>
         </div>
       </div>

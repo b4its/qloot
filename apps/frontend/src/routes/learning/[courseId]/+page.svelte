@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
@@ -64,7 +65,8 @@
         </div>
         {#if done}
           <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
-            >✓ Done</span
+            ><Icon name="check" size="10px" /> Selesai</span
+          >
           >
         {:else}
           <button class="btn-ghost" on:click={() => markComplete(lesson)}>Mark complete</button>

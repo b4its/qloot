@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Quest, Winner } from "$lib/types";
@@ -84,7 +85,9 @@
 
         {#if q.status === "finalized" && winnersByQuest[q.id]?.length}
           <div class="mt-3 border-t pt-3">
-            <h3 class="text-sm font-medium">🏆 Winners</h3>
+            <h3 class="flex items-center gap-2 text-sm font-medium">
+              <Icon name="trophy" size="12px" class="text-highlight" /> Pemenang
+            </h3>
             <ol class="mt-1 space-y-1 text-sm">
               {#each winnersByQuest[q.id] as w}
                 <li class="flex justify-between">

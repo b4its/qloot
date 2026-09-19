@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
@@ -130,7 +131,7 @@
               <h2 class="font-semibold">Question {i + 1} of {exam.questions?.length}</h2>
               <span class="text-xs muted">
                 {#if saved[q.id] === "saving"}Saving…
-                {:else if saved[q.id] === "saved"}Saved ✓
+                {:else if saved[q.id] === "saved"}Tersimpan <Icon name="check" size="10px" />
                 {:else if saved[q.id] === "error"}Save failed
                 {:else}Not saved{/if}
               </span>

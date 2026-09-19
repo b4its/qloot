@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount, tick } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { AssistantReply } from "$lib/types";
@@ -84,7 +85,11 @@
         <div
           class="grid h-7 w-7 flex-none place-items-center rounded-lg bg-slate-100 dark:bg-slate-700"
         >
-          {m.role === "bot" ? "🤖" : "🧑"}
+          <Icon
+            name={m.role === "bot" ? "robot" : "user"}
+            size="13px"
+            klass={m.role === "bot" ? "text-primary" : ""}
+          />
         </div>
         <div
           class="max-w-[80%] rounded-2xl px-4 py-2 text-sm"

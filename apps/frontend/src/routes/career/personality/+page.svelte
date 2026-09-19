@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Personality } from "$lib/types";
@@ -31,11 +32,11 @@
   const labels = ["Sangat tidak setuju", "Tidak setuju", "Netral", "Setuju", "Sangat setuju"];
 
   const traits = [
-    { key: "openness", label: "Openness", icon: "🧠" },
-    { key: "conscientiousness", label: "Conscientiousness", icon: "🧩" },
-    { key: "extraversion", label: "Extraversion", icon: "🗣️" },
-    { key: "agreeableness", label: "Agreeableness", icon: "🤝" },
-    { key: "neuroticism", label: "Neuroticism", icon: "🌊" },
+    { key: "openness", label: "Keterbukaan", icon: "brain" },
+    { key: "conscientiousness", label: "Kehati-hatian", icon: "puzzle-piece" },
+    { key: "extraversion", label: "Ekstroversi", icon: "comments" },
+    { key: "agreeableness", label: "Keramahan", icon: "handshake" },
+    { key: "neuroticism", label: "Neurotisisme", icon: "water" },
   ] as const;
 
   async function load() {
@@ -129,7 +130,9 @@
           {@const value = result[t.key]}
           <div>
             <div class="flex items-center justify-between text-sm">
-              <span>{t.icon} {t.label}</span>
+              <span class="inline-flex items-center gap-2"
+                ><Icon name={t.icon} size="12px" class="text-primary" /> {t.label}</span
+              >
               <span class="font-mono">{value}</span>
             </div>
             <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">

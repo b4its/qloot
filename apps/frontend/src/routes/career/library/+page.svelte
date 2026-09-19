@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { ResourceItem } from "$lib/types";
@@ -9,9 +10,9 @@
   let error = "";
 
   const tabs = [
-    { key: "course", label: "Courses", icon: "🎓" },
-    { key: "extracurricular", label: "Extracurriculars", icon: "⚡" },
-    { key: "material", label: "Materials", icon: "📄" },
+    { key: "course", label: "Kursus", icon: "graduation-cap" },
+    { key: "extracurricular", label: "Ekstrakurikuler", icon: "bolt" },
+    { key: "material", label: "Materi", icon: "file-lines" },
   ];
 
   async function load() {
@@ -54,7 +55,7 @@
       class:font-semibold={category === t.key}
       on:click={() => pick(t.key)}
     >
-      {t.icon}
+      <Icon name={t.icon} size="12px" />
       {t.label}
     </button>
   {/each}
@@ -76,7 +77,15 @@
       <div class="card">
         <div class="flex items-center justify-between">
           <span class="text-2xl" aria-hidden="true"
-            >{category === "course" ? "🎓" : category === "extracurricular" ? "⚡" : "📄"}</span
+            ><Icon
+              name={category === "course"
+                ? "graduation-cap"
+                : category === "extracurricular"
+                  ? "bolt"
+                  : "file-lines"}
+              size="20px"
+              class="text-primary"
+            /></span
           >
           <span
             class="badge"

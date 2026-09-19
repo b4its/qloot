@@ -4,16 +4,17 @@
   import type { Notification } from "$lib/types";
   import { notifications } from "$lib/stores/notifications";
   import { relativeTime } from "$lib/utils/format";
+  import Icon from "$lib/components/Icon.svelte";
 
   let items: Notification[] = [];
   let loading = true;
 
-  const iconFor: Record<string, string> = {
-    reward: "💎",
-    quest: "🏆",
-    badge: "🏅",
-    room: "🎯",
-    system: "🔔",
+  const iconFor: Record<string, { name: string; klass: string }> = {
+    reward: { name: "gem", klass: "text-highlight" },
+    quest: { name: "trophy", klass: "text-primary" },
+    badge: { name: "medal", klass: "text-secondary" },
+    room: { name: "bullseye", klass: "text-tertiary" },
+    system: { name: "bell", klass: "text-primary" },
   };
 
   async function load() {
@@ -41,40 +42,53 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Notifications — QLoot</title></svelte:head>
+<svelte:head><title>Notifikasi — QLoot</title></svelte:head>
 
-<div class="flex items-center justify-between">
-  <h1 class="text-2xl font-bold">Notifications</h1>
-  <button class="btn-ghost" on:click={markAll}>Mark all read</button>
-</div>
+<div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+  <div class="flex items-center justify-between">
+    <h1 class="font-display text-3xl font-bold">Notifikasi</h1>
+    <button class="btn-ghost" on:click={markAll}>
+      <Icon name="check-double" size="12px" /> Tandai semua dibaca
+    </button>
+  </div>
 
-{#if loading}
-  <p class="mt-6 muted">Loading…</p>
-{:else if items.length === 0}
-  <div class="card mt-6 text-center"><p class="muted">No notifications yet.</p></div>
-{:else}
-  <ul class="mt-6 space-y-2">
-    {#each items as n}
-      <li class="card !p-0">
-        <button
-          type="button"
-          class="flex w-full items-start gap-3 p-5 text-left"
-          class:opacity-60={n.read_at}
-          on:click={() => markOne(n)}
-        >
-          <span class="text-xl" aria-hidden="true">{iconFor[n.kind] ?? "🔔"}</span>
-          <span class="flex-1">
-            <span class="flex items-center justify-between">
-              <span class="font-medium">{n.title}</span>
-              <span class="text-xs muted">{relativeTime(n.created_at)}</span>
+  {#if loading}
+    <div class="mt-6 space-y-2">
+      {#each Array(3) as _}<div class="skeleton h-20 w-full"></div>{/each}
+    </div>
+  {:else if items.length === 0}
+    <div class="card mt-6 grid place-items-center py-14 text-center">
+      <Icon name="bell-slash" size="26px" class="muted" />
+      <p class="mt-3 font-semibold">Belum ada notifikasi</p>
+      <p class="text-sm muted">Kabar tentang hadiah, quest, dan badge akan muncul di sini.</p>
+    </div>
+  {:else}
+    <ul class="mt-6 space-y-2">
+      {#each items as n}
+        {@const meta = iconFor[n.kind] ?? iconFor.system}
+        <li class="card !p-0">
+          <button
+            type="button"
+            class="flex w-full items-start gap-3 p-5 text-left"
+            class:opacity-60={n.read_at}
+            on:click={() => markOne(n)}
+          >
+            <span class="grid h-9 w-9 flex-none place-items-center rounded-xl bg-ink/5">
+              <Icon name={meta.name} size="14px" klass={meta.klass} />
             </span>
-            {#if n.body}<span class="block text-sm muted">{n.body}</span>{/if}
-          </span>
-          {#if !n.read_at}
-            <span class="mt-1 h-2 w-2 flex-none rounded-full bg-primary-500"></span>
-          {/if}
-        </button>
-      </li>
-    {/each}
-  </ul>
-{/if}
+            <span class="flex-1">
+              <span class="flex items-center justify-between">
+                <span class="font-medium">{n.title}</span>
+                <span class="text-xs muted">{relativeTime(n.created_at)}</span>
+              </span>
+              {#if n.body}<span class="block text-sm muted">{n.body}</span>{/if}
+            </span>
+            {#if !n.read_at}
+              <span class="mt-1 h-2 w-2 flex-none rounded-full bg-primary"></span>
+            {/if}
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</div>

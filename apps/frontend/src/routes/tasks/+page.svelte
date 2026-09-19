@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Task } from "$lib/types";
@@ -67,7 +68,8 @@
           <div class="font-mono text-accent-gold">{t.reward_amount} OPC</div>
           {#if completed[t.id]}
             <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
-              >✓ Done</span
+              ><Icon name="check" size="10px" /> Selesai</span
+            >
             >
           {:else}
             <button class="btn-primary mt-1" on:click={() => complete(t)}>Complete</button>

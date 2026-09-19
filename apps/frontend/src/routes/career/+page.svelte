@@ -1,62 +1,74 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import Icon from "$lib/components/Icon.svelte";
+  import { reveal } from "$lib/actions/reveal";
 
   const links = [
     {
       href: "/dashboard",
-      label: "Academic Dashboard",
-      desc: "Your grades, trends and AI insights at a glance",
-      icon: "📊",
+      label: "Dashboard Akademik",
+      desc: "Nilai, tren, dan wawasan AI dalam satu tampilan",
+      icon: "chart-column",
     },
     {
       href: "/career/personality",
-      label: "Big Five Test",
-      desc: "Measure 5 personality traits (simulated BFI-2)",
-      icon: "🧠",
+      label: "Tes Kepribadian Big Five",
+      desc: "Ukur 5 dimensi kepribadian (simulasi BFI-2)",
+      icon: "brain",
     },
     {
       href: "/career/roadmap",
-      label: "AI Analysis & Roadmap",
-      desc: "Major recommendations and a milestone roadmap",
-      icon: "🧭",
+      label: "Analisis & Roadmap AI",
+      desc: "Rekomendasi jurusan dan roadmap bertahap",
+      icon: "compass",
     },
     {
       href: "/career/consultation",
-      label: "Counselling Room",
-      desc: "Book BK sessions and approve analyses",
-      icon: "🗓️",
+      label: "Ruang Konsultasi BK",
+      desc: "Jadwalkan sesi dan setujui analisis",
+      icon: "calendar-days",
     },
     {
       href: "/career/library",
       label: "Resource Library",
-      desc: "Courses, clubs and study materials",
-      icon: "📚",
+      desc: "Kursus, ekstrakurikuler, dan materi belajar",
+      icon: "book-open",
     },
     {
       href: "/assistant",
       label: "AI Assistant",
-      desc: "Ask about majors, campuses and careers",
-      icon: "🤖",
+      desc: "Tanya seputar jurusan, kampus, dan karier",
+      icon: "robot",
     },
   ];
-
-  onMount(() => {});
 </script>
 
-<svelte:head><title>Career Guidance — QLoot</title></svelte:head>
+<svelte:head><title>Panduan Karier — QLoot</title></svelte:head>
 
-<h1 class="text-2xl font-bold">Career Guidance</h1>
-<p class="mt-1 muted">
-  A simulated pathway planner: academic insights, personality profiling, AI major recommendations, a
-  milestone roadmap and counselling — all inside QLoot.
-</p>
+<section class="relative overflow-hidden border-b">
+  <div class="aurora"></div>
+  <div class="relative z-10 mx-auto max-w-7xl px-4 py-14 sm:px-6">
+    <p class="mono-label">Panduan Karier</p>
+    <h1 class="mt-2 font-display text-4xl font-bold">Rencanakan masa depanmu dengan data</h1>
+    <p class="mt-2 max-w-2xl muted">
+      Wawasan akademik, profil kepribadian, rekomendasi jurusan, dan roadmap bertahap — semuanya
+      dalam satu tempat.
+    </p>
+  </div>
+</section>
 
-<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  {#each links as l}
-    <a href={l.href} class="card block transition hover:border-primary-400">
-      <div class="text-2xl" aria-hidden="true">{l.icon}</div>
-      <h2 class="mt-1 font-semibold">{l.label}</h2>
-      <p class="text-sm muted">{l.desc}</p>
-    </a>
-  {/each}
+<div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+  <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    {#each links as l, i}
+      <a href={l.href} use:reveal={{ delay: i * 50 }} class="card lift block">
+        <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+          <Icon name={l.icon} size="18px" />
+        </span>
+        <h2 class="mt-3 font-display text-lg font-bold">{l.label}</h2>
+        <p class="mt-1 text-sm muted">{l.desc}</p>
+        <span class="mt-3 inline-flex items-center gap-1 text-xs text-primary">
+          Buka <Icon name="arrow-right" size="10px" />
+        </span>
+      </a>
+    {/each}
+  </div>
 </div>
