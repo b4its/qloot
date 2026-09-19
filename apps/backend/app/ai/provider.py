@@ -164,6 +164,9 @@ class GeminiProvider(AIProvider):
             headers={"x-goog-api-key": settings.gemini_api_key},
         )
 
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
     async def _generate(self, model: str, prompt: str, schema: dict) -> dict:
         url = f"/models/{model}:generateContent"
         body = {
@@ -256,10 +259,29 @@ class GeminiProvider(AIProvider):
         return result
 
 
+_provider: AIProvider | None = None
+
+
 def get_ai_provider() -> AIProvider:
-    if settings.ai_provider == "gemini" and settings.gemini_api_key:
-        return GeminiProvider()
-    return MockProvider()
+    """Return a process-wide provider singleton.
+
+    Reusing one provider (and therefore one HTTP client/pool) avoids leaking
+    connections across the many grading/generation jobs a worker processes.
+    """
+    global _provider
+    if _provider is None:
+        if settings.ai_provider == "gemini" and settings.gemini_api_key:
+            _provider = GeminiProvider()
+        else:
+            _provider = MockProvider()
+    return _provider
+
+
+async def close_ai_provider() -> None:
+    global _provider
+    if isinstance(_provider, GeminiProvider):
+        await _provider.aclose()
+    _provider = None
 
 
 def summarize_text(text: str, *, max_chars: int = 200_000) -> str:

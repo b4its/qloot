@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select
 
+from app.ai.provider import close_ai_provider
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import session_scope
@@ -92,6 +93,7 @@ async def run() -> None:
         if not processed:
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(_shutdown.wait(), timeout=settings.blockchain_poll_seconds)
+    await close_ai_provider()
     log.info("worker_stopped")
 
 

@@ -92,6 +92,8 @@ class RoomService:
         )
         member = (await self.session.execute(stmt)).scalar_one_or_none()
         if member is None:
+            # Lock the room row so concurrent joins can't exceed capacity.
+            await self.session.execute(select(Room.id).where(Room.id == room_id).with_for_update())
             count = len(await self.participants(room_id))
             if count >= room.max_participants:
                 raise ConflictError("Room is full")

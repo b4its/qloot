@@ -134,12 +134,7 @@ async def test_repeated_transfers_do_not_collide(client, engine):
 
 async def test_room_ranking_excludes_unrelated_exams(client, engine):
     """Scores from exams not tied to a room must not appear in its ranking."""
-    from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    from app.models.identity import User
-    from app.models.room import Room, RoomMember
-    from app.services.reward_engine import RewardEngine
 
     # Teacher creates a room and an exam NOT linked to it.
     await _register(client, "t_room@ex.com", "teacher")

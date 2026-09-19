@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
+from app.ai.provider import close_ai_provider
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
@@ -16,6 +17,7 @@ from app.core.logging import configure_logging, get_logger
 from app.db.session import dispose_engine
 from app.middleware.request_context import RequestContextMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.services.realtime import event_bus
 
 log = get_logger("main")
 
@@ -25,6 +27,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     log.info("app_startup", env=settings.app_env, dry_run=settings.blockchain_dry_run)
     yield
+    await close_ai_provider()
+    await event_bus.close()
     await dispose_engine()
     log.info("app_shutdown")
 
