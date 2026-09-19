@@ -38,12 +38,11 @@ RESET := \033[0m
 
 .PHONY: help
 help: ## Show this help
-	@echo ""
-	@echo "  $(BOLD)QLoot$(RESET) — gamified learning on Web3 + AI"
-	@echo "  $(DIM)Usage: make <target> [VAR=value]$(RESET)"
-	@echo ""
+	@printf "\n"
+	@printf "  $(BOLD)QLoot$(RESET) — gamified learning on Web3 + AI\n"
+	@printf "  $(DIM)Usage: make <target> [VAR=value]$(RESET)\n\n"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_.-]+:.*?## / {printf "  $(GREEN)%-26s$(RESET) %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
-	@echo ""
+	@printf "\n"
 
 # ----------------------------------------------------------------------------
 # General
