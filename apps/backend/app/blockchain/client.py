@@ -316,9 +316,18 @@ class ChainClient:
         return None
 
 
-def _b32(hexstr: str) -> bytes:
-    s = hexstr[2:] if hexstr.startswith("0x") else hexstr
-    return bytes.fromhex(s.zfill(64))
+def _b32(value: str) -> bytes:
+    """Encode a value as bytes32.
+
+    Accepts a 0x-prefixed 32-byte hex string as-is; otherwise keccak256-hashes
+    the UTF-8 string (so reasons like "reward" map to a stable bytes32).
+    """
+    if value.startswith("0x") and len(value) == 66:
+        try:
+            return bytes.fromhex(value[2:])
+        except ValueError:
+            pass
+    return bytes.fromhex(_stable_uint(value).to_bytes(32, "big").hex())
 
 
 def _stable_uint(value: str) -> int:
