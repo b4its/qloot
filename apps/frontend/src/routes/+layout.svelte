@@ -6,6 +6,7 @@
   import { notifications } from "$lib/stores/notifications";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import { API_BASE } from "$lib/api/client";
 
   onMount(() => {
     auth.load();
@@ -21,16 +22,16 @@
 
   const appNav = [
     { href: "/dashboard", label: "Dashboard", icon: "gauge-high" },
-    { href: "/learning", label: "Learning", icon: "book-open-reader" },
-    { href: "/rooms", label: "Rooms", icon: "bullseye" },
-    { href: "/exams", label: "Exams", icon: "file-pen" },
-    { href: "/quests", label: "Quests", icon: "trophy" },
-    { href: "/tasks", label: "Tasks", icon: "list-check" },
-    { href: "/ranking", label: "Ranking", icon: "ranking-star" },
-    { href: "/wallet", label: "Wallet", icon: "gem" },
-    { href: "/badges", label: "Badges", icon: "medal" },
-    { href: "/career", label: "Career", icon: "compass" },
-    { href: "/assistant", label: "AI Assistant", icon: "robot" },
+    { href: "/learning", label: "Pembelajaran", icon: "book-open-reader" },
+    { href: "/rooms", label: "Ruang", icon: "bullseye" },
+    { href: "/exams", label: "Ujian", icon: "file-pen" },
+    { href: "/quests", label: "Quest", icon: "trophy" },
+    { href: "/tasks", label: "Tugas", icon: "list-check" },
+    { href: "/ranking", label: "Peringkat", icon: "ranking-star" },
+    { href: "/wallet", label: "Dompet", icon: "gem" },
+    { href: "/badges", label: "Badge", icon: "medal" },
+    { href: "/career", label: "Karier", icon: "compass" },
+    { href: "/assistant", label: "Asisten AI", icon: "robot" },
   ];
 
   let mobileOpen = false;
@@ -269,7 +270,11 @@
             <li><a class="hover:text-white" href="/faq">FAQ</a></li>
             <li><a class="hover:text-white" href="/certificates">Sertifikat</a></li>
             <li>
-              <a class="hover:text-white" href="/docs" target="_blank" rel="noopener"
+              <a
+                class="hover:text-white"
+                href={`${API_BASE}/docs`}
+                target="_blank"
+                rel="noopener"
                 >Dokumentasi API</a
               >
             </li>
