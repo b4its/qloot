@@ -4,7 +4,7 @@ const lib = require("./_lib");
 async function main() {
   const dep = lib.readDeployment();
   const net = await ethers.provider.getNetwork();
-  const opc = lib.attach(dep.address);
+  const opc = await lib.attach(dep.address);
   const [signer] = await ethers.getSigners();
   const bal = await ethers.provider.getBalance(signer.address);
 
@@ -14,7 +14,7 @@ async function main() {
   console.log(`network        : ${network.name} (chainId=${net.chainId})`);
   console.log(`contract       : ${dep.address}`);
   console.log(`name / symbol  : ${await opc.name()} / ${await opc.symbol()}`);
-  console.log(`uri            : ${await opc.uri(0)}`);
+  console.log(`uri            : ${await opc.getFunction("uri").staticCall(0)}`);
   console.log(`treasury       : ${dep.treasury}`);
   console.log(`totalSupply(0) : ${await opc["totalSupply(uint256)"](0)}`);
   console.log(`treasuryBal(0) : ${await opc.balanceOf(dep.treasury, 0)}`);

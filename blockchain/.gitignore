@@ -17,3 +17,8 @@ ignition/deployments/chain-31337/
 # Private deployment material (never commit)
 deployments/private/
 *.private.json
+
+# Ephemeral local-chain manifests
+deployments/localhost*.json
+deployments/hardhat*.json
+deployments/anvil*.json

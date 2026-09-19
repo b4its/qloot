@@ -4,7 +4,7 @@ const lib = require("./_lib");
 
 async function main() {
   const dep = lib.readDeployment();
-  const opc = lib.attach(dep.address);
+  const opc = await lib.attach(dep.address);
   const [signer] = await ethers.getSigners();
 
   const newUri = process.env.OPC_URI || dep.uri;

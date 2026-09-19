@@ -6,7 +6,7 @@ const ROLES = ["MINTER_ROLE", "REWARDER_ROLE", "PAUSER_ROLE", "URI_MANAGER_ROLE"
 async function main() {
   const dep = lib.readDeployment();
   const net = await ethers.provider.getNetwork();
-  const opc = lib.attach(dep.address);
+  const opc = await lib.attach(dep.address);
 
   console.log("========================================");
   console.log(" QLoot — full on-chain summary");
@@ -16,7 +16,7 @@ async function main() {
   console.log(`deployer       : ${dep.deployer}`);
   console.log(`admin          : ${dep.admin}`);
   console.log(`treasury       : ${dep.treasury}`);
-  console.log(`uri            : ${await opc.uri(0)}`);
+  console.log(`uri            : ${await opc.getFunction("uri").staticCall(0)}`);
   console.log(`paused         : ${await opc.paused()}`);
   console.log("----------------------------------------");
   console.log(`totalSupply(0) : ${await opc["totalSupply(uint256)"](0)}`);

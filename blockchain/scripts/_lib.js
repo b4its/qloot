@@ -53,8 +53,11 @@ function writePublicManifest(data, networkName = network.name) {
 }
 
 async function attach(address) {
+  const [signer] = await ethers.getSigners();
   const factory = await ethers.getContractFactory(CONTRACT_NAME);
-  return factory.attach(address);
+  // Use the plain Contract (not the factory wrapper) so all ABI functions,
+  // including `uri(uint256)`, are directly callable.
+  return new ethers.Contract(address, factory.interface.fragments, signer);
 }
 
 async function getDeployedContract() {

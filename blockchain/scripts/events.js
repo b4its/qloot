@@ -4,7 +4,7 @@ const lib = require("./_lib");
 
 async function main() {
   const dep = lib.readDeployment();
-  const opc = lib.attach(dep.address);
+  const opc = await lib.attach(dep.address);
   const current = await ethers.provider.getBlockNumber();
   const fromBlock = Math.max(0, current - Number(process.env.LOOKBACK_BLOCKS || 5000));
 
@@ -26,7 +26,8 @@ async function main() {
     const filter = opc.filters[name]();
     const events = await opc.queryFilter(filter, fromBlock, current);
     for (const ev of events) {
-      console.log(`[${ev.blockNumber}] ${name} ${JSON.stringify(ev.args)}`);
+      const args = ev.args.map((v) => (typeof v === "bigint" ? v.toString() : v));
+      console.log(`[${ev.blockNumber}] ${name} ${JSON.stringify(args)}`);
     }
   }
 }
