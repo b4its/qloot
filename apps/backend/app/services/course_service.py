@@ -93,13 +93,14 @@ class CourseService:
     def can_view(self, course: Course, user: User) -> bool:
         if user.has_role("admin") or course.owner_id == user.id:
             return True
-        # Students (and other teachers) may view a published subject that targets
-        # their class, or any subject broadcast to all classes ("UMUM").
+        # Students may view a published subject that targets their class, or a
+        # subject explicitly broadcast to all classes ("UMUM"). A subject with
+        # no class_code is NOT public (it must be targeted or broadcast).
         if not course.is_published:
             return False
-        if course.class_code in (None, "", "UMUM"):
+        if course.class_code == "UMUM":
             return True
-        if not user.class_code:
+        if not user.class_code or not course.class_code:
             return False
         if normalize_class_code(user.class_code) != course.class_code:
             return False

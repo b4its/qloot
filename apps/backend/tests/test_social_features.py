@@ -127,6 +127,48 @@ async def test_class_based_subject_access(client):
     assert "Kelas-D Sosial" not in titles
 
 
+async def test_class_type_mismatch_and_untargeted_subject_hidden(client, engine):
+    """A same class code but different programme, and untargeted subjects, are hidden."""
+    r = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "t_match@ex.com",
+            "full_name": "T Match",
+            "password": "Password123!",
+            "role": "teacher",
+        },
+    )
+    assert r.status_code == 201
+    ok = await client.post(
+        "/api/v1/courses",
+        json={"title": "Mata Pelajaran IPA", "class_code": "1A", "class_type": "IPA"},
+    )
+    assert ok.status_code == 201, ok.text
+    # A subject with no class_code must not leak to students even if published.
+    untargeted = await client.post(
+        "/api/v1/courses",
+        json={"title": "Tanpa Kelas", "class_code": "UMUM"},
+    )
+    assert untargeted.status_code == 201, untargeted.text
+    # Force a NULL class_code directly to simulate legacy data.
+    from sqlalchemy import update
+
+    from app.models.learning import Course
+
+    async with engine.begin() as conn:
+        await conn.execute(
+            update(Course).where(Course.title == "Tanpa Kelas").values(class_code=None)
+        )
+    await client.post("/api/v1/auth/logout")
+
+    # A student in 1A/IPS must NOT see the IPA subject (type mismatch).
+    await _register(client, "s_1a_ips@ex.com", class_code="1A", class_type="IPS")
+    subs = await client.get("/api/v1/courses")
+    titles = {s["title"] for s in subs.json()}
+    assert "Mata Pelajaran IPA" not in titles
+    assert "Tanpa Kelas" not in titles
+
+
 async def test_room_live_and_events_and_invite(client):
     r = await client.post(
         "/api/v1/auth/register",
