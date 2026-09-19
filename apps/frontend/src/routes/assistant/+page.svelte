@@ -73,7 +73,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -82,9 +82,7 @@
   <div class="flex-1 space-y-3 overflow-y-auto p-5" bind:this={scroller}>
     {#each messages as m}
       <div class="flex items-start gap-3" class:flex-row-reverse={m.role === "user"}>
-        <div
-          class="grid h-7 w-7 flex-none place-items-center rounded-lg bg-slate-100 dark:bg-slate-700"
-        >
+        <div class="grid h-7 w-7 flex-none place-items-center rounded-lg bg-ink/5 dark:bg-ink/10">
           <Icon
             name={m.role === "bot" ? "robot" : "user"}
             size="13px"
@@ -93,10 +91,10 @@
         </div>
         <div
           class="max-w-[80%] rounded-2xl px-4 py-2 text-sm"
-          class:bg-primary-600={m.role === "user"}
+          class:bg-primary={m.role === "user"}
           class:text-white={m.role === "user"}
-          class:bg-slate-100={m.role === "bot"}
-          class:dark:bg-slate-800={m.role === "bot"}
+          class:tone-ink-soft={m.role === "bot"}
+          class:dark:bg-surface={m.role === "bot"}
         >
           {#if m.typing}
             <span class="inline-flex gap-1">

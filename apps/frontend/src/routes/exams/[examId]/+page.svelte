@@ -47,11 +47,11 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {:else if exam}
-  <a href="/exams" class="text-sm text-primary-600">← All exams</a>
+  <a href="/exams" class="text-sm text-primary">← All exams</a>
   <h1 class="mt-2 text-2xl font-bold">{exam.title}</h1>
   <p class="mt-1 muted">
     Duration: {exam.duration_minutes} min · Passing: {(exam.passing_score_bp / 100).toFixed(0)}% · {exam
@@ -95,9 +95,7 @@
               {#if a.score_bp !== null && a.score_bp !== undefined}
                 {(a.score_bp / 100).toFixed(1)}%
               {/if}
-              <a href={`/exams/${examId}/result?attempt=${a.id}`} class="ml-2 text-primary-600"
-                >View</a
-              >
+              <a href={`/exams/${examId}/result?attempt=${a.id}`} class="ml-2 text-primary">View</a>
             </span>
           </li>
         {/each}

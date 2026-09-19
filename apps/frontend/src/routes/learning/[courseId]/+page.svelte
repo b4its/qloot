@@ -42,11 +42,11 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {:else if course}
-  <a href="/learning" class="text-sm text-primary-600">← Back to courses</a>
+  <a href="/learning" class="text-sm text-primary">← Back to courses</a>
   <h1 class="mt-2 text-2xl font-bold">{course.title}</h1>
   <p class="mt-1 muted">{course.description}</p>
 
@@ -57,14 +57,14 @@
         <div>
           <a
             href={`/learning/${course.id}/lesson/${lesson.id}`}
-            class="font-medium hover:text-primary-600"
+            class="font-medium hover:text-primary"
           >
             {i + 1}. {lesson.title}
           </a>
           <p class="text-xs muted">{done ? "Completed" : "Not started"}</p>
         </div>
         {#if done}
-          <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
+          <span class="badge bg-green-100 text-secondary dark:bg-green-900 dark:text-green-100"
             ><Icon name="check" size="10px" /> Selesai</span
           >
           >

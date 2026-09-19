@@ -55,7 +55,7 @@
 </p>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -66,7 +66,7 @@
   <div class="mt-4 grid gap-4 sm:grid-cols-3">
     <div class="card">
       <div class="text-sm muted">Available</div>
-      <div class="text-3xl font-bold text-accent-gold">{formatNumber(wallet.available)}</div>
+      <div class="text-3xl font-bold text-highlight">{formatNumber(wallet.available)}</div>
       <div class="text-xs muted">OPC (token id {wallet.token_id})</div>
     </div>
     <div class="card">
@@ -111,11 +111,11 @@
           <li class="flex items-center justify-between">
             <span>{r.reward_type}{r.rank ? ` #${r.rank}` : ""}</span>
             <span class="flex items-center gap-2">
-              <span class="font-mono text-accent-gold">+{r.amount}</span>
+              <span class="font-mono text-highlight">+{r.amount}</span>
               <span
                 class="badge"
                 class:bg-green-100={r.status === "confirmed"}
-                class:text-green-700={r.status === "confirmed"}>{r.status}</span
+                class:text-secondary={r.status === "confirmed"}>{r.status}</span
               >
             </span>
           </li>
@@ -141,10 +141,10 @@
             <tr class="border-t">
               <td class="py-1 text-xs muted">{formatDate(entry.created_at)}</td>
               <td>
-                <span class:text-red-600={entry.entry_type === "debit"}>{entry.entry_type}</span>
+                <span class:text-tertiary={entry.entry_type === "debit"}>{entry.entry_type}</span>
                 <span class="text-xs muted"> · {entry.reference_type}</span>
               </td>
-              <td class="font-mono" class:text-green-600={entry.entry_type === "credit"}>
+              <td class="font-mono" class:text-secondary={entry.entry_type === "credit"}>
                 {entry.entry_type === "debit" ? "-" : "+"}{entry.amount}
               </td>
               <td class="text-right font-mono">{formatNumber(entry.balance_after)}</td>
@@ -167,13 +167,13 @@
             <span
               class="badge"
               class:bg-green-100={tx.status === "confirmed"}
-              class:text-green-700={tx.status === "confirmed"}>{tx.status}</span
+              class:text-secondary={tx.status === "confirmed"}>{tx.status}</span
             >
             <span class="ml-2">{tx.method}</span>
           </span>
           <span class="font-mono text-xs">
             {#if url}
-              <a class="text-primary-600" href={url} target="_blank" rel="noopener noreferrer"
+              <a class="text-primary" href={url} target="_blank" rel="noopener noreferrer"
                 >{shortHash(tx.transaction_hash)} ↗</a
               >
             {:else}

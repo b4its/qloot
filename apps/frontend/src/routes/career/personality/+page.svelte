@@ -81,7 +81,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -102,7 +102,7 @@
               <button
                 type="button"
                 class="rounded-lg border px-2 py-1 text-[11px] transition"
-                class:bg-primary-600={answers[i] === li + 1}
+                class:bg-primary={answers[i] === li + 1}
                 class:text-white={answers[i] === li + 1}
                 on:click={() => (answers[i] = li + 1)}
                 title={lbl}
@@ -135,13 +135,13 @@
               >
               <span class="font-mono">{value}</span>
             </div>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div class="h-full rounded-full bg-primary-500" style={`width:${value}%`}></div>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/5 dark:bg-surface">
+              <div class="h-full rounded-full bg-primary" style={`width:${value}%`}></div>
             </div>
           </div>
         {/each}
         {#if result.summary}
-          <p class="mt-2 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+          <p class="mt-2 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
             {result.summary}
           </p>
         {/if}

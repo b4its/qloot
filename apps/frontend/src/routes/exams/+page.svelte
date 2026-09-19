@@ -30,7 +30,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -42,13 +42,13 @@
 {:else}
   <div class="mt-6 grid gap-4 sm:grid-cols-2">
     {#each exams as exam}
-      <a href={`/exams/${exam.id}`} class="card block transition hover:border-primary-400">
+      <a href={`/exams/${exam.id}`} class="card block transition hover:border-primary">
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">{exam.title}</h2>
           <span
             class="badge"
             class:bg-green-100={exam.is_active}
-            class:text-green-700={exam.is_active}
+            class:text-secondary={exam.is_active}
           >
             {exam.is_active ? "open" : exam.status}
           </span>

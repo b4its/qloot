@@ -47,7 +47,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -65,7 +65,7 @@
           <span
             class="badge"
             class:bg-green-100={q.status === "open"}
-            class:text-green-700={q.status === "open"}>{q.status}</span
+            class:text-secondary={q.status === "open"}>{q.status}</span
           >
         </div>
         <p class="mt-1 text-sm muted">{q.description ?? "Speed quest for top finishers."}</p>
@@ -74,7 +74,7 @@
             {#each q.rules as r}
               <li class="flex justify-between">
                 <span>Rank {r.rank}</span>
-                <span class="font-mono text-accent-gold">{r.reward_amount} OPC</span>
+                <span class="font-mono text-highlight">{r.reward_amount} OPC</span>
               </li>
             {/each}
           </ul>

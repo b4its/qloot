@@ -51,7 +51,7 @@
     <button
       class="px-4 py-2 text-sm"
       class:border-b-2={category === t.key}
-      class:border-primary-500={category === t.key}
+      class:border-primary={category === t.key}
       class:font-semibold={category === t.key}
       on:click={() => pick(t.key)}
     >
@@ -62,7 +62,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -90,9 +90,9 @@
           <span
             class="badge"
             class:bg-green-100={item.is_free}
-            class:text-green-700={item.is_free}
-            class:bg-amber-100={!item.is_free}
-            class:text-amber-700={!item.is_free}
+            class:text-secondary={item.is_free}
+            class:tone-highlight={!item.is_free}
+            class:text-highlight={!item.is_free}
           >
             {item.is_free ? "Free" : "Paid"}
           </span>

@@ -34,7 +34,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -63,7 +63,7 @@
     </div>
     <div class="card">
       <div class="text-xs muted">OPC awarded</div>
-      <div class="text-2xl font-bold text-accent-gold">{analytics.opc_awarded}</div>
+      <div class="text-2xl font-bold text-highlight">{analytics.opc_awarded}</div>
     </div>
   </div>
 {/if}

@@ -105,21 +105,21 @@
 {#if loading}
   <p class="muted">Loading room…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {:else if room}
-  <a href="/rooms" class="text-sm text-primary-600">← All rooms</a>
+  <a href="/rooms" class="text-sm text-primary">← All rooms</a>
   <div class="mt-2 flex flex-wrap items-center gap-3">
     <h1 class="text-2xl font-bold">{room.name}</h1>
     <span
       class="badge"
       class:bg-green-100={room.status === "open"}
-      class:text-green-700={room.status === "open"}
+      class:text-secondary={room.status === "open"}
     >
       {room.status}
     </span>
-    <span class="badge" class:bg-green-100={connected} class:text-green-700={connected}>
+    <span class="badge" class:bg-green-100={connected} class:text-secondary={connected}>
       {connected ? "● live" : "○ offline"}
     </span>
   </div>
@@ -166,7 +166,7 @@
             <span
               class="badge"
               class:bg-green-100={p.is_present}
-              class:text-green-700={p.is_present}>{p.is_present ? "present" : "away"}</span
+              class:text-secondary={p.is_present}>{p.is_present ? "present" : "away"}</span
             >
           </li>
         {/each}

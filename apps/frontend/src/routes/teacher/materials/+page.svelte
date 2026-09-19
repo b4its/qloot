@@ -57,11 +57,11 @@
 <h1 class="text-2xl font-bold">Materials</h1>
 <p class="mt-1 muted">Upload a PDF, then let AI draft essay questions from it.</p>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+{#if message}<p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
     {message}
   </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -111,7 +111,7 @@
             <span
               class="badge"
               class:bg-green-100={q.review_status === "approved"}
-              class:text-green-700={q.review_status === "approved"}>{q.review_status}</span
+              class:text-secondary={q.review_status === "approved"}>{q.review_status}</span
             >
           </div>
           <p class="mt-1 text-sm muted">Reference: {q.correct_answer}</p>

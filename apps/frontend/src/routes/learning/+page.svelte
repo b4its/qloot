@@ -33,7 +33,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -50,7 +50,7 @@
 {:else}
   <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {#each courses as course}
-      <a href={`/learning/${course.id}`} class="card block transition hover:border-primary-400">
+      <a href={`/learning/${course.id}`} class="card block transition hover:border-primary">
         <h2 class="font-semibold">{course.title}</h2>
         <p class="mt-1 line-clamp-2 text-sm muted">{course.description ?? "No description"}</p>
         <div class="mt-3 text-xs muted">

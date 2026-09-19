@@ -76,7 +76,7 @@
       {joinLoading ? "Joining…" : "Join"}
     </button>
   </div>
-  {#if joinError}<p class="mt-2 text-sm text-red-600">{joinError}</p>{/if}
+  {#if joinError}<p class="mt-2 text-sm text-tertiary">{joinError}</p>{/if}
 </div>
 
 {#if showCreate}
@@ -96,7 +96,7 @@
 {/if}
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -108,15 +108,15 @@
 {:else}
   <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {#each rooms as room}
-      <a href={`/rooms/${room.id}`} class="card block transition hover:border-primary-400">
+      <a href={`/rooms/${room.id}`} class="card block transition hover:border-primary">
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">{room.name}</h2>
           <span
             class="badge"
             class:bg-green-100={room.status === "open"}
-            class:text-green-700={room.status === "open"}
-            class:bg-slate-100={room.status !== "open"}
-            class:dark:bg-slate-800={room.status !== "open"}>{room.status}</span
+            class:text-secondary={room.status === "open"}
+            class:tone-ink-soft={room.status !== "open"}
+            class:dark:bg-surface={room.status !== "open"}>{room.status}</span
           >
         </div>
         <p class="mt-2 font-mono text-sm muted">Code: {room.code}</p>

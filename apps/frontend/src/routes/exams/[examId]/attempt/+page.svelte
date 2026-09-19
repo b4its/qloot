@@ -100,7 +100,7 @@
 {#if loading}
   <p class="muted">Loading attempt…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {:else if exam && attempt}
@@ -111,10 +111,10 @@
     <div class="flex items-center gap-3">
       <span
         class="badge"
-        class:bg-red-100={secondsLeft < 60}
-        class:text-red-700={secondsLeft < 60}
-        class:bg-amber-100={secondsLeft >= 60}
-        class:text-amber-700={secondsLeft >= 60}
+        class:tone-tertiary={secondsLeft < 60}
+        class:text-tertiary={secondsLeft < 60}
+        class:tone-highlight={secondsLeft >= 60}
+        class:text-highlight={secondsLeft >= 60}
       >
         ⏱ {mmss(secondsLeft)}
       </span>
@@ -167,7 +167,7 @@
         {#each exam.questions ?? [] as q, i}
           <button
             class="h-9 w-9 rounded-lg border text-sm"
-            class:bg-primary-600={i === current}
+            class:bg-primary={i === current}
             class:text-white={i === current}
             class:bg-green-100={saved[q.id] === "saved" && i !== current}
             on:click={() => (current = i)}

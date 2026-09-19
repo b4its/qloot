@@ -416,6 +416,29 @@ html.theme-init * {
   .row-me {
     background-color: rgba(91, 72, 255, 0.08);
   }
+
+  /* Tone helpers (for class: directives — avoids "/opacity" in directives) */
+  .tone-primary {
+    background-color: rgba(91, 72, 255, 0.14);
+  }
+  .tone-primary-soft {
+    background-color: rgba(91, 72, 255, 0.08);
+  }
+  .tone-secondary {
+    background-color: rgba(0, 229, 168, 0.14);
+  }
+  .tone-tertiary {
+    background-color: rgba(255, 92, 170, 0.14);
+  }
+  .tone-highlight {
+    background-color: rgba(255, 209, 102, 0.2);
+  }
+  .tone-ink {
+    background-color: rgb(var(--ink) / 0.1);
+  }
+  .tone-ink-soft {
+    background-color: rgb(var(--ink) / 0.05);
+  }
 }
 
 /* ==========================================================================

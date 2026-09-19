@@ -87,12 +87,12 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
 {#if message}
-  <p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>
+  <p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">{message}</p>
 {/if}
 
 <div class="mt-4 card">
@@ -100,12 +100,12 @@
     <div class="flex items-center gap-3">
       <span
         class="badge"
-        class:bg-amber-100={status === "draft"}
-        class:text-amber-700={status === "draft"}
+        class:tone-highlight={status === "draft"}
+        class:text-highlight={status === "draft"}
         class:bg-sky-100={status === "in_review"}
         class:text-sky-700={status === "in_review"}
         class:bg-green-100={status === "approved"}
-        class:text-green-700={status === "approved"}
+        class:text-secondary={status === "approved"}
       >
         {status === "none" ? "no analysis" : status}
       </span>
@@ -147,7 +147,7 @@
       <div class="card" class:ring-2={r.rank === 1} class:ring-primary-400={r.rank === 1}>
         <div class="flex items-center justify-between">
           <span class="text-xs font-mono uppercase muted">Rank {r.rank}</span>
-          <span class="text-lg font-bold text-primary-600">{r.fit_score}%</span>
+          <span class="text-lg font-bold text-primary">{r.fit_score}%</span>
         </div>
         <h2 class="mt-1 font-semibold">{r.major}</h2>
         <p class="text-xs muted">{r.rationale}</p>
@@ -156,16 +156,16 @@
             <div class="flex justify-between">
               <span class="muted">Academic fit</span><span>{r.academic_fit}%</span>
             </div>
-            <div class="mt-1 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div class="h-full bg-primary-500" style={`width:${r.academic_fit}%`}></div>
+            <div class="mt-1 h-1 overflow-hidden rounded-full bg-ink/5 dark:bg-surface">
+              <div class="h-full bg-primary" style={`width:${r.academic_fit}%`}></div>
             </div>
           </div>
           <div>
             <div class="flex justify-between">
               <span class="muted">Personality fit</span><span>{r.personality_fit}%</span>
             </div>
-            <div class="mt-1 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div class="h-full bg-primary-500" style={`width:${r.personality_fit}%`}></div>
+            <div class="mt-1 h-1 overflow-hidden rounded-full bg-ink/5 dark:bg-surface">
+              <div class="h-full bg-primary" style={`width:${r.personality_fit}%`}></div>
             </div>
           </div>
         </div>
@@ -226,18 +226,18 @@
         {#each milestones as m}
           <li
             class="border-l-2 pl-4"
-            class:border-primary-500={m.status === "in_progress"}
+            class:border-primary={m.status === "in_progress"}
             class:border-green-500={m.status === "completed"}
-            class:border-slate-200={m.status === "not_started"}
+            class:border-line={m.status === "not_started"}
           >
             <div class="flex flex-wrap items-center gap-2">
               <span class="text-xs font-mono uppercase muted">{m.period}</span>
               <span
                 class="badge"
-                class:bg-primary-100={m.status === "in_progress"}
-                class:text-primary-700={m.status === "in_progress"}
+                class:tone-primary={m.status === "in_progress"}
+                class:text-primary={m.status === "in_progress"}
                 class:bg-green-100={m.status === "completed"}
-                class:text-green-700={m.status === "completed"}>{m.status}</span
+                class:text-secondary={m.status === "completed"}>{m.status}</span
               >
             </div>
             <p class="font-semibold">{m.title}</p>
@@ -248,8 +248,8 @@
               </ul>
             {/if}
             <div class="mt-2 flex items-center gap-3">
-              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                <div class="h-full bg-primary-500" style={`width:${m.progress_percent}%`}></div>
+              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-ink/5 dark:bg-surface">
+                <div class="h-full bg-primary" style={`width:${m.progress_percent}%`}></div>
               </div>
               <span class="text-xs font-mono">{m.progress_percent}%</span>
               <button

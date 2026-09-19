@@ -43,11 +43,11 @@
 
 <h1 class="text-2xl font-bold">Rewards</h1>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+{#if message}<p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
     {message}
   </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -70,9 +70,9 @@
             <span
               class="badge"
               class:bg-green-100={r.status === "confirmed"}
-              class:text-green-700={r.status === "confirmed"}
-              class:bg-red-100={r.status === "failed"}
-              class:text-red-700={r.status === "failed"}>{r.status}</span
+              class:text-secondary={r.status === "confirmed"}
+              class:tone-tertiary={r.status === "failed"}
+              class:text-tertiary={r.status === "failed"}>{r.status}</span
             >
           </td>
           <td class="text-right">

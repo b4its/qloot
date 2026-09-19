@@ -13,8 +13,8 @@
 
   const statusBadge: Record<string, string> = {
     pending: "bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-100",
-    completed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100",
-    cancelled: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100",
+    completed: "bg-green-100 text-secondary dark:bg-green-900 dark:text-green-100",
+    cancelled: "bg-tertiary/15 text-tertiary dark:bg-red-900 dark:text-red-100",
   };
 
   async function load() {
@@ -63,7 +63,7 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}

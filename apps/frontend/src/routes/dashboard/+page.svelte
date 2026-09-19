@@ -1,228 +1,237 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { AcademicDashboard, GradeRow } from "$lib/types";
+  import type { AcademicDashboard, Personality, UserBadge, Course } from "$lib/types";
+  import { auth } from "$lib/stores/auth";
+  import Icon from "$lib/components/Icon.svelte";
+  import ProgressRing from "$lib/components/ProgressRing.svelte";
+  import StatCounter from "$lib/components/StatCounter.svelte";
+  import WalletChip from "$lib/components/WalletChip.svelte";
+  import CertificateBadge from "$lib/components/CertificateBadge.svelte";
+  import { learningPaths } from "$lib/data/content";
 
-  let data: AcademicDashboard | null = null;
-  let grades: GradeRow[] = [];
+  let acad: AcademicDashboard | null = null;
+  let personality: Personality | null = null;
+  let badges: UserBadge[] = [];
+  let wallet: { available: number; token_id: number } | null = null;
   let loading = true;
   let error = "";
-  let form = { subject: "Fisika", grade: 85 };
-  let saving = false;
 
-  const subjects = ["Fisika", "Matematika", "Kimia", "Biologi", "B. Inggris", "B. Indonesia"];
+  const sections = [
+    { href: "/dashboard", label: "Beranda", icon: "gauge-high" },
+    { href: "/learning", label: "Kursus Saya", icon: "book-open-reader" },
+    { href: "/badges", label: "Sertifikat & Badge", icon: "certificate" },
+    { href: "/community", label: "Komunitas", icon: "users" },
+    { href: "/profile", label: "Profil", icon: "user" },
+  ];
 
-  async function load() {
-    loading = true;
+  // Streak grid (GitHub contribution style) — simulated activity.
+  const weeks = 18;
+  function activity(i: number): number {
+    const seed = (i * 2654435761) % 100;
+    if (seed < 55) return 0;
+    if (seed < 75) return 1;
+    if (seed < 90) return 2;
+    return 3;
+  }
+  const intensity = ["bg-ink/5", "bg-secondary/30", "bg-secondary/55", "bg-secondary/80"];
+
+  onMount(async () => {
     try {
-      data = await api.get<AcademicDashboard>("/career/dashboard");
-      grades = await api.get<GradeRow[]>("/career/grades");
+      [acad, personality, badges, wallet] = await Promise.all([
+        api.get<AcademicDashboard>("/career/dashboard").catch(() => null),
+        api.get<Personality | null>("/career/personality").catch(() => null),
+        api.get<UserBadge[]>("/me/badges").catch(() => []),
+        api.get<{ available: number; token_id: number }>("/wallet").catch(() => null),
+      ]);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load dashboard";
+      error = e instanceof ApiError ? e.message : "";
     } finally {
       loading = false;
     }
-  }
+  });
 
-  async function addGrade() {
-    saving = true;
-    try {
-      await api.post("/career/grades", form);
-      await load();
-    } catch (e) {
-      error = e instanceof ApiError ? e.message : "Could not save grade";
-    } finally {
-      saving = false;
-    }
-  }
-
-  // Radar geometry (hexagon, 6 dimensions).
-  function radarPoints(values: number[], cx = 150, cy = 140, r = 110): string {
-    return values
-      .map((v, i) => {
-        const angle = (Math.PI / 3) * i - Math.PI / 2;
-        const rr = (v / 100) * r;
-        return `${cx + rr * Math.cos(angle)},${cy + rr * Math.sin(angle)}`;
-      })
-      .join(" ");
-  }
-
-  function axis(i: number, len: number, cx = 150, cy = 140, r = 110) {
-    const angle = (Math.PI / 3) * i - Math.PI / 2;
-    return {
-      x: cx + r * Math.cos(angle) * len,
-      y: cy + r * Math.sin(angle) * len,
-      lx: cx + (r + 18) * Math.cos(angle),
-      ly: cy + (r + 18) * Math.sin(angle),
-    };
-  }
-
-  $: radarValues = data?.radar?.map((d) => d.value) ?? [];
-  $: trendPts = (data?.trend ?? [])
-    .map((t, i) => {
-      const x = 10 + i * (460 / Math.max(1, (data?.trend.length ?? 1) - 1));
-      const y = 160 - (t.value / 100) * 140;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  onMount(load);
+  $: user = $auth.user;
+  $: currentPath = learningPaths[0];
 </script>
 
-<svelte:head><title>Academic Dashboard — QLoot</title></svelte:head>
+<svelte:head><title>Dashboard — QLoot</title></svelte:head>
 
-<div class="flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <h1 class="text-2xl font-bold">Academic Dashboard</h1>
-    <p class="mt-1 text-sm muted">Your performance summary — simulated from recorded grades.</p>
-  </div>
-  <a href="/career" class="btn-ghost">← Career home</a>
-</div>
-
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{/if}
-
-{#if loading}
-  <p class="mt-6 muted">Loading…</p>
-{:else if data}
-  <div class="mt-4 grid gap-4 sm:grid-cols-3">
-    <div class="card">
-      <div class="text-sm muted">Average grade</div>
-      <div class="text-3xl font-bold text-primary-600">{data.average}</div>
-      <div class="text-xs muted">across recorded subjects</div>
-    </div>
-    <div class="card">
-      <div class="text-sm muted">Strongest subject</div>
-      <div class="text-2xl font-bold">{data.strong_subject ?? "—"}</div>
-    </div>
-    <div class="card">
-      <div class="text-sm muted">Needs attention</div>
-      <div class="text-2xl font-bold text-amber-500">{data.weak_subject ?? "—"}</div>
-    </div>
-  </div>
-
-  <div class="mt-4 grid gap-4 lg:grid-cols-5">
-    <div class="card lg:col-span-2">
-      <h2 class="font-semibold">Interest map</h2>
-      <p class="text-xs muted">Interest spread across 6 study areas</p>
-      {#if radarValues.length}
-        <svg
-          viewBox="0 0 300 300"
-          class="mx-auto mt-2 h-64 w-full"
-          role="img"
-          aria-label="Interest radar"
-        >
-          <g stroke="currentColor" class="opacity-20" fill="none">
-            {#each [1, 0.66, 0.33] as f}
-              <polygon points={radarPoints(radarValues.map(() => f * 100))} />
-            {/each}
-            {#each [0, 1, 2, 3, 4, 5] as i}
-              <line x1="150" y1="140" x2={axis(i, 1).x} y2={axis(i, 1).y} />
-            {/each}
-          </g>
-          <polygon
-            points={radarPoints(radarValues)}
-            fill="rgb(37 99 235 / 0.18)"
-            stroke="rgb(37 99 235)"
-            stroke-width="2"
-          />
-          {#each data.radar as d, i}
-            <text
-              x={axis(i, 1).lx}
-              y={axis(i, 1).ly}
-              text-anchor="middle"
-              font-size="10"
-              fill="currentColor"
-              class="opacity-70"
-            >
-              {d.dimension}
-            </text>
-          {/each}
-        </svg>
-      {:else}
-        <p class="mt-2 muted">Add grades to see your interest map.</p>
-      {/if}
-    </div>
-
-    <div class="card lg:col-span-3">
-      <h2 class="font-semibold">Grade trend</h2>
-      <p class="text-xs muted">Simulated 6-month trajectory</p>
-      {#if data.trend.length}
-        <svg viewBox="0 0 480 180" class="mt-2 h-48 w-full" role="img" aria-label="Grade trend">
-          <g stroke="currentColor" class="opacity-10">
-            {#each [20, 60, 100, 140] as y}<line x1="0" y1={y} x2="480" y2={y} />{/each}
-          </g>
-          <polyline
-            points={trendPts}
-            fill="none"
-            stroke="rgb(37 99 235)"
-            stroke-width="2.5"
-            stroke-linejoin="round"
-          />
-          {#each data.trend as t, i}
-            {@const x = 10 + i * (460 / Math.max(1, data.trend.length - 1))}
-            {@const y = 160 - (t.value / 100) * 140}
-            <circle cx={x} cy={y} r="3.5" fill="rgb(37 99 235)" />
-            <text
-              {x}
-              y="176"
-              text-anchor="middle"
-              font-size="10"
-              fill="currentColor"
-              class="opacity-60">{t.month}</text
-            >
-          {/each}
-        </svg>
-      {:else}
-        <p class="mt-2 muted">No trend data yet.</p>
-      {/if}
-    </div>
-  </div>
-
-  <div class="card mt-4">
-    <h2 class="font-semibold">AI insights</h2>
-    <div class="mt-3 grid gap-3 sm:grid-cols-3">
-      {#each data.insights as ins}
-        <div class="rounded-xl border p-4">
-          <div class="text-xs font-mono uppercase muted">{ins.kind}</div>
-          <p class="mt-1 text-sm font-semibold">{ins.title}</p>
-          <p class="text-xs muted">{ins.detail}</p>
+<div class="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[220px_1fr]">
+  <!-- side nav -->
+  <aside class="h-fit lg:sticky lg:top-28">
+    <div class="card !p-3">
+      {#if user}
+        <div class="mb-2 px-2 py-2">
+          <p class="text-sm font-semibold">{user.full_name}</p>
+          <p class="text-xs muted">{user.roles.join(" · ")}</p>
         </div>
-      {/each}
-    </div>
-  </div>
-
-  <div class="mt-4 grid gap-4 lg:grid-cols-3">
-    <div class="card lg:col-span-2">
-      <h2 class="font-semibold">Grades per subject</h2>
-      <div class="mt-3 space-y-2">
-        {#each data.subjects as s}
-          <div class="flex items-center gap-3">
-            <span class="w-24 text-sm">{s.subject}</span>
-            <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div class="h-full rounded-full bg-primary-500" style={`width:${s.grade}%`}></div>
-            </div>
-            <span class="w-8 text-right text-sm">{s.grade}</span>
-          </div>
+      {/if}
+      <nav class="space-y-1">
+        {#each sections as s}
+          <a
+            href={s.href}
+            class="nav-active flex items-center gap-2.5 rounded-sm px-3 py-2 text-sm"
+            class:!bg-transparent={s.href !== "/dashboard"}
+            class:!text-current={s.href !== "/dashboard"}
+          >
+            <Icon name={s.icon} size="13px" />
+            {s.label}
+          </a>
         {/each}
-      </div>
+      </nav>
+      {#if user}
+        <div class="mt-3 border-t pt-3">
+          <WalletChip address={user.chain_user_ref} label="Wallet" size={30} />
+        </div>
+      {/if}
     </div>
+  </aside>
 
-    <div class="card">
-      <h2 class="font-semibold">Add / update a grade</h2>
-      <div class="mt-3 space-y-3">
-        <select class="input" bind:value={form.subject}>
-          {#each subjects as s}<option value={s}>{s}</option>{/each}
-        </select>
-        <input class="input" type="number" min="0" max="100" bind:value={form.grade} />
-        <button class="btn-primary w-full" on:click={addGrade} disabled={saving}>
-          {saving ? "Saving…" : "Save grade"}
-        </button>
-        <p class="text-xs muted">Recorded subjects: {grades.length}</p>
+  <!-- main -->
+  <div>
+    <p class="mono-label">Semester Genap 2025/2026</p>
+    <h1 class="mt-1 font-display text-3xl font-bold">
+      Halo, {user?.full_name?.split(" ")[0] ?? "Pelajar"}
+    </h1>
+    <p class="mt-1 muted">Lanjutkan belajarmu dan jaga momentum.</p>
+
+    {#if error}
+      <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+    {/if}
+
+    {#if loading}
+      <div class="mt-6 grid gap-4 sm:grid-cols-3">
+        {#each Array(3) as _}<div class="skeleton h-32"></div>{/each}
       </div>
-    </div>
+    {:else}
+      <!-- top stats -->
+      <div class="mt-6 grid gap-4 sm:grid-cols-3">
+        <div class="card flex items-center gap-4">
+          <ProgressRing value={acad?.average ?? 0} size={92} stroke={9} label="Rata-rata" />
+          <div>
+            <p class="mono-label">Performa</p>
+            <p class="text-sm muted">
+              Terkuat: <span class="text-ink">{acad?.strong_subject ?? "—"}</span>
+            </p>
+            <p class="text-sm muted">
+              Perhatian: <span class="text-ink">{acad?.weak_subject ?? "—"}</span>
+            </p>
+          </div>
+        </div>
+        <div class="card">
+          <p class="mono-label">OPC tersedia</p>
+          <p class="mt-2 font-display text-3xl font-bold text-highlight">
+            <StatCounter value={wallet?.available ?? 0} />
+          </p>
+          <p class="text-xs muted">token id {wallet?.token_id ?? 0}</p>
+        </div>
+        <div class="card">
+          <p class="mono-label">Badge diraih</p>
+          <p class="mt-2 font-display text-3xl font-bold"><StatCounter value={badges.length} /></p>
+          <p class="text-xs muted">dari {7} tersedia</p>
+        </div>
+      </div>
+
+      <!-- streak + current path -->
+      <div class="mt-4 grid gap-4 lg:grid-cols-3">
+        <div class="card lg:col-span-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-display font-bold">Aktivitas belajar</h2>
+            <span class="mono-label">{weeks} minggu terakhir</span>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-1">
+            {#each Array(weeks * 7) as _, i}
+              <span
+                class="h-3 w-3 rounded-[3px] {intensity[activity(i)]}"
+                title={`Aktivitas #${i + 1}`}
+              ></span>
+            {/each}
+          </div>
+          <div class="mt-3 flex items-center gap-2 text-xs muted">
+            <span>Sedikit</span>
+            {#each intensity as c}<span class="h-3 w-3 rounded-[3px] {c}"></span>{/each}
+            <span>Banyak</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="mono-label">Jalur aktif</p>
+          <div class="mt-3 flex items-center gap-3">
+            <span
+              class="grid h-11 w-11 place-items-center rounded-xl text-white"
+              style={`background-image:${currentPath.accent}`}
+            >
+              <Icon name={currentPath.icon} size="18px" />
+            </span>
+            <div>
+              <p class="font-semibold">{currentPath.title}</p>
+              <p class="text-xs muted">2/{currentPath.courses} kursus</p>
+            </div>
+          </div>
+          <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-ink/5">
+            <div
+              class="h-full rounded-full"
+              style="width:35%;background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
+            ></div>
+          </div>
+          <a href={`/paths/${currentPath.slug}`} class="btn-secondary mt-4 w-full">Lanjutkan</a>
+        </div>
+      </div>
+
+      <!-- personality + certificates -->
+      <div class="mt-4 grid gap-4 lg:grid-cols-3">
+        <div class="card">
+          <h2 class="font-display font-bold">Profil kepribadian</h2>
+          {#if personality}
+            <div class="mt-3 space-y-2">
+              {#each [{ l: "Keterbukaan", v: personality.openness }, { l: "Kehati-hatian", v: personality.conscientiousness }, { l: "Ekstroversi", v: personality.extraversion }, { l: "Keramahan", v: personality.agreeableness }] as t}
+                <div>
+                  <div class="flex justify-between text-xs">
+                    <span class="muted">{t.l}</span><span class="mono">{t.v}</span>
+                  </div>
+                  <div class="mt-1 h-1 overflow-hidden rounded-full bg-ink/5">
+                    <div class="h-full bg-primary" style={`width:${t.v}%`}></div>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <p class="mt-2 text-sm muted">
+              Belum ada hasil. Ikuti tes kepribadian untuk profil personal.
+            </p>
+            <a href="/career/personality" class="btn-secondary mt-3 w-full">Ikuti tes</a>
+          {/if}
+        </div>
+
+        <div class="lg:col-span-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-display font-bold">Sertifikat & badge</h2>
+            <a href="/certificates" class="text-xs text-primary"
+              >Lihat semua <Icon name="arrow-right" size="10px" /></a
+            >
+          </div>
+          {#if badges.length}
+            <div class="mt-3 grid gap-4 sm:grid-cols-2">
+              {#each badges.slice(0, 2) as b}
+                <CertificateBadge
+                  title={b.badge.name}
+                  subtitle={b.badge.description ?? ""}
+                  edition={`+${b.badge.points} POIN`}
+                  icon="medal"
+                  compact
+                />
+              {/each}
+            </div>
+          {:else}
+            <div class="card mt-3 grid place-items-center py-10 text-center">
+              <Icon name="certificate" size="26px" class="muted" />
+              <p class="mt-2 text-sm muted">Selesaikan kursus untuk meraih sertifikat pertamamu.</p>
+              <a href="/courses" class="btn-secondary mt-3">Jelajahi kursus</a>
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
   </div>
-{/if}
+</div>

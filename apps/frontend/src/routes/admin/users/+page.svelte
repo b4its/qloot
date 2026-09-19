@@ -29,11 +29,11 @@
 
 <h1 class="text-2xl font-bold">Users</h1>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+{#if message}<p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
     {message}
   </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -51,7 +51,7 @@
           <td>{u.full_name}</td>
           <td>
             {#each u.roles as r}<span
-                class="badge mr-1 bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-100"
+                class="badge mr-1 bg-primary/15 text-primary dark:bg-primary-900 dark:text-primary-100"
                 >{r}</span
               >{/each}
           </td>

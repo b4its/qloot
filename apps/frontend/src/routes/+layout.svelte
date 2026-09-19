@@ -233,7 +233,7 @@
           </p>
           <div class="mt-5 flex max-w-sm items-center gap-2">
             <input
-              class="input !border-white/10 !bg-white/5 text-white placeholder:text-white/40"
+              class="input !border-white/10 !bg-surface/5 text-white placeholder:text-white/40"
               placeholder="Email kamu untuk info kelas baru"
               aria-label="Email"
             />

@@ -40,10 +40,10 @@
 <p class="mt-1 muted">Complete tasks to earn OPC. Daily, weekly and learning tasks.</p>
 
 {#if message}
-  <p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>
+  <p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">{message}</p>
 {/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -59,15 +59,15 @@
         <div>
           <div class="flex items-center gap-2">
             <h2 class="font-medium">{t.title}</h2>
-            <span class="badge bg-slate-100 dark:bg-slate-800">{t.kind}</span>
+            <span class="badge bg-ink/5 dark:bg-surface">{t.kind}</span>
           </div>
           <p class="text-sm muted">{t.description ?? ""}</p>
           {#if t.ends_at}<p class="text-xs muted">Ends {formatDate(t.ends_at)}</p>{/if}
         </div>
         <div class="text-right">
-          <div class="font-mono text-accent-gold">{t.reward_amount} OPC</div>
+          <div class="font-mono text-highlight">{t.reward_amount} OPC</div>
           {#if completed[t.id]}
-            <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
+            <span class="badge bg-green-100 text-secondary dark:bg-green-900 dark:text-green-100"
               ><Icon name="check" size="10px" /> Selesai</span
             >
             >

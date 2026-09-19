@@ -109,7 +109,7 @@
               style={`background-image:${course.accent}`}
             >
               <span
-                class="grid h-14 w-14 place-items-center rounded-full bg-white/20 backdrop-blur"
+                class="grid h-14 w-14 place-items-center rounded-full bg-surface/20 backdrop-blur"
               >
                 <Icon name="play" size="20px" class="text-white" />
               </span>

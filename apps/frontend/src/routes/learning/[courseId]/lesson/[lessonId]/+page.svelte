@@ -39,11 +39,11 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {:else if lesson}
-  <a href={`/learning/${lesson.course_id}`} class="text-sm text-primary-600">← Back to course</a>
+  <a href={`/learning/${lesson.course_id}`} class="text-sm text-primary">← Back to course</a>
   <article class="card mt-3">
     <h1 class="text-2xl font-bold">{lesson.title}</h1>
     {#if lesson.video_url}

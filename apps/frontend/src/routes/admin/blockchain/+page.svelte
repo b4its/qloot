@@ -38,11 +38,11 @@
 
 <h1 class="text-2xl font-bold">Blockchain</h1>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+{#if message}<p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
     {message}
   </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
     {error}
   </p>
 {/if}
@@ -100,15 +100,12 @@
               ><span
                 class="badge"
                 class:bg-green-100={tx.status === "confirmed"}
-                class:text-green-700={tx.status === "confirmed"}>{tx.status}</span
+                class:text-secondary={tx.status === "confirmed"}>{tx.status}</span
               ></td
             >
             <td class="font-mono text-xs">
-              {#if url}<a
-                  class="text-primary-600"
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer">{shortHash(tx.transaction_hash)} ↗</a
+              {#if url}<a class="text-primary" href={url} target="_blank" rel="noopener noreferrer"
+                  >{shortHash(tx.transaction_hash)} ↗</a
                 >
               {:else}{shortHash(tx.transaction_hash)}{/if}
             </td>
