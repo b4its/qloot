@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/**/*.{test,spec}.{js,ts}"],
+    exclude: ["tests/e2e/**", "node_modules/**"],
     environment: "jsdom",
     environmentOptions: {
       jsdom: { url: "http://localhost:3000" },
