@@ -1,0 +1,69 @@
+"""Wallet schemas."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.common import ORMModel
+
+
+class WalletOut(BaseModel):
+    user_id: uuid.UUID
+    token_id: int
+    available: int
+    pending: int
+    withdrawal_address: str | None
+
+
+class LedgerEntryOut(ORMModel):
+    id: uuid.UUID
+    entry_type: str
+    amount: int
+    balance_after: int
+    reference_type: str
+    reference_id: str
+    description: str | None
+    created_at: datetime
+
+
+class RewardOut(BaseModel):
+    id: uuid.UUID
+    reward_key: str
+    reward_type: str
+    rank: int | None
+    amount: int
+    status: str
+    quest_id: uuid.UUID | None
+    task_id: uuid.UUID | None
+    created_at: datetime
+
+
+class TransferRequest(BaseModel):
+    to_user_id: uuid.UUID
+    amount: int = Field(gt=0)
+    note: str | None = Field(default=None, max_length=255)
+
+
+class WithdrawalRequestIn(BaseModel):
+    amount: int = Field(gt=0)
+    destination_address: str = Field(min_length=42, max_length=42)
+
+    @field_validator("destination_address")
+    @classmethod
+    def _check_addr(cls, v: str) -> str:
+        if not v.startswith("0x") or len(v) != 42:
+            raise ValueError("Invalid EVM address")
+        return v.lower()
+
+
+class WithdrawalOut(ORMModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    destination_address: str
+    token_id: int
+    amount: int
+    status: str
+    created_at: datetime

@@ -1,0 +1,252 @@
+"""Admin endpoints: users, rewards, blockchain control, audit logs."""
+
+from __future__ import annotations
+
+import uuid
+
+from fastapi import APIRouter
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+
+from app.api.deps import AdminUser, DbSession
+from app.blockchain.worker_logic import process_outbox_item
+from app.core.config import settings
+from app.core.errors import NotFoundError, ValidationError
+from app.db.session import transaction
+from app.models.identity import AuditLog, Role, User, UserRole
+from app.models.wallet import RewardAllocation, TransactionOutbox
+from app.schemas.auth import UserOut
+
+router = APIRouter()
+
+
+class RoleUpdate(BaseModel):
+    role: str = Field(pattern="^(student|teacher|admin)$")
+
+
+class AuditLogOut(BaseModel):
+    id: uuid.UUID
+    actor_id: uuid.UUID | None
+    action: str
+    entity_type: str | None
+    entity_id: str | None
+    data: dict | None
+    created_at: object
+
+
+@router.get("/users", response_model=list[UserOut])
+async def list_users(admin: AdminUser, db: DbSession, limit: int = 100, offset: int = 0):
+    stmt = select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+    users = (await db.execute(stmt)).scalars().all()
+    return [
+        UserOut(
+            id=u.id,
+            email=u.email,
+            full_name=u.full_name,
+            is_active=u.is_active,
+            chain_user_ref=u.chain_user_ref,
+            avatar_url=u.avatar_url,
+            created_at=u.created_at,
+            roles=sorted(u.role_names),
+        )
+        for u in users
+    ]
+
+
+@router.patch("/users/{user_id}/role", response_model=UserOut)
+async def set_user_role(user_id: uuid.UUID, payload: RoleUpdate, admin: AdminUser, db: DbSession):
+    async with transaction(db):
+        user = await db.get(User, user_id)
+        if user is None:
+            raise NotFoundError("User not found")
+        role = (
+            await db.execute(select(Role).where(Role.name == payload.role))
+        ).scalar_one_or_none()
+        if role is None:
+            raise ValidationError("Unknown role")
+        from sqlalchemy import delete
+
+        await db.execute(delete(UserRole).where(UserRole.user_id == user.id))
+        db.add(UserRole(user_id=user.id, role_id=role.id))
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="user.role_change",
+                entity_type="user",
+                entity_id=str(user.id),
+                data={"new_role": payload.role},
+            )
+        )
+        await db.flush()
+        await db.refresh(user)
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        chain_user_ref=user.chain_user_ref,
+        avatar_url=user.avatar_url,
+        created_at=user.created_at,
+        roles=sorted(user.role_names),
+    )
+
+
+@router.get("/rewards")
+async def list_rewards(admin: AdminUser, db: DbSession, limit: int = 100, offset: int = 0):
+    stmt = (
+        select(RewardAllocation)
+        .order_by(RewardAllocation.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "reward_key": r.reward_key,
+            "user_id": str(r.user_id),
+            "amount": r.amount,
+            "status": r.status,
+            "quest_id": str(r.quest_id) if r.quest_id else None,
+            "task_id": str(r.task_id) if r.task_id else None,
+            "created_at": r.created_at,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/rewards/{reward_id}/retry")
+async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
+    async with transaction(db):
+        allocation = await db.get(RewardAllocation, reward_id)
+        if allocation is None:
+            raise NotFoundError("Reward not found")
+        outbox = (
+            await db.execute(
+                select(TransactionOutbox).where(
+                    TransactionOutbox.idempotency_key.like("%" + allocation.reward_key[:8] + "%")
+                )
+            )
+        ).scalar_one_or_none()
+        if outbox is None:
+            # Recreate an outbox item for the allocation.
+            from app.services.keys import tx_idempotency_key
+
+            outbox = TransactionOutbox(
+                topic="reward",
+                idempotency_key=tx_idempotency_key("reward", allocation.reward_key),
+                payload={
+                    "allocation_id": str(allocation.id),
+                    "reward_key": allocation.reward_key,
+                    "user_ref": "0x" + "0" * 64,
+                    "rank": allocation.rank or 0,
+                    "amount": allocation.amount,
+                    "token_id": allocation.token_id,
+                },
+                status="pending",
+            )
+            db.add(outbox)
+            await db.flush()
+        else:
+            outbox.status = "pending"
+            outbox.attempts = 0
+            await db.flush()
+        await process_outbox_item(db, outbox.id)
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="reward.retry",
+                entity_type="reward_allocation",
+                entity_id=str(allocation.id),
+                data=None,
+            )
+        )
+    return {"status": "retried", "reward_id": str(reward_id)}
+
+
+@router.post("/rewards/{reward_id}/cancel")
+async def cancel_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
+    async with transaction(db):
+        allocation = await db.get(RewardAllocation, reward_id)
+        if allocation is None:
+            raise NotFoundError("Reward not found")
+        allocation.status = "cancelled"
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="reward.cancel",
+                entity_type="reward_allocation",
+                entity_id=str(allocation.id),
+                data=None,
+            )
+        )
+    return {"status": "cancelled", "reward_id": str(reward_id)}
+
+
+@router.post("/blockchain/pause")
+async def blockchain_pause(admin: AdminUser, db: DbSession):
+    async with transaction(db):
+        db.add(
+            TransactionOutbox(
+                topic="pause",
+                idempotency_key=f"pause-{uuid.uuid4().hex}",
+                payload={"action": "pause"},
+                status="pending",
+            )
+        )
+        db.add(
+            AuditLog(
+                actor_id=admin.id, action="chain.pause", entity_type="contract", entity_id="opc"
+            )
+        )
+    return {"status": "pause_queued"}
+
+
+@router.post("/blockchain/unpause")
+async def blockchain_unpause(admin: AdminUser, db: DbSession):
+    async with transaction(db):
+        db.add(
+            TransactionOutbox(
+                topic="unpause",
+                idempotency_key=f"unpause-{uuid.uuid4().hex}",
+                payload={"action": "unpause"},
+                status="pending",
+            )
+        )
+        db.add(
+            AuditLog(
+                actor_id=admin.id, action="chain.unpause", entity_type="contract", entity_id="opc"
+            )
+        )
+    return {"status": "unpause_queued"}
+
+
+@router.get("/audit-logs")
+async def audit_logs(admin: AdminUser, db: DbSession, limit: int = 100, offset: int = 0):
+    stmt = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+    rows = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "id": str(a.id),
+            "actor_id": str(a.actor_id) if a.actor_id else None,
+            "action": a.action,
+            "entity_type": a.entity_type,
+            "entity_id": a.entity_id,
+            "data": a.data,
+            "created_at": a.created_at,
+        }
+        for a in rows
+    ]
+
+
+@router.get("/config")
+async def show_config(admin: AdminUser):
+    """Non-secret configuration summary."""
+    return {
+        "env": settings.app_env,
+        "ai_provider": settings.ai_provider,
+        "blockchain": settings.blockchain_network,
+        "dry_run": settings.blockchain_dry_run,
+        "reward_ranks": settings.reward_ranks,
+        "confirmations": settings.opc_confirmations,
+    }

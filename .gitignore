@@ -48,3 +48,7 @@ test-results/
 # OS
 .DS_Store
 *.log
+
+# Local object storage (dev)
+apps/backend/.storage/
+.storage/
