@@ -2,7 +2,13 @@
 const { ethers } = require("hardhat");
 const lib = require("./_lib");
 
-const VALID = ["MINTER_ROLE", "REWARDER_ROLE", "PAUSER_ROLE", "URI_MANAGER_ROLE", "DEFAULT_ADMIN_ROLE"];
+const VALID = [
+  "MINTER_ROLE",
+  "REWARDER_ROLE",
+  "PAUSER_ROLE",
+  "URI_MANAGER_ROLE",
+  "DEFAULT_ADMIN_ROLE",
+];
 
 async function main() {
   const roleName = process.env.ROLE;
@@ -11,7 +17,10 @@ async function main() {
   if (!address || !ethers.isAddress(address)) throw new Error("ADDRESS is required");
 
   const opc = await lib.getDeployedContract();
-  const role = roleName === "DEFAULT_ADMIN_ROLE" ? ethers.ZeroHash : ethers.keccak256(ethers.toUtf8Bytes(roleName));
+  const role =
+    roleName === "DEFAULT_ADMIN_ROLE"
+      ? ethers.ZeroHash
+      : ethers.keccak256(ethers.toUtf8Bytes(roleName));
   const tx = await opc.grantRole(role, address);
   console.log(`grant tx: ${tx.hash}`);
   await tx.wait();

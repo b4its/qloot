@@ -1,7 +1,7 @@
 const { ethers, network } = require("hardhat");
 const lib = require("./_lib");
 
-const ROLES = ["MINTER_ROLE", "REWARDER_ROLE", "PAUSER_ROLE", "URI_MANAGER_ROLE"];
+const ROLES = ["ADMIN_ROLE", "MINTER_ROLE", "REWARDER_ROLE", "PAUSER_ROLE", "URI_MANAGER_ROLE"];
 
 async function main() {
   const dep = lib.readDeployment();
@@ -21,11 +21,16 @@ async function main() {
   console.log("----------------------------------------");
   console.log(`totalSupply(0) : ${await opc["totalSupply(uint256)"](0)}`);
   console.log(`treasuryBal(0) : ${await opc.balanceOf(dep.treasury, 0)}`);
+  console.log(`totalMinted    : ${await opc.totalMinted()}`);
+  console.log(`totalBurned    : ${await opc.totalBurned()}`);
+  console.log(`totalCourses   : ${await opc.totalCourses()}`);
+  console.log(`totalXp        : ${await opc.totalXpDistributed()}`);
   console.log("----------------------------------------");
   console.log("Roles:");
   const DEFAULT_ADMIN = ethers.ZeroHash;
   for (const name of ["DEFAULT_ADMIN_ROLE", ...ROLES]) {
-    const role = name === "DEFAULT_ADMIN_ROLE" ? DEFAULT_ADMIN : ethers.keccak256(ethers.toUtf8Bytes(name));
+    const role =
+      name === "DEFAULT_ADMIN_ROLE" ? DEFAULT_ADMIN : ethers.keccak256(ethers.toUtf8Bytes(name));
     const hasAdmin = await opc.hasRole(role, dep.admin);
     const hasDeployer = await opc.hasRole(role, dep.deployer);
     console.log(`  ${name.padEnd(18)} admin=${hasAdmin} deployer=${hasDeployer}`);

@@ -7,12 +7,7 @@ async function main() {
   try {
     await run("verify:verify", {
       address: dep.address,
-      constructorArguments: [
-        dep.name,
-        dep.symbol,
-        dep.uri,
-        dep.admin,
-      ],
+      constructorArguments: [dep.name, dep.symbol, dep.uri, dep.admin],
     });
     console.log("Verification submitted.");
   } catch (err) {

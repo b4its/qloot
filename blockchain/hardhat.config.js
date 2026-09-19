@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config({ path: require("path").resolve(__dirname, "..", ".env") });
 
 // The private key is only ever read from the environment. It is NEVER passed
@@ -15,7 +16,9 @@ module.exports = {
   solidity: {
     version: "0.8.28",
     settings: {
-      optimizer: { enabled: true, runs: 200 },
+      // `runs: 1` prioritises deployment size over runtime gas, which keeps the
+      // feature-rich OPC contract under the 24 576-byte mainnet limit.
+      optimizer: { enabled: true, runs: 1 },
       // OpenZeppelin 5.x uses the MCOPY opcode, which requires Cancun.
       evmVersion: "cancun",
       // recordRewards() needs the IR pipeline to avoid "stack too deep".

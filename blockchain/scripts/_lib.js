@@ -39,14 +39,18 @@ function writePublicManifest(data, networkName = network.name) {
     network: networkName,
     chainId: Number(data.chainId),
     contractName: data.contractName || CONTRACT_NAME,
+    standard: data.standard || "ERC-1155",
     address: data.address,
+    implementation: data.implementation,
     treasury: data.treasury,
     tokenId: data.tokenId ?? 0,
     uri: data.uri,
+    admin: data.admin,
     deployer: data.deployer,
     txHash: data.txHash,
     blockNumber: data.blockNumber,
     deployedAt: data.deployedAt,
+    upgradedAt: data.upgradedAt,
   };
   fs.writeFileSync(manifestFile(networkName), JSON.stringify(pub, null, 2));
   return pub;
