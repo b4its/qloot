@@ -70,7 +70,10 @@ async def broadcast(admin: AdminUser, db: DbSession, payload: NotificationCreate
 # --- badges ----------------------------------------------------------------
 @router.get("/badges", response_model=list[BadgeOut])
 async def badge_catalog(user: CurrentUser, db: DbSession):
-    return await BadgeService(db).catalog()
+    async with transaction(db):
+        await BadgeService(db).ensure_catalog()
+        badges = await BadgeService(db).catalog()
+    return badges
 
 
 @router.get("/me/badges", response_model=list[UserBadgeOut])

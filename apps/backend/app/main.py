@@ -26,11 +26,24 @@ log = get_logger("main")
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     log.info("app_startup", env=settings.app_env, dry_run=settings.blockchain_dry_run)
+    await _ensure_badge_catalog()
     yield
     await close_ai_provider()
     await event_bus.close()
     await dispose_engine()
     log.info("app_shutdown")
+
+
+async def _ensure_badge_catalog() -> None:
+    """Idempotently seed the badge catalog (tolerates an unavailable DB)."""
+    try:
+        from app.db.session import session_scope
+        from app.services.social_service import BadgeService
+
+        async with session_scope() as session:
+            await BadgeService(session).ensure_catalog()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("badge_catalog_seed_skipped", error=str(exc))
 
 
 def create_app() -> FastAPI:

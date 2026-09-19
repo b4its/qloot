@@ -10,6 +10,7 @@ from app.api.deps import CurrentUser, DbSession, TeacherUser
 from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.room import (
+    AcceptInvite,
     InviteCreate,
     InviteOut,
     JoinByCode,
@@ -105,10 +106,10 @@ async def participants(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
     return await RoomService(db).participants(room_id)
 
 
-@router.get("/accept-invite", response_model=RoomMemberOut)
-async def accept_invite(user: CurrentUser, db: DbSession, code: str):
+@router.post("/invitations/accept", response_model=RoomMemberOut)
+async def accept_invite(payload: AcceptInvite, user: CurrentUser, db: DbSession):
     async with transaction(db):
-        member = await RoomService(db).accept_invite(code, user)
+        member = await RoomService(db).accept_invite(payload.code, user)
     return RoomMemberOut.model_validate(member)
 
 
