@@ -4,31 +4,33 @@
   import { page } from "$app/stores";
   import { auth, hasRole } from "$lib/stores/auth";
   import { notifications } from "$lib/stores/notifications";
+  import { opc } from "$lib/stores/opc";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import OpcChip from "$lib/components/OpcChip.svelte";
   import { API_BASE } from "$lib/api/client";
 
   onMount(() => {
     auth.load();
     notifications.refresh();
+    opc.refresh();
   });
 
   const primaryNav = [
-    { href: "/courses", label: "Kursus" },
+    { href: "/courses", label: "Pelajaran" },
     { href: "/paths", label: "Jalur Belajar" },
     { href: "/community", label: "Komunitas" },
-    { href: "/business", label: "Untuk Bisnis" },
+    { href: "/about", label: "Tentang" },
   ];
 
   const appNav = [
     { href: "/dashboard", label: "Dashboard", icon: "gauge-high" },
-    { href: "/learning", label: "Pembelajaran", icon: "book-open-reader" },
+    { href: "/learning", label: "Pelajaran Saya", icon: "book-open-reader" },
     { href: "/rooms", label: "Ruang", icon: "bullseye" },
     { href: "/exams", label: "Ujian", icon: "file-pen" },
     { href: "/quests", label: "Quest", icon: "trophy" },
     { href: "/tasks", label: "Tugas", icon: "list-check" },
     { href: "/ranking", label: "Peringkat", icon: "ranking-star" },
-    { href: "/wallet", label: "Dompet", icon: "gem" },
     { href: "/badges", label: "Badge", icon: "medal" },
     { href: "/career", label: "Karier", icon: "compass" },
     { href: "/assistant", label: "Asisten AI", icon: "robot" },
@@ -47,14 +49,15 @@
   async function logout() {
     await auth.logout();
     notifications.clear();
+    opc.reset();
     window.location.href = "/";
   }
 
   const tickerItems = [
-    "KELAS BARU · Desain Sistem untuk Web3 · Mulai 1 Okt · Kuota tersisa 24",
-    "SERTIFIKAT DIGITAL · Kredensial dapat diverifikasi · Gratis untuk semua kelas",
+    "PELAJARAN BARU · Matematika 1A · Ditargetkan untuk Kelas 1A (IPA)",
+    "SERTIFIKAT DIGITAL · Kredensial dengan ID unik & tautan verifikasi",
     "KOMUNITAS · 12.000+ pelajar aktif · Sesi tanya-jawab setiap Rabu",
-    "JALUR BELAJAR BARU · AI Engineer · 6 kursus · 16 minggu",
+    "OPC · OryphemCoin untuk setiap pencapaian belajar · Dapat dilacak",
   ];
 </script>
 
@@ -88,7 +91,7 @@
       <div class="ml-auto flex items-center gap-2">
         <button
           class="btn-icon"
-          aria-label="Cari kursus"
+          aria-label="Cari pelajaran"
           on:click={() => (searchOpen = !searchOpen)}
         >
           <Icon name="magnifying-glass" size="14px" />
@@ -96,6 +99,14 @@
         <ThemeToggle />
 
         {#if user}
+          <!-- OPC balance — visible for both students and teachers -->
+          <OpcChip compact={false} />
+          {#if user.class_code}
+            <span class="badge badge-indigo hidden sm:inline-flex" title="Kelas kamu">
+              <Icon name="chalkboard-user" size="9px" />
+              {user.class_code}{user.class_type ? ` · ${user.class_type}` : ""}
+            </span>
+          {/if}
           <a href="/notifications" class="btn-icon relative" aria-label="Notifikasi">
             <Icon name="bell" size="14px" />
             {#if $notifications > 0}
@@ -139,7 +150,7 @@
           <Icon name="magnifying-glass" class="muted" />
           <input
             class="input !border-0 !bg-transparent !px-0"
-            placeholder="Cari kursus, jalur belajar, atau mentor…"
+            placeholder="Cari pelajaran, kelas, atau guru…"
             aria-label="Cari"
           />
           <button class="btn-ghost" on:click={() => (searchOpen = false)}>Tutup</button>
@@ -229,8 +240,8 @@
             <span class="font-display text-lg font-bold">QLoot</span>
           </div>
           <p class="mt-4 max-w-sm text-sm text-white/60">
-            Platform belajar gamifikasi dengan AI & teknologi on-chain. Kursus, jalur belajar,
-            sertifikat digital, dan komunitas dalam satu tempat.
+            Platform e-learning kelas dengan gamifikasi, AI, dan teknologi on-chain. Pelajaran per
+            kelas, sertifikat digital, dan komunitas dalam satu tempat.
           </p>
           <div class="mt-5 flex max-w-sm items-center gap-2">
             <input
@@ -247,7 +258,7 @@
         <div>
           <p class="mono-label !text-white/40">Belajar</p>
           <ul class="mt-3 space-y-2 text-sm text-white/70">
-            <li><a class="hover:text-white" href="/courses">Katalog Kursus</a></li>
+            <li><a class="hover:text-white" href="/courses">Daftar Pelajaran</a></li>
             <li><a class="hover:text-white" href="/paths">Jalur Belajar</a></li>
             <li><a class="hover:text-white" href="/community">Komunitas</a></li>
             <li><a class="hover:text-white" href="/career">Panduan Karier</a></li>

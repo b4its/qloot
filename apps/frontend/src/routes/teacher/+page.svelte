@@ -16,6 +16,12 @@
 
   const links = [
     {
+      href: "/teacher/subjects",
+      label: "Pelajaran",
+      desc: "Buat pelajaran, pilih kelas & tipe kelas",
+      icon: "chalkboard-user",
+    },
+    {
       href: "/teacher/materials",
       label: "Materi",
       desc: "Unggah PDF dan buat soal dengan AI",

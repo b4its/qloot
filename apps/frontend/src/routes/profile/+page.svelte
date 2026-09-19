@@ -57,6 +57,13 @@
           {#each user.roles as r}
             <span class="badge badge-indigo"><Icon name="user-tag" size="10px" /> {r}</span>
           {/each}
+          {#if user.class_code}
+            <span class="badge badge-mint">
+              <Icon name="chalkboard-user" size="10px" /> Kelas {user.class_code}{user.class_type
+                ? ` · ${user.class_type}`
+                : ""}
+            </span>
+          {/if}
           <span class="badge badge-mint"><Icon name="circle-check" size="10px" /> Aktif</span>
         </div>
       </div>

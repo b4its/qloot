@@ -7,19 +7,20 @@
   import ProgressRing from "$lib/components/ProgressRing.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
+  import OpcChip from "$lib/components/OpcChip.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
-  import { learningPaths } from "$lib/data/content";
 
   let acad: AcademicDashboard | null = null;
   let personality: Personality | null = null;
   let badges: UserBadge[] = [];
+  let subjects: Course[] = [];
   let wallet: { available: number; token_id: number } | null = null;
   let loading = true;
   let error = "";
 
   const sections = [
     { href: "/dashboard", label: "Beranda", icon: "gauge-high" },
-    { href: "/learning", label: "Kursus Saya", icon: "book-open-reader" },
+    { href: "/learning", label: "Pelajaran Saya", icon: "book-open-reader" },
     { href: "/badges", label: "Sertifikat & Badge", icon: "certificate" },
     { href: "/community", label: "Komunitas", icon: "users" },
     { href: "/profile", label: "Profil", icon: "user" },
@@ -38,11 +39,12 @@
 
   onMount(async () => {
     try {
-      [acad, personality, badges, wallet] = await Promise.all([
+      [acad, personality, badges, wallet, subjects] = await Promise.all([
         api.get<AcademicDashboard>("/career/dashboard").catch(() => null),
         api.get<Personality | null>("/career/personality").catch(() => null),
         api.get<UserBadge[]>("/me/badges").catch(() => []),
         api.get<{ available: number; token_id: number }>("/wallet").catch(() => null),
+        api.get<Course[]>("/courses").catch(() => []),
       ]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "";
@@ -52,7 +54,6 @@
   });
 
   $: user = $auth.user;
-  $: currentPath = learningPaths[0];
 </script>
 
 <svelte:head><title>Dashboard — QLoot</title></svelte:head>
@@ -156,26 +157,46 @@
         </div>
 
         <div class="card">
-          <p class="mono-label">Jalur aktif</p>
+          <div class="flex items-center justify-between">
+            <p class="mono-label">Kelas saya</p>
+            <OpcChip compact={true} />
+          </div>
           <div class="mt-3 flex items-center gap-3">
             <span
               class="grid h-11 w-11 place-items-center rounded-xl text-white"
-              style={`background-image:${currentPath.accent}`}
+              style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
             >
-              <Icon name={currentPath.icon} size="18px" />
+              <Icon name="chalkboard-user" size="18px" />
             </span>
             <div>
-              <p class="font-semibold">{currentPath.title}</p>
-              <p class="text-xs muted">2/{currentPath.courses} kursus</p>
+              <p class="font-display text-lg font-bold">
+                {user?.class_code ?? "Belum ada kelas"}{user?.class_type
+                  ? ` · ${user.class_type}`
+                  : ""}
+              </p>
+              <p class="text-xs muted">{subjects.length} pelajaran tersedia</p>
             </div>
           </div>
-          <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-ink/5">
-            <div
-              class="h-full rounded-full"
-              style="width:35%;background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-            ></div>
-          </div>
-          <a href={`/paths/${currentPath.slug}`} class="btn-secondary mt-4 w-full">Lanjutkan</a>
+          <ul class="mt-3 space-y-1.5 text-sm">
+            {#each subjects.slice(0, 3) as s}
+              <li>
+                <a
+                  href={`/courses/${s.id}`}
+                  class="flex items-center justify-between rounded-sm px-2 py-1.5 hover:bg-ink/5"
+                >
+                  <span class="inline-flex items-center gap-2"
+                    ><Icon name="book-open-reader" size="11px" class="text-primary" />
+                    {s.title}</span
+                  >
+                  <Icon name="chevron-right" size="9px" class="muted" />
+                </a>
+              </li>
+            {/each}
+            {#if subjects.length === 0}<li class="text-xs muted">
+                Guru belum menambahkan pelajaran.
+              </li>{/if}
+          </ul>
+          <a href="/learning" class="btn-secondary mt-4 w-full">Buka pelajaran saya</a>
         </div>
       </div>
 

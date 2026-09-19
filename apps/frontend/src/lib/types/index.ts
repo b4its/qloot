@@ -9,6 +9,8 @@ export interface User {
   avatar_url?: string | null;
   created_at: string;
   roles: string[];
+  class_code?: string | null;
+  class_type?: string | null;
 }
 
 export interface SessionInfo {
@@ -26,8 +28,13 @@ export interface Course {
   slug: string;
   description?: string | null;
   owner_id: string;
+  owner_name?: string | null;
   is_published: boolean;
   cover_url?: string | null;
+  subject?: string | null;
+  class_code?: string | null;
+  class_type?: string | null;
+  lesson_count?: number;
   created_at: string;
   updated_at: string;
 }

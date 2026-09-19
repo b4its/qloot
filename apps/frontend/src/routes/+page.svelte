@@ -5,10 +5,9 @@
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
   import { auth } from "$lib/stores/auth";
-  import { courses, learningPaths, mentors, testimonials, formatIDR } from "$lib/data/content";
+  import { classTracks, features, mentors, testimonials } from "$lib/data/content";
 
   $: user = $auth.user;
-  $: featured = courses.slice(0, 6);
 
   function initials(name: string): string {
     return name
@@ -20,7 +19,7 @@
 </script>
 
 <svelte:head>
-  <title>QLoot — Belajar, Berkembang, dan Dapatkan Sertifikat Digital</title>
+  <title>QLoot — E-Learning Kelas dengan AI & Reward On-Chain</title>
 </svelte:head>
 
 <!-- ================= HERO ================= -->
@@ -33,78 +32,79 @@
   >
     <div class="flex flex-col justify-center">
       <span class="badge badge-indigo w-fit">
-        <Icon name="bolt" size="10px" /> Platform belajar generasi baru
+        <Icon name="graduation-cap" size="10px" /> Platform e-learning kelas
       </span>
       <h1
         class="mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
       >
-        Mulai perjalananmu,<br />
-        kuasai <span class="text-grad">skill masa depan</span>.
+        Belajar sesuai kelasmu,<br />
+        didampingi <span class="text-grad">AI & guru</span>.
       </h1>
       <p class="mt-5 max-w-xl text-ink2">
-        Kursus terstruktur, jalur belajar terpandu, dan sertifikat digital yang dapat diverifikasi —
-        diajarkan oleh praktisi aktif di bidang teknologi, desain, dan data.
+        Guru membuat pelajaran dan menargetkannya ke kelas tertentu. Siswa langsung melihat
+        pelajaran, materi, ujian, dan quest untuk kelasnya — lengkap dengan reward OryphemCoin.
       </p>
       <div class="mt-7 flex flex-wrap items-center gap-3">
         {#if user}
-          <a href="/dashboard" class="btn-primary">
-            <Icon name="gauge-high" size="13px" /> Buka Dashboard
-          </a>
-          <a href="/courses" class="btn-secondary">Lihat Katalog</a>
+          <a href="/learning" class="btn-primary"
+            ><Icon name="book-open-reader" size="13px" /> Pelajaran Saya</a
+          >
+          <a href="/dashboard" class="btn-secondary">Buka Dashboard</a>
         {:else}
-          <a href="/register" class="btn-primary">
-            <Icon name="rocket" size="13px" /> Mulai Gratis
-          </a>
-          <a href="/courses" class="btn-secondary">
-            <Icon name="compass" size="13px" /> Jelajahi Kursus
-          </a>
+          <a href="/register" class="btn-primary"
+            ><Icon name="rocket" size="13px" /> Daftar Sekarang</a
+          >
+          <a href="/courses" class="btn-secondary"
+            ><Icon name="compass" size="13px" /> Lihat Pelajaran</a
+          >
         {/if}
       </div>
       <div class="mt-6 flex flex-wrap items-center gap-4 text-xs muted">
         <span class="inline-flex items-center gap-1.5"
-          ><Icon name="circle-check" class="text-secondary" size="12px" /> Tanpa kartu kredit</span
+          ><Icon name="circle-check" class="text-secondary" size="12px" /> Pelajaran per kelas</span
+        >
+        <span class="inline-flex items-center gap-1.5"
+          ><Icon name="circle-check" class="text-secondary" size="12px" /> Penilaian AI</span
         >
         <span class="inline-flex items-center gap-1.5"
           ><Icon name="circle-check" class="text-secondary" size="12px" /> Sertifikat digital</span
         >
-        <span class="inline-flex items-center gap-1.5"
-          ><Icon name="circle-check" class="text-secondary" size="12px" /> Akses selamanya</span
-        >
       </div>
     </div>
 
-    <!-- floating course card -->
+    <!-- floating "class card" -->
     <div class="relative hidden lg:block">
       <div class="tilt">
         <div class="grad-border">
           <div class="card !p-5">
             <div class="flex items-center justify-between">
-              <span class="badge badge-mint"><Icon name="star" size="10px" /> Kursus unggulan</span>
-              <span class="mono-label">6 MINGGU</span>
+              <span class="badge badge-mint"
+                ><Icon name="chalkboard-user" size="10px" /> Kelas 1A · IPA</span
+              >
+              <span class="mono-label">3 PELAJARAN</span>
             </div>
-            <h3 class="mt-3 font-display text-xl font-bold">Desain Sistem untuk Web3</h3>
-            <p class="text-sm muted">Bangun design system yang siap untuk produk on-chain.</p>
-            <div
-              class="mt-4 h-24 rounded-xl border"
-              style="background-image:linear-gradient(135deg,rgba(91,72,255,.18),rgba(0,229,168,.18))"
-            >
-              <div class="grid h-full place-items-center">
-                <Icon name="pen-ruler" size="30px" class="text-primary/70" />
-              </div>
-            </div>
+            <h3 class="mt-3 font-display text-xl font-bold">Pelajaran Kelas 1A</h3>
+            <p class="text-sm muted">Matematika, Bahasa Indonesia, dan Fisika dalam satu kelas.</p>
+            <ul class="mt-4 space-y-2 text-sm">
+              {#each classTracks[0].subjects as s}
+                <li class="flex items-center gap-2 rounded-sm border px-3 py-2">
+                  <Icon name="book-open-reader" size="12px" class="text-primary" />
+                  {s}
+                </li>
+              {/each}
+            </ul>
             <div class="mt-4 flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <span
                   class="grid h-8 w-8 place-items-center rounded-full bg-ink/5 text-xs font-semibold"
-                  >AP</span
+                  >BS</span
                 >
                 <div class="leading-tight">
-                  <p class="text-xs font-medium">Alya Prameswari</p>
-                  <p class="text-[11px] muted">Lead Product Designer</p>
+                  <p class="text-xs font-medium">Budi Santoso</p>
+                  <p class="text-[11px] muted">Guru Matematika</p>
                 </div>
               </div>
-              <a href="/courses/design-system-web3" class="btn-primary !px-4 !py-2 text-xs">Lihat</a
-              >
+              <a href="/courses" class="btn-primary !px-4 !py-2 text-xs">Lihat</a>
             </div>
           </div>
         </div>
@@ -114,7 +114,7 @@
         <div class="card !p-3">
           <WalletChip
             address="0x7a2f3b91c4d8e05f6a2b9c1b8e4d7f0a3c6b9d21"
-            label="Pelajar"
+            label="Siswa"
             size={34}
           />
         </div>
@@ -126,7 +126,7 @@
 <!-- ================= LIVE STATS ================= -->
 <section class="border-y bg-surface">
   <div class="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4">
-    {#each [{ label: "Pelajar aktif", value: 12840, suffix: "+" }, { label: "Kursus", value: 96, suffix: "" }, { label: "Mentor praktisi", value: 42, suffix: "" }, { label: "Sertifikat diterbitkan", value: 5310, suffix: "+" }] as s}
+    {#each [{ label: "Pelajar aktif", value: 12840, suffix: "+" }, { label: "Pelajaran", value: 96, suffix: "" }, { label: "Guru & pengajar", value: 42, suffix: "" }, { label: "Sertifikat diterbitkan", value: 5310, suffix: "+" }] as s}
       <div use:reveal>
         <p class="font-display text-3xl font-bold sm:text-4xl">
           <StatCounter value={s.value} suffix={s.suffix} />
@@ -137,101 +137,77 @@
   </div>
 </section>
 
-<!-- ================= LEARNING PATHS ================= -->
+<!-- ================= FEATURES ================= -->
 <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-  <div class="flex flex-wrap items-end justify-between gap-4" use:reveal>
-    <div>
-      <p class="mono-label">Jalur Belajar</p>
-      <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Jalur belajar populer</h2>
-      <p class="mt-2 max-w-xl muted">
-        Rangkaian kursus terkurasi untuk membawamu dari nol hingga siap industri.
-      </p>
-    </div>
-    <a href="/paths" class="btn-secondary">Semua jalur <Icon name="arrow-right" size="12px" /></a>
+  <div class="text-center" use:reveal>
+    <p class="mono-label">Kenapa QLoot</p>
+    <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">
+      Satu ruang untuk kelas dan belajar
+    </h2>
+    <p class="mx-auto mt-2 max-w-2xl muted">
+      Dirancang untuk sekolah: guru mengelola pelajaran per kelas, siswa fokus belajar.
+    </p>
   </div>
-
-  <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-    {#each learningPaths as p, i}
-      <a href={`/paths/${p.slug}`} use:reveal={{ delay: i * 60 }} class="grad-border lift block">
-        <span class="block p-5">
-          <span
-            class="grid h-11 w-11 place-items-center rounded-xl text-white"
-            style={`background-image:${p.accent}`}
-          >
-            <Icon name={p.icon} size="18px" />
-          </span>
-          <span class="mt-4 block font-display text-lg font-bold">{p.title}</span>
-          <span class="mt-1 block text-sm muted">{p.desc}</span>
-          <span class="mono-label mt-4 flex items-center gap-3">
-            <span>{p.courses} kursus</span><span>·</span><span>{p.weeks} minggu</span>
-          </span>
+  <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    {#each features as f, i}
+      <div use:reveal={{ delay: i * 50 }} class="card lift">
+        <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+          <Icon name={f.icon} size="18px" />
         </span>
-      </a>
+        <h3 class="mt-3 font-display text-lg font-bold">{f.title}</h3>
+        <p class="mt-1 text-sm muted">{f.desc}</p>
+      </div>
     {/each}
   </div>
 </section>
 
-<!-- ================= FEATURED COURSES ================= -->
+<!-- ================= CLASS TRACKS ================= -->
 <section class="border-t bg-surface">
   <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
     <div class="flex flex-wrap items-end justify-between gap-4" use:reveal>
       <div>
-        <p class="mono-label">Kursus Unggulan</p>
-        <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Paling diminati minggu ini</h2>
+        <p class="mono-label">Kelas</p>
+        <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">
+          Pelajaran mengikuti kelasmu
+        </h2>
+        <p class="mt-2 max-w-xl muted">
+          Setiap kelas memiliki daftar pelajaran sendiri. Siswa hanya melihat kelas tempat mereka
+          terdaftar.
+        </p>
       </div>
-      <a href="/courses" class="btn-secondary"
-        >Lihat semua <Icon name="arrow-right" size="12px" /></a
-      >
     </div>
-
-    <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {#each featured as c, i}
-        <a
-          href={`/courses/${c.slug}`}
-          use:reveal={{ delay: i * 50 }}
-          class="card lift block !p-0 overflow-hidden"
-        >
-          <span class="block h-32" style={`background-image:${c.accent}`}>
-            <span class="grid h-full place-items-center">
-              <Icon name={c.icon} size="34px" class="text-white/90" />
-            </span>
-          </span>
+    <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {#each classTracks as t, i}
+        <div use:reveal={{ delay: i * 60 }} class="grad-border lift">
           <span class="block p-5">
-            <span class="flex items-center justify-between">
-              <span class="badge badge-neutral">{c.category}</span>
-              <span class="inline-flex items-center gap-1 text-xs muted">
-                <Icon name="star" class="text-highlight" size="11px" />
-                {c.rating}
-              </span>
+            <span
+              class="grid h-11 w-11 place-items-center rounded-xl text-white"
+              style={`background-image:${t.accent}`}
+            >
+              <Icon name={t.icon} size="18px" />
             </span>
-            <span class="mt-3 block font-display text-lg font-bold leading-snug">{c.title}</span>
-            <span class="mt-1 block text-sm muted">{c.tagline}</span>
-            <span class="mono-label mt-4 flex items-center gap-3">
-              <span>{c.level}</span><span>·</span><span>{c.weeks} minggu</span><span>·</span><span
-                >{c.hoursPerWeek} jam/minggu</span
-              >
+            <span class="mt-4 block font-display text-lg font-bold">{t.label}</span>
+            <span class="mt-2 flex flex-wrap gap-1.5">
+              {#each t.subjects as s}<span class="btn-pill !py-0.5 !text-[11px]">{s}</span>{/each}
             </span>
-            <span class="mt-4 flex items-center justify-between border-t pt-3">
-              <span class="inline-flex items-center gap-2 text-xs muted">
-                <Icon name="user-tie" size="12px" />
-                {c.mentor}
-              </span>
-              <span class="font-display font-bold">{formatIDR(c.price)}</span>
+            <span class="mono-label mt-4 flex items-center gap-2">
+              <Icon name="users" size="10px" />
+              {t.students} siswa
             </span>
           </span>
-        </a>
+        </div>
       {/each}
     </div>
   </div>
 </section>
 
-<!-- ================= MENTORS ================= -->
+<!-- ================= MENTORS (TEACHERS) ================= -->
 <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
   <div use:reveal>
-    <p class="mono-label">Mentor & Instruktur</p>
-    <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Diajarkan oleh praktisi aktif</h2>
+    <p class="mono-label">Guru & Pengajar</p>
+    <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Diajarkan oleh guru aktif</h2>
     <p class="mt-2 max-w-xl muted">
-      Belajar langsung dari orang yang membangun produk nyata setiap hari.
+      Setiap pelajaran diampu oleh guru mata pelajaran yang berpengalaman.
     </p>
   </div>
 
@@ -250,7 +226,7 @@
             <p class="text-xs muted">{m.role}</p>
           </div>
         </div>
-        <p class="mt-3 text-sm muted">{m.bio}</p>
+        <p class="mt-3 text-sm muted">Mengampu mata pelajaran {m.subject}.</p>
         <div class="mt-3">
           <WalletChip
             address={`0x${m.handle.slice(2)}a1b2c3d4e5f60718293a4b5c6d7e8f90`}
@@ -272,8 +248,8 @@
         Kredensial yang bisa dibuktikan
       </h2>
       <p class="mt-3 muted">
-        Setiap sertifikat memuat identitas unik dan tautan verifikasi. Bagikan ke LinkedIn,
-        portofolio, atau simpan sebagai aset digital.
+        Setiap sertifikat memuat identitas unik dan tautan verifikasi. Bagikan ke portofolio atau
+        simpan sebagai aset digital.
       </p>
       <ul class="mt-6 space-y-3 text-sm">
         <li class="flex items-start gap-3">
@@ -294,28 +270,28 @@
     </div>
     <div class="grid gap-4 sm:grid-cols-2">
       <CertificateBadge
-        title="Desain Sistem Web3"
-        subtitle="Diberikan kepada Refa Anjani"
+        title="Matematika 1A"
+        subtitle="Siswa Kelas 1A"
         edition="#0142 / 5000"
-        icon="pen-ruler"
+        icon="square-root-variable"
       />
       <CertificateBadge
-        title="Fondasi AI"
-        subtitle="Diberikan kepada Yoga Pratama"
+        title="Ekonomi 2D"
+        subtitle="Siswa Kelas 2D"
         edition="#0087 / 5000"
-        icon="microchip"
+        icon="chart-line"
       />
       <CertificateBadge
-        title="Smart Contract"
-        subtitle="Diberikan kepada Sinta Maharani"
+        title="Fisika 3A"
+        subtitle="Siswa Kelas 3A"
         edition="#0311 / 2000"
-        icon="file-code"
+        icon="atom"
       />
       <CertificateBadge
-        title="Web Full-Stack"
-        subtitle="Diberikan kepada Bima Aditya"
+        title="Bahasa Indonesia"
+        subtitle="Siswa Kelas 1A"
         edition="#0204 / 3000"
-        icon="layer-group"
+        icon="book"
       />
     </div>
   </div>
@@ -325,7 +301,7 @@
 <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
   <div use:reveal>
     <p class="mono-label">Testimoni</p>
-    <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Kata mereka yang sudah mulai</h2>
+    <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Kata guru dan siswa</h2>
   </div>
   <div class="mt-8 grid gap-5 lg:grid-cols-3">
     {#each testimonials as t, i}
@@ -345,13 +321,13 @@
 <section class="relative overflow-hidden border-t">
   <div class="aurora"><span class="aurora-blob-3"></span></div>
   <div class="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-    <h2 class="font-display text-3xl font-bold sm:text-5xl">Siap memulai perjalananmu?</h2>
+    <h2 class="font-display text-3xl font-bold sm:text-5xl">Siap memulai belajarmu?</h2>
     <p class="mt-4 muted">
-      Bergabung gratis, pilih jalur belajarmu, dan raih sertifikat digital pertamamu.
+      Daftar dengan kelasmu, dan langsung akses semua pelajaran yang disiapkan gurumu.
     </p>
     <div class="mt-8 flex flex-wrap justify-center gap-3">
       <a href="/register" class="btn-primary"><Icon name="rocket" size="13px" /> Daftar Sekarang</a>
-      <a href="/paths" class="btn-secondary">Lihat Jalur Belajar</a>
+      <a href="/courses" class="btn-secondary">Lihat Pelajaran</a>
     </div>
   </div>
 </section>

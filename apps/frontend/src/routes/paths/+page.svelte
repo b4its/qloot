@@ -1,39 +1,41 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
   import { reveal } from "$lib/actions/reveal";
-  import { learningPaths } from "$lib/data/content";
+  import { classTracks } from "$lib/data/content";
+
+  // Subject groupings across classes (derived from the class tracks).
+  const seen = new Map<string, { name: string; classes: string[] }>();
+  for (const t of classTracks) {
+    for (const s of t.subjects) {
+      const e = seen.get(s) ?? { name: s, classes: [] };
+      e.classes.push(t.code);
+      seen.set(s, e);
+    }
+  }
+  const subjects = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 </script>
 
-<svelte:head><title>Jalur Belajar — QLoot</title></svelte:head>
+<svelte:head><title>Mata Pelajaran — QLoot</title></svelte:head>
 
 <div class="dotgrid relative">
   <div class="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6">
-    <p class="mono-label">Jalur Belajar</p>
-    <h1 class="mt-2 font-display text-4xl font-bold">Rencana belajar yang terarah</h1>
+    <p class="mono-label">Kurikulum</p>
+    <h1 class="mt-2 font-display text-4xl font-bold">Mata pelajaran</h1>
     <p class="mt-2 max-w-2xl muted">
-      Susunan kursus berurutan untuk membawamu dari dasar hingga siap kerja. Setiap jalur diakhiri
-      sertifikat digital.
+      Daftar mata pelajaran yang diajarkan, beserta kelas tempat pelajaran tersebut dibuka.
     </p>
 
-    <div class="mt-8 grid gap-6 sm:grid-cols-2">
-      {#each learningPaths as p, i}
-        <a href={`/paths/${p.slug}`} use:reveal={{ delay: i * 60 }} class="grad-border lift block">
-          <span class="block p-6">
-            <span class="flex items-center justify-between">
-              <span
-                class="grid h-12 w-12 place-items-center rounded-xl text-white"
-                style={`background-image:${p.accent}`}
-              >
-                <Icon name={p.icon} size="20px" />
-              </span>
-              <span class="badge badge-indigo">{p.level}</span>
-            </span>
-            <span class="mt-4 block font-display text-xl font-bold">{p.title}</span>
-            <span class="mt-1 block text-sm muted">{p.desc}</span>
-            <span class="mono-label mt-5 flex items-center gap-3">
-              <span>{p.courses} kursus</span><span>·</span><span>{p.weeks} minggu</span>
-            </span>
+    <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {#each subjects as s, i}
+        <a href="/courses" use:reveal={{ delay: i * 50 }} class="card lift block">
+          <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+            <Icon name="book-open-reader" size="18px" />
           </span>
+          <h2 class="mt-3 font-display text-lg font-bold">{s.name}</h2>
+          <p class="mono-label mt-1">Diajarkan di kelas</p>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            {#each s.classes as c}<span class="badge badge-indigo">Kelas {c}</span>{/each}
+          </div>
         </a>
       {/each}
     </div>
