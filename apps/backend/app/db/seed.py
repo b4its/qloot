@@ -155,7 +155,7 @@ async def main() -> None:
 
     # --- courses, lessons, materials --------------------------------------
     async with session_scope() as session:
-        from app.models.learning import Course
+        from app.models.learning import Course, Lesson
 
         course = (
             await session.execute(select(Course).where(Course.slug == "dasar-pemrograman"))
@@ -168,19 +168,29 @@ async def main() -> None:
                 description="Pengantar konsep dasar pemrograman dan logika.",
                 is_published=True,
             )
-            lesson_specs = [
-                ("Pengenalan Variabel", "# Variabel\nVariabel adalah wadah untuk menyimpan nilai."),
-                (
-                    "Struktur Kontrol",
-                    "# Struktur Kontrol\nIf, else, dan loop mengatur alur program.",
-                ),
-                ("Fungsi", "# Fungsi\nFungsi mengelompokkan kode yang dapat dipakai ulang."),
-            ]
-            for title, body in lesson_specs:
-                await svc.add_lesson(
-                    course.id, teacher, title=title, content_md=body, is_published=True
-                )
             log.info("seed_course_created", course=str(course.id))
+
+        # Ensure all lessons exist individually (idempotent per lesson).
+        lesson_specs = [
+            ("Pengenalan Variabel", "# Variabel\nVariabel adalah wadah untuk menyimpan nilai."),
+            ("Struktur Kontrol", "# Struktur Kontrol\nIf, else, dan loop mengatur alur program."),
+            ("Fungsi", "# Fungsi\nFungsi mengelompokkan kode yang dapat dipakai ulang."),
+        ]
+        existing_lessons = {
+            lesson.title
+            for lesson in (
+                await session.execute(select(Lesson).where(Lesson.course_id == course.id))
+            )
+            .scalars()
+            .all()
+        }
+        for pos, (title, body) in enumerate(lesson_specs):
+            if title in existing_lessons:
+                continue
+            await CourseService(session).add_lesson(
+                course.id, teacher, title=title, content_md=body, position=pos, is_published=True
+            )
+        await session.flush()
 
         # Materials owned by the teacher.
         mat1 = await _seed_material(
@@ -499,6 +509,42 @@ async def _simulate_activity(teacher: User, students: list[User]) -> None:
                 if w.rank <= 3:
                     await badges.award(user=user_row, code="top_3", meta={"rank": w.rank})
         log.info("seed_quest_finalized", winners=len(winners))
+
+    # Simulate some task completions (idempotent) for the first two students.
+    await _simulate_tasks(students)
+
+
+async def _simulate_tasks(students: list[User]) -> None:
+    """Complete the seeded tasks for a couple of students (idempotent)."""
+    from sqlalchemy import select as _select
+
+    from app.models.quest import Task, TaskCompletion
+    from app.services.keys import task_reward_key
+    from app.services.reward_engine import RewardEngine
+
+    async with session_scope() as session:
+        tasks = list((await session.execute(_select(Task))).scalars().all())
+        if not tasks:
+            return
+        for student in students[:2]:
+            for task in tasks:
+                exists = (
+                    await session.execute(
+                        _select(TaskCompletion).where(
+                            TaskCompletion.task_id == task.id,
+                            TaskCompletion.user_id == student.id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if exists is not None:
+                    continue
+                rkey = task_reward_key(task.id, student.id)
+                session.add(TaskCompletion(task_id=task.id, user_id=student.id, reward_key=rkey))
+                if task.reward_amount > 0:
+                    await RewardEngine(session).allocate_task_reward(
+                        user=student, task_id=task.id, amount=task.reward_amount, rkey=rkey
+                    )
+                log.info("seed_task_completed", student=str(student.id), task=str(task.id))
 
 
 if __name__ == "__main__":
