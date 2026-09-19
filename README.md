@@ -52,8 +52,8 @@ make db-seed                  # demo admin/teacher/students + a course
 #  minio     http://localhost:9001
 ```
 
-Demo accounts (from `make db-seed`): `admin@qloot.local`, `teacher@qloot.local`,
-`student1@qloot.local` (passwords in `apps/backend/app/db/seed.py`).
+Demo accounts (from `make db-seed`): `admin@qloot.example`, `teacher@qloot.example`,
+`student1@qloot.example` (passwords in `apps/backend/app/db/seed.py`).
 
 ## Local blockchain
 

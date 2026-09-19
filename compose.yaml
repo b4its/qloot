@@ -53,7 +53,7 @@ services:
       - data-network
 
   minio:
-    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    image: minio/minio:latest
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
@@ -70,13 +70,14 @@ services:
       retries: 10
     networks:
       - data-network
+    # Optional: the backend defaults to local filesystem storage.
+    profiles: ["storage"]
 
   # --------------------------------------------------------------------------
   # Migrations (one-shot)
   # --------------------------------------------------------------------------
   migrate:
-    <<: *backend-build
-    <<: *backend-env
+    <<: [*backend-build, *backend-env]
     command: ["alembic", "upgrade", "head"]
     restart: "no"
     depends_on:
@@ -90,8 +91,7 @@ services:
   # Application
   # --------------------------------------------------------------------------
   backend:
-    <<: *backend-build
-    <<: *backend-env
+    <<: [*backend-build, *backend-env]
     command:
       [
         "uvicorn",
@@ -119,8 +119,7 @@ services:
       - blockchain-network
 
   worker:
-    <<: *backend-build
-    <<: *backend-env
+    <<: [*backend-build, *backend-env]
     command: ["python", "-m", "app.workers.main"]
     depends_on:
       postgres:
@@ -132,8 +131,7 @@ services:
       - data-network
 
   blockchain-worker:
-    <<: *backend-build
-    <<: *backend-env
+    <<: [*backend-build, *backend-env]
     command: ["python", "-m", "app.workers.blockchain"]
     depends_on:
       postgres:
@@ -146,8 +144,7 @@ services:
       - blockchain-network
 
   blockchain-indexer:
-    <<: *backend-build
-    <<: *backend-env
+    <<: [*backend-build, *backend-env]
     command: ["python", "-m", "app.workers.indexer"]
     depends_on:
       postgres:

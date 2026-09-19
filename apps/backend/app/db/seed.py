@@ -53,10 +53,10 @@ async def _ensure_user(email: str, full_name: str, password: str, role: str) -> 
 async def main() -> None:
     configure_logging()
     await _ensure_roles()
-    admin = await _ensure_user("admin@qloot.local", "QLoot Admin", "AdminPass123!", "admin")
-    teacher = await _ensure_user("teacher@qloot.local", "Budi Guru", "TeacherPass123!", "teacher")
+    admin = await _ensure_user("admin@qloot.example", "QLoot Admin", "AdminPass123!", "admin")
+    teacher = await _ensure_user("teacher@qloot.example", "Budi Guru", "TeacherPass123!", "teacher")
     for i in range(1, 4):
-        await _ensure_user(f"student{i}@qloot.local", f"Siswa {i}", "StudentPass123!", "student")
+        await _ensure_user(f"student{i}@qloot.example", f"Siswa {i}", "StudentPass123!", "student")
 
     # A sample course owned by the teacher.
     async with session_scope() as session:

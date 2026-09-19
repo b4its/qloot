@@ -124,7 +124,25 @@ async def submit_attempt(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
         # Enqueue grading (worker picks it up). Idempotent per attempt.
         if attempt.status == "submitted":
             await GradingService(db).enqueue_if_absent(attempt)
+            # If the exam belongs to an open quest, record the quest attempt so
+            # winner finalization can consider it (server-authoritative time).
+            await _record_quest_attempt_if_any(db, attempt, user)
     return attempt
+
+
+async def _record_quest_attempt_if_any(db, attempt, user) -> None:
+    from sqlalchemy import select
+
+    from app.models.quest import Quest
+    from app.services.quest_service import QuestService
+
+    quest = (
+        await db.execute(
+            select(Quest).where(Quest.exam_id == attempt.exam_id, Quest.status == "open")
+        )
+    ).scalars().first()
+    if quest is not None:
+        await QuestService(db).record_attempt(quest.id, user, exam_attempt_id=attempt.id)
 
 
 @router.get("/attempts/{attempt_id}/result", response_model=AttemptResultOut)
