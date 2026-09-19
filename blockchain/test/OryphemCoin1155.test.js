@@ -116,6 +116,29 @@ describe("OryphemCoin1155", function () {
       ).to.be.revertedWith("OPC: amount=0");
     });
 
+    it("mintBatch mints multiple ids and tracks supply", async function () {
+      await opc
+        .connect(minter)
+        .mintBatch(treasury.address, [0n, 1n], [70n, 30n], "0x");
+      expect(await opc.balanceOf(treasury.address, 0n)).to.equal(70n);
+      expect(await opc.balanceOf(treasury.address, 1n)).to.equal(30n);
+      expect(await opc["totalSupply(uint256)"](0n)).to.equal(70n);
+      expect(await opc["totalSupply(uint256)"](1n)).to.equal(30n);
+    });
+
+    it("mintBatch enforces the per-tx cap per entry", async function () {
+      const max = await opc.maxMintPerTx();
+      await expect(
+        opc.connect(minter).mintBatch(treasury.address, [0n], [max + 1n], "0x")
+      ).to.be.revertedWith("OPC: exceeds maxMintPerTx");
+    });
+
+    it("setLimits emits LimitsUpdated", async function () {
+      await expect(opc.connect(admin).setLimits(500n, 5000n))
+        .to.emit(opc, "LimitsUpdated")
+        .withArgs(500n, 5000n);
+    });
+
     it("only admin can change limits and cap must be >= max", async function () {
       await expect(opc.connect(attacker).setLimits(1n, 1n)).to.be.reverted;
       await expect(
@@ -277,6 +300,16 @@ describe("OryphemCoin1155", function () {
 
     it("non-pauser cannot pause", async function () {
       await expect(opc.connect(attacker).pause()).to.be.reverted;
+    });
+
+    it("paused blocks minting", async function () {
+      await opc.connect(pauser).pause();
+      await expect(
+        opc.connect(minter).mint(treasury.address, OPC_TOKEN_ID, 1n, "0x")
+      ).to.be.reverted;
+      await opc.connect(pauser).unpause();
+      await opc.connect(minter).mint(treasury.address, OPC_TOKEN_ID, 1n, "0x");
+      expect(await opc.balanceOf(treasury.address, OPC_TOKEN_ID)).to.equal(1n);
     });
   });
 
