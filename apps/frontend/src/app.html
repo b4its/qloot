@@ -1,13 +1,19 @@
 <!doctype html>
-<html lang="en" class="theme-init">
+<html lang="id" class="theme-init">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="QLoot — gamified learning on Web3 + AI" />
+    <meta name="description" content="QLoot — platform belajar gamifikasi dengan AI & blockchain. Kursus, jalur belajar, sertifikat digital." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     %sveltekit.head%
     <script>
-      // Apply the persisted/system theme BEFORE first paint to avoid a flash.
+      // Apply persisted/system theme BEFORE first paint to avoid a flash.
       (function () {
         try {
           var stored = localStorage.getItem("qloot-theme");
