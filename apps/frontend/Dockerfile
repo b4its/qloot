@@ -1,5 +1,5 @@
 # QLoot frontend (SvelteKit + adapter-node).
-FROM node:20-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ ENV PUBLIC_API_URL=$PUBLIC_API_URL
 RUN npm run build
 
 # --- runtime ---------------------------------------------------------------
-FROM node:20-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 
 WORKDIR /app
 ENV NODE_ENV=production \
