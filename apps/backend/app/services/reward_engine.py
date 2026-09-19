@@ -169,6 +169,9 @@ class RewardEngine:
             )
         )
         await self.session.flush()
+        from app.core import metrics
+
+        metrics.incr("reward_allocations_total", reward_type="quest_rank")
         log.info(
             "reward_allocated",
             reward_key=rkey,

@@ -103,6 +103,9 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
         item.status = "done"
         item.processed_at = datetime.now(UTC)
         await session.flush()
+        from app.core import metrics
+
+        metrics.incr("blockchain_transactions_total", method=tx.method)
         log.info("outbox_processed", topic=item.topic, tx_hash=receipt.tx_hash)
         return True
     except ChainError as exc:
@@ -111,6 +114,9 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
         tx.status = "failed"
         tx.error_code = "chain_error"
         tx.error_message = str(exc)
+        from app.core import metrics
+
+        metrics.incr("blockchain_failed_transactions_total", topic=item.topic)
         if item.attempts >= item.max_attempts:
             item.status = "failed"
             if item.topic == "reward" and (item.payload or {}).get("allocation_id"):

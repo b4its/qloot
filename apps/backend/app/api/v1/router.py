@@ -13,6 +13,7 @@ from app.api.v1 import (
     exams,
     health,
     materials,
+    metrics,
     quests,
     rankings,
     rooms,
@@ -24,6 +25,7 @@ from app.api.v1 import (
 api_router = APIRouter()
 
 api_router.include_router(health.router, prefix="/health", tags=["health"])
+api_router.include_router(metrics.router, tags=["metrics"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(courses.router, tags=["learning"])
 api_router.include_router(materials.router, prefix="/materials", tags=["materials"])
