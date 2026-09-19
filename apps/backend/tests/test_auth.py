@@ -82,9 +82,19 @@ async def test_student_cannot_create_course(client):
 
 async def test_teacher_can_create_course(client):
     await _register(client, "teach@example.com", role="teacher")
-    resp = await client.post("/api/v1/courses", json={"title": "Real Course", "description": "x"})
+    resp = await client.post(
+        "/api/v1/courses",
+        json={
+            "title": "Matematika 1A",
+            "subject": "Matematika",
+            "class_code": "1A",
+            "class_type": "IPA",
+        },
+    )
     assert resp.status_code == 201, resp.text
-    assert resp.json()["title"] == "Real Course"
+    body = resp.json()
+    assert body["title"] == "Matematika 1A"
+    assert body["class_code"] == "1A"
 
 
 async def test_sessions_listing_and_revoke(client):

@@ -48,6 +48,8 @@ class AuthService:
         full_name: str,
         password: str,
         role: str = "student",
+        class_code: str | None = None,
+        class_type: str | None = None,
         user_agent: str | None = None,
         ip_address: str | None = None,
     ) -> tuple[User, str]:
@@ -57,6 +59,8 @@ class AuthService:
 
         import uuid as _uuid  # noqa
 
+        from app.services.course_service import normalize_class_code, normalize_class_type
+
         user_id = _uuid.uuid4()
         user = User(
             id=user_id,
@@ -64,6 +68,8 @@ class AuthService:
             full_name=full_name,
             password_hash=hash_password(password),
             chain_user_ref=_compute_chain_user_ref(settings.session_secret, user_id),
+            class_code=normalize_class_code(class_code) if class_code else None,
+            class_type=normalize_class_type(class_type),
         )
         await self.users.add(user)
         await self.users.assign_role(user, role)

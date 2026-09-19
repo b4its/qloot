@@ -22,6 +22,14 @@ from app.db.base import Base, TimestampMixin, utcnow
 
 
 class Course(Base, TimestampMixin):
+    """A subject ("pelajaran") taught by a teacher to one class.
+
+    Access is class-based: a student may only open a subject whose
+    (class_code, class_type) match the student's own class. There is no
+    enrolment/purchase — teachers assign subjects to a class and students in
+    that class automatically see them.
+    """
+
     __tablename__ = "courses"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -35,6 +43,12 @@ class Course(Base, TimestampMixin):
     )
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     cover_url: Mapped[str | None] = mapped_column(String(512))
+    # Class targeting: the subject is for a specific class (e.g. "1A") and,
+    # optionally, a class type/programme (e.g. "IPA").
+    class_code: Mapped[str | None] = mapped_column(String(16), index=True)
+    class_type: Mapped[str | None] = mapped_column(String(32))
+    # Optional subject label (e.g. "Matematika") distinct from the class.
+    subject: Mapped[str | None] = mapped_column(String(128), index=True)
 
     lessons: Mapped[list[Lesson]] = relationship(
         back_populates="course", cascade="all, delete-orphan", order_by="Lesson.position"

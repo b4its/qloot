@@ -1,12 +1,17 @@
-"""Course service: CRUD with ownership enforcement."""
+"""Subject ("pelajaran") service.
+
+QLoot is a class-based e-learning system: teachers create subjects targeted at
+a class (e.g. "1A") and programme (e.g. "IPA"), and students automatically see
+the subjects that match their own class. There is no purchasing or enrolment.
+"""
 
 from __future__ import annotations
 
 import re
 import uuid
-from datetime import UTC
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError
@@ -19,21 +24,55 @@ def slugify(value: str) -> str:
     return s or uuid.uuid4().hex[:8]
 
 
+def normalize_class_code(value: str) -> str:
+    """Normalise a class code: trimmed, uppercase, no internal spaces ('1a'->'1A')."""
+    return re.sub(r"\s+", "", value).upper()
+
+
+def normalize_class_type(value: str | None) -> str | None:
+    if not value:
+        return None
+    return re.sub(r"\s+", "", value).upper()
+
+
 class CourseService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    # --- create / read -----------------------------------------------------
     async def create(self, owner: User, **data) -> Course:
-        slug = data.pop("slug", None) or slugify(data["title"])
-        existing = (
-            await self.session.execute(select(Course).where(Course.slug == slug))
+        title = data["title"]
+        slug = data.pop("slug", None) or slugify(title)
+        class_code = normalize_class_code(data.get("class_code") or "UMUM")
+        class_type = normalize_class_type(data.get("class_type"))
+        # A subject is unique per (class, class_type, title).
+        dup = (
+            await self.session.execute(
+                select(Course).where(
+                    Course.class_code == class_code,
+                    func.coalesce(Course.class_type, "") == (class_type or ""),
+                    func.lower(Course.title) == title.lower(),
+                )
+            )
         ).scalar_one_or_none()
-        if existing is not None:
-            raise ConflictError("A course with this slug already exists")
-        course = Course(owner_id=owner.id, slug=slug, **data)
+        if dup is not None:
+            raise ConflictError("Subjek dengan kelas dan nama yang sama sudah ada")
+
+        base_slug = slug
+        while (
+            await self.session.execute(select(Course).where(Course.slug == slug))
+        ).scalar_one_or_none() is not None:
+            slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
+
+        course = Course(
+            owner_id=owner.id,
+            slug=slug,
+            class_code=class_code,
+            class_type=class_type,
+            **{k: v for k, v in data.items() if k not in ("class_code", "class_type")},
+        )
         self.session.add(course)
         await self.session.flush()
-        # Owner is also a member (teacher role in the course).
         self.session.add(CourseMember(course_id=course.id, user_id=owner.id, role="teacher"))
         await self.session.flush()
         return course
@@ -41,20 +80,104 @@ class CourseService:
     async def get(self, course_id: uuid.UUID) -> Course:
         course = await self.session.get(Course, course_id)
         if course is None:
-            raise NotFoundError("Course not found")
+            raise NotFoundError("Pelajaran tidak ditemukan")
         return course
 
-    async def list_all(
-        self, *, published_only: bool = True, limit: int = 50, offset: int = 0
-    ) -> list[Course]:
-        stmt = select(Course).order_by(Course.created_at.desc()).limit(limit).offset(offset)
-        if published_only:
-            stmt = stmt.where(Course.is_published.is_(True))
+    async def get_accessible(self, course_id: uuid.UUID, user: User) -> Course:
+        """Fetch a subject only if the user may view it (owner, admin or same class)."""
+        course = await self.get(course_id)
+        if not self.can_view(course, user):
+            raise ForbiddenError("Anda tidak memiliki akses ke pelajaran ini")
+        return course
+
+    def can_view(self, course: Course, user: User) -> bool:
+        if user.has_role("admin") or course.owner_id == user.id:
+            return True
+        # Students (and other teachers) may view a published subject that targets
+        # their class, or any subject broadcast to all classes ("UMUM").
+        if not course.is_published:
+            return False
+        if course.class_code in (None, "", "UMUM"):
+            return True
+        if not user.class_code:
+            return False
+        if normalize_class_code(user.class_code) != course.class_code:
+            return False
+        if course.class_type:
+            return normalize_class_type(user.class_type) == course.class_type
+        return True
+
+    async def list_for_user(self, user: User, *, limit: int = 100, offset: int = 0) -> list[Course]:
+        """Subjects visible to the user.
+
+        - teacher/admin: subjects they own (admin: all)
+        - student: published subjects matching their class (or broadcast "UMUM")
+        """
+        stmt = select(Course).order_by(Course.class_code, Course.title).limit(limit).offset(offset)
+        if user.has_role("admin"):
+            pass
+        elif user.has_role("teacher"):
+            stmt = stmt.where(Course.owner_id == user.id)
+        else:
+            if not user.class_code:
+                return []
+            cc = normalize_class_code(user.class_code)
+            ct = normalize_class_type(user.class_type)
+            stmt = stmt.where(Course.is_published.is_(True)).where(
+                (Course.class_code.in_([cc, "UMUM"]))
+                & ((Course.class_type.is_(None)) | (Course.class_type == ct))
+            )
         return list((await self.session.execute(stmt)).scalars().all())
+
+    async def out_payload(self, courses: list[Course]) -> list[dict]:
+        """Serialize courses with owner name and lesson count (avoids N+1)."""
+        if not courses:
+            return []
+        ids = [c.id for c in courses]
+        owner_ids = {c.owner_id for c in courses}
+        owners = {
+            u.id: u.full_name
+            for u in (await self.session.execute(select(User).where(User.id.in_(owner_ids))))
+            .scalars()
+            .all()
+        }
+        rows = (
+            await self.session.execute(
+                select(Lesson.course_id, func.count(Lesson.id))
+                .where(Lesson.course_id.in_(ids))
+                .group_by(Lesson.course_id)
+            )
+        ).all()
+        counts: dict[uuid.UUID, int] = {row[0]: int(row[1]) for row in rows}
+        out = []
+        for c in courses:
+            out.append(
+                {
+                    "id": c.id,
+                    "title": c.title,
+                    "slug": c.slug,
+                    "description": c.description,
+                    "owner_id": c.owner_id,
+                    "owner_name": owners.get(c.owner_id),
+                    "is_published": c.is_published,
+                    "cover_url": c.cover_url,
+                    "subject": c.subject,
+                    "class_code": c.class_code,
+                    "class_type": c.class_type,
+                    "lesson_count": int(counts.get(c.id, 0)),
+                    "created_at": c.created_at,
+                    "updated_at": c.updated_at,
+                }
+            )
+        return out
 
     async def update(self, course_id: uuid.UUID, user: User, **data) -> Course:
         course = await self.get(course_id)
         self._authorize(course, user)
+        if data.get("class_code"):
+            data["class_code"] = normalize_class_code(data["class_code"])
+        if "class_type" in data:
+            data["class_type"] = normalize_class_type(data.get("class_type"))
         for k, v in data.items():
             if v is not None:
                 setattr(course, k, v)
@@ -78,7 +201,7 @@ class CourseService:
     async def get_lesson(self, lesson_id: uuid.UUID) -> Lesson:
         lesson = await self.session.get(Lesson, lesson_id)
         if lesson is None:
-            raise NotFoundError("Lesson not found")
+            raise NotFoundError("Materi pelajaran tidak ditemukan")
         return lesson
 
     async def list_lessons(self, course_id: uuid.UUID) -> list[Lesson]:
@@ -98,9 +221,10 @@ class CourseService:
     async def set_progress(
         self, lesson_id: uuid.UUID, user: User, *, progress_percent: int, completed: bool
     ) -> LessonProgress:
-        from datetime import datetime
-
         lesson = await self.get_lesson(lesson_id)
+        course = await self.get(lesson.course_id)
+        if not self.can_view(course, user):
+            raise ForbiddenError("Anda tidak memiliki akses ke materi ini")
         stmt = select(LessonProgress).where(
             LessonProgress.user_id == user.id, LessonProgress.lesson_id == lesson_id
         )
@@ -126,27 +250,13 @@ class CourseService:
         stmt = select(LessonProgress).where(LessonProgress.user_id == user.id)
         return list((await self.session.execute(stmt)).scalars().all())
 
-    async def enroll(self, course_id: uuid.UUID, user: User) -> CourseMember:
-        """Join a published course (idempotent)."""
-        course = await self.get(course_id)
-        if not course.is_published and not (user.has_role("admin") or course.owner_id == user.id):
-            raise ForbiddenError("Course is not open for enrolment")
-        stmt = select(CourseMember).where(
-            CourseMember.course_id == course_id, CourseMember.user_id == user.id
-        )
-        member = (await self.session.execute(stmt)).scalar_one_or_none()
-        if member is None:
-            member = CourseMember(course_id=course_id, user_id=user.id, role="student")
-            self.session.add(member)
-            await self.session.flush()
-        return member
+    async def my_subjects(self, user: User) -> list[Course]:
+        """Alias with clearer semantics for students."""
+        return await self.list_for_user(user)
 
-    async def enrolled(self, user: User) -> list[CourseMember]:
-        stmt = select(CourseMember).where(CourseMember.user_id == user.id)
-        return list((await self.session.execute(stmt)).scalars().all())
-
+    # --- authorization -----------------------------------------------------
     def _authorize(self, course: Course, user: User) -> None:
         if user.has_role("admin"):
             return
         if course.owner_id != user.id:
-            raise ForbiddenError("You do not own this course")
+            raise ForbiddenError("Anda tidak memiliki pelajaran ini")

@@ -23,9 +23,7 @@ async def test_academic_dashboard_empty_then_with_grades(client):
     assert d0.json()["average"] == 0
 
     for subject, grade in [("Fisika", 92), ("Matematika", 85), ("Kimia", 64), ("B. Inggris", 78)]:
-        r = await client.post(
-            "/api/v1/career/grades", json={"subject": subject, "grade": grade}
-        )
+        r = await client.post("/api/v1/career/grades", json={"subject": subject, "grade": grade})
         assert r.status_code == 200, r.text
 
     d = await client.get("/api/v1/career/dashboard")
@@ -99,7 +97,11 @@ async def test_consultation_booking_and_cancel(client):
 
     created = await client.post(
         "/api/v1/career/consultations",
-        json={"counselor": "Bu Ratna Wijaya", "topic": "Pemilihan jurusan", "notes": "butuh arahan"},
+        json={
+            "counselor": "Bu Ratna Wijaya",
+            "topic": "Pemilihan jurusan",
+            "notes": "butuh arahan",
+        },
     )
     assert created.status_code == 200, created.text
     cid = created.json()["id"]

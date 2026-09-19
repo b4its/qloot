@@ -11,10 +11,20 @@ from app.schemas.common import ORMModel
 
 
 class CourseCreate(BaseModel):
+    """Create a subject ("pelajaran") for a class.
+
+    `class_code` is the target class (e.g. "1A"). `class_type` is the optional
+    programme (e.g. "IPA"). `subject` is the subject label (e.g. "Matematika").
+    """
+
     title: str = Field(min_length=2, max_length=255)
     slug: str | None = Field(default=None, max_length=255)
     description: str | None = None
     cover_url: str | None = None
+    subject: str | None = Field(default=None, max_length=128)
+    class_code: str = Field(min_length=1, max_length=16)
+    class_type: str | None = Field(default=None, max_length=32)
+    is_published: bool = True
 
 
 class CourseUpdate(BaseModel):
@@ -22,6 +32,9 @@ class CourseUpdate(BaseModel):
     description: str | None = None
     cover_url: str | None = None
     is_published: bool | None = None
+    subject: str | None = Field(default=None, max_length=128)
+    class_code: str | None = Field(default=None, max_length=16)
+    class_type: str | None = Field(default=None, max_length=32)
 
 
 class CourseOut(ORMModel):
@@ -32,6 +45,11 @@ class CourseOut(ORMModel):
     owner_id: uuid.UUID
     is_published: bool
     cover_url: str | None
+    subject: str | None = None
+    class_code: str | None = None
+    class_type: str | None = None
+    owner_name: str | None = None
+    lesson_count: int = 0
     created_at: datetime
     updated_at: datetime
 

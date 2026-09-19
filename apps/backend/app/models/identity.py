@@ -61,6 +61,10 @@ class User(Base, TimestampMixin):
     chain_user_ref: Mapped[str] = mapped_column(String(66), unique=True, nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(512))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Class targeting for students, e.g. class_code="1A", class_type="IPA".
+    # A student can only access subjects whose (class_code, class_type) match.
+    class_code: Mapped[str | None] = mapped_column(String(16), index=True)
+    class_type: Mapped[str | None] = mapped_column(String(32))
 
     roles: Mapped[list[UserRole]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"

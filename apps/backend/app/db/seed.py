@@ -59,11 +59,27 @@ async def _ensure_roles() -> None:
                 session.add(Role(name=name, description=desc))
 
 
-async def _ensure_user(email: str, full_name: str, role: str) -> User:
+async def _ensure_user(
+    email: str,
+    full_name: str,
+    role: str,
+    class_code: str | None = None,
+    class_type: str | None = None,
+) -> User:
     async with session_scope() as session:
         users = UserRepository(session)
         existing = await users.get_by_email(email)
         if existing is not None:
+            # Backfill class fields for pre-existing rows.
+            if class_code and not existing.class_code:
+                from app.services.course_service import (
+                    normalize_class_code,
+                    normalize_class_type,
+                )
+
+                existing.class_code = normalize_class_code(class_code)
+                existing.class_type = normalize_class_type(class_type)
+                await session.flush()
             return existing
         auth = AuthService(session)
         user, _ = await auth.register(
@@ -71,8 +87,10 @@ async def _ensure_user(email: str, full_name: str, role: str) -> User:
             full_name=full_name,
             password=PASSWORD_BY_ROLE[role],
             role=role,
+            class_code=class_code,
+            class_type=class_type,
         )
-        log.info("seed_user_created", email=email, role=role)
+        log.info("seed_user_created", email=email, role=role, class_code=class_code)
         return user
 
 
@@ -148,67 +166,172 @@ async def main() -> None:
     admin = await _ensure_user("admin@qloot.example", "QLoot Admin", "admin")
     teacher = await _ensure_user("teacher@qloot.example", "Budi Guru", "teacher")
     teacher2 = await _ensure_user("teacher2@qloot.example", "Sari Guru", "teacher")
-    students = [
-        await _ensure_user(f"student{i}@qloot.example", f"Siswa {i}", "student")
-        for i in range(1, 6)
+
+    # Students are assigned to classes (class_code) and programmes (class_type).
+    student_specs = [
+        ("student1@qloot.example", "Siswa 1A", "1A", "IPA"),
+        ("student2@qloot.example", "Siswa 1A", "1A", "IPA"),
+        ("student3@qloot.example", "Siswa 2D", "2D", "IPS"),
+        ("student4@qloot.example", "Siswa 2D", "2D", "IPS"),
+        ("student5@qloot.example", "Siswa 3A", "3A", "IPA"),
+    ]
+    students: list[User] = []
+    for email, name, cc, ct in student_specs:
+        students.append(await _ensure_user(email, name, "student", class_code=cc, class_type=ct))
+
+    # --- subjects (pelajaran) targeted at classes -------------------------
+    # (title, subject, class_code, class_type, description, lessons, owner)
+    subject_specs: list[tuple[str, str, str, str | None, str, list[tuple[str, str]], str]] = [
+        (
+            "Matematika 1A",
+            "Matematika",
+            "1A",
+            "IPA",
+            "Aljabar dasar, bilangan, dan logika matematika untuk kelas 1A.",
+            [
+                (
+                    "Bilangan & Operasi",
+                    "# Bilangan\nOperasi dasar pada bilangan bulat dan pecahan.",
+                ),
+                ("Aljabar Dasar", "# Aljabar\nPengenalan variabel dan persamaan linear."),
+                ("Logika Matematika", "# Logika\nPernyataan, konjungsi, disjungsi, dan implikasi."),
+            ],
+            "teacher",
+        ),
+        (
+            "Bahasa Indonesia 1A",
+            "Bahasa Indonesia",
+            "1A",
+            "IPA",
+            "Membaca, menulis, dan tata bahasa untuk kelas 1A.",
+            [
+                ("Teks Deskripsi", "# Teks Deskripsi\nCiri dan struktur teks deskripsi."),
+                ("Puisi", "# Puisi\nUnsur intrinsik dan ekstrinsik puisi."),
+            ],
+            "teacher",
+        ),
+        (
+            "Ekonomi 2D",
+            "Ekonomi",
+            "2D",
+            "IPS",
+            "Dasar-dasar ilmu ekonomi untuk kelas 2D.",
+            [
+                (
+                    "Kebutuhan & Kelangkaan",
+                    "# Ekonomi\nKonsep kebutuhan, keinginan, dan kelangkaan.",
+                ),
+                ("Permintaan & Penawaran", "# Pasar\nHukum permintaan dan penawaran."),
+            ],
+            "teacher2",
+        ),
+        (
+            "Sosiologi 2D",
+            "Sosiologi",
+            "2D",
+            "IPS",
+            "Interaksi sosial dan struktur masyarakat untuk kelas 2D.",
+            [
+                ("Interaksi Sosial", "# Interaksi\nBentuk dan faktor interaksi sosial."),
+            ],
+            "teacher2",
+        ),
+        (
+            "Fisika 3A",
+            "Fisika",
+            "3A",
+            "IPA",
+            "Mekanika dan gelombang untuk kelas 3A.",
+            [
+                ("Kinematika", "# Kinematika\nGerak lurus dan percepatan."),
+                ("Dinamika", "# Dinamika\nHukum Newton dan gaya."),
+            ],
+            "teacher",
+        ),
+        (
+            "Pengumuman Sekolah",
+            "Umum",
+            "UMUM",
+            None,
+            "Informasi yang berlaku untuk semua kelas.",
+            [
+                ("Jadwal Ujian Akhir", "# Jadwal\nUjian akhir semester dilaksanakan minggu depan."),
+            ],
+            "teacher",
+        ),
     ]
 
-    # --- courses, lessons, materials --------------------------------------
     async with session_scope() as session:
         from app.models.learning import Course, Lesson
 
-        course = (
-            await session.execute(select(Course).where(Course.slug == "dasar-pemrograman"))
-        ).scalar_one_or_none()
-        if course is None:
-            svc = CourseService(session)
-            course = await svc.create(
-                teacher,
-                title="Dasar Pemrograman",
-                description="Pengantar konsep dasar pemrograman dan logika.",
-                is_published=True,
-            )
-            log.info("seed_course_created", course=str(course.id))
-
-        # Ensure all lessons exist individually (idempotent per lesson).
-        lesson_specs = [
-            ("Pengenalan Variabel", "# Variabel\nVariabel adalah wadah untuk menyimpan nilai."),
-            ("Struktur Kontrol", "# Struktur Kontrol\nIf, else, dan loop mengatur alur program."),
-            ("Fungsi", "# Fungsi\nFungsi mengelompokkan kode yang dapat dipakai ulang."),
-        ]
-        existing_lessons = {
-            lesson.title
-            for lesson in (
-                await session.execute(select(Lesson).where(Lesson.course_id == course.id))
-            )
-            .scalars()
-            .all()
-        }
-        for pos, (title, body) in enumerate(lesson_specs):
-            if title in existing_lessons:
-                continue
-            await CourseService(session).add_lesson(
-                course.id, teacher, title=title, content_md=body, position=pos, is_published=True
-            )
+        owner_map = {"teacher": teacher, "teacher2": teacher2}
+        svc = CourseService(session)
+        for title, subject, cls_code, cls_type, desc, lessons, owner_key in subject_specs:
+            owner = owner_map[owner_key]
+            existing_subject = (
+                await session.execute(
+                    select(Course).where(Course.class_code == cls_code, Course.title == title)
+                )
+            ).scalar_one_or_none()
+            if existing_subject is None:
+                course = await svc.create(
+                    owner,
+                    title=title,
+                    subject=subject,
+                    class_code=cls_code,
+                    class_type=cls_type,
+                    description=desc,
+                    is_published=True,
+                )
+                log.info("seed_subject_created", subject=title, class_code=cls_code)
+            else:
+                course = existing_subject
+            # Ensure lessons exist (idempotent per lesson).
+            existing_lessons = {
+                lesson.title
+                for lesson in (
+                    await session.execute(select(Lesson).where(Lesson.course_id == course.id))
+                )
+                .scalars()
+                .all()
+            }
+            for pos, (ltitle, body) in enumerate(lessons):
+                if ltitle in existing_lessons:
+                    continue
+                await CourseService(session).add_lesson(
+                    course.id,
+                    owner,
+                    title=ltitle,
+                    content_md=body,
+                    position=pos,
+                    is_published=True,
+                )
         await session.flush()
 
-        # Materials owned by the teacher.
+        # The primary class-1A subject is used for the exam/quest simulation.
+        primary = (
+            await session.execute(
+                select(Course).where(Course.class_code == "1A", Course.title == "Matematika 1A")
+            )
+        ).scalar_one()
+
+        # Materials owned by the teachers.
         mat1 = await _seed_material(
             session,
             teacher,
-            "materi-pemrograman.pdf",
-            "Pemrograman adalah proses menulis instruksi. Variabel menyimpan nilai. "
-            "Fungsi mengelompokkan kode. Algoritma adalah urutan langkah penyelesaian masalah.",
+            "materi-matematika.pdf",
+            "Matematika mempelajari bilangan, aljabar, dan logika. Variabel menyimpan nilai. "
+            "Persamaan linear adalah persamaan derajat satu.",
         )
         await _seed_material(
             session,
             teacher2,
-            "materi-ai.pdf",
-            "Kecerdasan buatan mempelajari agen cerdas. Pembelajaran mesin adalah cabangnya. "
-            "Model dilatih menggunakan data berlabel.",
+            "materi-ekonomi.pdf",
+            "Ekonomi mempelajari kebutuhan, kelangkaan, permintaan, dan penawaran. "
+            "Pasar mempertemukan penjual dan pembeli.",
         )
         await session.flush()
-        course_id = course.id
+        course_id = primary.id
         mat1_id = mat1.id
 
     # --- exam + quest (published) -----------------------------------------
@@ -294,10 +417,10 @@ async def main() -> None:
     async with session_scope() as session:
         from app.models.quest import Task
 
-        existing = (
+        existing_task = (
             await session.execute(select(Task).where(Task.title == "Baca 1 Materi"))
         ).scalar_one_or_none()
-        if existing is None:
+        if existing_task is None:
             session.add(
                 Task(
                     title="Baca 1 Materi",

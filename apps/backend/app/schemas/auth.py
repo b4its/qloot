@@ -16,6 +16,9 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     # Students self-register; teacher/admin accounts are created by an admin.
     role: str = Field(default="student", pattern="^(student|teacher)$")
+    # For students: the class they belong to (e.g. "1A") and programme ("IPA").
+    class_code: str | None = Field(default=None, max_length=16)
+    class_type: str | None = Field(default=None, max_length=32)
 
 
 class LoginRequest(BaseModel):
@@ -38,6 +41,8 @@ class UserOut(ORMModel):
     avatar_url: str | None = None
     created_at: datetime
     roles: list[str] = Field(default_factory=list)
+    class_code: str | None = None
+    class_type: str | None = None
 
 
 class SessionOut(ORMModel):

@@ -34,6 +34,8 @@ def _user_out(user) -> UserOut:
         avatar_url=user.avatar_url,
         created_at=user.created_at,
         roles=sorted(user.role_names),
+        class_code=user.class_code,
+        class_type=user.class_type,
     )
 
 
@@ -61,6 +63,8 @@ async def register(
             full_name=payload.full_name,
             password=payload.password,
             role=payload.role,
+            class_code=payload.class_code,
+            class_type=payload.class_type,
             user_agent=request.headers.get("user-agent"),
             ip_address=request.client.host if request.client else None,
         )

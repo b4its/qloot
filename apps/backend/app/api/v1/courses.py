@@ -1,4 +1,8 @@
-"""Learning endpoints: courses, lessons, progress."""
+"""Pelajaran (subject) endpoints.
+
+Class-based e-learning: teachers create subjects targeted at a class, students
+see only the subjects matching their own class. No purchasing or enrolment.
+"""
 
 from __future__ import annotations
 
@@ -25,22 +29,34 @@ router = APIRouter()
 
 
 @router.get("/courses", response_model=list[CourseOut])
-async def list_courses(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
-    # Students only see published courses; teachers/admins see all.
-    published_only = not user.has_role("teacher", "admin")
+async def list_courses(user: CurrentUser, db: DbSession, limit: int = 100, offset: int = 0):
+    """Subjects visible to the caller (students: their class only)."""
     service = CourseService(db)
-    return await service.list_all(published_only=published_only, limit=limit, offset=offset)
+    courses = await service.list_for_user(user, limit=limit, offset=offset)
+    return await service.out_payload(courses)
+
+
+@router.get("/me/subjects", response_model=list[CourseOut])
+async def my_subjects(user: CurrentUser, db: DbSession):
+    """Convenience alias: the subjects the current user can access."""
+    service = CourseService(db)
+    courses = await service.list_for_user(user)
+    return await service.out_payload(courses)
 
 
 @router.post("/courses", response_model=CourseOut, status_code=status.HTTP_201_CREATED)
 async def create_course(payload: CourseCreate, user: TeacherUser, db: DbSession):
     async with transaction(db):
-        return await CourseService(db).create(user, **payload.model_dump())
+        service = CourseService(db)
+        course = await service.create(user, **payload.model_dump())
+        return (await service.out_payload([course]))[0]
 
 
 @router.get("/courses/{course_id}", response_model=CourseOut)
 async def get_course(course_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return await CourseService(db).get(course_id)
+    service = CourseService(db)
+    course = await service.get_accessible(course_id, user)
+    return (await service.out_payload([course]))[0]
 
 
 @router.patch("/courses/{course_id}", response_model=CourseOut)
@@ -48,21 +64,23 @@ async def update_course(
     course_id: uuid.UUID, payload: CourseUpdate, user: TeacherUser, db: DbSession
 ):
     async with transaction(db):
-        return await CourseService(db).update(
-            course_id, user, **payload.model_dump(exclude_unset=True)
-        )
+        service = CourseService(db)
+        course = await service.update(course_id, user, **payload.model_dump(exclude_unset=True))
+        return (await service.out_payload([course]))[0]
 
 
 @router.delete("/courses/{course_id}", response_model=Message)
 async def delete_course(course_id: uuid.UUID, user: TeacherUser, db: DbSession):
     async with transaction(db):
         await CourseService(db).delete(course_id, user)
-    return Message(message="Course deleted")
+    return Message(message="Pelajaran dihapus")
 
 
 @router.get("/courses/{course_id}/lessons", response_model=list[LessonOut])
 async def list_lessons(course_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return await CourseService(db).list_lessons(course_id)
+    service = CourseService(db)
+    await service.get_accessible(course_id, user)
+    return await service.list_lessons(course_id)
 
 
 @router.post(
@@ -77,7 +95,10 @@ async def create_lesson(
 
 @router.get("/lessons/{lesson_id}", response_model=LessonOut)
 async def get_lesson(lesson_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return await CourseService(db).get_lesson(lesson_id)
+    service = CourseService(db)
+    lesson = await service.get_lesson(lesson_id)
+    await service.get_accessible(lesson.course_id, user)
+    return lesson
 
 
 @router.patch("/lessons/{lesson_id}", response_model=LessonOut)
@@ -103,16 +124,3 @@ async def set_progress(
 @router.get("/me/learning-progress", response_model=list[ProgressOut])
 async def my_progress(user: CurrentUser, db: DbSession):
     return await CourseService(db).my_progress(user)
-
-
-@router.post("/courses/{course_id}/enroll", response_model=dict)
-async def enroll(course_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    async with transaction(db):
-        member = await CourseService(db).enroll(course_id, user)
-    return {"course_id": str(member.course_id), "role": member.role}
-
-
-@router.get("/me/enrollments", response_model=list[dict])
-async def my_enrollments(user: CurrentUser, db: DbSession):
-    rows = await CourseService(db).enrolled(user)
-    return [{"course_id": str(m.course_id), "role": m.role} for m in rows]

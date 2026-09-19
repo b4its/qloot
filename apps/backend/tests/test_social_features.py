@@ -11,11 +11,15 @@ from tests.pdf_util import make_pdf
 pytestmark = pytest.mark.integration
 
 
-async def _register(client, email, role="student", name="Test User"):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "full_name": name, "password": "Password123!", "role": role},
-    )
+async def _register(
+    client, email, role="student", name="Test User", class_code=None, class_type=None
+):
+    payload = {"email": email, "full_name": name, "password": "Password123!", "role": role}
+    if class_code:
+        payload["class_code"] = class_code
+    if class_type:
+        payload["class_type"] = class_type
+    r = await client.post("/api/v1/auth/register", json=payload)
     assert r.status_code == 201, r.text
     return r.json()
 
@@ -50,9 +54,7 @@ async def test_admin_broadcast_notification(client):
     assert r.status_code == 201
     # Promote to admin directly via DB is covered elsewhere; broadcast requires admin.
     # Here we only assert a non-admin is rejected and the endpoint exists.
-    resp = await client.post(
-        "/api/v1/admin/notifications", json={"title": "Hi", "body": "all"}
-    )
+    resp = await client.post("/api/v1/admin/notifications", json={"title": "Hi", "body": "all"})
     assert resp.status_code == 403
 
 
@@ -86,29 +88,43 @@ async def test_material_summary_and_qa(client):
     assert 0 <= ask.json()["confidence_bp"] <= 10000
 
 
-async def test_course_enroll_and_list(client):
+async def test_class_based_subject_access(client):
+    """A student only sees subjects for their own class (+ broadcasts)."""
+    # Teacher creates a 1A subject and a 2D subject.
     r = await client.post(
         "/api/v1/auth/register",
         json={
-            "email": "t_enroll@ex.com",
-            "full_name": "T Enroll",
+            "email": "t_class@ex.com",
+            "full_name": "T Class",
             "password": "Password123!",
             "role": "teacher",
         },
     )
     assert r.status_code == 201
-    course = await client.post(
-        "/api/v1/courses", json={"title": "Enroll Course", "description": "x"}
+    a = await client.post(
+        "/api/v1/courses",
+        json={"title": "Kelas-A Sains", "class_code": "1A", "class_type": "IPA"},
     )
-    course_id = course.json()["id"]
-    await client.patch(f"/api/v1/courses/{course_id}", json={"is_published": True})
+    assert a.status_code == 201, a.text
+    b = await client.post(
+        "/api/v1/courses",
+        json={"title": "Kelas-D Sosial", "class_code": "2D", "class_type": "IPS"},
+    )
+    assert b.status_code == 201, b.text
+    broadcast = await client.post(
+        "/api/v1/courses",
+        json={"title": "Broadcast Sekolah", "class_code": "UMUM"},
+    )
+    assert broadcast.status_code == 201, broadcast.text
     await client.post("/api/v1/auth/logout")
 
-    await _register(client, "s_enroll@ex.com")
-    enr = await client.post(f"/api/v1/courses/{course_id}/enroll")
-    assert enr.status_code == 200, enr.text
-    mine = await client.get("/api/v1/me/enrollments")
-    assert any(e["course_id"] == course_id for e in mine.json())
+    # A 1A student sees the 1A subject + the broadcast, never the 2D subject.
+    await _register(client, "s_1a@ex.com", class_code="1A", class_type="IPA")
+    subs = await client.get("/api/v1/courses")
+    titles = {s["title"] for s in subs.json()}
+    assert "Kelas-A Sains" in titles
+    assert "Broadcast Sekolah" in titles
+    assert "Kelas-D Sosial" not in titles
 
 
 async def test_room_live_and_events_and_invite(client):
@@ -132,9 +148,7 @@ async def test_room_live_and_events_and_invite(client):
     assert events.status_code == 200
     assert any(e["event_type"] == "opened" for e in events.json())
 
-    inv = await client.post(
-        f"/api/v1/rooms/{room_id}/invite", json={"email": "guest@example.com"}
-    )
+    inv = await client.post(f"/api/v1/rooms/{room_id}/invite", json={"email": "guest@example.com"})
     assert inv.status_code == 200, inv.text
     code = inv.json()["code"]
     await client.post("/api/v1/auth/logout")
