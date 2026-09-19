@@ -3,10 +3,12 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { auth, hasRole } from "$lib/stores/auth";
+  import { notifications } from "$lib/stores/notifications";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
 
   onMount(() => {
     auth.load();
+    notifications.refresh();
   });
 
   const nav = [
@@ -17,6 +19,7 @@
     { href: "/tasks", label: "Tasks", icon: "✅" },
     { href: "/ranking", label: "Ranking", icon: "📊" },
     { href: "/wallet", label: "Wallet", icon: "💎" },
+    { href: "/badges", label: "Badges", icon: "🏅" },
   ];
 
   let mobileOpen = false;
@@ -24,6 +27,7 @@
 
   async function logout() {
     await auth.logout();
+    notifications.clear();
     window.location.href = "/";
   }
 </script>
@@ -68,6 +72,19 @@
       <div class="ml-auto flex items-center gap-2">
         <ThemeToggle />
         {#if user}
+          <a
+            href="/notifications"
+            class="btn-ghost relative h-9 w-9 !px-0"
+            aria-label="Notifications"
+          >
+            🔔
+            {#if $notifications > 0}
+              <span
+                class="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
+                >{$notifications}</span
+              >
+            {/if}
+          </a>
           <div class="hidden items-center gap-2 sm:flex">
             <a href="/profile" class="text-sm font-medium">{user.full_name}</a>
             <button class="btn-ghost" on:click={logout}>Logout</button>

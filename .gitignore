@@ -52,3 +52,6 @@ test-results/
 # Local object storage (dev)
 apps/backend/.storage/
 .storage/
+
+# Auto-loop state
+.opencode/auto-loop.local.md

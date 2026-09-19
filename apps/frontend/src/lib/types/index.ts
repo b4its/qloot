@@ -238,3 +238,76 @@ export interface Material {
   status: string;
   created_at: string;
 }
+
+export interface Notification {
+  id: string;
+  kind: string;
+  title: string;
+  body?: string | null;
+  data?: Record<string, unknown> | null;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface Badge {
+  code: string;
+  name: string;
+  description?: string | null;
+  icon: string;
+  points: number;
+}
+
+export interface UserBadge {
+  badge: Badge;
+  awarded_at: string;
+  meta?: Record<string, unknown> | null;
+}
+
+export interface LiveEntry {
+  rank: number;
+  user_id: string;
+  score_bp: number;
+  is_present: boolean;
+}
+
+export interface RoomEvent {
+  id: string;
+  event_type: string;
+  payload?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface SummaryResult {
+  summary: string;
+  key_points: string[];
+}
+
+export interface AskResult {
+  answer: string;
+  confidence_bp: number;
+}
+
+export interface TeacherAnalytics {
+  exams: number;
+  graded_attempts: number;
+  average_score_bp: number;
+  pass_rate_bp: number;
+  quests: number;
+  winners: number;
+  opc_awarded: number;
+}
+
+export interface SubmissionRow {
+  answer_id: string;
+  exam_id: string;
+  exam_title: string;
+  attempt_id: string;
+  student_id: string;
+  question_id: string;
+  prompt: string;
+  answer_text?: string | null;
+  score_bp?: number | null;
+  max_score_bp: number;
+  feedback?: string | null;
+  similarity_bp?: number | null;
+}
