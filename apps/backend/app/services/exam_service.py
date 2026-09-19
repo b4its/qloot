@@ -49,7 +49,7 @@ class ExamService:
             raise NotFoundError("Exam not found")
         return exam
 
-    async def list(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Exam]:
+    async def list_all(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Exam]:
         stmt = select(Exam).order_by(Exam.created_at.desc()).limit(limit).offset(offset)
         if not user.has_role("teacher", "admin"):
             stmt = stmt.where(Exam.is_active.is_(True))
@@ -150,6 +150,11 @@ class ExamService:
             raise ForbiddenError("You cannot answer this attempt")
         if attempt.status not in ("in_progress",):
             raise ConflictError("Attempt is not in progress")
+        # The question must belong to the attempt's exam; otherwise a student
+        # could inject answers for questions from other exams and skew grading.
+        question = await self.session.get(Question, question_id)
+        if question is None or question.exam_id != attempt.exam_id:
+            raise NotFoundError("Question not found in this exam")
         stmt = select(StudentAnswer).where(
             StudentAnswer.attempt_id == attempt_id, StudentAnswer.question_id == question_id
         )

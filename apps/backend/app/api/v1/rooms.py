@@ -18,7 +18,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[RoomOut])
 async def list_rooms(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
-    return await RoomService(db).list(user, limit=limit, offset=offset)
+    return await RoomService(db).list_all(user, limit=limit, offset=offset)
 
 
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)

@@ -31,16 +31,35 @@ def _row(user_id, score_bp, opc, position) -> dict:
 
 @router.get("/global")
 async def global_ranking(db: DbSession, user: CurrentUser, limit: int = 50):
+    # Best score per (user, exam) so retries don't double-count, then sum across
+    # exams for the global total.
+    best_per_exam = (
+        select(
+            ExamAttempt.user_id.label("user_id"),
+            func.max(ExamAttempt.score_bp).label("best"),
+        )
+        .where(ExamAttempt.score_bp.is_not(None))
+        .group_by(ExamAttempt.user_id, ExamAttempt.exam_id)
+        .subquery()
+    )
+    totals = (
+        select(
+            best_per_exam.c.user_id.label("user_id"),
+            func.coalesce(func.sum(best_per_exam.c.best), 0).label("score"),
+        )
+        .group_by(best_per_exam.c.user_id)
+        .subquery()
+    )
     stmt = (
         select(
             User.id,
-            func.coalesce(func.sum(ExamAttempt.score_bp), 0).label("score"),
+            func.coalesce(totals.c.score, 0).label("score"),
             func.coalesce(WalletAccount.cached_balance, 0).label("opc"),
         )
-        .outerjoin(ExamAttempt, ExamAttempt.user_id == User.id)
+        .outerjoin(totals, totals.c.user_id == User.id)
         .outerjoin(WalletAccount, WalletAccount.user_id == User.id)
-        .group_by(User.id, WalletAccount.cached_balance)
-        .order_by(func.coalesce(func.sum(ExamAttempt.score_bp), 0).desc())
+        .group_by(User.id, totals.c.score, WalletAccount.cached_balance)
+        .order_by(func.coalesce(totals.c.score, 0).desc(), User.id.asc())
         .limit(limit)
     )
     rows = (await db.execute(stmt)).all()
@@ -52,20 +71,39 @@ async def global_ranking(db: DbSession, user: CurrentUser, limit: int = 50):
 
 @router.get("/rooms/{room_id}")
 async def room_ranking(room_id: uuid.UUID, db: DbSession, user: CurrentUser, limit: int = 50):
+    from app.models.exam import Exam
     from app.models.room import RoomMember
 
+    # Only count attempts for exams that belong to this room, otherwise scores
+    # from unrelated exams would leak into the room leaderboard. Use the best
+    # score per (user, exam) so retries don't double-count.
+    room_exams = select(Exam.id).where(Exam.room_id == room_id).scalar_subquery()
+    best_per_exam = (
+        select(
+            ExamAttempt.user_id.label("user_id"),
+            func.max(ExamAttempt.score_bp).label("best"),
+        )
+        .where(ExamAttempt.score_bp.is_not(None))
+        .where(ExamAttempt.exam_id.in_(room_exams))
+        .group_by(ExamAttempt.user_id, ExamAttempt.exam_id)
+        .subquery()
+    )
+    room_totals = (
+        select(
+            best_per_exam.c.user_id.label("user_id"),
+            func.coalesce(func.sum(best_per_exam.c.best), 0).label("score"),
+        )
+        .group_by(best_per_exam.c.user_id)
+        .subquery()
+    )
     stmt = (
         select(
             RoomMember.user_id,
-            func.coalesce(func.sum(ExamAttempt.score_bp), 0).label("score"),
+            func.coalesce(room_totals.c.score, 0).label("score"),
         )
-        .outerjoin(
-            ExamAttempt,
-            (ExamAttempt.user_id == RoomMember.user_id),
-        )
+        .outerjoin(room_totals, room_totals.c.user_id == RoomMember.user_id)
         .where(RoomMember.room_id == room_id)
-        .group_by(RoomMember.user_id)
-        .order_by(func.coalesce(func.sum(ExamAttempt.score_bp), 0).desc())
+        .order_by(func.coalesce(room_totals.c.score, 0).desc(), RoomMember.user_id.asc())
         .limit(limit)
     )
     rows = (await db.execute(stmt)).all()
@@ -89,12 +127,16 @@ async def quest_ranking(quest_id: uuid.UUID, db: DbSession, user: CurrentUser):
 
 @router.get("/me")
 async def my_ranking(db: DbSession, user: CurrentUser):
+    # Best score per exam, summed — consistent with the global leaderboard.
+    best_per_exam = (
+        select(func.max(ExamAttempt.score_bp).label("best"))
+        .where(ExamAttempt.user_id == user.id)
+        .where(ExamAttempt.score_bp.is_not(None))
+        .group_by(ExamAttempt.exam_id)
+        .subquery()
+    )
     total = (
-        await db.execute(
-            select(func.coalesce(func.sum(ExamAttempt.score_bp), 0)).where(
-                ExamAttempt.user_id == user.id
-            )
-        )
+        await db.execute(select(func.coalesce(func.sum(best_per_exam.c.best), 0)))
     ).scalar_one()
     account = (
         await db.execute(select(WalletAccount).where(WalletAccount.user_id == user.id))

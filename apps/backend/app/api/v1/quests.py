@@ -27,7 +27,7 @@ router = APIRouter()
 
 @router.get("", response_model=list[QuestOut])
 async def list_quests(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
-    return await QuestService(db).list(user, limit=limit, offset=offset)
+    return await QuestService(db).list_all(user, limit=limit, offset=offset)
 
 
 @router.post("", response_model=QuestOut, status_code=status.HTTP_201_CREATED)

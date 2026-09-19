@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.core.errors import NotFoundError, ValidationError
 from app.db.session import transaction
 from app.models.identity import AuditLog, Role, User, UserRole
+from app.models.quest import Quest
 from app.models.wallet import RewardAllocation, TransactionOutbox
 from app.schemas.auth import UserOut
 
@@ -121,24 +122,26 @@ async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
         allocation = await db.get(RewardAllocation, reward_id)
         if allocation is None:
             raise NotFoundError("Reward not found")
+        from app.services.keys import quest_ref, tx_idempotency_key
+
+        idem_key = tx_idempotency_key("reward", allocation.reward_key)
         outbox = (
             await db.execute(
-                select(TransactionOutbox).where(
-                    TransactionOutbox.idempotency_key.like("%" + allocation.reward_key[:8] + "%")
-                )
+                select(TransactionOutbox).where(TransactionOutbox.idempotency_key == idem_key)
             )
         ).scalar_one_or_none()
         if outbox is None:
-            # Recreate an outbox item for the allocation.
-            from app.services.keys import tx_idempotency_key
-
+            # Recreate an outbox item using the real user reference.
+            user_row = await db.get(User, allocation.user_id)
+            quest = await db.get(Quest, allocation.quest_id) if allocation.quest_id else None
             outbox = TransactionOutbox(
                 topic="reward",
-                idempotency_key=tx_idempotency_key("reward", allocation.reward_key),
+                idempotency_key=idem_key,
                 payload={
                     "allocation_id": str(allocation.id),
                     "reward_key": allocation.reward_key,
-                    "user_ref": "0x" + "0" * 64,
+                    "quest_ref": quest_ref(quest.id) if quest else "0x" + "0" * 64,
+                    "user_ref": user_row.chain_user_ref if user_row else "0x" + "0" * 64,
                     "rank": allocation.rank or 0,
                     "amount": allocation.amount,
                     "token_id": allocation.token_id,

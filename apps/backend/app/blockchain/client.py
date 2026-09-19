@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from typing import Any
 
 from app.core.config import settings
 from app.core.errors import ChainError
@@ -79,9 +80,9 @@ class TxReceipt:
 class ChainClient:
     def __init__(self) -> None:
         self.dry_run = settings.blockchain_dry_run or not settings.opc_contract_address
-        self._w3 = None
-        self._contract = None
-        self._account = None
+        self._w3: Any = None
+        self._contract: Any = None
+        self._account: Any = None
         if not self.dry_run:
             self._init_web3()
 

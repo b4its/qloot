@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.provider import GradeItem, GradingContext, get_ai_provider
@@ -56,11 +56,13 @@ class GradingService:
         return self.enqueue(attempt)
 
     async def grade_attempt(self, attempt: ExamAttempt) -> ExamAttempt:
-        # Load answers + questions in one query (avoids N+1, §4.13).
+        # Load answers + questions in one query (avoids N+1, §4.13). Only
+        # questions that belong to this attempt's exam are considered.
         stmt = (
             select(StudentAnswer, Question)
             .join(Question, Question.id == StudentAnswer.question_id)
             .where(StudentAnswer.attempt_id == attempt.id)
+            .where(Question.exam_id == attempt.exam_id)
             .order_by(Question.position)
         )
         rows = (await self.session.execute(stmt)).all()
@@ -81,7 +83,6 @@ class GradingService:
         result = await provider.grade(GradingContext(items=items))
 
         total_score = 0
-        total_max = 0
         for (sa, q), graded in zip(rows, result.items, strict=True):
             sa.score_bp = min(graded.score_bp, q.max_score_bp)
             sa.max_score_bp = q.max_score_bp
@@ -89,9 +90,17 @@ class GradingService:
             sa.similarity_bp = graded.similarity_bp
             sa.graded_at = datetime.now(UTC)
             total_score += sa.score_bp
-            total_max += q.max_score_bp
 
-        attempt.score_bp = int(round(total_score * BP_SCALE / total_max)) if total_max else 0
+        # The denominator MUST be the full max score of the exam, not only the
+        # answered questions — otherwise skipping questions inflates the score.
+        full_max = (
+            await self.session.execute(
+                select(func.coalesce(func.sum(Question.max_score_bp), 0)).where(
+                    Question.exam_id == attempt.exam_id
+                )
+            )
+        ).scalar_one()
+        attempt.score_bp = int(round(total_score * BP_SCALE / full_max)) if full_max else 0
         exam = await self.session.get(Exam, attempt.exam_id)
         threshold = exam.passing_score_bp if exam else 6000
         attempt.passed = attempt.score_bp >= threshold

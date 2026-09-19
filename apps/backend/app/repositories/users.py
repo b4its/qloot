@@ -40,7 +40,7 @@ class UserRepository:
         await self.session.flush()
         return user
 
-    async def list(self, *, limit: int = 100, offset: int = 0) -> list[User]:
+    async def list_all(self, *, limit: int = 100, offset: int = 0) -> list[User]:
         stmt = select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 

@@ -99,8 +99,11 @@ async def transfer(payload: TransferRequest, user: CurrentUser, db: DbSession):
         if recipient is None:
             raise NotFoundError("Recipient not found")
         engine = RewardEngine(db)
-        # Debit sender
-        ref = tx_idempotency_key("transfer", str(user.id), str(payload.to_user_id))[:64]
+        # Every transfer needs a unique reference: include a nonce so repeated
+        # transfers to the same recipient do not collide on the ledger's
+        # (reference_type, reference_id, entry_type) uniqueness.
+        nonce = uuid.uuid4().hex[:16]
+        ref = tx_idempotency_key("transfer", str(user.id), str(payload.to_user_id), nonce)[:64]
         account = await engine.get_or_create_account(user.id)
         if account.cached_balance < payload.amount:
             raise ConflictError("Insufficient balance")

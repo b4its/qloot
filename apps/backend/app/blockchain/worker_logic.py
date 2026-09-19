@@ -119,10 +119,10 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
         metrics.incr("blockchain_failed_transactions_total", topic=item.topic)
         if item.attempts >= item.max_attempts:
             item.status = "failed"
-            if item.topic == "reward" and (item.payload or {}).get("allocation_id"):
-                allocation = await session.get(
-                    RewardAllocation, uuid.UUID(item.payload["allocation_id"])
-                )
+            payload = item.payload or {}
+            allocation_id = payload.get("allocation_id")
+            if item.topic == "reward" and allocation_id:
+                allocation = await session.get(RewardAllocation, uuid.UUID(allocation_id))
                 if allocation is not None:
                     allocation.status = "failed"
                     allocation.error_message = str(exc)

@@ -29,7 +29,7 @@ router = APIRouter()
 
 @router.get("/exams", response_model=list[ExamOut])
 async def list_exams(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
-    return await ExamService(db).list(user, limit=limit, offset=offset)
+    return await ExamService(db).list_all(user, limit=limit, offset=offset)
 
 
 @router.post("/exams", response_model=ExamOut, status_code=status.HTTP_201_CREATED)
@@ -137,10 +137,14 @@ async def _record_quest_attempt_if_any(db, attempt, user) -> None:
     from app.services.quest_service import QuestService
 
     quest = (
-        await db.execute(
-            select(Quest).where(Quest.exam_id == attempt.exam_id, Quest.status == "open")
+        (
+            await db.execute(
+                select(Quest).where(Quest.exam_id == attempt.exam_id, Quest.status == "open")
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     if quest is not None:
         await QuestService(db).record_attempt(quest.id, user, exam_attempt_id=attempt.id)
 

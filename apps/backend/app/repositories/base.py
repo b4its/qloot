@@ -26,7 +26,7 @@ class Repository(Generic[ModelT]):
         stmt = select(self.model).filter_by(**filters).limit(1)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
-    async def list(
+    async def list_all(
         self, stmt: Select | None = None, *, limit: int = 100, offset: int = 0
     ) -> list[ModelT]:
         stmt = stmt if stmt is not None else select(self.model)

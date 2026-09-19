@@ -28,7 +28,8 @@ router = APIRouter()
 async def list_courses(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
     # Students only see published courses; teachers/admins see all.
     published_only = not user.has_role("teacher", "admin")
-    return await CourseService(db).list(published_only=published_only, limit=limit, offset=offset)
+    service = CourseService(db)
+    return await service.list_all(published_only=published_only, limit=limit, offset=offset)
 
 
 @router.post("/courses", response_model=CourseOut, status_code=status.HTTP_201_CREATED)

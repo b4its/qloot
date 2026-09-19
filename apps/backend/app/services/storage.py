@@ -7,10 +7,14 @@ import io
 import os
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from app.core.config import settings
 from app.core.errors import ValidationError
 from app.core.logging import get_logger
+
+if TYPE_CHECKING:
+    from minio import Minio
 
 log = get_logger("storage")
 
@@ -20,7 +24,7 @@ class Storage:
 
     def __init__(self) -> None:
         self.use_local = settings.use_local_storage
-        self._client = None
+        self._client: Minio | None = None
         if not self.use_local:
             self._init_minio()
 
@@ -35,6 +39,7 @@ class Storage:
         )
         if not self._client.bucket_exists(settings.minio_bucket):
             self._client.make_bucket(settings.minio_bucket)
+        log.info("minio_initialised", bucket=settings.minio_bucket)
 
     def put(self, key: str, data: bytes, content_type: str) -> str:
         if self.use_local:
@@ -42,6 +47,7 @@ class Storage:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
             return key
+        assert self._client is not None
         self._client.put_object(
             settings.minio_bucket,
             key,
@@ -57,6 +63,7 @@ class Storage:
             if not path.exists():
                 raise ValidationError("Stored object not found")
             return path.read_bytes()
+        assert self._client is not None
         resp = self._client.get_object(settings.minio_bucket, key)
         try:
             return resp.read()

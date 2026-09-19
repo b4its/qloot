@@ -23,7 +23,6 @@ from app.models.exam import ExamAttempt
 from app.models.identity import User
 from app.models.quest import Quest, QuestAttempt, QuestRule, QuestWinner
 from app.services.keys import reward_key
-from app.services.reward_engine import RewardEngine
 
 log = get_logger("quests")
 
@@ -52,7 +51,7 @@ class QuestService:
             raise NotFoundError("Quest not found")
         return quest
 
-    async def list(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Quest]:
+    async def list_all(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Quest]:
         stmt = select(Quest).order_by(Quest.created_at.desc()).limit(limit).offset(offset)
         if not user.has_role("teacher", "admin"):
             stmt = stmt.where(Quest.status.in_(("open", "finalized")))
@@ -107,8 +106,8 @@ class QuestService:
     async def finalize(self, quest_id: uuid.UUID, user: User) -> tuple[Quest, list[QuestWinner]]:
         quest = await self._owned(quest_id, user)
         if quest.status == "finalized":
-            winners = await self.list_winners(quest_id)
-            return quest, winners
+            existing_winners = await self.list_winners(quest_id)
+            return quest, existing_winners
 
         # Lock the quest row so only one finalize runs at a time.
         await self.session.execute(select(Quest.id).where(Quest.id == quest_id).with_for_update())
@@ -132,7 +131,6 @@ class QuestService:
         )
         rows = (await self.session.execute(stmt)).all()
 
-        RewardEngine(self.session)
         winners: list[QuestWinner] = []
         rank = 0
         for quest_attempt, exam_attempt in rows:

@@ -10,17 +10,20 @@ import asyncio
 import contextlib
 import json
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import settings
 from app.core.logging import get_logger
+
+if TYPE_CHECKING:
+    import redis.asyncio as aioredis
 
 log = get_logger("realtime")
 
 
 class EventBus:
     def __init__(self) -> None:
-        self._redis = None
+        self._redis: aioredis.Redis | None = None
         self._local_subscribers: dict[str, set[asyncio.Queue]] = {}
 
     async def connect(self) -> None:
@@ -37,7 +40,7 @@ class EventBus:
     async def close(self) -> None:
         if self._redis is not None:
             with contextlib.suppress(Exception):
-                await self._redis.aclose()
+                await self._redis.aclose()  # type: ignore[attr-defined]
 
     async def publish(self, channel: str, message: dict[str, Any]) -> None:
         data = json.dumps(message, default=str)
@@ -63,7 +66,7 @@ class EventBus:
                             yield json.loads(msg["data"])
                 finally:
                     await pubsub.unsubscribe(channel)
-                    await pubsub.aclose()
+                    await pubsub.aclose()  # type: ignore[attr-defined]
                 return
             except Exception as exc:  # noqa: BLE001
                 log.warning("realtime_subscribe_failed", error=str(exc))

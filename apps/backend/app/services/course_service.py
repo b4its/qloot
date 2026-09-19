@@ -44,7 +44,7 @@ class CourseService:
             raise NotFoundError("Course not found")
         return course
 
-    async def list(
+    async def list_all(
         self, *, published_only: bool = True, limit: int = 50, offset: int = 0
     ) -> list[Course]:
         stmt = select(Course).order_by(Course.created_at.desc()).limit(limit).offset(offset)

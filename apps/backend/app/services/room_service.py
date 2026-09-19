@@ -51,7 +51,7 @@ class RoomService:
             raise NotFoundError("Room not found")
         return room
 
-    async def list(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Room]:
+    async def list_all(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Room]:
         stmt = select(Room).order_by(Room.created_at.desc()).limit(limit).offset(offset)
         if not user.has_role("teacher", "admin"):
             stmt = stmt.where(Room.is_public.is_(True))
