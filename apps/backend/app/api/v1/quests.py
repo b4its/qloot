@@ -21,6 +21,7 @@ from app.schemas.quest import (
 from app.services.quest_service import QuestService
 from app.services.realtime import event_bus
 from app.services.reward_engine import RewardEngine
+from app.services.social_service import BadgeService, NotificationService
 
 router = APIRouter()
 
@@ -70,6 +71,8 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
         rules = {r.rank: r for r in await service.list_rules(quest_id)}
 
         engine = RewardEngine(db)
+        badges = BadgeService(db)
+        notifications = NotificationService(db)
         created = 0
         out: list[WinnerOut] = []
         for w in winners:
@@ -85,6 +88,21 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
                     score_bp=w.score_bp,
                 )
                 created += 1
+                # Notify + award badges (idempotent).
+                await notifications.notify(
+                    user_id=user_row.id,
+                    kind="reward",
+                    title=f"You earned {amount} OPC!",
+                    body=f"Quest '{quest.title}' — rank {w.rank}",
+                    data={"quest_id": str(quest.id), "rank": w.rank, "amount": amount},
+                )
+                await badges.award(user=user_row, code="first_reward")
+                if w.rank <= 3:
+                    await badges.award(
+                        user=user_row,
+                        code="top_3",
+                        meta={"quest_id": str(quest.id), "rank": w.rank},
+                    )
             out.append(
                 WinnerOut(
                     rank=w.rank,

@@ -15,6 +15,7 @@ from app.models.quest import Task, TaskCompletion
 from app.schemas.task import TaskCompletionOut, TaskCreate, TaskOut, TaskUpdate
 from app.services.keys import task_reward_key
 from app.services.reward_engine import RewardEngine
+from app.services.social_service import NotificationService
 
 router = APIRouter()
 
@@ -77,5 +78,12 @@ async def complete_task(task_id: uuid.UUID, user: CurrentUser, db: DbSession):
         if task.reward_amount > 0:
             await RewardEngine(db).allocate_task_reward(
                 user=user, task_id=task_id, amount=task.reward_amount, rkey=rkey
+            )
+            await NotificationService(db).notify(
+                user_id=user.id,
+                kind="reward",
+                title=f"Task complete: +{task.reward_amount} OPC",
+                body=task.title,
+                data={"task_id": str(task.id), "amount": task.reward_amount},
             )
     return TaskCompletionOut.model_validate(completion)

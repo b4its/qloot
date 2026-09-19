@@ -56,3 +56,18 @@ class GradedItemOut(BaseModel):
     score_bp: int | None
     feedback: str | None
     similarity_bp: int | None
+
+
+class SummaryOut(BaseModel):
+    summary: str
+    key_points: list[str] = Field(default_factory=list)
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+    language: str = Field(default="id", max_length=8)
+
+
+class AnswerOut(BaseModel):
+    answer: str
+    confidence_bp: int

@@ -48,3 +48,35 @@ class RoomMemberOut(ORMModel):
 
 class JoinByCode(BaseModel):
     code: str = Field(min_length=4, max_length=12)
+
+
+class LiveEntry(BaseModel):
+    rank: int
+    user_id: uuid.UUID
+    score_bp: int
+    is_present: bool
+
+
+class RoomEventOut(ORMModel):
+    id: uuid.UUID
+    event_type: str
+    payload: dict | None = None
+    created_at: datetime
+
+
+class InviteCreate(BaseModel):
+    email: str | None = Field(default=None, max_length=320)
+    note: str | None = Field(default=None, max_length=255)
+
+
+class InviteOut(ORMModel):
+    id: uuid.UUID
+    room_id: uuid.UUID
+    email: str | None
+    code: str
+    accepted_at: datetime | None
+    created_at: datetime
+
+
+class AcceptInvite(BaseModel):
+    code: str = Field(min_length=4, max_length=32)

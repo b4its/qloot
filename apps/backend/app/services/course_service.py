@@ -126,6 +126,25 @@ class CourseService:
         stmt = select(LessonProgress).where(LessonProgress.user_id == user.id)
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def enroll(self, course_id: uuid.UUID, user: User) -> CourseMember:
+        """Join a published course (idempotent)."""
+        course = await self.get(course_id)
+        if not course.is_published and not (user.has_role("admin") or course.owner_id == user.id):
+            raise ForbiddenError("Course is not open for enrolment")
+        stmt = select(CourseMember).where(
+            CourseMember.course_id == course_id, CourseMember.user_id == user.id
+        )
+        member = (await self.session.execute(stmt)).scalar_one_or_none()
+        if member is None:
+            member = CourseMember(course_id=course_id, user_id=user.id, role="student")
+            self.session.add(member)
+            await self.session.flush()
+        return member
+
+    async def enrolled(self, user: User) -> list[CourseMember]:
+        stmt = select(CourseMember).where(CourseMember.user_id == user.id)
+        return list((await self.session.execute(stmt)).scalars().all())
+
     def _authorize(self, course: Course, user: User) -> None:
         if user.has_role("admin"):
             return

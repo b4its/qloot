@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.models.identity import User
-from app.models.room import Room, RoomEvent, RoomMember
+from app.models.room import Room, RoomEvent, RoomInvitation, RoomMember
 
 
 def generate_room_code(length: int = 6) -> str:
@@ -120,6 +120,85 @@ class RoomService:
     async def participants(self, room_id: uuid.UUID) -> list[RoomMember]:
         stmt = select(RoomMember).where(RoomMember.room_id == room_id)
         return list((await self.session.execute(stmt)).scalars().all())
+
+    async def live_leaderboard(self, room_id: uuid.UUID) -> list[dict]:
+        """Live ranking of present members by best exam score in this room."""
+        from sqlalchemy import func
+        from sqlalchemy import select as _select
+
+        from app.models.exam import Exam, ExamAttempt
+
+        room_exams = _select(Exam.id).where(Exam.room_id == room_id).scalar_subquery()
+        best = (
+            _select(
+                ExamAttempt.user_id.label("user_id"),
+                func.max(ExamAttempt.score_bp).label("best"),
+            )
+            .where(ExamAttempt.score_bp.is_not(None))
+            .where(ExamAttempt.exam_id.in_(room_exams))
+            .group_by(ExamAttempt.user_id, ExamAttempt.exam_id)
+            .subquery()
+        )
+        totals = (
+            _select(
+                best.c.user_id.label("user_id"),
+                func.coalesce(func.sum(best.c.best), 0).label("score"),
+            )
+            .group_by(best.c.user_id)
+            .subquery()
+        )
+        stmt = (
+            _select(
+                RoomMember.user_id,
+                RoomMember.is_present,
+                func.coalesce(totals.c.score, 0).label("score"),
+            )
+            .outerjoin(totals, totals.c.user_id == RoomMember.user_id)
+            .where(RoomMember.room_id == room_id)
+            .order_by(func.coalesce(totals.c.score, 0).desc(), RoomMember.user_id.asc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            {
+                "rank": i + 1,
+                "user_id": r.user_id,
+                "score_bp": int(r.score or 0),
+                "is_present": r.is_present,
+            }
+            for i, r in enumerate(rows)
+        ]
+
+    async def recent_events(self, room_id: uuid.UUID, *, limit: int = 50) -> list[RoomEvent]:
+        stmt = (
+            select(RoomEvent)
+            .where(RoomEvent.room_id == room_id)
+            .order_by(RoomEvent.created_at.desc())
+            .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def invite(
+        self, room_id: uuid.UUID, user: User, *, email: str | None, note: str | None
+    ) -> RoomInvitation:
+        room = await self._owned(room_id, user)
+        inv = RoomInvitation(room_id=room.id, email=email, note=note, code=generate_room_code(8))
+        self.session.add(inv)
+        await self._emit(room.id, "invited", {"email": email})
+        await self.session.flush()
+        return inv
+
+    async def accept_invite(self, code: str, user: User) -> RoomMember:
+        inv = (
+            await self.session.execute(
+                select(RoomInvitation).where(RoomInvitation.code == code.upper())
+            )
+        ).scalar_one_or_none()
+        if inv is None:
+            raise NotFoundError("Invitation not found")
+        if inv.accepted_at is None:
+            inv.accepted_at = datetime.now(UTC)
+            inv.user_id = user.id
+        return await self.join(inv.room_id, user)
 
     async def _emit(self, room_id: uuid.UUID, event_type: str, payload: dict) -> None:
         self.session.add(RoomEvent(room_id=room_id, event_type=event_type, payload=payload))

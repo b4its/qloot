@@ -103,3 +103,16 @@ async def set_progress(
 @router.get("/me/learning-progress", response_model=list[ProgressOut])
 async def my_progress(user: CurrentUser, db: DbSession):
     return await CourseService(db).my_progress(user)
+
+
+@router.post("/courses/{course_id}/enroll", response_model=dict)
+async def enroll(course_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    async with transaction(db):
+        member = await CourseService(db).enroll(course_id, user)
+    return {"course_id": str(member.course_id), "role": member.role}
+
+
+@router.get("/me/enrollments", response_model=list[dict])
+async def my_enrollments(user: CurrentUser, db: DbSession):
+    rows = await CourseService(db).enrolled(user)
+    return [{"course_id": str(m.course_id), "role": m.role} for m in rows]

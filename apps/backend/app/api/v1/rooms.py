@@ -9,7 +9,17 @@ from fastapi import APIRouter, status
 from app.api.deps import CurrentUser, DbSession, TeacherUser
 from app.db.session import transaction
 from app.schemas.common import Message
-from app.schemas.room import JoinByCode, RoomCreate, RoomMemberOut, RoomOut, RoomUpdate
+from app.schemas.room import (
+    InviteCreate,
+    InviteOut,
+    JoinByCode,
+    LiveEntry,
+    RoomCreate,
+    RoomEventOut,
+    RoomMemberOut,
+    RoomOut,
+    RoomUpdate,
+)
 from app.services.realtime import event_bus, room_channel
 from app.services.room_service import RoomService
 
@@ -93,3 +103,28 @@ async def close_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
 @router.get("/{room_id}/participants", response_model=list[RoomMemberOut])
 async def participants(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
     return await RoomService(db).participants(room_id)
+
+
+@router.get("/accept-invite", response_model=RoomMemberOut)
+async def accept_invite(user: CurrentUser, db: DbSession, code: str):
+    async with transaction(db):
+        member = await RoomService(db).accept_invite(code, user)
+    return RoomMemberOut.model_validate(member)
+
+
+@router.get("/{room_id}/live", response_model=list[LiveEntry])
+async def live_leaderboard(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    rows = await RoomService(db).live_leaderboard(room_id)
+    return [LiveEntry(**r) for r in rows]
+
+
+@router.get("/{room_id}/events", response_model=list[RoomEventOut])
+async def room_events(room_id: uuid.UUID, user: CurrentUser, db: DbSession, limit: int = 50):
+    return await RoomService(db).recent_events(room_id, limit=limit)
+
+
+@router.post("/{room_id}/invite", response_model=InviteOut)
+async def invite(room_id: uuid.UUID, payload: InviteCreate, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        inv = await RoomService(db).invite(room_id, user, email=payload.email, note=payload.note)
+    return InviteOut.model_validate(inv)

@@ -10,9 +10,12 @@ from app.api.deps import CurrentUser, DbSession, TeacherUser
 from app.db.session import transaction
 from app.models.exam import Question
 from app.schemas.material import (
+    AnswerOut,
+    AskRequest,
     GeneratedQuestionOut,
     GenerateQuestionsRequest,
     MaterialOut,
+    SummaryOut,
 )
 from app.services.material_service import MaterialService
 
@@ -93,3 +96,23 @@ async def generate_questions_sync(
         )
         for q in questions
     ]
+
+
+@router.get("/{material_id}/summary", response_model=SummaryOut)
+async def material_summary(
+    material_id: uuid.UUID, user: CurrentUser, db: DbSession, language: str = "id"
+):
+    """AI summary of the material for learners."""
+    result = await MaterialService(db).summarize(material_id, user, language=language)
+    return SummaryOut(summary=result.summary, key_points=result.key_points)
+
+
+@router.post("/{material_id}/ask", response_model=AnswerOut)
+async def material_ask(
+    material_id: uuid.UUID, payload: AskRequest, user: CurrentUser, db: DbSession
+):
+    """Ask the material a question (grounded AI Q&A)."""
+    result = await MaterialService(db).ask(
+        material_id, user, question=payload.question, language=payload.language
+    )
+    return AnswerOut(answer=result.answer, confidence_bp=result.confidence_bp)

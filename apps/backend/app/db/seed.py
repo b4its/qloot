@@ -53,6 +53,11 @@ async def _ensure_user(email: str, full_name: str, password: str, role: str) -> 
 async def main() -> None:
     configure_logging()
     await _ensure_roles()
+    # Seed the badge catalog (idempotent).
+    async with session_scope() as session:
+        from app.services.social_service import BadgeService
+
+        await BadgeService(session).ensure_catalog()
     admin = await _ensure_user("admin@qloot.example", "QLoot Admin", "AdminPass123!", "admin")
     teacher = await _ensure_user("teacher@qloot.example", "Budi Guru", "TeacherPass123!", "teacher")
     for i in range(1, 4):

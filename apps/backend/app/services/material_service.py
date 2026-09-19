@@ -7,7 +7,7 @@ import uuid
 from pypdf import PdfReader
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.provider import GenerationContext, get_ai_provider
+from app.ai.provider import GenerationContext, QAContext, SummaryContext, get_ai_provider
 from app.core.config import settings
 from app.core.errors import ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import get_logger
@@ -135,6 +135,26 @@ class MaterialService:
             created.append(question)
         await self.session.flush()
         return created
+
+    async def summarize(
+        self, material_id: uuid.UUID, user: User, *, language: str = "id", max_words: int = 120
+    ):
+        """AI summary of a material's text (available to any enrolled user)."""
+        material = await self.get(material_id)
+        provider = get_ai_provider()
+        return await provider.summarize(
+            SummaryContext(
+                text=material.extracted_text or "", language=language, max_words=max_words
+            )
+        )
+
+    async def ask(self, material_id: uuid.UUID, user: User, *, question: str, language: str = "id"):
+        """AI Q&A grounded on a material's text (retrieval-lite)."""
+        material = await self.get(material_id)
+        provider = get_ai_provider()
+        return await provider.answer(
+            QAContext(text=material.extracted_text or "", question=question, language=language)
+        )
 
     def _authorize(self, material: LearningMaterial, user: User) -> None:
         if user.has_role("admin"):

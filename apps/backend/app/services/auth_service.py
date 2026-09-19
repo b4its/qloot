@@ -71,6 +71,16 @@ class AuthService:
         # Every user gets a custodial wallet account (double-entry ledger).
         self.session.add(WalletAccount(user_id=user.id, token_id=settings.opc_token_id))
 
+        # Welcome notification.
+        from app.services.social_service import NotificationService
+
+        await NotificationService(self.session).notify(
+            user_id=user.id,
+            kind="system",
+            title="Welcome to QLoot! 🎉",
+            body="Start learning, join rooms and complete quests to earn OryphemCoin.",
+        )
+
         await self.session.flush()
         fresh = await self.users.get_with_roles(user.id)
         user = fresh or user
