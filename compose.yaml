@@ -121,6 +121,8 @@ services:
   worker:
     <<: [*backend-build, *backend-env]
     command: ["python", "-m", "app.workers.main"]
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -133,6 +135,8 @@ services:
   blockchain-worker:
     <<: [*backend-build, *backend-env]
     command: ["python", "-m", "app.workers.blockchain"]
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,6 +150,8 @@ services:
   blockchain-indexer:
     <<: [*backend-build, *backend-env]
     command: ["python", "-m", "app.workers.indexer"]
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
