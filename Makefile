@@ -394,6 +394,38 @@ blockchain-grant-role: _require-sepolia ## Grant role: ROLE=MINTER_ROLE ADDRESS=
 blockchain-revoke-role: _require-sepolia ## Revoke role: ROLE=MINTER_ROLE ADDRESS=0x..
 	cd blockchain && ROLE=$(ROLE) ADDRESS=$(ADDRESS) npx hardhat run scripts/revoke-role.js --network $(NETWORK)
 
+.PHONY: blockchain-upgrade
+blockchain-upgrade: _require-sepolia ## Upgrade the OPC proxy to the latest implementation
+	cd blockchain && npx hardhat run scripts/upgrade.js --network $(NETWORK)
+
+.PHONY: blockchain-create-badge
+blockchain-create-badge: _require-sepolia ## Register a badge: BADGE_ID=1 BADGE_URI=ipfs://.. SOULBOUND=true
+	cd blockchain && BADGE_ID=$(BADGE_ID) BADGE_URI="$(BADGE_URI)" SOULBOUND=$(SOULBOUND) npx hardhat run scripts/create-badge.js --network $(NETWORK)
+
+.PHONY: blockchain-award-badge
+blockchain-award-badge: _require-sepolia ## Award a badge: TO=0x.. BADGE_ID=1
+	cd blockchain && TO=$(TO) BADGE_ID=$(BADGE_ID) npx hardhat run scripts/award-badge.js --network $(NETWORK)
+
+.PHONY: blockchain-create-course
+blockchain-create-course: _require-sepolia ## Create a course: COURSE_ID=1001 REWARD=500 BADGE_ID=1 ACTIVE=true
+	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) npx hardhat run scripts/create-course.js --network $(NETWORK)
+
+.PHONY: blockchain-set-course
+blockchain-set-course: _require-sepolia ## Update a course: COURSE_ID=1001 REWARD=750 BADGE_ID=1 ACTIVE=true
+	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) npx hardhat run scripts/set-course.js --network $(NETWORK)
+
+.PHONY: blockchain-add-xp
+blockchain-add-xp: _require-sepolia ## Grant XP: TO=0x.. AMOUNT=250
+	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) npx hardhat run scripts/add-xp.js --network $(NETWORK)
+
+.PHONY: blockchain-reward
+blockchain-reward: _require-sepolia ## Pay an idempotent reward: TO=0x.. AMOUNT=100 REASON=quest KEY=1
+	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) REASON=$(REASON) KEY=$(KEY) npx hardhat run scripts/reward-user.js --network $(NETWORK)
+
+.PHONY: blockchain-course-state
+blockchain-course-state: ## Show a user's OPC/XP/badges/course state: ADDRESS=0x.. [COURSE_ID=1001]
+	cd blockchain && ADDRESS=$(ADDRESS) COURSE_ID=$(COURSE_ID) npx hardhat run scripts/course-state.js --network $(NETWORK)
+
 # ----------------------------------------------------------------------------
 # Production / observability
 # ----------------------------------------------------------------------------

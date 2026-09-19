@@ -1,21 +1,39 @@
 {
   "name": "OryphemCoin",
   "symbol": "OPC",
-  "description": "OryphemCoin (OPC) is the gamified reward currency of the QLoot learning platform. It is an ERC-1155 multi-token with token id 0 used as the primary reward balance, treated as an integer point unit (decimals = 0).",
+  "description": "OryphemCoin (OPC) is the on-chain learning-state and reward token of the QLoot e-learning platform. It is an ERC-1155 multi-token: token id 0 is the OPC balance (integer point unit, decimals = 0); token ids >= 1000000 are badge proof tokens (one unit per awarded badge).",
   "standard": "ERC-1155",
   "decimals": 0,
   "primary_token_id": 0,
+  "badge_token_offset": 1000000,
   "image": "ipfs://REPLACE_ME/opc.png",
   "external_url": "https://qloot.example",
   "properties": {
     "platform": "QLoot",
     "chain": "sepolia",
+    "implementation": "UUPS-upgradeable ERC-1155",
+    "roles": [
+      "DEFAULT_ADMIN_ROLE",
+      "ADMIN_ROLE",
+      "MINTER_ROLE",
+      "REWARDER_ROLE",
+      "PAUSER_ROLE",
+      "URI_MANAGER_ROLE"
+    ],
+    "features": [
+      "Per-user OPC balance with XP and level (100 XP per level)",
+      "Courses: create, enroll, complete (pays OPC + XP + badge)",
+      "Badges: registered metadata, soulbound or transferable, per-user proof tokens",
+      "Achievements: arbitrary unlockable achievements per user",
+      "Idempotent rewards keyed by uint256 idempotency keys",
+      "Treasury accounting with deposits and withdrawals"
+    ],
     "utility": [
-      "Reward for learning, quests and exams",
+      "Reward for classrooms, quests, exams and courses",
       "Leaderboard ranking currency",
-      "Platform marketplace (future)"
+      "Proof of badges and achievements"
     ],
     "transferable": true,
-    "custodial_note": "Treasury holds tokens on-chain; per-user balances are tracked in the QLoot off-chain double-entry ledger and can be withdrawn to a personal wallet."
+    "custodial_note": "The treasury custodies OPC on-chain; per-user balances are also mirrored on-chain and reconciled against the QLoot double-entry ledger. Soulbound badges cannot be transferred."
   }
 }

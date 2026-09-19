@@ -1,89 +1,98 @@
 # QLoot Blockchain — OryphemCoin (OPC)
 
+See [`blockchain/README.md`](../blockchain/README.md) for the full reference.
+
 ## Contract
 
-`OryphemCoin1155` (`blockchain/contracts/OryphemCoin1155.sol`) is an ERC-1155
-multi-token with:
+`OryphemCoin1155` (`blockchain/contracts/OryphemCoin1155.sol`) is a
+**UUPS-upgradeable ERC-1155** and the on-chain learning-state registry for QLoot.
 
-- `ERC1155` + `ERC1155Supply` + `ERC1155Pausable` + `ERC1155Burnable`
-- `AccessControl` with roles: `DEFAULT_ADMIN_ROLE`, `MINTER_ROLE`,
-  `REWARDER_ROLE`, `PAUSER_ROLE`, `URI_MANAGER_ROLE`
-- Custom `name()` / `symbol()` (ERC-1155 has neither)
-- Primary reward token id `0`, integer point semantics (decimals 0)
-- Idempotent `recordReward` / `recordRewards` keyed by `rewardKey`
-- Per-transaction mint cap and rolling daily mint cap
-- Custodial/withdrawal events
+- Token id `0` = OPC balance (integer points, decimals 0).
+- Token id `1_000_000 + badgeId` = badge proof token.
+
+### Extensions
+
+`ERC1155Upgradeable` + `ERC1155SupplyUpgradeable` + `ERC1155PausableUpgradeable`
++ `ERC1155BurnableUpgradeable` + `AccessControlUpgradeable` + `UUPSUpgradeable`,
+plus a custom transient-storage reentrancy guard.
+
+### Roles
+
+`DEFAULT_ADMIN_ROLE`, `ADMIN_ROLE`, `MINTER_ROLE`, `REWARDER_ROLE`,
+`PAUSER_ROLE`, `URI_MANAGER_ROLE`.
+
+### Feature set
+
+- Per-user OPC balances, `totalMinted`, `totalBurned`.
+- XP and level (100 XP per level) with `addXp` / `levelFromXp` / `setLevel`.
+- Courses: create, enroll, complete (OPC + XP + badge, idempotent).
+- Badges: registered metadata, soulbound or transferable, idempotent awards.
+- Achievements: arbitrary unlockable achievements.
+- Idempotent rewards keyed by uint256 keys (batch ≤ 200).
+- Treasury accounting: deposits and withdrawals.
+- Caps: per-transaction and rolling daily mint limits; pausable.
 
 ### Events
 
 Standard ERC-1155 `TransferSingle`/`TransferBatch` plus:
 
 ```
-RewardGranted(rewardKey, userRef, tokenId, amount, treasury)
-QuestRewardFinalized(questRef, rewardKey, userRef, rank, amount, treasury)
-CustodialAllocation(userRef, tokenId, amount, treasury)
-CustodialTransfer(userRef, to, tokenId, amount)
-WithdrawalRequested(withdrawalRef, userRef, destination, tokenId, amount)
-WithdrawalCompleted(withdrawalRef, destination, tokenId, amount, operator)
-MetadataPublished(newUri, publisher)
-LimitsUpdated(maxMintPerTx, dailyMintCap)
+RewardPaid(account, amount, reason, idempotencyKey)
+XpAdded(account, amount, newTotalXp, newLevel)
+LevelSet(account, newLevel)
+CourseCreated(courseId, rewardAmount, badgeId)
+CourseUpdated(courseId, rewardAmount, badgeId, active)
+Enrolled(account, courseId)
+CourseCompleted(account, courseId, reward, badgeId)
+BadgeRegistered(badgeId, uri, soulbound)
+BadgeAwarded(account, badgeId, tokenId)
+AchievementUnlocked(account, achievementId)
+Deposited(account, amount) / Withdrawn(account, amount)
+TreasuryUpdated(oldTreasury, newTreasury)
+V2Initialized(treasury, admin)
 ```
 
-Only **opaque hashes** (`userRef`, `questRef`, `rewardKey`) are emitted — never
-emails, names, answers or scores.
+Only **opaque hashes** are emitted for off-chain references — never emails,
+names, answers or scores.
 
-## Commands
+## Upgrade path
+
+The storage layout of the original reward contract is preserved; v2 state is
+appended only. `initializeV2` is an idempotent reinitializer.
 
 ```bash
-cd blockchain
-npm install
-npx hardhat compile
-npx hardhat test                     # 23 tests
-
-# Local (Anvil on :8545)
-make blockchain-up
-make blockchain-deploy NETWORK=localhost
-make blockchain-show-all NETWORK=localhost
-make blockchain-mint TO=0x.. AMOUNT=100
-make blockchain-balance ADDRESS=0x..
-
-# Sepolia (guarded)
-make blockchain-deploy NETWORK=sepolia CONFIRM_SEPOLIA=yes
-make blockchain-verify NETWORK=sepolia
-make blockchain-publish NETWORK=sepolia
+make blockchain-deploy  NETWORK=localhost
+make blockchain-upgrade NETWORK=localhost    # preserves all state
 ```
 
 ## Off-chain ↔ on-chain
 
-- The backend computes `reward_key = sha256(quest_id|user_id|rank|reward_version)`
-  and `user_ref` as a salted hash of the user id — matching what the contract
-  stores, so idempotency holds on both sides.
-- The blockchain worker drains `transaction_outbox` rows; the indexer tracks
+- The backend computes reward idempotency keys off-chain and mirrors per-user
+  OPC balances; the on-chain `opcBalance` is reconciled against the ledger.
+- The blockchain worker drains `transaction_outbox`; the indexer tracks
   confirmations and flips reward allocations to `confirmed`.
 - In development (`BLOCKCHAIN_DRY_RUN=true`) an in-process fake chain returns
   deterministic pseudo-hashes so the whole pipeline runs offline.
 
 ## Roles & key management
 
-Never let one EOA hold everything. Recommended production layout:
+Recommended production layout:
 
 | Role | Holder |
 |---|---|
-| `DEFAULT_ADMIN_ROLE` | multisig (e.g. Safe) |
+| `DEFAULT_ADMIN_ROLE` / `ADMIN_ROLE` | multisig (e.g. Safe) |
 | `REWARDER_ROLE` | dedicated backend signer |
 | `MINTER_ROLE` | backend signer / operations |
 | `PAUSER_ROLE` | multisig or security operator |
 | `URI_MANAGER_ROLE` | multisig |
 
-After deployment, transfer roles to the multisig and revoke from the deployer EOA.
-
 ## What is (and isn't) on-chain
 
-**On-chain**: token supply, transfers, rewards, quest finalization events,
-withdrawals, pause/role changes, tx status, gas.
+**On-chain**: token balances, XP/levels, course enrollment/completion, badges,
+achievements, reward events, treasury deposits/withdrawals, tx status, gas.
 
 **Off-chain**: passwords, sessions, emails, names, exam answers, learning
 documents, AI feedback, question drafts.
 
-> "Everything is on Etherscan" is scoped: all **asset/reward activity** is on-chain,
-> while **learning and personal data** stays off-chain.
+> All **asset, XP and reward activity** is on-chain; **learning content and
+> personal data** stays off-chain.
