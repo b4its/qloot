@@ -56,9 +56,13 @@
 
 <h1 class="text-2xl font-bold">Manage Exams</h1>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>{/if}
+{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+    {message}
+  </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 <div class="card mt-4">
@@ -69,7 +73,9 @@
     <input class="input" type="number" min="0" max="10000" bind:value={newExam.passing_score_bp} />
   </div>
   <p class="mt-1 text-xs muted">Duration in minutes · passing score in basis points (6000 = 60%)</p>
-  <button class="btn-primary mt-3" on:click={create} disabled={newExam.title.length < 2}>Create exam</button>
+  <button class="btn-primary mt-3" on:click={create} disabled={newExam.title.length < 2}
+    >Create exam</button
+  >
 </div>
 
 <div class="mt-6 space-y-4">
@@ -79,7 +85,9 @@
         <div>
           <h2 class="font-semibold">{exam.title}</h2>
           <p class="text-sm muted">
-            {exam.questions?.length ?? 0} questions · {exam.duration_minutes} min · pass {(exam.passing_score_bp / 100).toFixed(0)}%
+            {exam.questions?.length ?? 0} questions · {exam.duration_minutes} min · pass {(
+              exam.passing_score_bp / 100
+            ).toFixed(0)}%
           </p>
         </div>
         <div class="flex gap-2">
@@ -98,10 +106,14 @@
             {#each results[exam.id] ?? [] as a}
               <li class="flex justify-between">
                 <span class="font-mono">{a.user_id.slice(0, 8)}…</span>
-                <span>{a.score_bp !== null && a.score_bp !== undefined ? (a.score_bp / 100).toFixed(1) + "%" : a.status}</span>
+                <span
+                  >{a.score_bp !== null && a.score_bp !== undefined
+                    ? (a.score_bp / 100).toFixed(1) + "%"
+                    : a.status}</span
+                >
               </li>
             {/each}
-            {#if !(results[exam.id]?.length)}<li class="muted">No submissions yet.</li>{/if}
+            {#if !results[exam.id]?.length}<li class="muted">No submissions yet.</li>{/if}
           </ul>
         </div>
       {/if}

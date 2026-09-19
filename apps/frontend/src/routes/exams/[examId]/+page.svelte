@@ -47,19 +47,25 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {:else if exam}
   <a href="/exams" class="text-sm text-primary-600">← All exams</a>
   <h1 class="mt-2 text-2xl font-bold">{exam.title}</h1>
   <p class="mt-1 muted">
-    Duration: {exam.duration_minutes} min · Passing: {(exam.passing_score_bp / 100).toFixed(0)}%
-    · {exam.questions?.length ?? 0} questions
+    Duration: {exam.duration_minutes} min · Passing: {(exam.passing_score_bp / 100).toFixed(0)}% · {exam
+      .questions?.length ?? 0} questions
   </p>
 
   {#if canManage}
     <div class="mt-4 flex gap-2">
-      <button class="btn-primary" on:click={() => api.post(`/exams/${examId}/publish`).then(load)}>Publish</button>
-      <button class="btn-ghost" on:click={() => api.post(`/exams/${examId}/close`).then(load)}>Close</button>
+      <button class="btn-primary" on:click={() => api.post(`/exams/${examId}/publish`).then(load)}
+        >Publish</button
+      >
+      <button class="btn-ghost" on:click={() => api.post(`/exams/${examId}/close`).then(load)}
+        >Close</button
+      >
       <a href="/teacher/exams" class="btn-ghost">Edit in Teacher</a>
     </div>
   {/if}
@@ -89,7 +95,9 @@
               {#if a.score_bp !== null && a.score_bp !== undefined}
                 {(a.score_bp / 100).toFixed(1)}%
               {/if}
-              <a href={`/exams/${examId}/result?attempt=${a.id}`} class="ml-2 text-primary-600">View</a>
+              <a href={`/exams/${examId}/result?attempt=${a.id}`} class="ml-2 text-primary-600"
+                >View</a
+              >
             </span>
           </li>
         {/each}

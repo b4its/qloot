@@ -19,7 +19,11 @@
   <div class="card mt-4 overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="text-left muted">
-        <tr><th class="py-1">#</th><th>User</th><th class="text-right">Score</th><th class="text-right">OPC</th></tr>
+        <tr
+          ><th class="py-1">#</th><th>User</th><th class="text-right">Score</th><th
+            class="text-right">OPC</th
+          ></tr
+        >
       </thead>
       <tbody>
         {#each global.entries as e}
@@ -30,7 +34,8 @@
             <td class="text-right font-mono">{formatNumber(e.opc_earned)}</td>
           </tr>
         {/each}
-        {#if global.entries.length === 0}<tr><td colspan="4" class="py-2 muted">No data.</td></tr>{/if}
+        {#if global.entries.length === 0}<tr><td colspan="4" class="py-2 muted">No data.</td></tr
+          >{/if}
       </tbody>
     </table>
   </div>

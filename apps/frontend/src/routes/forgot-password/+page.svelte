@@ -23,7 +23,9 @@
   <div class="card">
     <h1 class="text-xl font-semibold">Reset your password</h1>
     {#if sent}
-      <p class="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-200">
+      <p
+        class="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-200"
+      >
         If an account exists for that email, a reset link has been sent.
       </p>
     {:else}

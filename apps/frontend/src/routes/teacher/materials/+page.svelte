@@ -57,9 +57,13 @@
 <h1 class="text-2xl font-bold">Materials</h1>
 <p class="mt-1 muted">Upload a PDF, then let AI draft essay questions from it.</p>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>{/if}
+{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+    {message}
+  </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 <form class="card mt-4" on:submit={upload}>
@@ -104,7 +108,11 @@
         <li class="border-t pt-2">
           <div class="flex items-start justify-between gap-3">
             <p class="font-medium">{i + 1}. {q.prompt}</p>
-            <span class="badge" class:bg-green-100={q.review_status === "approved"} class:text-green-700={q.review_status === "approved"}>{q.review_status}</span>
+            <span
+              class="badge"
+              class:bg-green-100={q.review_status === "approved"}
+              class:text-green-700={q.review_status === "approved"}>{q.review_status}</span
+            >
           </div>
           <p class="mt-1 text-sm muted">Reference: {q.correct_answer}</p>
           {#if q.review_status !== "approved"}

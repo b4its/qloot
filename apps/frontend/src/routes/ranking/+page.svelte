@@ -33,7 +33,9 @@
     <h2 class="font-semibold">Your standing</h2>
     <div class="mt-2 grid gap-3 sm:grid-cols-2">
       <div>
-        <div class="text-2xl font-bold text-primary-600">{(me.total_score_bp / 100).toFixed(0)}%</div>
+        <div class="text-2xl font-bold text-primary-600">
+          {(me.total_score_bp / 100).toFixed(0)}%
+        </div>
         <div class="text-sm muted">Total score</div>
       </div>
       <div>
@@ -45,7 +47,9 @@
 {/if}
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 {#if loading}

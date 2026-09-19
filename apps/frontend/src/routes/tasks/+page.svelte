@@ -42,7 +42,9 @@
   <p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>
 {/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 {#if loading}
@@ -64,7 +66,9 @@
         <div class="text-right">
           <div class="font-mono text-accent-gold">{t.reward_amount} OPC</div>
           {#if completed[t.id]}
-            <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100">✓ Done</span>
+            <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
+              >✓ Done</span
+            >
           {:else}
             <button class="btn-primary mt-1" on:click={() => complete(t)}>Complete</button>
           {/if}

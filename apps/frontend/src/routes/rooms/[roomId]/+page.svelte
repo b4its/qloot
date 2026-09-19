@@ -43,9 +43,19 @@
       try {
         const msg = JSON.parse(ev.data);
         if (msg.type === "pong") return;
-        events = [{ text: `${msg.type}${msg.user_id ? ` · ${String(msg.user_id).slice(0, 8)}` : ""}`, at: Date.now() }, ...events].slice(0, 20);
+        events = [
+          {
+            text: `${msg.type}${msg.user_id ? ` · ${String(msg.user_id).slice(0, 8)}` : ""}`,
+            at: Date.now(),
+          },
+          ...events,
+        ].slice(0, 20);
         // Refresh light state on meaningful events.
-        if (["room.join", "room.leave", "room.open", "room.close", "quest.finalized"].includes(msg.type)) {
+        if (
+          ["room.join", "room.leave", "room.open", "room.close", "quest.finalized"].includes(
+            msg.type,
+          )
+        ) {
           load();
         }
       } catch {
@@ -95,12 +105,18 @@
 {#if loading}
   <p class="muted">Loading room…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {:else if room}
   <a href="/rooms" class="text-sm text-primary-600">← All rooms</a>
   <div class="mt-2 flex flex-wrap items-center gap-3">
     <h1 class="text-2xl font-bold">{room.name}</h1>
-    <span class="badge" class:bg-green-100={room.status === "open"} class:text-green-700={room.status === "open"}>
+    <span
+      class="badge"
+      class:bg-green-100={room.status === "open"}
+      class:text-green-700={room.status === "open"}
+    >
       {room.status}
     </span>
     <span class="badge" class:bg-green-100={connected} class:text-green-700={connected}>
@@ -147,8 +163,10 @@
         {#each participants as p}
           <li class="flex items-center justify-between">
             <span class="font-mono">{p.user_id.slice(0, 8)}…</span>
-            <span class="badge" class:bg-green-100={p.is_present} class:text-green-700={p.is_present}
-              >{p.is_present ? "present" : "away"}</span
+            <span
+              class="badge"
+              class:bg-green-100={p.is_present}
+              class:text-green-700={p.is_present}>{p.is_present ? "present" : "away"}</span
             >
           </li>
         {/each}

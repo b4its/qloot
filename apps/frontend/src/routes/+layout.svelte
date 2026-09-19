@@ -87,8 +87,10 @@
     {#if mobileOpen}
       <nav class="border-t px-4 py-2 md:hidden">
         {#each nav as item}
-          <a href={item.href} class="block rounded px-3 py-2 text-sm" on:click={() => (mobileOpen = false)}
-            >{item.icon} {item.label}</a
+          <a
+            href={item.href}
+            class="block rounded px-3 py-2 text-sm"
+            on:click={() => (mobileOpen = false)}>{item.icon} {item.label}</a
           >
         {/each}
       </nav>

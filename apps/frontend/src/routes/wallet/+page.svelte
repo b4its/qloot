@@ -49,10 +49,15 @@
 <svelte:head><title>Wallet — QLoot</title></svelte:head>
 
 <h1 class="text-2xl font-bold">Wallet</h1>
-<p class="mt-1 muted">Your custodial OPC balance. Treasury holds tokens on-chain; your balance is tracked in a double-entry ledger.</p>
+<p class="mt-1 muted">
+  Your custodial OPC balance. Treasury holds tokens on-chain; your balance is tracked in a
+  double-entry ledger.
+</p>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 {#if loading}
@@ -82,7 +87,13 @@
     <div class="card">
       <h2 class="font-semibold">Withdraw to a personal wallet</h2>
       <div class="mt-3 space-y-3">
-        <input class="input" type="number" min="1" placeholder="Amount (OPC)" bind:value={withdrawAmount} />
+        <input
+          class="input"
+          type="number"
+          min="1"
+          placeholder="Amount (OPC)"
+          bind:value={withdrawAmount}
+        />
         <input class="input font-mono" placeholder="0x…" bind:value={withdrawAddr} maxlength="42" />
         <button
           class="btn-primary"
@@ -101,7 +112,11 @@
             <span>{r.reward_type}{r.rank ? ` #${r.rank}` : ""}</span>
             <span class="flex items-center gap-2">
               <span class="font-mono text-accent-gold">+{r.amount}</span>
-              <span class="badge" class:bg-green-100={r.status === "confirmed"} class:text-green-700={r.status === "confirmed"}>{r.status}</span>
+              <span
+                class="badge"
+                class:bg-green-100={r.status === "confirmed"}
+                class:text-green-700={r.status === "confirmed"}>{r.status}</span
+              >
             </span>
           </li>
         {/each}
@@ -115,7 +130,11 @@
     <div class="mt-2 overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="text-left muted">
-          <tr><th class="py-1">Date</th><th>Type</th><th>Amount</th><th class="text-right">Balance</th></tr>
+          <tr
+            ><th class="py-1">Date</th><th>Type</th><th>Amount</th><th class="text-right"
+              >Balance</th
+            ></tr
+          >
         </thead>
         <tbody>
           {#each ledger.slice(0, 12) as entry}
@@ -131,7 +150,8 @@
               <td class="text-right font-mono">{formatNumber(entry.balance_after)}</td>
             </tr>
           {/each}
-          {#if ledger.length === 0}<tr><td colspan="4" class="py-2 muted">Empty ledger.</td></tr>{/if}
+          {#if ledger.length === 0}<tr><td colspan="4" class="py-2 muted">Empty ledger.</td></tr
+            >{/if}
         </tbody>
       </table>
     </div>
@@ -144,12 +164,18 @@
         {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, status?.chain_id)}
         <li class="flex flex-wrap items-center justify-between gap-2">
           <span>
-            <span class="badge" class:bg-green-100={tx.status === "confirmed"} class:text-green-700={tx.status === "confirmed"}>{tx.status}</span>
+            <span
+              class="badge"
+              class:bg-green-100={tx.status === "confirmed"}
+              class:text-green-700={tx.status === "confirmed"}>{tx.status}</span
+            >
             <span class="ml-2">{tx.method}</span>
           </span>
           <span class="font-mono text-xs">
             {#if url}
-              <a class="text-primary-600" href={url} target="_blank" rel="noopener noreferrer">{shortHash(tx.transaction_hash)} ↗</a>
+              <a class="text-primary-600" href={url} target="_blank" rel="noopener noreferrer"
+                >{shortHash(tx.transaction_hash)} ↗</a
+              >
             {:else}
               {shortHash(tx.transaction_hash)}
             {/if}

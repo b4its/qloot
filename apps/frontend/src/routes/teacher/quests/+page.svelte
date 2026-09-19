@@ -51,11 +51,17 @@
 <svelte:head><title>Quests (Teacher) — QLoot</title></svelte:head>
 
 <h1 class="text-2xl font-bold">Manage Quests</h1>
-<p class="mt-1 muted">Reward the fastest valid finishers. Winners are deterministic: score, then speed, then attempt id.</p>
+<p class="mt-1 muted">
+  Reward the fastest valid finishers. Winners are deterministic: score, then speed, then attempt id.
+</p>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>{/if}
+{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+    {message}
+  </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 <div class="card mt-4">
@@ -74,7 +80,9 @@
       <span class="text-xs muted">OPC per rank</span>
     </div>
   </div>
-  <button class="btn-primary mt-3" on:click={create} disabled={newQuest.title.length < 2}>Create quest</button>
+  <button class="btn-primary mt-3" on:click={create} disabled={newQuest.title.length < 2}
+    >Create quest</button
+  >
 </div>
 
 <div class="mt-6 space-y-4">
@@ -85,7 +93,11 @@
           <h2 class="font-semibold">{q.title}</h2>
           <p class="text-sm muted">Top {q.top_n_winners} · {q.status}</p>
         </div>
-        <button class="btn-primary" on:click={() => finalize(q)} disabled={q.status === "finalized"}>
+        <button
+          class="btn-primary"
+          on:click={() => finalize(q)}
+          disabled={q.status === "finalized"}
+        >
           {q.status === "finalized" ? "Finalized" : "Finalize winners"}
         </button>
       </div>

@@ -31,7 +31,10 @@
     <p class="mt-1 text-sm muted">Sign in to continue learning and earning OPC.</p>
 
     {#if error}
-      <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200" role="alert">
+      <p
+        class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200"
+        role="alert"
+      >
         {error}
       </p>
     {/if}
@@ -39,7 +42,14 @@
     <form class="mt-5 space-y-4" on:submit={submit}>
       <div>
         <label class="mb-1 block text-sm font-medium" for="email">Email</label>
-        <input id="email" class="input" type="email" bind:value={email} required autocomplete="email" />
+        <input
+          id="email"
+          class="input"
+          type="email"
+          bind:value={email}
+          required
+          autocomplete="email"
+        />
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium" for="password">Password</label>

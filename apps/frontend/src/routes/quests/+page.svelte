@@ -46,7 +46,9 @@
 </div>
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 {#if loading}
@@ -59,7 +61,11 @@
       <div class="card">
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">{q.title}</h2>
-          <span class="badge" class:bg-green-100={q.status === "open"} class:text-green-700={q.status === "open"}>{q.status}</span>
+          <span
+            class="badge"
+            class:bg-green-100={q.status === "open"}
+            class:text-green-700={q.status === "open"}>{q.status}</span
+          >
         </div>
         <p class="mt-1 text-sm muted">{q.description ?? "Speed quest for top finishers."}</p>
         {#if q.rules?.length}
@@ -92,8 +98,12 @@
 
         {#if canManage}
           <div class="mt-3 flex gap-2">
-            {#if q.status !== "open"}<button class="btn-ghost" on:click={() => publish(q)}>Publish</button>{/if}
-            {#if q.status !== "finalized"}<button class="btn-primary" on:click={() => finalize(q)}>Finalize winners</button>{/if}
+            {#if q.status !== "open"}<button class="btn-ghost" on:click={() => publish(q)}
+                >Publish</button
+              >{/if}
+            {#if q.status !== "finalized"}<button class="btn-primary" on:click={() => finalize(q)}
+                >Finalize winners</button
+              >{/if}
           </div>
         {/if}
       </div>

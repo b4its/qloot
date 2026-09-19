@@ -8,8 +8,18 @@
   });
 
   const links = [
-    { href: "/admin/blockchain", label: "Blockchain", desc: "Status, transactions, pause/unpause", icon: "⛓️" },
-    { href: "/admin/rewards", label: "Rewards", desc: "Monitor, retry and cancel reward allocations", icon: "💎" },
+    {
+      href: "/admin/blockchain",
+      label: "Blockchain",
+      desc: "Status, transactions, pause/unpause",
+      icon: "⛓️",
+    },
+    {
+      href: "/admin/rewards",
+      label: "Rewards",
+      desc: "Monitor, retry and cancel reward allocations",
+      icon: "💎",
+    },
     { href: "/admin/users", label: "Users", desc: "Manage roles and accounts", icon: "👥" },
     { href: "/admin/audit", label: "Audit log", desc: "Every privileged action", icon: "📜" },
   ];

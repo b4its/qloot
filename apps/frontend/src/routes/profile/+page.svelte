@@ -28,12 +28,21 @@
   <h1 class="text-2xl font-bold">Profile</h1>
   <div class="card mt-4">
     <dl class="grid gap-3 sm:grid-cols-2">
-      <div><dt class="text-sm muted">Name</dt><dd class="font-medium">{user.full_name}</dd></div>
-      <div><dt class="text-sm muted">Email</dt><dd class="font-medium">{user.email}</dd></div>
+      <div>
+        <dt class="text-sm muted">Name</dt>
+        <dd class="font-medium">{user.full_name}</dd>
+      </div>
+      <div>
+        <dt class="text-sm muted">Email</dt>
+        <dd class="font-medium">{user.email}</dd>
+      </div>
       <div>
         <dt class="text-sm muted">Roles</dt>
         <dd class="flex gap-1">
-          {#each user.roles as r}<span class="badge bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-100">{r}</span>{/each}
+          {#each user.roles as r}<span
+              class="badge bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-100"
+              >{r}</span
+            >{/each}
         </dd>
       </div>
       <div>

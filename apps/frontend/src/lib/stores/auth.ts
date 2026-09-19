@@ -29,12 +29,7 @@ function createAuthStore() {
       set({ user, loading: false });
       return user;
     },
-    async register(payload: {
-      email: string;
-      full_name: string;
-      password: string;
-      role?: string;
-    }) {
+    async register(payload: { email: string; full_name: string; password: string; role?: string }) {
       const user = await api.post<User>("/auth/register", payload);
       set({ user, loading: false });
       return user;

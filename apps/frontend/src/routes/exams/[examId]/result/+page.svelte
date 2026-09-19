@@ -18,7 +18,9 @@
   async function load() {
     try {
       exam = await api.get<Exam>(`/exams/${examId}`);
-      const res = await api.get<{ attempt: Attempt; answers: Answer[] }>(`/attempts/${attemptId}/result`);
+      const res = await api.get<{ attempt: Attempt; answers: Answer[] }>(
+        `/attempts/${attemptId}/result`,
+      );
       attempt = res.attempt;
       answers = res.answers;
     } catch (e) {
@@ -52,7 +54,9 @@
 {#if loading}
   <p class="muted">Loading result…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {:else if attempt}
   <a href={`/exams/${examId}`} class="text-sm text-primary-600">← Back to exam</a>
   <div class="card mt-3">
@@ -64,7 +68,13 @@
       <div class="text-right">
         <div class="text-3xl font-bold text-primary-600">{bpToPercent(attempt.score_bp)}</div>
         {#if attempt.passed !== null && attempt.passed !== undefined}
-          <span class="badge" class:bg-green-100={attempt.passed} class:text-green-700={attempt.passed} class:bg-red-100={!attempt.passed} class:text-red-700={!attempt.passed}>
+          <span
+            class="badge"
+            class:bg-green-100={attempt.passed}
+            class:text-green-700={attempt.passed}
+            class:bg-red-100={!attempt.passed}
+            class:text-red-700={!attempt.passed}
+          >
             {attempt.passed ? "Passed" : "Not passed"}
           </span>
         {/if}
@@ -83,14 +93,17 @@
       <div class="card">
         <div class="flex items-start justify-between gap-4">
           <p class="font-medium">{q?.prompt ?? "Question"}</p>
-          <span class="badge bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-100">
+          <span
+            class="badge bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-100"
+          >
             {bpToPercent(a.score_bp)} / {bpToPercent(a.max_score_bp, 0)}
           </span>
         </div>
         <p class="mt-3 whitespace-pre-wrap text-sm">{a.answer_text ?? "(no answer)"}</p>
         {#if a.feedback}
           <div class="mt-3 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
-            <strong>AI feedback:</strong> {a.feedback}
+            <strong>AI feedback:</strong>
+            {a.feedback}
             {#if a.similarity_bp !== null && a.similarity_bp !== undefined}
               <span class="muted"> · similarity {bpToPercent(a.similarity_bp)}</span>
             {/if}

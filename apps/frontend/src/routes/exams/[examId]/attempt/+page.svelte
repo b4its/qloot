@@ -99,12 +99,22 @@
 {#if loading}
   <p class="muted">Loading attempt…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {:else if exam && attempt}
-  <div class="sticky top-16 z-20 mb-4 flex items-center justify-between rounded-xl border px-4 py-3 surface">
+  <div
+    class="sticky top-16 z-20 mb-4 flex items-center justify-between rounded-xl border px-4 py-3 surface"
+  >
     <h1 class="font-semibold">{exam.title}</h1>
     <div class="flex items-center gap-3">
-      <span class="badge" class:bg-red-100={secondsLeft < 60} class:text-red-700={secondsLeft < 60} class:bg-amber-100={secondsLeft >= 60} class:text-amber-700={secondsLeft >= 60}>
+      <span
+        class="badge"
+        class:bg-red-100={secondsLeft < 60}
+        class:text-red-700={secondsLeft < 60}
+        class:bg-amber-100={secondsLeft >= 60}
+        class:text-amber-700={secondsLeft >= 60}
+      >
         ⏱ {mmss(secondsLeft)}
       </span>
       <button class="btn-primary" on:click={submit}>Submit</button>
@@ -136,7 +146,9 @@
               }}
             ></textarea>
             <div class="mt-3 flex justify-between">
-              <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}>← Previous</button>
+              <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}
+                >← Previous</button
+              >
               <button
                 class="btn-primary"
                 disabled={i === (exam.questions?.length ?? 0) - 1}

@@ -6,7 +6,12 @@
 
   let status: BlockchainStatus | null = null;
   let txs: BlockchainTx[] = [];
-  let events: { name: string; transaction_hash: string; block_number: number; args: Record<string, unknown> }[] = [];
+  let events: {
+    name: string;
+    transaction_hash: string;
+    block_number: number;
+    args: Record<string, unknown>;
+  }[] = [];
   let message = "";
   let error = "";
 
@@ -33,17 +38,33 @@
 
 <h1 class="text-2xl font-bold">Blockchain</h1>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>{/if}
+{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+    {message}
+  </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 {#if status}
   <div class="card mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    <div><div class="text-sm muted">Network</div><div class="font-semibold">{status.network}</div></div>
-    <div><div class="text-sm muted">Chain ID</div><div class="font-semibold">{status.chain_id}</div></div>
-    <div><div class="text-sm muted">Mode</div><div class="font-semibold">{status.dry_run ? "dry-run" : "live"}</div></div>
-    <div><div class="text-sm muted">Confirmations</div><div class="font-semibold">{status.confirmations_required}</div></div>
+    <div>
+      <div class="text-sm muted">Network</div>
+      <div class="font-semibold">{status.network}</div>
+    </div>
+    <div>
+      <div class="text-sm muted">Chain ID</div>
+      <div class="font-semibold">{status.chain_id}</div>
+    </div>
+    <div>
+      <div class="text-sm muted">Mode</div>
+      <div class="font-semibold">{status.dry_run ? "dry-run" : "live"}</div>
+    </div>
+    <div>
+      <div class="text-sm muted">Confirmations</div>
+      <div class="font-semibold">{status.confirmations_required}</div>
+    </div>
     <div class="sm:col-span-2">
       <div class="text-sm muted">Contract</div>
       <div class="break-all font-mono text-xs">{status.contract_address ?? "not deployed"}</div>
@@ -65,16 +86,30 @@
   <div class="mt-2 overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="text-left muted">
-        <tr><th class="py-1">Method</th><th>Status</th><th>Hash</th><th class="text-right">Conf</th><th class="text-right">When</th></tr>
+        <tr
+          ><th class="py-1">Method</th><th>Status</th><th>Hash</th><th class="text-right">Conf</th
+          ><th class="text-right">When</th></tr
+        >
       </thead>
       <tbody>
         {#each txs as tx}
           {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, status?.chain_id)}
           <tr class="border-t">
             <td class="py-1">{tx.method}</td>
-            <td><span class="badge" class:bg-green-100={tx.status === "confirmed"} class:text-green-700={tx.status === "confirmed"}>{tx.status}</span></td>
+            <td
+              ><span
+                class="badge"
+                class:bg-green-100={tx.status === "confirmed"}
+                class:text-green-700={tx.status === "confirmed"}>{tx.status}</span
+              ></td
+            >
             <td class="font-mono text-xs">
-              {#if url}<a class="text-primary-600" href={url} target="_blank" rel="noopener noreferrer">{shortHash(tx.transaction_hash)} ↗</a>
+              {#if url}<a
+                  class="text-primary-600"
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer">{shortHash(tx.transaction_hash)} ↗</a
+                >
               {:else}{shortHash(tx.transaction_hash)}{/if}
             </td>
             <td class="text-right">{tx.confirmation_count}</td>

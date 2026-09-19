@@ -30,7 +30,9 @@
     joinError = "";
     joinLoading = true;
     try {
-      const room = await api.post<Room>("/rooms/join-by-code", { code: joinCode.trim().toUpperCase() });
+      const room = await api.post<Room>("/rooms/join-by-code", {
+        code: joinCode.trim().toUpperCase(),
+      });
       window.location.href = `/rooms/${room.id}`;
     } catch (e) {
       joinError = e instanceof ApiError ? e.message : "Could not join room";
@@ -64,7 +66,12 @@
 <div class="card mt-4">
   <h2 class="font-medium">Join with a code</h2>
   <div class="mt-2 flex gap-2">
-    <input class="input max-w-xs uppercase" placeholder="ABC123" bind:value={joinCode} maxlength="12" />
+    <input
+      class="input max-w-xs uppercase"
+      placeholder="ABC123"
+      bind:value={joinCode}
+      maxlength="12"
+    />
     <button class="btn-primary" on:click={joinByCode} disabled={joinLoading || joinCode.length < 4}>
       {joinLoading ? "Joining…" : "Join"}
     </button>
@@ -82,12 +89,16 @@
     <label class="mt-3 flex items-center gap-2 text-sm">
       <input type="checkbox" bind:checked={newRoom.is_public} /> Public room
     </label>
-    <button class="btn-primary mt-4" on:click={createRoom} disabled={newRoom.name.length < 2}>Create</button>
+    <button class="btn-primary mt-4" on:click={createRoom} disabled={newRoom.name.length < 2}
+      >Create</button
+    >
   </div>
 {/if}
 
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 {#if loading}

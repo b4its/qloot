@@ -18,7 +18,9 @@
       course = await api.get<Course>(`/courses/${courseId}`);
       lessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`);
       const all = await api.get<Progress[]>("/me/learning-progress");
-      progress = Object.fromEntries(all.filter((p) => p.course_id === courseId).map((p) => [p.lesson_id, p]));
+      progress = Object.fromEntries(
+        all.filter((p) => p.course_id === courseId).map((p) => [p.lesson_id, p]),
+      );
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Failed to load course";
     } finally {
@@ -39,7 +41,9 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {:else if course}
   <a href="/learning" class="text-sm text-primary-600">← Back to courses</a>
   <h1 class="mt-2 text-2xl font-bold">{course.title}</h1>
@@ -50,13 +54,18 @@
       {@const done = progress[lesson.id]?.completed}
       <div class="card flex items-center justify-between">
         <div>
-          <a href={`/learning/${course.id}/lesson/${lesson.id}`} class="font-medium hover:text-primary-600">
+          <a
+            href={`/learning/${course.id}/lesson/${lesson.id}`}
+            class="font-medium hover:text-primary-600"
+          >
             {i + 1}. {lesson.title}
           </a>
           <p class="text-xs muted">{done ? "Completed" : "Not started"}</p>
         </div>
         {#if done}
-          <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100">✓ Done</span>
+          <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100"
+            >✓ Done</span
+          >
         {:else}
           <button class="btn-ghost" on:click={() => markComplete(lesson)}>Mark complete</button>
         {/if}

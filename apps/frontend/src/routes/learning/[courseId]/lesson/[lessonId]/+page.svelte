@@ -39,7 +39,9 @@
 {#if loading}
   <p class="muted">Loading…</p>
 {:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {:else if lesson}
   <a href={`/learning/${lesson.course_id}`} class="text-sm text-primary-600">← Back to course</a>
   <article class="card mt-3">

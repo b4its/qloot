@@ -43,15 +43,22 @@
 
 <h1 class="text-2xl font-bold">Rewards</h1>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">{message}</p>{/if}
+{#if message}<p class="mt-4 rounded-lg bg-primary-50 p-3 text-sm dark:bg-slate-800">
+    {message}
+  </p>{/if}
 {#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>
+  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+    {error}
+  </p>
 {/if}
 
 <div class="card mt-4 overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-left muted">
-      <tr><th class="py-1">Key</th><th>User</th><th class="text-right">Amount</th><th>Status</th><th></th></tr>
+      <tr
+        ><th class="py-1">Key</th><th>User</th><th class="text-right">Amount</th><th>Status</th><th
+        ></th></tr
+      >
     </thead>
     <tbody>
       {#each rewards as r}
@@ -60,11 +67,21 @@
           <td class="font-mono text-xs">{r.user_id.slice(0, 8)}…</td>
           <td class="text-right font-mono">{formatNumber(r.amount)}</td>
           <td>
-            <span class="badge" class:bg-green-100={r.status === "confirmed"} class:text-green-700={r.status === "confirmed"} class:bg-red-100={r.status === "failed"} class:text-red-700={r.status === "failed"}>{r.status}</span>
+            <span
+              class="badge"
+              class:bg-green-100={r.status === "confirmed"}
+              class:text-green-700={r.status === "confirmed"}
+              class:bg-red-100={r.status === "failed"}
+              class:text-red-700={r.status === "failed"}>{r.status}</span
+            >
           </td>
           <td class="text-right">
-            {#if r.status === "failed"}<button class="btn-ghost" on:click={() => retry(r.id)}>Retry</button>{/if}
-            {#if r.status === "pending"}<button class="btn-ghost" on:click={() => cancel(r.id)}>Cancel</button>{/if}
+            {#if r.status === "failed"}<button class="btn-ghost" on:click={() => retry(r.id)}
+                >Retry</button
+              >{/if}
+            {#if r.status === "pending"}<button class="btn-ghost" on:click={() => cancel(r.id)}
+                >Cancel</button
+              >{/if}
           </td>
         </tr>
       {/each}

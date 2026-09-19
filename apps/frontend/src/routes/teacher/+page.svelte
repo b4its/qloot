@@ -8,9 +8,24 @@
   });
 
   const links = [
-    { href: "/teacher/materials", label: "Materials", desc: "Upload PDFs and generate questions with AI", icon: "📄" },
-    { href: "/teacher/exams", label: "Exams", desc: "Create exams, review AI questions, publish", icon: "📝" },
-    { href: "/teacher/quests", label: "Quests", desc: "Set reward rules and finalize winners", icon: "🏆" },
+    {
+      href: "/teacher/materials",
+      label: "Materials",
+      desc: "Upload PDFs and generate questions with AI",
+      icon: "📄",
+    },
+    {
+      href: "/teacher/exams",
+      label: "Exams",
+      desc: "Create exams, review AI questions, publish",
+      icon: "📝",
+    },
+    {
+      href: "/teacher/quests",
+      label: "Quests",
+      desc: "Set reward rules and finalize winners",
+      icon: "🏆",
+    },
     { href: "/teacher/rankings", label: "Rankings", desc: "Inspect leaderboards", icon: "📊" },
   ];
 </script>
