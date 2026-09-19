@@ -1,6 +1,14 @@
 """Import all models so SQLAlchemy metadata is fully populated (Alembic)."""
 
 from app.db.base import Base
+from app.models.career import (
+    AcademicGrade,
+    CareerRecommendation,
+    Consultation,
+    PersonalityResult,
+    ResourceItem,
+    RoadmapMilestone,
+)
 from app.models.exam import (
     BP_SCALE,
     Exam,
@@ -85,6 +93,12 @@ __all__ = [
     "Notification",
     "Badge",
     "UserBadge",
+    "AcademicGrade",
+    "PersonalityResult",
+    "CareerRecommendation",
+    "RoadmapMilestone",
+    "Consultation",
+    "ResourceItem",
     "WalletAccount",
     "WalletLedgerEntry",
     "RewardAllocation",
