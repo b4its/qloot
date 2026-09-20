@@ -127,6 +127,22 @@ export default {
           "0%,100%": { boxShadow: "0 0 0 0 rgba(252,238,10,.35)" },
           "50%": { boxShadow: "0 0 18px -2px rgba(252,238,10,.75)" },
         },
+        floorScroll: {
+          "0%": { backgroundPosition: "0 0" },
+          "100%": { backgroundPosition: "0 46px" },
+        },
+        sheen: {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-100% 0" },
+        },
+        sweep: {
+          "0%": { top: "-40%" },
+          "60%,100%": { top: "120%" },
+        },
+        blink: {
+          "0%,49%": { opacity: "1" },
+          "50%,100%": { opacity: "0.15" },
+        },
       },
       animation: {
         aurora: "aurora 18s ease-in-out infinite",
@@ -138,6 +154,10 @@ export default {
         glitch: "glitch 4s steps(1) infinite",
         flicker: "flicker 6s linear infinite",
         "pulse-neon": "pulseNeon 2.6s ease-in-out infinite",
+        "floor-scroll": "floorScroll 3.6s linear infinite",
+        sheen: "sheen 1.8s ease-in-out infinite",
+        sweep: "sweep 4.6s ease-in-out infinite",
+        blink: "blink 1.3s steps(1) infinite",
       },
     },
   },

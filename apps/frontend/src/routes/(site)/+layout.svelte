@@ -55,10 +55,10 @@
 
 <div class="relative min-h-screen">
   <!-- ================= NAV ================= -->
-  <header class="sticky top-0 z-40 border-b glass">
+  <header class="cyber-rule sticky top-0 z-40 border-b glass">
     <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
       <a href="/" class="flex items-center gap-2.5">
-        <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
+        <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm glow-yellow">
           <Icon name="graduation-cap" size="16px" />
         </span>
         <span class="font-display text-lg font-bold uppercase tracking-tight">QLoot</span>

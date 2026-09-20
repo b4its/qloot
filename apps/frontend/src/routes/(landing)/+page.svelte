@@ -25,17 +25,18 @@
 <!-- ================= HERO ================= -->
 <section class="relative overflow-hidden">
   <div class="aurora"><span class="aurora-blob-3"></span></div>
-  <div class="dotgrid absolute inset-0 z-0 opacity-60"></div>
+  <div class="dotgrid absolute inset-0 z-0 opacity-40"></div>
+  <div class="cyber-floor"></div>
 
   <div
     class="relative z-10 mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24"
   >
     <div class="flex flex-col justify-center">
-      <span class="badge badge-indigo w-fit">
-        <Icon name="graduation-cap" size="10px" /> Platform e-learning kelas
-      </span>
+      <span class="neon-chip w-fit"
+        ><Icon name="graduation-cap" size="10px" /> Platform e-learning kelas</span
+      >
       <h1
-        class="mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+        class="chroma mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
       >
         Belajar sesuai kelasmu,<br />
         didampingi <span class="text-grad">AI & guru</span>.
@@ -75,8 +76,8 @@
     <!-- floating "class card" -->
     <div class="relative hidden lg:block">
       <div class="tilt">
-        <div class="grad-border">
-          <div class="card !p-5">
+        <div class="grad-border glow-cyan">
+          <div class="card holo scan-sweep !p-5">
             <div class="flex items-center justify-between">
               <span class="badge badge-mint"
                 ><Icon name="chalkboard-user" size="10px" /> Kelas 1A · IPA</span
@@ -111,7 +112,7 @@
       </div>
 
       <div class="absolute -bottom-6 -left-6 hidden xl:block">
-        <div class="card !p-3">
+        <div class="card neon-corners !p-3">
           <WalletChip
             address="0x7a2f3b91c4d8e05f6a2b9c1b8e4d7f0a3c6b9d21"
             label="Siswa"
@@ -120,6 +121,14 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- HUD telemetry strip -->
+  <div
+    class="relative z-10 mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 pb-8 sm:px-6"
+  >
+    <span class="data-rule flex-1">NIGHT_CITY // ONLINE</span>
+    <span class="neon-chip blink">● LIVE</span>
   </div>
 </section>
 
@@ -140,8 +149,8 @@
 <!-- ================= FEATURES ================= -->
 <section id="fitur" class="scroll-mt-20 mx-auto max-w-7xl px-4 py-16 sm:px-6">
   <div class="text-center" use:reveal>
-    <p class="mono-label">Kenapa QLoot</p>
-    <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">
+    <span class="data-rule mx-auto max-w-xs">Kenapa QLoot</span>
+    <h2 class="mt-3 font-display text-3xl font-bold sm:text-4xl">
       Satu ruang untuk kelas dan belajar
     </h2>
     <p class="mx-auto mt-2 max-w-2xl muted">
@@ -150,7 +159,7 @@
   </div>
   <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
     {#each features as f, i}
-      <div use:reveal={{ delay: i * 50 }} class="card lift">
+      <div use:reveal={{ delay: i * 50 }} class="card holo lift">
         <span class="tile h-11 w-11">
           <Icon name={f.icon} size="18px" />
         </span>
@@ -179,9 +188,9 @@
     <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {#each classTracks as t, i}
         <div use:reveal={{ delay: i * 60 }} class="grad-border lift">
-          <span class="block p-5">
+          <span class="holo block p-5">
             <span
-              class="brand-mark grid h-11 w-11 place-items-center rounded-sm"
+              class="brand-mark grid h-11 w-11 place-items-center rounded-sm glow-yellow"
               style={`background-image:${t.accent}`}
             >
               <Icon name={t.icon} size="18px" />
@@ -319,8 +328,10 @@
 <!-- ================= FINAL CTA ================= -->
 <section class="relative overflow-hidden border-t">
   <div class="aurora"><span class="aurora-blob-3"></span></div>
+  <div class="cyber-floor"></div>
   <div class="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-    <h2 class="font-display text-3xl font-bold sm:text-5xl">Siap memulai belajarmu?</h2>
+    <span class="neon-chip">MULAI SEKARANG</span>
+    <h2 class="chroma mt-4 font-display text-3xl font-bold sm:text-5xl">Siap memulai belajarmu?</h2>
     <p class="mt-4 muted">
       Daftar dengan kelasmu, dan langsung akses semua pelajaran yang disiapkan gurumu.
     </p>
