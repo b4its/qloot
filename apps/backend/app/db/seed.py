@@ -450,6 +450,11 @@ async def main() -> None:
     # --- simulate career guidance data -------------------------------------
     await _simulate_career(students)
 
+    # --- bulk padding: ~200 rows per table, 5 teachers + 50 students --------
+    from app.db.seed_bulk import main as seed_bulk_main
+
+    await seed_bulk_main()
+
     log.info(
         "seed_done",
         admin=str(admin.id),
@@ -662,7 +667,14 @@ async def _simulate_tasks(students: list[User]) -> None:
                 if exists is not None:
                     continue
                 rkey = task_reward_key(task.id, student.id)
-                session.add(TaskCompletion(task_id=task.id, user_id=student.id, reward_key=rkey))
+                session.add(
+                    TaskCompletion(
+                        task_id=task.id,
+                        user_id=student.id,
+                        period_key="",
+                        reward_key=rkey,
+                    )
+                )
                 if task.reward_amount > 0:
                     await RewardEngine(session).allocate_task_reward(
                         user=student, task_id=task.id, amount=task.reward_amount, rkey=rkey
