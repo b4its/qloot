@@ -228,6 +228,9 @@ export interface RankingEntry {
   rank: number;
   score_bp: number;
   opc_earned: number;
+  display_name?: string | null;
+  duration_seconds?: number | null;
+  submitted_at?: string | null;
 }
 
 export interface RankingResponse {

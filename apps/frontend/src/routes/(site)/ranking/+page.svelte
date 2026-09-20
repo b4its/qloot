@@ -8,7 +8,7 @@
   import StatCounter from "$lib/components/StatCounter.svelte";
 
   let global: RankingResponse | null = null;
-  let me: { total_score_bp: number; opc_balance: number } | null = null;
+  let me: { total_score_bp: number; opc_balance: number; rank?: number } | null = null;
   let loading = true;
   let error = "";
 
@@ -23,7 +23,7 @@
     try {
       [global, me] = await Promise.all([
         api.get<RankingResponse>("/rankings/global"),
-        api.get<{ total_score_bp: number; opc_balance: number }>("/rankings/me"),
+        api.get<{ total_score_bp: number; opc_balance: number; rank?: number }>("/rankings/me"),
       ]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
@@ -51,7 +51,10 @@
         </span>
         <div>
           <p class="mono-label">Peringkatmu</p>
-          <p class="font-display text-2xl font-bold">{(me.total_score_bp / 100).toFixed(0)}%</p>
+          <p class="font-display text-2xl font-bold">
+            #{me.rank ?? "—"} ·
+            <span class="text-primary">{(me.total_score_bp / 100).toFixed(0)}%</span>
+          </p>
         </div>
       </div>
       <div class="text-right">
@@ -86,7 +89,13 @@
                   <span class="mono">{e.rank}</span>
                 {/if}
               </td>
-              <td class="px-5 py-3 font-mono text-xs">{e.user_id.slice(0, 8)}…</td>
+              <td class="px-5 py-3">
+                {#if e.display_name}
+                  <span class="font-medium">{e.display_name}</span>
+                {:else}
+                  <span class="font-mono text-xs">{e.user_id.slice(0, 8)}…</span>
+                {/if}
+              </td>
               <td class="px-5 py-3 text-right">{(e.score_bp / 100).toFixed(1)}%</td>
               <td class="px-5 py-3 text-right font-mono">{formatNumber(e.opc_earned)}</td>
             </tr>
