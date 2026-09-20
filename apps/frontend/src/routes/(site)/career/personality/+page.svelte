@@ -69,86 +69,93 @@
 
 <svelte:head><title>Big Five Test — QLoot</title></svelte:head>
 
-<div class="flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <h1 class="text-2xl font-bold">Big Five Personality Test</h1>
-    <p class="mt-1 text-sm muted">
-      A simulated BFI-2 style questionnaire measuring Openness, Conscientiousness, Extraversion,
-      Agreeableness and Neuroticism.
+<div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mono-label">Panduan Karier · Kepribadian</p>
+      <h1 class="mt-2 font-display text-3xl font-bold">Big Five Personality Test</h1>
+      <p class="mt-1 text-sm muted">
+        Kuesioner bergaya BFI-2 (simulasi) yang mengukur Keterbukaan, Kehati-hatian, Ekstroversi,
+        Keramahan, dan Neurotisisme.
+      </p>
+    </div>
+    <a href="/career" class="btn-ghost">← Career home</a>
+  </div>
+
+  {#if error}
+    <p class="alert-error mt-4">
+      {error}
     </p>
-  </div>
-  <a href="/career" class="btn-ghost">← Career home</a>
-</div>
+  {/if}
 
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{/if}
-
-<div class="mt-4 grid gap-4 lg:grid-cols-3">
-  <div class="card lg:col-span-2">
-    <h2 class="font-semibold">Questionnaire</h2>
-    <div class="mt-2 flex items-center justify-between text-xs muted">
-      <span>{answered} / {statements.length} answered</span>
-      <span>1 – 5 scale</span>
-    </div>
-    <div class="mt-3 space-y-4">
-      {#each statements as s, i}
-        <div>
-          <p class="text-sm">{i + 1}. {s}</p>
-          <div class="mt-1 flex flex-wrap gap-1">
-            {#each labels as lbl, li}
-              <button
-                type="button"
-                class="rounded-lg border px-2 py-1 text-[11px] transition"
-                class:bg-primary={answers[i] === li + 1}
-                class:text-white={answers[i] === li + 1}
-                on:click={() => (answers[i] = li + 1)}
-                title={lbl}
-              >
-                {li + 1}
-              </button>
-            {/each}
-            <span class="ml-2 self-center text-[11px] muted">{labels[answers[i] - 1]}</span>
-          </div>
-        </div>
-      {/each}
-    </div>
-    <button class="btn-primary mt-5 w-full" on:click={submit} disabled={saving}>
-      {saving ? "Scoring…" : "Submit & see results"}
-    </button>
-  </div>
-
-  <div class="card h-fit">
-    <h2 class="font-semibold">Your result</h2>
-    {#if loading}
-      <p class="mt-2 muted">Loading…</p>
-    {:else if result}
-      <div class="mt-3 space-y-3">
-        {#each traits as t}
-          {@const value = result[t.key]}
+  <div class="mt-6 grid gap-4 lg:grid-cols-3">
+    <div class="card lg:col-span-2">
+      <h2 class="hud font-display text-lg font-bold">Questionnaire</h2>
+      <div class="mt-2 flex items-center justify-between text-xs muted">
+        <span>{answered} / {statements.length} answered</span>
+        <span>skala 1 – 5</span>
+      </div>
+      <div class="mt-3 space-y-4">
+        {#each statements as s, i}
           <div>
-            <div class="flex items-center justify-between text-sm">
-              <span class="inline-flex items-center gap-2"
-                ><Icon name={t.icon} size="12px" class="text-primary" /> {t.label}</span
-              >
-              <span class="font-mono">{value}</span>
-            </div>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/5 dark:bg-surface">
-              <div class="h-full rounded-full bg-primary" style={`width:${value}%`}></div>
+            <p class="text-sm">{i + 1}. {s}</p>
+            <div class="mt-1 flex flex-wrap gap-1">
+              {#each labels as lbl, li}
+                <button
+                  type="button"
+                  class="rounded-sm border px-2.5 py-1 font-mono text-[11px] transition"
+                  class:border-primary={answers[i] === li + 1}
+                  class:bg-primary={answers[i] === li + 1}
+                  class:text-[#05060A]={answers[i] === li + 1}
+                  class:hover:border-primary={answers[i] !== li + 1}
+                  on:click={() => (answers[i] = li + 1)}
+                  title={lbl}
+                >
+                  {li + 1}
+                </button>
+              {/each}
+              <span class="ml-2 self-center text-[11px] muted">{labels[answers[i] - 1]}</span>
             </div>
           </div>
         {/each}
-        {#if result.summary}
-          <p class="mt-2 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
-            {result.summary}
-          </p>
-        {/if}
-        <a href="/career/roadmap" class="btn-ghost w-full">See your career roadmap →</a>
       </div>
-    {:else}
-      <p class="mt-2 muted">No result yet. Complete the questionnaire to generate your profile.</p>
-    {/if}
+      <button class="btn-primary mt-5 w-full" on:click={submit} disabled={saving}>
+        {saving ? "Scoring…" : "Submit & see results"}
+      </button>
+    </div>
+
+    <div class="card h-fit">
+      <h2 class="hud font-display text-lg font-bold">Your result</h2>
+      {#if loading}
+        <p class="mt-2 muted">Loading…</p>
+      {:else if result}
+        <div class="mt-3 space-y-3">
+          {#each traits as t}
+            {@const value = result[t.key]}
+            <div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="inline-flex items-center gap-2"
+                  ><Icon name={t.icon} size="12px" class="text-primary" /> {t.label}</span
+                >
+                <span class="font-mono">{value}</span>
+              </div>
+              <div class="track mt-1 h-1.5">
+                <span style={`width:${value}%`}></span>
+              </div>
+            </div>
+          {/each}
+          {#if result.summary}
+            <p class="alert-info mt-2">
+              {result.summary}
+            </p>
+          {/if}
+          <a href="/career/roadmap" class="btn-ghost w-full">See your career roadmap →</a>
+        </div>
+      {:else}
+        <p class="mt-2 muted">
+          No result yet. Complete the questionnaire to generate your profile.
+        </p>
+      {/if}
+    </div>
   </div>
 </div>

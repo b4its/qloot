@@ -64,77 +64,83 @@
 
 <svelte:head><title>AI Assistant — QLoot</title></svelte:head>
 
-<div class="flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <h1 class="text-2xl font-bold">AI Assistant</h1>
-    <p class="mt-1 text-sm muted">A simulated, rule-based guide for study & career questions.</p>
-  </div>
-  <a href="/career" class="btn-ghost">← Career home</a>
-</div>
-
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{/if}
-
-<div class="card mt-4 flex h-[60vh] min-h-[420px] flex-col !p-0">
-  <div class="flex-1 space-y-3 overflow-y-auto p-5" bind:this={scroller}>
-    {#each messages as m}
-      <div class="flex items-start gap-3" class:flex-row-reverse={m.role === "user"}>
-        <div class="grid h-7 w-7 flex-none place-items-center rounded-lg bg-ink/5 dark:bg-ink/10">
-          <Icon
-            name={m.role === "bot" ? "robot" : "user"}
-            size="13px"
-            klass={m.role === "bot" ? "text-primary" : ""}
-          />
-        </div>
-        <div
-          class="max-w-[80%] rounded-2xl px-4 py-2 text-sm"
-          class:bg-primary={m.role === "user"}
-          class:text-white={m.role === "user"}
-          class:tone-ink-soft={m.role === "bot"}
-          class:dark:bg-surface={m.role === "bot"}
-        >
-          {#if m.typing}
-            <span class="inline-flex gap-1">
-              <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-current"></span>
-              <span
-                class="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0.15s]"
-              ></span>
-              <span
-                class="h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:0.3s]"
-              ></span>
-            </span>
-          {:else}
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            <span>{@html render(m.text)}</span>
-          {/if}
-        </div>
-      </div>
-    {/each}
+<div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mono-label">Panduan Karier · Asisten</p>
+      <h1 class="mt-2 font-display text-3xl font-bold">AI Assistant</h1>
+      <p class="mt-1 text-sm muted">
+        Pemandu berbasis aturan (simulasi) untuk pertanyaan belajar & karier.
+      </p>
+    </div>
+    <a href="/career" class="btn-ghost">← Career home</a>
   </div>
 
-  <div class="border-t px-5 py-3">
-    <p class="text-xs font-mono uppercase muted">Popular questions</p>
-    <div class="mt-2 flex flex-wrap gap-2">
-      {#each suggestions as s}
-        <button class="btn-ghost !py-1 text-xs" on:click={() => send(s)} disabled={busy}>{s}</button
-        >
+  {#if error}
+    <p class="alert-error mt-4">
+      {error}
+    </p>
+  {/if}
+
+  <div class="card mt-6 flex h-[60vh] min-h-[420px] flex-col !p-0">
+    <div class="flex-1 space-y-3 overflow-y-auto p-5" bind:this={scroller}>
+      {#each messages as m}
+        <div class="flex items-start gap-3" class:flex-row-reverse={m.role === "user"}>
+          <div class="tile-neutral h-7 w-7">
+            <Icon
+              name={m.role === "bot" ? "robot" : "user"}
+              size="13px"
+              class={m.role === "bot" ? "text-primary" : ""}
+            />
+          </div>
+          <div
+            class="max-w-[80%] rounded-sm px-4 py-2 text-sm"
+            class:bg-primary={m.role === "user"}
+            class:text-[#05060A]={m.role === "user"}
+            class:tone-ink-soft={m.role === "bot"}
+            class:dark:bg-surface={m.role === "bot"}
+          >
+            {#if m.typing}
+              <span class="inline-flex gap-1">
+                <span class="h-1.5 w-1.5 animate-bounce rounded-sm bg-current"></span>
+                <span
+                  class="h-1.5 w-1.5 animate-bounce rounded-sm bg-current [animation-delay:0.15s]"
+                ></span>
+                <span
+                  class="h-1.5 w-1.5 animate-bounce rounded-sm bg-current [animation-delay:0.3s]"
+                ></span>
+              </span>
+            {:else}
+              <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+              <span>{@html render(m.text)}</span>
+            {/if}
+          </div>
+        </div>
       {/each}
     </div>
-  </div>
 
-  <div class="flex items-center gap-2 border-t p-4">
-    <input
-      class="input"
-      placeholder="Ask about a major, campus or career…"
-      bind:value={input}
-      on:keydown={(e) => e.key === "Enter" && send()}
-      disabled={busy}
-    />
-    <button class="btn-primary" on:click={() => send()} disabled={busy || !input.trim()}
-      >Send</button
-    >
+    <div class="border-t px-5 py-3">
+      <p class="mono-label">Popular questions</p>
+      <div class="mt-2 flex flex-wrap gap-2">
+        {#each suggestions as s}
+          <button class="btn-ghost !py-1 text-xs" on:click={() => send(s)} disabled={busy}
+            >{s}</button
+          >
+        {/each}
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 border-t p-4">
+      <input
+        class="input"
+        placeholder="Tanyakan jurusan, kampus, atau karier…"
+        bind:value={input}
+        on:keydown={(e) => e.key === "Enter" && send()}
+        disabled={busy}
+      />
+      <button class="btn-primary" on:click={() => send()} disabled={busy || !input.trim()}
+        >Send</button
+      >
+    </div>
   </div>
 </div>
