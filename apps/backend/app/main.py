@@ -26,6 +26,9 @@ log = get_logger("main")
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     log.info("app_startup", env=settings.app_env, dry_run=settings.blockchain_dry_run)
+    # Wire the realtime bus to Redis when available so live room events cross
+    # worker/process boundaries; it degrades to an in-process bus otherwise.
+    await event_bus.connect()
     await _ensure_badge_catalog()
     yield
     await close_ai_provider()
