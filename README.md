@@ -1,40 +1,93 @@
 # QLoot
 
-**QLoot** is a gamified learning platform that combines digital learning, AI-assisted
-exams and quests, competitive real-time rooms, rankings, and blockchain-based rewards
-via the **OryphemCoin (OPC)** ERC-1155 token.
+**QLoot** is a gamified, class-based e-learning platform with **AI-assisted exams**,
+**competitive real-time rooms**, **quests & rankings**, and **blockchain rewards**
+through the **OryphemCoin (OPC)** ERC-1155 token.
 
 It is a ground-up reimplementation inspired by the domain of
 [SayGenFix](https://github.com/mhaatha/saygenfix) (a Go/AI essay-exam app), rebuilt as
-a FastAPI + SvelteKit monorepo with proper testing, transactions, and Web3 rewards.
+a **FastAPI + SvelteKit** monorepo with proper transactions, object-level RBAC,
+background workers, and Web3 rewards.
+
+> The whole platform runs as a **deterministic simulation** offline: the AI provider
+> defaults to a mock, the chain client defaults to `dry_run`, and the career-guidance
+> module is fully simulated — no external services or API keys are required to run,
+> demo, or test the system.
 
 ---
 
-## Highlights
+## Table of contents
 
-- **Learning**: courses, lessons, progress tracking, PDF material upload.
-- **AI**: question generation from PDFs, essay grading, material summaries and
-  grounded Q&A — with structured output, validation, retries and a mock
-  provider for offline dev.
-- **Exams**: server-authoritative timer, autosave, idempotent submit, AI feedback,
-  similarity scores.
-- **Gamification**: rooms (WebSocket live presence/leaderboard), quests with
-  deterministic fastest-valid winner selection, tasks, global/room/quest rankings,
-  notifications and badges.
-- **Career guidance** (simulated): academic dashboard (grades, trend, interest
-  radar, AI insights), Big Five personality test, AI major recommendations with a
-  human-in-the-loop counsellor approval step, a milestone roadmap, a BK counselling
-  room, a resource library and a rule-based AI assistant.
-- **Web3 rewards**: shared treasury + **double-entry ledger**, idempotent reward keys,
-  transactional outbox → blockchain worker → indexer, Etherscan links, withdrawals.
-- **Security**: Argon2id, hashed sessions with expiry/revocation, object-level RBAC,
-  CSRF-safe cookies, strict CORS, rate limiting, secret redaction in logs.
+- [Ringkasan sistem](#ringkasan-sistem)
+- [Fitur](#fitur)
+- [Tech stack](#tech-stack)
+- [Arsitektur](#arsitektur)
+- [Instalasi](#instalasi)
+- [Cara penggunaan](#cara-penggunaan)
+- [Seed data](#seed-data)
+- [Pengujian](#pengujian)
+- [Blockchain lokal](#blockchain-lokal)
+- [Struktur repositori](#struktur-repositori)
+- [Keamanan](#keamanan)
 
-> The career-guidance module and all AI providers run as **deterministic
-> simulations** by default (no external calls), so the whole platform is
-> reproducible offline.
+---
 
-## Architecture
+## Ringkasan sistem
+
+QLoot memodelkan sebuah sekolah digital:
+
+- **Guru (teacher)** membuat *pelajaran* (subject) yang ditargetkan ke sebuah **kelas**
+  (mis. `1A · IPA`), mengunggah **materi PDF**, membuat **ujian**, **quest**, **ruang**,
+  dan **tugas**.
+- **Siswa (student)** terdaftar pada satu kelas dan otomatis melihat pelajaran untuk
+  kelasnya. Mereka mengerjakan ujian, mengumpulkan jawaban, dan mengikuti quest untuk
+  memperoleh **OryphemCoin (OPC)**.
+- **Admin** mengelola pengguna, hadiah, audit log, dan kontrol blockchain.
+
+Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) menghasilkan
+**reward OPC** yang dicatat pada **ledger double-entry**, diterbitkan sebagai event
+*outbox* transaksional, lalu diproses oleh **blockchain worker** dan dikonfirmasi oleh
+**indexer**.
+
+---
+
+## Fitur
+
+- **Pembelajaran berbasis kelas** — pelajaran per kelas, materi, progres, dan PDF upload.
+- **AI (simulasi)** — pembuatan soal dari PDF, penilaian esai, ringkasan materi, dan
+  tanya-jawab berbasis materi; struktur output tervalidasi, retry, dan provider mock
+  untuk pengembangan offline.
+- **Ujian** — timer otoritatif di server, autosave, submit idempoten, umpan-balik AI,
+  skor kemiripan.
+- **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
+  pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
+  quest, notifikasi, dan badge dengan id on-chain.
+- **Panduan karier (simulasi)** — dashboard akademik (nilai, tren, radar minat, insight AI),
+  tes kepribadian Big Five, rekomendasi jurusan AI dengan persetujuan guru BK
+  (human-in-the-loop), roadmap milestone, ruang konsultasi BK, perpustakaan sumber, dan
+  asisten AI berbasis aturan.
+- **Reward Web3** — treasury, **ledger double-entry**, idempotent reward keys, outbox →
+  blockchain worker → indexer, tautan explorer, dan penarikan (withdrawal).
+- **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
+  object-level, cookie CSRF-safe, CORS ketat, rate limiting, redaksi secret di log.
+
+---
+
+## Tech stack
+
+| Lapisan | Teknologi |
+|---|---|
+| **Backend** | Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2 (async) + asyncpg, Alembic, Redis, structlog |
+| **AI** | Provider abstraksi (mock deterministik default; Google Gemini opsional) |
+| **Web3** | web3.py, eth-account; kontrak Solidity ERC-1155 upgradeable (UUPS) via Hardhat + OpenZeppelin |
+| **Worker** | Proses terpisah: `ai` (grading/generation), `blockchain`, `indexer` (pola `SELECT … FOR UPDATE SKIP LOCKED`) |
+| **Frontend** | SvelteKit 2 + Svelte 5, TypeScript, Vite 5, Tailwind CSS 3, `adapter-node` |
+| **Data** | PostgreSQL 16, Redis 7, MinIO (object storage) / local storage |
+| **Tooling** | pytest, ruff, mypy, Vitest, Playwright, Hardhat, Docker Compose, Makefile |
+
+---
+
+## Arsitektur
 
 ```
 Browser → SvelteKit → FastAPI ─┬─ PostgreSQL
@@ -44,38 +97,169 @@ Browser → SvelteKit → FastAPI ─┬─ PostgreSQL
                                         └─ ERC-1155 OryphemCoin (Hardhat)
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for the full picture.
+Backend berlapis: Router (`app/api/v1`) → Service (`app/services`) → Repository
+(`app/repositories`) / Model (`app/models`) → Postgres. Lihat
+[`docs/architecture.md`](docs/architecture.md) untuk gambaran lengkap.
 
-## Quick start
+---
+
+## Instalasi
+
+### Prasyarat
+
+- **Docker** + Docker Compose v2
+- **Node.js 20+** dan **npm**
+- **Python 3.11+**
+- (Opsional) **Foundry/Anvil** untuk chain lokal — sudah tersedia lewat image Docker
+
+### Langkah cepat
 
 ```bash
-# 0. Prerequisites: Docker + Compose, Node 20+, Python 3.11+
-cp .env.example .env          # then edit secrets
-make setup                    # installs backend + frontend + contract deps
-make up                       # postgres, redis, minio, backend, workers, frontend
-make db-migrate               # apply Alembic migrations
-make db-seed                  # demo admin/teacher/students + a course
+git clone <repo-url> qloot && cd qloot
 
-# Open:
-#  frontend  http://localhost:3000
-#  api docs  http://localhost:8000/docs
-#  minio     http://localhost:9001
+# 1. Konfigurasi environment
+cp .env.example .env            # lalu isi/ubah secret (SESSION_SECRET, dsb.)
+
+# 2. Install dependency (backend venv, frontend node_modules, contract deps)
+make setup
+
+# 3. Jalankan stack inti (postgres, redis, minio, backend, workers, frontend)
+make up
+
+# 4. Terapkan migrasi database
+make db-migrate
+
+# 5. Isi data demo + data bulk (>= 200 baris/tabel, 5 guru, 50 siswa)
+make db-seed
 ```
 
-Demo accounts (from `make db-seed`): `admin@qloot.example`, `teacher@qloot.example`,
-`student1@qloot.example` (passwords in `apps/backend/app/db/seed.py`).
+Setelah selesai, buka:
 
-## Local blockchain
+| Layanan | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| API docs (Swagger) | http://localhost:8000/docs |
+| MinIO console | http://localhost:9001 |
+
+> **Catatan.** `make db-migrate` dijalankan di dalam container (target `migrate`).
+> Health check: `make health`. Lihat semua perintah dengan `make help`.
+
+### Menjalankan tanpa Docker (mode dev)
 
 ```bash
-make blockchain-up            # Anvil on :8545 (chain 31337)
-make blockchain-build         # compile contracts
-make blockchain-test          # 23 contract tests
+# Backend (butuh Postgres + Redis yang bisa diakses)
+make dev-backend                # uvicorn --reload di :8000
+
+# Worker AI
+make dev-worker
+
+# Frontend
+make dev-frontend               # vite dev di :3000
+```
+
+---
+
+## Cara penggunaan
+
+### Akun demo
+
+Diperoleh dari `make db-seed`:
+
+| Peran | Email | Password |
+|---|---|---|
+| Admin | `admin@qloot.example` | `AdminPass123!` |
+| Guru | `teacher@qloot.example` | `TeacherPass123!` |
+| Guru | `teacher2@qloot.example` | `TeacherPass123!` |
+| Siswa | `student1@qloot.example` | `StudentPass123!` |
+| Siswa | `student2@qloot.example` | `StudentPass123!` |
+
+Bulk seed menambah hingga **5 guru** dan **50 siswa** (`teacher3…`, `student06…`, dst.)
+yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
+
+### Alur singkat
+
+**Sebagai guru:**
+
+1. Masuk, lalu buka **Panel Guru**.
+2. **Pelajaran** — buat pelajaran, tentukan kelas & tipe kelas (IPA/IPS).
+3. **Materi** — unggah PDF lalu *Generate questions* dengan AI; tinjau draf soal.
+4. **Ujian** — susun ujian, publikasikan ke kelas.
+5. **Quest** — atur hadiah per peringkat, publikasikan, lalu finalisasi pemenang.
+6. **Jawaban** — lihat jawaban siswa, feedback AI, dan analitik.
+
+**Sebagai siswa:**
+
+1. Masuk dan buka **Dashboard**.
+2. **Pelajaran Saya** — ikuti pelajaran kelasmu dan selesaikan materi.
+3. **Ujian** — kerjakan ujian (timer server, autosave); lihat hasil & feedback AI.
+4. **Ruang** — bergabung ke ruang live (leaderboard & event real-time via WebSocket).
+5. **Quest / Tugas** — selesaikan untuk memperoleh OPC.
+6. **Peringkat / Badge** — pantau posisi dan pencapaian.
+7. **Karier** — isi nilai, tes Big Five, hasilkan rekomendasi jurusan & roadmap.
+8. **Wallet** — lihat saldo, ledger, reward, dan buat permintaan penarikan.
+
+### Akses API
+
+Autentikasi berbasis cookie sesi (dari `/auth/login`) atau header
+`Authorization: Bearer <token>`. Semua endpoint berada di prefix `/api/v1`.
+
+```bash
+# Login dan simpan cookie sesi
+curl -s -c cookies.txt -X POST http://localhost:8000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"student1@qloot.example","password":"StudentPass123!"}'
+
+# Contoh: baca saldo wallet
+curl -s -b cookies.txt http://localhost:8000/api/v1/wallet
+```
+
+---
+
+## Seed data
+
+`make db-seed` menjalankan seeder idempoten yang mengisi platform dengan data simulasi:
+
+- **Akun** — 1 admin, **5 guru**, **50 siswa** yang tersebar di 6 kelas.
+- **Konten** — ~200 baris per tabel: pelajaran, materi, pelajaran/lesson, ujian, soal,
+  ruang, quest, tugas, badge (semua dengan id on-chain), notifikasi, resource, dsb.
+- **Materi PDF** — teks diekstrak dari **PDF edukasi asli dari internet** (catatan kuliah
+  Stanford CS224n); bila jaringan tidak tersedia, seeder membuat PDF lokal sebagai fallback
+  sehingga proses seeding selalu berhasil.
+- **Aktivitas** — ujian yang sudah dinilai, quest yang difinalisasi beserta reward OPC,
+  badge, notifikasi, dan data panduan karier.
+
+Seeder aman dijalankan berulang kali (idempotent). Untuk hanya menambah padding bulk:
+
+```bash
+make db-seed-bulk
+```
+
+---
+
+## Pengujian
+
+```bash
+make test-unit         # backend pytest (butuh PostgreSQL)
+make test-integration  # backend, penanda "integration"
+make test-contracts    # Hardhat (kontrak ERC-1155)
+make test-frontend     # Vitest
+make test-e2e          # Playwright (butuh stack hidup)
+make ci                # lint + typecheck + backend tests + contract tests
+```
+
+---
+
+## Blockchain lokal
+
+```bash
+make blockchain-up                       # Anvil di :8545 (chain 31337)
+make blockchain-build                    # kompilasi kontrak
+make blockchain-test                     # uji kontrak
 make blockchain-deploy NETWORK=localhost
 make blockchain-show-all NETWORK=localhost
 ```
 
-Sepolia deployment is guarded:
+Deployment Sepolia dijaga (butuh konfirmasi eksplisit):
 
 ```bash
 make blockchain-deploy NETWORK=sepolia CONFIRM_SEPOLIA=yes
@@ -83,34 +267,30 @@ make blockchain-verify  NETWORK=sepolia
 make blockchain-publish NETWORK=sepolia
 ```
 
-## Testing
+---
 
-```bash
-make test-unit         # backend (needs PostgreSQL)
-make test-contracts    # Hardhat
-make test-frontend     # Vitest
-make ci                # lint + typecheck + backend tests + contract tests
-```
-
-## Repository layout
+## Struktur repositori
 
 ```
-apps/backend     FastAPI + SQLAlchemy async + Alembic + workers
-apps/frontend    SvelteKit + TypeScript + Tailwind
-blockchain       Hardhat + OpenZeppelin ERC-1155 (OryphemCoin)
-infrastructure   proxy (Traefik/Nginx), monitoring (Prometheus/Grafana/Loki)
-docs             architecture, api, blockchain, security, runbook
-compose.yaml     development stack
+apps/backend       FastAPI + SQLAlchemy async + Alembic + workers
+apps/frontend      SvelteKit + TypeScript + Tailwind
+blockchain         Hardhat + OpenZeppelin ERC-1155 (OryphemCoin)
+infrastructure     proxy (Traefik/Nginx), monitoring (Prometheus/Grafana/Loki)
+docs               architecture, api, blockchain, security, runbook
+scripts            helper (check-env, e2e-scenario, blockchain-summary)
+compose.yaml       development stack
 compose.production.yaml  production overlay
-Makefile         developer & ops entrypoint (run `make help`)
+Makefile           developer & ops entrypoint (jalankan `make help`)
 ```
 
-## Security
+---
 
-> **Never commit secrets.** All credentials are read from the environment. See
-> [`docs/security.md`](docs/security.md). If a private key, RPC URL or API key was
-> ever committed, treat it as compromised and rotate it immediately.
+## Keamanan
 
-## License
+> **Jangan pernah commit secret.** Semua kredensial dibaca dari environment. Lihat
+> [`docs/security.md`](docs/security.md). Jika private key, RPC URL, atau API key pernah
+> ter-commit, anggap sudah bocor dan segera rotasi.
+
+## Lisensi
 
 MIT

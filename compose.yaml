@@ -87,6 +87,17 @@ services:
       - data-network
     profiles: ["tools", "migrate"]
 
+  seed:
+    <<: [*backend-build, *backend-env]
+    command: ["python", "-m", "app.db.seed"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data-network
+    profiles: ["tools", "seed"]
+
   # --------------------------------------------------------------------------
   # Application
   # --------------------------------------------------------------------------

@@ -278,8 +278,12 @@ db-reset: ## Drop + recreate schema + migrate (DESTRUCTIVE, dev only)
 	$(MAKE) db-seed
 
 .PHONY: db-seed
-db-seed: ## Seed demo data
-	cd apps/backend && .venv/bin/python -m app.db.seed
+db-seed: ## Seed demo + bulk data (in container)
+	$(COMPOSE_DEV) run --rm seed
+
+.PHONY: db-seed-bulk
+db-seed-bulk: ## Only the bulk padding (>=200 rows/table) (in container)
+	$(COMPOSE_DEV) run --rm seed python -m app.db.seed_bulk
 
 .PHONY: db-backup
 db-backup: ## Backup database to FILE=backup.sql
