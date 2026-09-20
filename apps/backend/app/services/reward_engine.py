@@ -281,3 +281,75 @@ class RewardEngine:
             )
         ).scalar_one()
         return account.cached_balance, int(credits) - int(debits)
+
+    async def refund_reward(
+        self, *, user_id: uuid.UUID, amount: int, allocation_id: uuid.UUID
+    ) -> WalletLedgerEntry | None:
+        """Reverse a reward credit whose on-chain mint failed/reverted.
+
+        Idempotent on the allocation id; the balance floor is 0 so a partial
+        reversal can never push the ledger negative.
+        """
+        account = await self.get_or_create_account(user_id)
+        reference_id = str(allocation_id)
+        dup = (
+            await self.session.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "reward_refund",
+                    WalletLedgerEntry.reference_id == reference_id,
+                    WalletLedgerEntry.entry_type == "debit",
+                )
+            )
+        ).scalar_one_or_none()
+        if dup is not None:
+            return dup
+
+        new_balance = max(0, account.cached_balance - amount)
+        entry = WalletLedgerEntry(
+            account_id=account.id,
+            token_id=account.token_id,
+            entry_type="debit",
+            amount=amount,
+            balance_after=new_balance,
+            reference_type="reward_refund",
+            reference_id=reference_id,
+            description="Reversal for failed on-chain reward",
+        )
+        self.session.add(entry)
+        account.cached_balance = new_balance
+        await self.session.flush()
+        return entry
+
+    async def refund_withdrawal(
+        self, *, user_id: uuid.UUID, amount: int, withdrawal_id: uuid.UUID
+    ) -> WalletLedgerEntry | None:
+        """Reverse a withdrawal debit whose on-chain payout failed/reverted."""
+        account = await self.get_or_create_account(user_id)
+        reference_id = str(withdrawal_id)
+        dup = (
+            await self.session.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "withdrawal_refund",
+                    WalletLedgerEntry.reference_id == reference_id,
+                    WalletLedgerEntry.entry_type == "credit",
+                )
+            )
+        ).scalar_one_or_none()
+        if dup is not None:
+            return dup
+
+        new_balance = account.cached_balance + amount
+        entry = WalletLedgerEntry(
+            account_id=account.id,
+            token_id=account.token_id,
+            entry_type="credit",
+            amount=amount,
+            balance_after=new_balance,
+            reference_type="withdrawal_refund",
+            reference_id=reference_id,
+            description="Reversal for failed on-chain withdrawal",
+        )
+        self.session.add(entry)
+        account.cached_balance = new_balance
+        await self.session.flush()
+        return entry

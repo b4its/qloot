@@ -35,6 +35,13 @@ async def _existing_tx(session: AsyncSession, key: str) -> BlockchainTransaction
     ).scalar_one_or_none()
 
 
+def _require(payload: dict, *keys: str) -> None:
+    """Validate a payload has all required keys (else a retryable ChainError)."""
+    missing = [k for k in keys if k not in payload or payload[k] is None]
+    if missing:
+        raise ChainError(f"Malformed outbox payload: missing {', '.join(missing)}")
+
+
 async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bool:
     from app.models.wallet import TransactionOutbox
 
@@ -59,61 +66,70 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
         await session.flush()
 
     try:
-        if item.topic == "reward":
-            payload = item.payload or {}
-            receipt = await client.reward_user(
-                reward_key=payload["reward_key"],
-                user_ref=payload.get("user_ref", ""),
-                amount=int(payload["amount"]),
-                reason=payload.get("reward_type", "reward"),
-            )
-            tx.method = "rewardUser"
-            if payload.get("allocation_id"):
-                allocation = await session.get(
-                    RewardAllocation, uuid.UUID(payload["allocation_id"])
+        try:
+            if item.topic == "reward":
+                payload = item.payload or {}
+                _require(payload, "reward_key", "amount")
+                receipt = await client.reward_user(
+                    reward_key=payload["reward_key"],
+                    user_ref=payload.get("user_ref", ""),
+                    amount=int(payload["amount"]),
+                    reason=payload.get("reward_type", "reward"),
                 )
-                if allocation is not None:
-                    allocation.blockchain_transaction_id = tx.id
-        elif item.topic == "xp":
-            payload = item.payload or {}
-            receipt = await client.add_xp(
-                to=payload["to"],
-                amount=int(payload["amount"]),
-                user_ref=payload.get("user_ref", ""),
-            )
-            tx.method = "addXp"
-        elif item.topic == "badge":
-            payload = item.payload or {}
-            if payload.get("register"):
-                receipt = await client.register_badge(
-                    badge_id=int(payload["badge_id"]),
-                    uri=payload.get("uri", ""),
-                    soulbound=bool(payload.get("soulbound", False)),
-                )
-                tx.method = "registerBadge"
-            else:
-                receipt = await client.award_badge(
+                tx.method = "rewardUser"
+                if payload.get("allocation_id"):
+                    allocation = await session.get(
+                        RewardAllocation, uuid.UUID(payload["allocation_id"])
+                    )
+                    if allocation is not None:
+                        allocation.blockchain_transaction_id = tx.id
+            elif item.topic == "xp":
+                payload = item.payload or {}
+                _require(payload, "to", "amount")
+                receipt = await client.add_xp(
                     to=payload["to"],
-                    badge_id=int(payload["badge_id"]),
-                    uri=payload.get("uri", ""),
+                    amount=int(payload["amount"]),
+                    user_ref=payload.get("user_ref", ""),
                 )
-                tx.method = "awardBadge"
-        elif item.topic == "withdrawal":
-            payload = item.payload or {}
-            receipt = await client.complete_withdrawal(
-                withdrawal_ref=payload.get("withdrawal_id", tx.idempotency_key),
-                destination=payload["destination"],
-                amount=int(payload["amount"]),
-                token_id=int(payload.get("token_id", 0)),
-            )
-            tx.method = "completeWithdrawal"
-            if payload.get("withdrawal_id"):
-                wd = await session.get(WithdrawalRequest, uuid.UUID(payload["withdrawal_id"]))
-                if wd is not None:
-                    wd.blockchain_transaction_id = tx.id
-                    wd.status = "submitted"
-        else:
-            raise ChainError(f"Unknown outbox topic: {item.topic}")
+                tx.method = "addXp"
+            elif item.topic == "badge":
+                payload = item.payload or {}
+                _require(payload, "badge_id")
+                if payload.get("register"):
+                    receipt = await client.register_badge(
+                        badge_id=int(payload["badge_id"]),
+                        uri=payload.get("uri", ""),
+                        soulbound=bool(payload.get("soulbound", False)),
+                    )
+                    tx.method = "registerBadge"
+                else:
+                    _require(payload, "to")
+                    receipt = await client.award_badge(
+                        to=payload["to"],
+                        badge_id=int(payload["badge_id"]),
+                        uri=payload.get("uri", ""),
+                    )
+                    tx.method = "awardBadge"
+            elif item.topic == "withdrawal":
+                payload = item.payload or {}
+                _require(payload, "destination", "amount")
+                receipt = await client.complete_withdrawal(
+                    withdrawal_ref=payload.get("withdrawal_id", tx.idempotency_key),
+                    destination=payload["destination"],
+                    amount=int(payload["amount"]),
+                    token_id=int(payload.get("token_id", 0)),
+                )
+                tx.method = "completeWithdrawal"
+                if payload.get("withdrawal_id"):
+                    wd = await session.get(WithdrawalRequest, uuid.UUID(payload["withdrawal_id"]))
+                    if wd is not None:
+                        wd.blockchain_transaction_id = tx.id
+                        wd.status = "submitted"
+            else:
+                raise ChainError(f"Unknown outbox topic: {item.topic}")
+        except (KeyError, ValueError) as exc:
+            # A malformed payload / bad value must be retryable, not a crash.
+            raise ChainError(f"Malformed outbox payload: {exc}") from exc
 
         tx.transaction_hash = receipt.tx_hash
         tx.block_number = receipt.block_number
@@ -133,6 +149,12 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
     except ChainError as exc:
         item.attempts += 1
         item.last_error = str(exc)
+        # Back off before retrying so a persistently failing item does not spin
+        # the poll loop; give up after max_attempts.
+        from datetime import timedelta
+
+        delay = min(300, 2 ** min(item.attempts, 8))
+        item.available_at = datetime.now(UTC) + timedelta(seconds=delay)
         tx.status = "failed"
         tx.error_code = "chain_error"
         tx.error_message = str(exc)
@@ -141,16 +163,38 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
         metrics.incr("blockchain_failed_transactions_total", topic=item.topic)
         if item.attempts >= item.max_attempts:
             item.status = "failed"
-            payload = item.payload or {}
-            allocation_id = payload.get("allocation_id")
-            if item.topic == "reward" and allocation_id:
-                allocation = await session.get(RewardAllocation, uuid.UUID(allocation_id))
-                if allocation is not None:
-                    allocation.status = "failed"
-                    allocation.error_message = str(exc)
+            await _mark_failed(session, item, str(exc))
         await session.flush()
         log.warning("outbox_failed", topic=item.topic, error=str(exc))
         return False
+
+
+async def _mark_failed(session: AsyncSession, item, error: str) -> None:
+    """Terminal failure: flag the allocation/withdrawal and refund the ledger."""
+    from app.services.reward_engine import RewardEngine
+
+    payload = item.payload or {}
+    engine = RewardEngine(session)
+    if item.topic == "reward" and payload.get("allocation_id"):
+        allocation = await session.get(RewardAllocation, uuid.UUID(payload["allocation_id"]))
+        if allocation is not None and allocation.status != "cancelled":
+            allocation.status = "failed"
+            allocation.error_message = error
+            # The user was credited off-chain; reverse it so the ledger and the
+            # (absent) on-chain token stay consistent.
+            await engine.refund_reward(
+                user_id=allocation.user_id,
+                amount=allocation.amount,
+                allocation_id=allocation.id,
+            )
+    if item.topic == "withdrawal" and payload.get("withdrawal_id"):
+        wd = await session.get(WithdrawalRequest, uuid.UUID(payload["withdrawal_id"]))
+        if wd is not None and wd.status not in ("completed", "cancelled"):
+            wd.status = "failed"
+            # Funds were debited up front; return them to the user.
+            await engine.refund_withdrawal(
+                user_id=wd.user_id, amount=wd.amount, withdrawal_id=wd.id
+            )
 
 
 async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
@@ -159,6 +203,7 @@ async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
     stmt = (
         select(BlockchainTransaction)
         .where(BlockchainTransaction.status.in_(("submitted", "pending")))
+        .order_by(BlockchainTransaction.created_at)
         .limit(limit)
     )
     rows = (await session.execute(stmt)).scalars().all()
@@ -177,18 +222,76 @@ async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
                 if receipt.block_number is not None:
                     tx.block_number = receipt.block_number
                 await _mark_confirmed(session, tx)
+                await _record_event(session, tx)
             elif receipt is not None and receipt.status == 0:
                 tx.status = "failed"
                 tx.error_code = "reverted"
                 tx.error_message = "Transaction reverted"
+                await _mark_reverted(session, tx)
         updated += 1
     await session.flush()
     return updated
 
 
+async def _record_event(session: AsyncSession, tx: BlockchainTransaction) -> None:
+    """Persist an indexer event row so /blockchain/events is populated.
+
+    log_index is derived deterministically (0 for a tx's single log) and the
+    (transaction_hash, log_index) pair is unique, so re-indexing is idempotent.
+    """
+    from app.models.wallet import BlockchainEvent
+
+    if not tx.transaction_hash:
+        return
+    exists = (
+        await session.execute(
+            select(BlockchainEvent).where(BlockchainEvent.transaction_hash == tx.transaction_hash)
+        )
+    ).scalar_one_or_none()
+    if exists is not None:
+        return
+    session.add(
+        BlockchainEvent(
+            contract_address=tx.contract_address or "",
+            event_name=f"{tx.method}Confirmed",
+            transaction_hash=tx.transaction_hash,
+            log_index=0,
+            block_number=tx.block_number or 0,
+            args={"method": tx.method, "arguments": tx.arguments},
+            processed=True,
+        )
+    )
+    await session.flush()
+
+
+async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> None:
+    """A reverted tx must reverse its financial effect and flag the source row."""
+    from app.services.reward_engine import RewardEngine
+
+    args = tx.arguments or {}
+    engine = RewardEngine(session)
+    if tx.method == "rewardUser" and args.get("allocation_id"):
+        allocation = await session.get(RewardAllocation, uuid.UUID(args["allocation_id"]))
+        if allocation is not None and allocation.status != "cancelled":
+            allocation.status = "failed"
+            allocation.error_message = "Transaction reverted"
+            await engine.refund_reward(
+                user_id=allocation.user_id,
+                amount=allocation.amount,
+                allocation_id=allocation.id,
+            )
+    if tx.method == "completeWithdrawal" and args.get("withdrawal_id"):
+        wd = await session.get(WithdrawalRequest, uuid.UUID(args["withdrawal_id"]))
+        if wd is not None and wd.status not in ("completed", "cancelled"):
+            wd.status = "failed"
+            await engine.refund_withdrawal(
+                user_id=wd.user_id, amount=wd.amount, withdrawal_id=wd.id
+            )
+
+
 async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> None:
     args = tx.arguments or {}
-    if tx.method in ("rewardUser", "recordReward") and args.get("allocation_id"):
+    if tx.method == "rewardUser" and args.get("allocation_id"):
         allocation = await session.get(RewardAllocation, uuid.UUID(args["allocation_id"]))
         if allocation is not None:
             allocation.status = "confirmed"

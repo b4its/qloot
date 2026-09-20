@@ -132,3 +132,69 @@ async def test_reward_allocation_unique_per_quest_user_type(session):
 
     total = (await session.execute(select(func.count()).select_from(RewardAllocation))).scalar_one()
     assert total == 1
+
+
+async def test_confirmation_records_blockchain_event(session):
+    """Indexing a confirmed tx must persist an event row (non-empty feed)."""
+    from sqlalchemy import select
+
+    from app.models.wallet import BlockchainEvent
+
+    owner = await _mk_user(session, "bo5@q.com")
+    student = await _mk_user(session, "bs5@q.com")
+    quest = Quest(title="Q5", owner_id=owner.id, status="open")
+    session.add(quest)
+    await session.flush()
+    await RewardEngine(session).allocate_quest_reward(
+        quest=quest, user=student, rank=1, amount=100, score_bp=9000
+    )
+    item = (await session.execute(select(TransactionOutbox))).scalars().first()
+    await process_outbox_item(session, item.id)
+    await refresh_confirmations(session)
+
+    events = (await session.execute(select(BlockchainEvent))).scalars().all()
+    assert len(events) == 1
+    assert events[0].event_name == "rewardUserConfirmed"
+
+
+async def test_reward_refund_reverses_credit(session):
+    student = await _mk_user(session, "refund@q.com")
+    engine = RewardEngine(session)
+    await engine.credit(
+        user=student,
+        amount=100,
+        reference_type="reward",
+        reference_id="alloc-1",
+        reward_key_value="rk-1",
+        token_id=0,
+    )
+    assert await engine.balance(student.id) == 100
+    alloc_id = uuid.uuid4()
+    await engine.refund_reward(user_id=student.id, amount=100, allocation_id=alloc_id)
+    assert await engine.balance(student.id) == 0
+    cached, computed = await engine.reconcile(student.id)
+    assert cached == computed == 0
+    # Idempotent: a second refund must not double-debit.
+    await engine.refund_reward(user_id=student.id, amount=100, allocation_id=alloc_id)
+    assert await engine.balance(student.id) == 0
+
+
+async def test_withdrawal_refund_restores_balance(session):
+    student = await _mk_user(session, "wdref@q.com")
+    engine = RewardEngine(session)
+    await engine.credit(
+        user=student,
+        amount=80,
+        reference_type="reward",
+        reference_id="r1",
+        reward_key_value="rk1",
+        token_id=0,
+    )
+    wd_id = uuid.uuid4()
+    await engine.debit_for_withdrawal(
+        user=student, amount=50, withdrawal_id=wd_id, destination="0x" + "1" * 40
+    )
+    assert await engine.balance(student.id) == 30
+    # A failed payout returns the funds.
+    await engine.refund_withdrawal(user_id=student.id, amount=50, withdrawal_id=wd_id)
+    assert await engine.balance(student.id) == 80

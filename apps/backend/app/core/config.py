@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     opc_max_reward_per_tx: int = 100_000
     blockchain_dry_run: bool = True
     blockchain_poll_seconds: int = 5
+    # AI worker cadence + stuck-job recovery window (seconds).
+    worker_poll_seconds: int = 3
+    worker_job_timeout_seconds: int = 900
 
     # --- Object storage ----------------------------------------------------
     minio_endpoint: str = "localhost:9000"

@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.api.deps import AdminUser, DbSession
 from app.blockchain.worker_logic import process_outbox_item
 from app.core.config import settings
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.db.session import transaction
 from app.models.identity import AuditLog, Role, User, UserRole
 from app.models.quest import Quest
@@ -122,6 +122,8 @@ async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
         allocation = await db.get(RewardAllocation, reward_id)
         if allocation is None:
             raise NotFoundError("Reward not found")
+        if allocation.status in ("confirmed", "cancelled"):
+            raise ConflictError(f"Cannot retry a {allocation.status} reward")
         from app.services.keys import quest_ref, tx_idempotency_key
 
         idem_key = tx_idempotency_key("reward", allocation.reward_key)
@@ -153,8 +155,9 @@ async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
         else:
             outbox.status = "pending"
             outbox.attempts = 0
+            outbox.available_at = None
             await db.flush()
-        await process_outbox_item(db, outbox.id)
+        ok = await process_outbox_item(db, outbox.id)
         db.add(
             AuditLog(
                 actor_id=admin.id,
@@ -164,7 +167,7 @@ async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
                 data=None,
             )
         )
-    return {"status": "retried", "reward_id": str(reward_id)}
+    return {"status": "retried" if ok else "queued", "reward_id": str(reward_id)}
 
 
 @router.post("/rewards/{reward_id}/cancel")
@@ -173,7 +176,23 @@ async def cancel_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
         allocation = await db.get(RewardAllocation, reward_id)
         if allocation is None:
             raise NotFoundError("Reward not found")
+        if allocation.status == "cancelled":
+            return {"status": "cancelled", "reward_id": str(reward_id)}
+        if allocation.status == "confirmed":
+            raise ConflictError("Cannot cancel an already-confirmed (on-chain) reward")
+
+        already_refunded = allocation.status == "failed"
         allocation.status = "cancelled"
+        # Reverse the off-chain credit if it was never minted (and not already
+        # reversed by a prior failure path).
+        if not already_refunded:
+            from app.services.reward_engine import RewardEngine
+
+            await RewardEngine(db).refund_reward(
+                user_id=allocation.user_id,
+                amount=allocation.amount,
+                allocation_id=allocation.id,
+            )
         db.add(
             AuditLog(
                 actor_id=admin.id,
