@@ -90,6 +90,74 @@ class QAContext:
     language: str = "id"
 
 
+# --------------------------------------------------------------------------- #
+# Deterministic text helpers (shared by the MockProvider "simulation").
+#
+# These give the offline simulation a stable, explainable behaviour instead of
+# naive substring/echo heuristics. Everything here is pure and reproducible.
+# --------------------------------------------------------------------------- #
+
+# A compact stopword set covering Indonesian + common English words. Removing
+# these prevents boilerplate ("yang", "dan", "the") from inflating overlap
+# scores and surfacing irrelevant sentences.
+_STOPWORDS: frozenset[str] = frozenset(
+    {
+        # Indonesian
+        "yang", "dan", "di", "ke", "dari", "ini", "itu", "ada", "adalah", "untuk",
+        "dengan", "pada", "dalam", "akan", "tidak", "juga", "serta", "karena",
+        "agar", "oleh", "sebagai", "dapat", "bisa", "harus", "atau", "para",
+        "sebuah", "suatu", "secara", "lebih", "sangat", "masih", "telah", "sudah",
+        "yaitu", "yakni", "seperti", "antara", "setiap", "banyak", "beberapa",
+        "apa", "apakah", "bagaimana", "mengapa", "kapan", "siapa",
+        "dimaksud", "jelaskan", "sebutkan", "berikan", "tentang", "apabila",
+        "jika", "maka", "namun", "tetapi", "sedangkan", "hanya", "saja", "pun",
+        # English
+        "the", "a", "an", "of", "to", "in", "on", "at", "by", "for", "with",
+        "and", "or", "is", "are", "was", "were", "be", "been", "being", "this",
+        "that", "these", "those", "it", "its", "as", "from", "into", "than",
+        "then", "so", "not", "no", "can", "could", "should", "would", "will",
+        "what", "which", "who", "whom", "when", "where", "why", "how", "explain",
+    }
+)
+
+# Negation markers; a mismatch between reference and answer flips meaning.
+_NEGATIONS: frozenset[str] = frozenset(
+    {"tidak", "bukan", "belum", "tanpa", "jangan", "no", "not", "never", "without", "cannot"}
+)
+
+
+def _tokenize(text: str) -> list[str]:
+    """Lowercase word tokens (Unicode-aware), stripped of boilerplate."""
+    return re.findall(r"\w+", (text or "").lower(), flags=re.UNICODE)
+
+
+def _content_tokens(text: str) -> list[str]:
+    """Tokens minus stopwords, keeping length >= 3 (or negation markers)."""
+    return [t for t in _tokenize(text) if t not in _STOPWORDS and (len(t) >= 3 or t in _NEGATIONS)]
+
+
+def _split_sentences(text: str, *, min_len: int = 1) -> list[str]:
+    """Split into sentences on terminal punctuation and newlines.
+
+    Skips fragments shorter than ``min_len`` so headings/fragments don't pollute
+    downstream ranking. Deterministic order is preserved.
+    """
+    parts = re.split(r"(?<=[.!?])\s+|\n+", (text or "").strip())
+    return [p.strip() for p in parts if len(p.strip()) >= min_len]
+
+
+def _truncate_on_word(text: str, limit: int) -> str:
+    """Truncate to ``limit`` chars on the nearest preceding word boundary."""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rstrip()
+    # Prefer the last whitespace so we never cut mid-word.
+    if " " in cut:
+        cut = cut.rsplit(" ", 1)[0]
+    return cut.rstrip(" ,;:") + "…"
+
+
 def _strip_code_fences(raw: str) -> str:
     s = raw.strip()
     s = re.sub(r"^```[a-zA-Z0-9]*\s*", "", s)
@@ -131,91 +199,216 @@ class AIProvider:
 
 
 class MockProvider(AIProvider):
-    """Deterministic provider: no network, stable output for tests/demo."""
+    """Deterministic provider: no network, stable output for tests/demo.
+
+    The behaviour is a *simulation* of the real provider: it transforms the
+    source material into plausible questions, grades with an explainable
+    keyword/negation/length model, extracts a ranked summary, and answers
+    strictly from retrieved sentences — all reproducibly.
+    """
+
+    # Interrogative frames cycled deterministically so generated questions vary
+    # in form instead of being N copies of the same template.
+    _Q_FRAMES: tuple[str, ...] = (
+        "Jelaskan secara ringkas: {clue}",
+        "Uraikan konsep berikut beserta contohnya: {clue}",
+        "Mengapa hal berikut penting? {clue}",
+        "Sebutkan dan jelaskan: {clue}",
+        "Bagaimana {clue}",
+        "Apa dampak dari: {clue}",
+    )
 
     async def generate_questions(self, ctx: GenerationContext) -> GeneratedQuestions:
-        questions: list[GeneratedQuestion] = []
-        # Extract a few salient sentences from the material when available.
-        sentences = [
-            s.strip() for s in re.split(r"[.\n!?]+", ctx.text or "") if len(s.strip()) > 20
-        ]
+        sentences = _split_sentences(ctx.text or "", min_len=25)
         count = max(1, min(ctx.count, settings.ai_max_questions))
+        title = ctx.title or "Materi"
+
+        # De-duplicate sentences (by lowercased text) so we never emit the same
+        # question twice, while preserving order.
+        seen: set[str] = set()
+        pool: list[str] = []
+        for s in sentences:
+            key = s.lower()
+            if key not in seen:
+                seen.add(key)
+                pool.append(s)
+
+        questions: list[GeneratedQuestion] = []
         for i in range(count):
-            base = sentences[i % len(sentences)] if sentences else "konsep utama materi"
-            questions.append(
-                GeneratedQuestion(
-                    prompt=f"[{ctx.title or 'Materi'}] Jelaskan secara ringkas: {base[:120]}?",
-                    correct_answer=f"Pembahasan mengenai: {base[:160]}.",
-                )
-            )
+            if pool:
+                # Rotate through the pool; when count > pool size, reuse with a
+                # different frame so duplicates still differ in form.
+                base = pool[i % len(pool)]
+                clue = _truncate_on_word(base, 120)
+                frame = self._Q_FRAMES[i % len(self._Q_FRAMES)]
+                prompt = f"[{title}] {frame.format(clue=clue).rstrip(' .')}?"
+                answer = _truncate_on_word(base, 200).rstrip(".")
+            else:
+                # No usable text: a clearly-labelled placeholder rather than a
+                # confidently-wrong question.
+                prompt = f"[{title}] Soal {i + 1}: materi belum memiliki teks yang dapat dianalisis."
+                answer = "Materi belum memiliki teks yang cukup untuk menyusun kunci jawaban."
+            questions.append(GeneratedQuestion(prompt=prompt, correct_answer=answer))
         return GeneratedQuestions(questions=questions)
 
     async def grade(self, ctx: GradingContext) -> GradeResult:
         items: list[GradedItem] = []
         for item in ctx.items:
-            ref_terms = set(re.findall(r"\w+", item.correct_answer.lower()))
-            ans_terms = set(re.findall(r"\w+", item.student_answer.lower()))
-            if not ans_terms:
-                items.append(GradedItem(score_bp=0, feedback="Jawaban kosong.", similarity_bp=0))
-                continue
-            overlap = len(ref_terms & ans_terms)
-            total = max(1, len(ref_terms))
-            ratio = min(1.0, overlap / total)
-            # Keyword overlap is a weak heuristic; weight length too.
-            length_factor = min(1.0, len(item.student_answer) / max(20, len(item.correct_answer)))
-            score = int(min(1.0, 0.7 * ratio + 0.3 * length_factor) * 10_000)
-            similarity = int(ratio * 10_000)
-            feedback = (
-                "Jawaban sangat baik dan mencakup poin utama."
-                if score >= 8000
-                else "Jawaban cukup, namun beberapa poin kunci belum disebutkan."
-                if score >= 5000
-                else "Jawaban belum memadai; tinjau kembali materi terkait."
-            )
-            items.append(
-                GradedItem(
-                    score_bp=score, max_score_bp=10_000, feedback=feedback, similarity_bp=similarity
-                )
-            )
+            items.append(self._grade_item(item))
         return GradeResult(items=items)
+
+    def _grade_item(self, item: GradeItem) -> GradedItem:
+        student = (item.student_answer or "").strip()
+        if not student:
+            return GradedItem(score_bp=0, feedback="Jawaban kosong.", similarity_bp=0)
+
+        ref_terms = set(_content_tokens(item.correct_answer))
+        ans_terms = set(_content_tokens(student))
+
+        # No reference key: we cannot score against anything. Award a neutral
+        # participation score rather than rewarding mere length.
+        if not ref_terms:
+            return GradedItem(
+                score_bp=5000,
+                feedback="Soal ini belum memiliki kunci jawaban, sehingga dinilai netral.",
+                similarity_bp=0,
+            )
+
+        matched = ref_terms & ans_terms
+        missing = sorted(ref_terms - ans_terms)
+        ratio = len(matched) / len(ref_terms)
+
+        # Token-count based length coverage (consistent units, saturating).
+        ans_len = len(_tokenize(student))
+        ref_len = max(1, len(_tokenize(item.correct_answer)))
+        length_factor = min(1.0, ans_len / ref_len)
+
+        # Negation mismatch: answer introduces/omits a negation vs the reference.
+        ref_neg = bool(set(_tokenize(item.correct_answer)) & _NEGATIONS)
+        ans_neg = bool(set(_tokenize(student)) & _NEGATIONS)
+        negation_penalty = 0.15 if ref_neg != ans_neg else 0.0
+
+        score_ratio = max(0.0, min(1.0, 0.75 * ratio + 0.25 * length_factor - negation_penalty))
+        score_bp = int(round(score_ratio * 10_000))
+        similarity_bp = int(round(ratio * 10_000))
+
+        if score_bp >= 8000:
+            feedback = "Jawaban sangat baik dan mencakup poin utama."
+        elif score_bp >= 6000:
+            feedback = "Jawaban baik, namun perlu diperdalam."
+        elif score_bp >= 3500:
+            feedback = "Jawaban cukup, namun beberapa poin kunci belum disebutkan."
+        else:
+            feedback = "Jawaban belum memadai; tinjau kembali materi terkait."
+
+        if missing and score_bp < 8000:
+            top_missing = ", ".join(missing[:3])
+            feedback = f"{feedback} Poin yang belum tersentuh: {top_missing}."
+        if negation_penalty:
+            feedback = f"{feedback} Perhatikan perbedaan pernyataan positif/negatif."
+
+        return GradedItem(
+            score_bp=score_bp,
+            max_score_bp=10_000,
+            feedback=feedback,
+            similarity_bp=similarity_bp,
+        )
 
     async def summarize(self, ctx: SummaryContext) -> SummaryResult:
         text = (ctx.text or "").strip()
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if len(s.strip()) > 30]
+        sentences = _split_sentences(text, min_len=25)
         if not sentences:
             return SummaryResult(summary="(materi kosong)", key_points=[])
-        # Deterministic extractive summary: first N sentences up to max_words.
-        words: list[str] = []
-        used: list[str] = []
+
+        # Rank sentences by summed content-token frequency (a lightweight,
+        # deterministic TF score) and keep their original order in the summary.
+        freq: dict[str, int] = {}
         for s in sentences:
-            used.append(s)
-            words.extend(s.split())
-            if len(words) >= ctx.max_words:
+            for tok in set(_content_tokens(s)):
+                freq[tok] = freq.get(tok, 0) + 1
+
+        scored = []
+        for idx, s in enumerate(sentences):
+            toks = set(_content_tokens(s))
+            score = sum(freq.get(t, 0) for t in toks)
+            # Normalise by length so a very long sentence doesn't dominate.
+            score = score / (len(toks) or 1)
+            scored.append((score, idx, s))
+
+        # Highest score first; tie-break by original position (deterministic).
+        ranked = sorted(scored, key=lambda x: (-x[0], x[1]))
+
+        # Build the summary greedily from the top-ranked sentences, honouring the
+        # word budget (dropping any sentence that would overflow it).
+        max_words = max(10, ctx.max_words)
+        chosen: list[tuple[int, str]] = []
+        used_words = 0
+        for _score, idx, s in ranked:
+            w = len(s.split())
+            if used_words + w <= max_words or not chosen:
+                chosen.append((idx, s))
+                used_words += w
+            if used_words >= max_words:
                 break
-        summary = " ".join(used)
-        key_points = [s[:160] for s in sentences[:5]]
+        chosen.sort(key=lambda x: x[0])
+        summary = " ".join(s for _idx, s in chosen)
+
+        # Key points: the top-ranked, non-overlapping sentences, word-truncated.
+        key_points: list[str] = []
+        for _score, _idx, s in ranked:
+            point = _truncate_on_word(s, 160)
+            if all(point[:40].lower() not in kp.lower() for kp in key_points):
+                key_points.append(point)
+            if len(key_points) >= 5:
+                break
+
         return SummaryResult(summary=summary, key_points=key_points)
 
     async def answer(self, ctx: QAContext) -> AnswerResult:
-        # Retrieval-lite: pick the sentence with the highest keyword overlap
-        # with the question, then answer from it.
         text = (ctx.text or "").strip()
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if s.strip()]
+        sentences = _split_sentences(text)
         if not sentences:
             return AnswerResult(
                 answer="Materi tidak memuat informasi untuk pertanyaan ini.", confidence_bp=1000
             )
-        q_terms = set(re.findall(r"\w+", ctx.question.lower()))
-        best, best_score = sentences[0], -1.0
+
+        q_terms = set(_content_tokens(ctx.question))
+        if not q_terms:
+            return AnswerResult(
+                answer="Pertanyaan terlalu umum; mohon sebutkan topik yang ingin ditanyakan.",
+                confidence_bp=1500,
+            )
+
+        # Score each sentence: proportion of question terms it covers, with a
+        # tie-break toward sentences that match more distinct terms (so the
+        # most specific sentence wins over a generic first line).
+        q_all = set(_tokenize(ctx.question))
+        wants_location = bool(q_all & {"mana", "dimana", "where"})
+        best, best_score, best_matches = sentences[0], -1.0, -1
         for s in sentences:
-            s_terms = set(re.findall(r"\w+", s.lower()))
+            s_terms = set(_content_tokens(s))
             if not s_terms:
                 continue
-            overlap = len(q_terms & s_terms) / (len(q_terms) or 1)
-            if overlap > best_score:
-                best, best_score = s, overlap
-        confidence = int(min(0.95, 0.3 + max(0.0, best_score)) * 10_000)
-        answer = f"Berdasarkan materi: {best}"
+            matches = len(q_terms & s_terms)
+            overlap = matches / len(q_terms)
+            # Location intent: a sentence naming a place ("di …") is a better
+            # answer to a "di mana" question than an equally-scoring definition.
+            if wants_location and set(_tokenize(s)) & {"di", "pada", "dalam", "ke"}:
+                overlap = min(1.0, overlap + 0.34)
+            if (overlap, matches) > (best_score, best_matches):
+                best, best_score, best_matches = s, overlap, matches
+
+        # Below a small threshold we genuinely have no grounding: say so instead
+        # of confidently returning a weak match.
+        if best_score < 0.25:
+            return AnswerResult(
+                answer="Materi tidak memuat informasi yang cukup untuk menjawab pertanyaan ini dengan yakin.",
+                confidence_bp=2000,
+            )
+
+        # Confidence scales with the actual match, floored/ceiled deterministically.
+        confidence = int(round(min(0.95, 0.45 + 0.5 * best_score) * 10_000))
+        answer = f"Berdasarkan materi: {_truncate_on_word(best, 400)}"
         return AnswerResult(answer=answer, confidence_bp=confidence)
 
 
