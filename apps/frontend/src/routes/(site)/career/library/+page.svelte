@@ -2,12 +2,15 @@
   import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { ResourceItem } from "$lib/types";
+  import type { ResourceItem, Recommendation } from "$lib/types";
 
   let items: ResourceItem[] = [];
   let category = "course";
   let loading = true;
   let error = "";
+  // The student's top recommended major (from their analysis), if any.
+  let topMajor: string | null = null;
+  let recommendForMajor = false;
 
   const tabs = [
     { key: "course", label: "Kursus", icon: "graduation-cap" },
@@ -18,7 +21,9 @@
   async function load() {
     loading = true;
     try {
-      items = await api.get<ResourceItem[]>(`/career/resources?category=${category}`);
+      const qs = new URLSearchParams({ category });
+      if (recommendForMajor && topMajor) qs.set("major", topMajor);
+      items = await api.get<ResourceItem[]>(`/career/resources?${qs.toString()}`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Failed to load resources";
     } finally {
@@ -31,7 +36,20 @@
     await load();
   }
 
-  onMount(load);
+  async function toggleMajor() {
+    recommendForMajor = !recommendForMajor;
+    await load();
+  }
+
+  onMount(async () => {
+    try {
+      const recs = await api.get<Recommendation[]>("/career/recommendations");
+      if (recs.length) topMajor = recs[0].major;
+    } catch {
+      /* recommendations are optional */
+    }
+    await load();
+  });
 </script>
 
 <svelte:head><title>Resource Library — QLoot</title></svelte:head>
@@ -62,6 +80,22 @@
       </button>
     {/each}
   </div>
+
+  {#if topMajor}
+    <div class="mt-4">
+      <button
+        type="button"
+        class="btn-pill transition-colors"
+        class:!border-primary={recommendForMajor}
+        class:!text-primary={recommendForMajor}
+        aria-pressed={recommendForMajor}
+        on:click={toggleMajor}
+      >
+        <Icon name="star" size="11px" />
+        Disarankan untuk {topMajor}
+      </button>
+    </div>
+  {/if}
 
   {#if error}
     <p class="alert-error mt-4">

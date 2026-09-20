@@ -81,6 +81,9 @@
           <p class="text-sm muted">{b.description}</p>
           <div class="mt-3 flex items-center justify-between border-t pt-3 text-xs muted">
             <span class="mono">{b.points} POIN</span>
+            {#if b.on_chain_id != null}
+              <span class="mono" title="Token id ERC-1155">#{b.on_chain_id}</span>
+            {/if}
             {#if owned}<span>· {relativeTime(owned.awarded_at)}</span>{/if}
           </div>
         </div>

@@ -262,6 +262,8 @@ export interface Badge {
   description?: string | null;
   icon: string;
   points: number;
+  // Sequential ERC-1155 token id assigned on-chain (null until assigned).
+  on_chain_id?: number | null;
 }
 
 export interface UserBadge {
