@@ -7,8 +7,18 @@ import { test, expect } from "@playwright/test";
 
 test("landing page renders and links to auth", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Learn.");
-  await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("didampingi");
+  await expect(page.getByRole("link", { name: "Masuk" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Daftar" }).first()).toBeVisible();
+});
+
+test("landing page is a one-page experience with anchor nav", async ({ page }) => {
+  await page.goto("/");
+  // Every in-page anchor target must exist on the landing page itself.
+  for (const id of ["fitur", "kelas", "guru", "sertifikat", "testimoni"]) {
+    await expect(page.locator(`#${id}`)).toHaveCount(1);
+  }
+  await expect(page.getByRole("button", { name: "Fitur" })).toBeVisible();
 });
 
 test("theme toggle persists across reload", async ({ page }) => {
@@ -24,13 +34,13 @@ test("theme toggle persists across reload", async ({ page }) => {
   expect(persisted).toBe(after);
 });
 
-test("register then reach learning page", async ({ page }) => {
+test("register then reach dashboard", async ({ page }) => {
   const email = `e2e_${Date.now()}@example.com`;
   await page.goto("/register");
-  await page.getByLabel("Full name").fill("E2E Tester");
+  await page.getByLabel("Nama lengkap").fill("E2E Tester");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill("Password123!");
-  await page.getByRole("button", { name: /create account/i }).click();
-  await expect(page).toHaveURL(/\/learning/);
-  await expect(page.getByRole("heading", { name: "Learning" })).toBeVisible();
+  await page.getByLabel("Kata sandi").fill("Password123!");
+  await page.getByRole("button", { name: /daftar/i }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Halo");
 });

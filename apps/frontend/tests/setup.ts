@@ -44,3 +44,33 @@ if (!window.matchMedia) {
       dispatchEvent: () => false,
     }) as MediaQueryList;
 }
+
+// jsdom lacks IntersectionObserver; components use it for reveal animations.
+if (!("IntersectionObserver" in window)) {
+  class MockIntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+    root = null;
+    rootMargin = "";
+    thresholds = [];
+  }
+  Object.defineProperty(window, "IntersectionObserver", {
+    value: MockIntersectionObserver,
+    configurable: true,
+  });
+  Object.defineProperty(globalThis, "IntersectionObserver", {
+    value: MockIntersectionObserver,
+    configurable: true,
+  });
+}
+
+// jsdom lacks requestAnimationFrame in some environments.
+if (typeof window.requestAnimationFrame === "undefined") {
+  window.requestAnimationFrame = (cb: FrameRequestCallback) =>
+    setTimeout(() => cb(performance.now()), 0) as unknown as number;
+  window.cancelAnimationFrame = (id: number) => clearTimeout(id);
+}
