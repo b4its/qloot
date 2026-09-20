@@ -139,8 +139,9 @@ class MaterialService:
     async def summarize(
         self, material_id: uuid.UUID, user: User, *, language: str = "id", max_words: int = 120
     ):
-        """AI summary of a material's text (available to any enrolled user)."""
+        """AI summary of a material's text (owner, admin, or enrolled student)."""
         material = await self.get(material_id)
+        await self._authorize_view(material, user)
         provider = get_ai_provider()
         return await provider.summarize(
             SummaryContext(
@@ -149,8 +150,9 @@ class MaterialService:
         )
 
     async def ask(self, material_id: uuid.UUID, user: User, *, question: str, language: str = "id"):
-        """AI Q&A grounded on a material's text (retrieval-lite)."""
+        """AI Q&A grounded on a material's text (owner, admin, or enrolled student)."""
         material = await self.get(material_id)
+        await self._authorize_view(material, user)
         provider = get_ai_provider()
         return await provider.answer(
             QAContext(text=material.extracted_text or "", question=question, language=language)
@@ -161,3 +163,28 @@ class MaterialService:
             return
         if material.owner_id != user.id:
             raise ForbiddenError("You do not own this material")
+
+    async def _authorize_view(self, material: LearningMaterial, user: User) -> None:
+        """Owner, admin, or a member of the material's course may read it.
+
+        Materials without a course are private to their owner (and admins).
+        """
+        if user.has_role("admin") or material.owner_id == user.id:
+            return
+        if material.course_id is not None and await self._is_course_member(
+            material.course_id, user.id
+        ):
+            return
+        raise ForbiddenError("You are not enrolled in this material's course")
+
+    async def _is_course_member(self, course_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        from sqlalchemy import select
+
+        from app.models.learning import CourseMember
+
+        stmt = (
+            select(CourseMember.id)
+            .where(CourseMember.course_id == course_id, CourseMember.user_id == user_id)
+            .limit(1)
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none() is not None

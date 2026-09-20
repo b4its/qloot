@@ -229,3 +229,38 @@ async def test_reserved_domain_email_does_not_break_user_listing(client, engine)
     listed = await client.get("/api/v1/admin/users")
     assert listed.status_code == 200, listed.text
     assert any(u["email"] == "legacy@qloot.local" for u in listed.json())
+
+
+async def test_material_ask_and_summary_are_access_controlled(client):
+    """A material's AI summary/Q&A must not be readable by unrelated users."""
+    import io
+
+    from tests.pdf_util import make_pdf
+
+    # Owner uploads a private (course-less) material.
+    await _register(client, "owner_mat@ex.com", "teacher")
+    pdf = make_pdf("Fotosintesis terjadi di kloroplas dan menghasilkan glukosa serta oksigen.")
+    up = await client.post(
+        "/api/v1/materials/upload",
+        files={"file": ("bio.pdf", io.BytesIO(pdf), "application/pdf")},
+    )
+    assert up.status_code == 201, up.text
+    material_id = up.json()["id"]
+
+    # Owner can summarise and ask.
+    own_sum = await client.get(f"/api/v1/materials/{material_id}/summary")
+    assert own_sum.status_code == 200, own_sum.text
+    own_ask = await client.post(
+        f"/api/v1/materials/{material_id}/ask", json={"question": "Di mana fotosintesis terjadi?"}
+    )
+    assert own_ask.status_code == 200, own_ask.text
+
+    # A different teacher is neither owner nor enrolled -> forbidden.
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "intruder_mat@ex.com", "teacher")
+    other_sum = await client.get(f"/api/v1/materials/{material_id}/summary")
+    assert other_sum.status_code == 403
+    other_ask = await client.post(
+        f"/api/v1/materials/{material_id}/ask", json={"question": "Di mana fotosintesis terjadi?"}
+    )
+    assert other_ask.status_code == 403
