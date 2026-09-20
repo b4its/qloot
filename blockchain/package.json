@@ -14,7 +14,7 @@
     "lint": "solhint \"contracts/**/*.sol\""
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
     "@openzeppelin/hardhat-upgrades": "^3.9.1",
     "dotenv": "^16.6.1",
     "hardhat": "^2.29.1"
