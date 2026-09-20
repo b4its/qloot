@@ -55,13 +55,13 @@
   <p class="mt-2 muted">Selesaikan tugas untuk mengumpulkan OryphemCoin (OPC).</p>
 
   {#if message}
-    <p class="mt-4 rounded-sm bg-primary/10 p-3 text-sm">
-      <Icon name="circle-info" size="12px" class="mr-1 text-primary" />
+    <p class="alert-info mt-4">
+      <Icon name="circle-info" size="12px" class="mt-0.5 flex-none" />
       {message}
     </p>
   {/if}
   {#if error}
-    <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+    <p class="alert-error mt-4">{error}</p>
   {/if}
 
   {#if loading}
@@ -82,9 +82,7 @@
           class="card flex flex-wrap items-center justify-between gap-4"
         >
           <div class="flex items-start gap-4">
-            <span
-              class="grid h-11 w-11 flex-none place-items-center rounded-xl bg-primary/10 text-primary"
-            >
+            <span class="tile h-11 w-11">
               <Icon name={kindIcon[t.kind] ?? "list-check"} size="17px" />
             </span>
             <div>

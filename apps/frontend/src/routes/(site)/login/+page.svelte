@@ -41,17 +41,14 @@
   <div class="relative z-10 w-full max-w-md">
     <div class="grad-border">
       <div class="card !p-7">
-        <span
-          class="grid h-11 w-11 place-items-center rounded-xl text-white"
-          style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-        >
+        <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
           <Icon name="right-to-bracket" size="18px" />
         </span>
         <h1 class="mt-4 font-display text-2xl font-bold">Selamat datang kembali</h1>
         <p class="mt-1 text-sm muted">Masuk untuk melanjutkan perjalanan belajarmu.</p>
 
         {#if error}
-          <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary" role="alert">
+          <p class="alert-error mt-4" role="alert">
             {error}
           </p>
         {/if}

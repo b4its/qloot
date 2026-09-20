@@ -48,142 +48,152 @@
 
 <svelte:head><title>Wallet — QLoot</title></svelte:head>
 
-<h1 class="text-2xl font-bold">Wallet</h1>
-<p class="mt-1 muted">
-  Your custodial OPC balance. Treasury holds tokens on-chain; your balance is tracked in a
-  double-entry ledger.
-</p>
-
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
+<div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+  <p class="mono-label">Web3</p>
+  <h1 class="mt-2 font-display text-4xl font-bold">Wallet</h1>
+  <p class="mt-1 muted">
+    Saldo OPC kustodialmu. Treasury memegang token on-chain; saldomu dilacak dalam ledger
+    double-entry.
   </p>
-{/if}
 
-{#if loading}
-  <p class="mt-6 muted">Loading wallet…</p>
-{:else if wallet}
-  <div class="mt-4 grid gap-4 sm:grid-cols-3">
-    <div class="card">
-      <div class="text-sm muted">Available</div>
-      <div class="text-3xl font-bold text-highlight">{formatNumber(wallet.available)}</div>
-      <div class="text-xs muted">OPC (token id {wallet.token_id})</div>
-    </div>
-    <div class="card">
-      <div class="text-sm muted">Pending</div>
-      <div class="text-3xl font-bold">{formatNumber(wallet.pending)}</div>
-      <div class="text-xs muted">awaiting confirmation</div>
-    </div>
-    <div class="card">
-      <div class="text-sm muted">Network</div>
-      <div class="text-lg font-semibold">{status?.network ?? "—"}</div>
-      <div class="text-xs muted">
-        {status?.dry_run ? "simulation (dry-run)" : `chain ${status?.chain_id}`}
+  {#if error}
+    <p class="alert-error mt-4">
+      {error}
+    </p>
+  {/if}
+
+  {#if loading}
+    <p class="mt-6 muted">Loading wallet…</p>
+  {:else if wallet}
+    <div class="mt-6 grid gap-4 sm:grid-cols-3">
+      <div class="card">
+        <div class="mono-label">Available</div>
+        <div class="mt-1 font-display text-3xl font-bold text-highlight">
+          {formatNumber(wallet.available)}
+        </div>
+        <div class="text-xs muted">OPC (token id {wallet.token_id})</div>
       </div>
-    </div>
-  </div>
-
-  <div class="mt-4 grid gap-4 lg:grid-cols-2">
-    <div class="card">
-      <h2 class="font-semibold">Withdraw to a personal wallet</h2>
-      <div class="mt-3 space-y-3">
-        <input
-          class="input"
-          type="number"
-          min="1"
-          placeholder="Amount (OPC)"
-          bind:value={withdrawAmount}
-        />
-        <input class="input font-mono" placeholder="0x…" bind:value={withdrawAddr} maxlength="42" />
-        <button
-          class="btn-primary"
-          on:click={withdraw}
-          disabled={withdrawAmount <= 0 || withdrawAddr.length !== 42}>Request withdrawal</button
-        >
-        {#if withdrawMsg}<p class="text-sm muted">{withdrawMsg}</p>{/if}
+      <div class="card">
+        <div class="mono-label">Pending</div>
+        <div class="mt-1 font-display text-3xl font-bold">{formatNumber(wallet.pending)}</div>
+        <div class="text-xs muted">awaiting confirmation</div>
+      </div>
+      <div class="card">
+        <div class="mono-label">Network</div>
+        <div class="mt-1 font-display text-lg font-bold">{status?.network ?? "—"}</div>
+        <div class="text-xs muted">
+          {status?.dry_run ? "simulation (dry-run)" : `chain ${status?.chain_id}`}
+        </div>
       </div>
     </div>
 
-    <div class="card">
-      <h2 class="font-semibold">Recent rewards</h2>
+    <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      <div class="card">
+        <h2 class="hud font-display text-lg font-bold">Withdraw to a personal wallet</h2>
+        <div class="mt-3 space-y-3">
+          <input
+            class="input"
+            type="number"
+            min="1"
+            placeholder="Amount (OPC)"
+            bind:value={withdrawAmount}
+          />
+          <input
+            class="input font-mono"
+            placeholder="0x…"
+            bind:value={withdrawAddr}
+            maxlength="42"
+          />
+          <button
+            class="btn-primary"
+            on:click={withdraw}
+            disabled={withdrawAmount <= 0 || withdrawAddr.length !== 42}>Request withdrawal</button
+          >
+          {#if withdrawMsg}<p class="text-sm muted">{withdrawMsg}</p>{/if}
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="hud font-display text-lg font-bold">Recent rewards</h2>
+        <ul class="mt-2 space-y-2 text-sm">
+          {#each rewards.slice(0, 6) as r}
+            <li class="flex items-center justify-between border-b pb-1 last:border-0">
+              <span>{r.reward_type}{r.rank ? ` #${r.rank}` : ""}</span>
+              <span class="flex items-center gap-2">
+                <span class="font-mono text-highlight">+{r.amount}</span>
+                <span
+                  class="badge"
+                  class:badge-mint={r.status === "confirmed"}
+                  class:badge-amber={r.status !== "confirmed"}>{r.status}</span
+                >
+              </span>
+            </li>
+          {/each}
+          {#if rewards.length === 0}<li class="muted">No rewards yet.</li>{/if}
+        </ul>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <h2 class="hud font-display text-lg font-bold">Ledger</h2>
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left muted">
+            <tr
+              ><th class="py-1">Date</th><th>Type</th><th>Amount</th><th class="text-right"
+                >Balance</th
+              ></tr
+            >
+          </thead>
+          <tbody>
+            {#each ledger.slice(0, 12) as entry}
+              <tr class="border-t">
+                <td class="py-1 text-xs muted">{formatDate(entry.created_at)}</td>
+                <td>
+                  <span class:text-tertiary={entry.entry_type === "debit"}>{entry.entry_type}</span>
+                  <span class="text-xs muted"> · {entry.reference_type}</span>
+                </td>
+                <td class="font-mono" class:text-secondary={entry.entry_type === "credit"}>
+                  {entry.entry_type === "debit" ? "-" : "+"}{entry.amount}
+                </td>
+                <td class="text-right font-mono">{formatNumber(entry.balance_after)}</td>
+              </tr>
+            {/each}
+            {#if ledger.length === 0}<tr><td colspan="4" class="py-2 muted">Empty ledger.</td></tr
+              >{/if}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <h2 class="hud font-display text-lg font-bold">On-chain transactions</h2>
       <ul class="mt-2 space-y-2 text-sm">
-        {#each rewards.slice(0, 6) as r}
-          <li class="flex items-center justify-between">
-            <span>{r.reward_type}{r.rank ? ` #${r.rank}` : ""}</span>
-            <span class="flex items-center gap-2">
-              <span class="font-mono text-highlight">+{r.amount}</span>
+        {#each txs.slice(0, 10) as tx}
+          {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, status?.chain_id)}
+          <li class="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-0">
+            <span>
               <span
                 class="badge"
-                class:bg-green-100={r.status === "confirmed"}
-                class:text-secondary={r.status === "confirmed"}>{r.status}</span
+                class:badge-mint={tx.status === "confirmed"}
+                class:badge-amber={tx.status !== "confirmed"}>{tx.status}</span
               >
+              <span class="ml-2">{tx.method}</span>
+            </span>
+            <span class="font-mono text-xs">
+              {#if url}
+                <a class="text-primary" href={url} target="_blank" rel="noopener noreferrer"
+                  >{shortHash(tx.transaction_hash)} ↗</a
+                >
+              {:else}
+                {shortHash(tx.transaction_hash)}
+              {/if}
+              · {tx.confirmation_count} conf
             </span>
           </li>
         {/each}
-        {#if rewards.length === 0}<li class="muted">No rewards yet.</li>{/if}
+        {#if txs.length === 0}<li class="muted">No transactions yet.</li>{/if}
       </ul>
     </div>
-  </div>
-
-  <div class="card mt-4">
-    <h2 class="font-semibold">Ledger</h2>
-    <div class="mt-2 overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="text-left muted">
-          <tr
-            ><th class="py-1">Date</th><th>Type</th><th>Amount</th><th class="text-right"
-              >Balance</th
-            ></tr
-          >
-        </thead>
-        <tbody>
-          {#each ledger.slice(0, 12) as entry}
-            <tr class="border-t">
-              <td class="py-1 text-xs muted">{formatDate(entry.created_at)}</td>
-              <td>
-                <span class:text-tertiary={entry.entry_type === "debit"}>{entry.entry_type}</span>
-                <span class="text-xs muted"> · {entry.reference_type}</span>
-              </td>
-              <td class="font-mono" class:text-secondary={entry.entry_type === "credit"}>
-                {entry.entry_type === "debit" ? "-" : "+"}{entry.amount}
-              </td>
-              <td class="text-right font-mono">{formatNumber(entry.balance_after)}</td>
-            </tr>
-          {/each}
-          {#if ledger.length === 0}<tr><td colspan="4" class="py-2 muted">Empty ledger.</td></tr
-            >{/if}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card mt-4">
-    <h2 class="font-semibold">On-chain transactions</h2>
-    <ul class="mt-2 space-y-2 text-sm">
-      {#each txs.slice(0, 10) as tx}
-        {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, status?.chain_id)}
-        <li class="flex flex-wrap items-center justify-between gap-2">
-          <span>
-            <span
-              class="badge"
-              class:bg-green-100={tx.status === "confirmed"}
-              class:text-secondary={tx.status === "confirmed"}>{tx.status}</span
-            >
-            <span class="ml-2">{tx.method}</span>
-          </span>
-          <span class="font-mono text-xs">
-            {#if url}
-              <a class="text-primary" href={url} target="_blank" rel="noopener noreferrer"
-                >{shortHash(tx.transaction_hash)} ↗</a
-              >
-            {:else}
-              {shortHash(tx.transaction_hash)}
-            {/if}
-            · {tx.confirmation_count} conf
-          </span>
-        </li>
-      {/each}
-      {#if txs.length === 0}<li class="muted">No transactions yet.</li>{/if}
-    </ul>
-  </div>
-{/if}
+  {/if}
+</div>

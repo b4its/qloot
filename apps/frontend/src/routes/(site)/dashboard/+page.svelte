@@ -98,7 +98,7 @@
     <p class="mt-1 muted">Lanjutkan belajarmu dan jaga momentum.</p>
 
     {#if error}
-      <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+      <p class="alert-error mt-4">{error}</p>
     {/if}
 
     {#if loading}
@@ -162,10 +162,7 @@
             <OpcChip compact={true} />
           </div>
           <div class="mt-3 flex items-center gap-3">
-            <span
-              class="grid h-11 w-11 place-items-center rounded-xl text-white"
-              style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-            >
+            <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
               <Icon name="chalkboard-user" size="18px" />
             </span>
             <div>
@@ -211,8 +208,8 @@
                   <div class="flex justify-between text-xs">
                     <span class="muted">{t.l}</span><span class="mono">{t.v}</span>
                   </div>
-                  <div class="mt-1 h-1 overflow-hidden rounded-full bg-ink/5">
-                    <div class="h-full bg-primary" style={`width:${t.v}%`}></div>
+                  <div class="track mt-1 h-1">
+                    <span style={`width:${t.v}%`}></span>
                   </div>
                 </div>
               {/each}

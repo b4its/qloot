@@ -22,10 +22,8 @@
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <div class="grid gap-6 sm:grid-cols-3">
     {#each [{ icon: "users-gear", t: "Onboarding Tim", d: "Jalur belajar khusus untuk peran teknis dan non-teknis." }, { icon: "chart-line", t: "Laporan Kemajuan", d: "Pantau progres, sertifikat, dan capaian tim secara berkala." }, { icon: "shield-halved", t: "Keamanan & Kepatuhan", d: "Data pelajar aman; learning data tidak dipublikasikan on-chain." }] as f}
-      <div class="card">
-        <span class="grid h-11 w-11 place-items-center rounded-xl bg-secondary/15 text-secondary"
-          ><Icon name={f.icon} size="18px" /></span
-        >
+      <div class="card lift">
+        <span class="tile-cool h-11 w-11"><Icon name={f.icon} size="18px" /></span>
         <h2 class="mt-3 font-display text-lg font-bold">{f.t}</h2>
         <p class="mt-1 text-sm muted">{f.d}</p>
       </div>

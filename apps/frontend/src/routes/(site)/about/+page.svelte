@@ -20,17 +20,15 @@
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <div class="grid gap-6 sm:grid-cols-3">
     {#each [{ icon: "bullseye", title: "Misi", text: "Membuka akses pembelajaran berkualitas untuk siapa saja, di mana saja." }, { icon: "eye", title: "Visi", text: "Menjadi ruang belajar pilihan bagi talenta digital Indonesia." }, { icon: "heart", title: "Nilai", text: "Jelas, jujur, dan berpusat pada kemajuan pelajar." }] as v}
-      <div class="card">
-        <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"
-          ><Icon name={v.icon} size="18px" /></span
-        >
+      <div class="card lift">
+        <span class="tile h-11 w-11"><Icon name={v.icon} size="18px" /></span>
         <h2 class="mt-3 font-display text-lg font-bold">{v.title}</h2>
         <p class="mt-1 text-sm muted">{v.text}</p>
       </div>
     {/each}
   </div>
 
-  <div class="mt-10 grid grid-cols-2 gap-6 rounded-hero border p-6 sm:grid-cols-4">
+  <div class="mt-10 grid grid-cols-2 gap-6 rounded-sm border p-6 sm:grid-cols-4">
     {#each [{ v: 12840, s: "+", l: "Pelajar" }, { v: 96, s: "", l: "Kursus" }, { v: 42, s: "", l: "Mentor" }, { v: 5310, s: "+", l: "Sertifikat" }] as s}
       <div>
         <p class="font-display text-2xl font-bold"><StatCounter value={s.v} suffix={s.s} /></p>

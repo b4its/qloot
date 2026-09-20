@@ -28,7 +28,7 @@
     <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {#each subjects as s, i}
         <a href="/courses" use:reveal={{ delay: i * 50 }} class="card lift block">
-          <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+          <span class="tile h-11 w-11">
             <Icon name="book-open-reader" size="18px" />
           </span>
           <h2 class="mt-3 font-display text-lg font-bold">{s.name}</h2>

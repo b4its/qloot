@@ -31,9 +31,7 @@
     {#each roles as r}
       <div class="card lift flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-4">
-          <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"
-            ><Icon name={r.icon} size="17px" /></span
-          >
+          <span class="tile h-11 w-11"><Icon name={r.icon} size="17px" /></span>
           <div>
             <p class="font-semibold">{r.title}</p>
             <p class="text-xs muted">{r.loc} · {r.type}</p>

@@ -35,10 +35,7 @@
   <div class="mt-8 space-y-4">
     {#each sections as s}
       <div class="card flex items-start gap-4">
-        <span
-          class="grid h-11 w-11 flex-none place-items-center rounded-xl bg-primary/10 text-primary"
-          ><Icon name={s.icon} size="17px" /></span
-        >
+        <span class="tile h-11 w-11"><Icon name={s.icon} size="17px" /></span>
         <div>
           <h2 class="font-display text-lg font-bold">{s.t}</h2>
           <p class="mt-1 text-sm muted">{s.d}</p>

@@ -40,13 +40,13 @@
   <h1 class="mt-2 font-display text-4xl font-bold">Peringkat global</h1>
 
   {#if error}
-    <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+    <p class="alert-error mt-4">{error}</p>
   {/if}
 
   {#if me}
     <div class="mt-6 card flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-4">
-        <span class="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 text-primary">
+        <span class="tile h-12 w-12">
           <Icon name="user-astronaut" size="20px" />
         </span>
         <div>
@@ -81,7 +81,7 @@
             <tr class="border-b last:border-0" class:row-me={e.user_id === $auth.user?.id}>
               <td class="px-5 py-3">
                 {#if e.rank <= 3}
-                  <Icon name={medal[e.rank]} size="14px" klass={medalColor[e.rank]} />
+                  <Icon name={medal[e.rank]} size="14px" class={medalColor[e.rank]} />
                 {:else}
                   <span class="mono">{e.rank}</span>
                 {/if}

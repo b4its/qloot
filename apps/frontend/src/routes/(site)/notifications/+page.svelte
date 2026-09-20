@@ -46,7 +46,10 @@
 
 <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
   <div class="flex items-center justify-between">
-    <h1 class="font-display text-3xl font-bold">Notifikasi</h1>
+    <div>
+      <p class="mono-label">Aktivitas</p>
+      <h1 class="mt-2 font-display text-3xl font-bold">Notifikasi</h1>
+    </div>
     <button class="btn-ghost" on:click={markAll}>
       <Icon name="check-double" size="12px" /> Tandai semua dibaca
     </button>
@@ -73,8 +76,8 @@
             class:opacity-60={n.read_at}
             on:click={() => markOne(n)}
           >
-            <span class="grid h-9 w-9 flex-none place-items-center rounded-xl bg-ink/5">
-              <Icon name={meta.name} size="14px" klass={meta.klass} />
+            <span class="tile-neutral h-9 w-9">
+              <Icon name={meta.name} size="14px" class={meta.klass} />
             </span>
             <span class="flex-1">
               <span class="flex items-center justify-between">
@@ -84,7 +87,7 @@
               {#if n.body}<span class="block text-sm muted">{n.body}</span>{/if}
             </span>
             {#if !n.read_at}
-              <span class="mt-1 h-2 w-2 flex-none rounded-full bg-primary"></span>
+              <span class="mt-1 h-2 w-2 flex-none rounded-sm bg-primary"></span>
             {/if}
           </button>
         </li>

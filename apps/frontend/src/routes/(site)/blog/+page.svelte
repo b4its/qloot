@@ -44,10 +44,7 @@
           <span class="mono-label">{p.date}</span>
         </div>
         <div class="mt-4 flex items-start gap-3">
-          <span
-            class="grid h-10 w-10 flex-none place-items-center rounded-xl bg-primary/10 text-primary"
-            ><Icon name={p.icon} size="16px" /></span
-          >
+          <span class="tile h-10 w-10"><Icon name={p.icon} size="16px" /></span>
           <h2 class="font-display text-lg font-bold leading-snug">{p.title}</h2>
         </div>
         <a href="/blog" class="btn-ghost mt-4 !px-0"

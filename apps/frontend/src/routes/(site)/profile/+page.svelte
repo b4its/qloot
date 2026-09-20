@@ -36,8 +36,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-4">
             <span
-              class="grid h-14 w-14 place-items-center rounded-full font-display text-lg font-bold text-white"
-              style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
+              class="brand-mark grid h-14 w-14 place-items-center rounded-sm font-display text-lg font-bold"
             >
               {user.full_name
                 .split(" ")

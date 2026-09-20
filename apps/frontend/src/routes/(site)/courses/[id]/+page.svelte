@@ -85,8 +85,8 @@
       <div class="lg:sticky lg:top-28 h-fit">
         <div class="card">
           <div
-            class="grid h-32 place-items-center rounded-hero"
-            style="background-image:linear-gradient(135deg,rgba(91,72,255,.15),rgba(0,229,168,.15))"
+            class="grid h-32 place-items-center rounded-sm"
+            style="background-image:linear-gradient(135deg,rgba(252,238,10,.15),rgba(0,240,255,.15))"
           >
             <Icon name="book-open-reader" size="30px" class="text-primary/70" />
           </div>

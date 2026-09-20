@@ -25,12 +25,12 @@
   <div class="relative z-10 w-full max-w-md">
     <div class="grad-border">
       <div class="card !p-7">
-        <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+        <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
           <Icon name="key" size="18px" />
         </span>
         <h1 class="mt-4 font-display text-2xl font-bold">Atur ulang kata sandi</h1>
         {#if sent}
-          <p class="mt-4 rounded-sm bg-secondary/10 p-3 text-sm text-secondary">
+          <p class="alert-ok mt-4">
             Jika akun dengan email tersebut ada, tautan reset telah dikirim.
           </p>
         {:else}

@@ -135,10 +135,7 @@
 
     <div class="card">
       <div class="flex items-center gap-3">
-        <span
-          class="grid h-9 w-9 flex-none place-items-center rounded-full text-white"
-          style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-        >
+        <span class="brand-mark-cool grid h-9 w-9 flex-none place-items-center rounded-sm">
           <Icon name="user" size="13px" />
         </span>
         <input

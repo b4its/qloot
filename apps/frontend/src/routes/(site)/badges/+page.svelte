@@ -68,10 +68,7 @@
         {@const owned = earned.find((e) => e.badge.code === b.code)}
         <div class="nft card" class:opacity-50={!earnedCodes.has(b.code)}>
           <div class="flex items-center justify-between">
-            <span
-              class="grid h-12 w-12 place-items-center rounded-xl text-white"
-              style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-            >
+            <span class="brand-mark grid h-12 w-12 place-items-center rounded-sm">
               <Icon name={codeIcon[b.code] ?? "award"} size="20px" />
             </span>
             {#if owned}

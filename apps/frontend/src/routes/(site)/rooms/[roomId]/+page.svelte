@@ -102,86 +102,88 @@
 
 <svelte:head><title>{room?.name ?? "Room"} — QLoot</title></svelte:head>
 
-{#if loading}
-  <p class="muted">Loading room…</p>
-{:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{:else if room}
-  <a href="/rooms" class="text-sm text-primary">← All rooms</a>
-  <div class="mt-2 flex flex-wrap items-center gap-3">
-    <h1 class="text-2xl font-bold">{room.name}</h1>
-    <span
-      class="badge"
-      class:bg-green-100={room.status === "open"}
-      class:text-secondary={room.status === "open"}
-    >
-      {room.status}
-    </span>
-    <span class="badge" class:bg-green-100={connected} class:text-secondary={connected}>
-      {connected ? "● live" : "○ offline"}
-    </span>
-  </div>
-  <p class="mt-1 font-mono text-sm muted">Room code: {room.code}</p>
+<div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+  {#if loading}
+    <p class="muted">Loading room…</p>
+  {:else if error}
+    <p class="alert-error">
+      {error}
+    </p>
+  {:else if room}
+    <a href="/rooms" class="text-sm text-primary">← All rooms</a>
+    <div class="mt-2 flex flex-wrap items-center gap-3">
+      <h1 class="font-display text-3xl font-bold">{room.name}</h1>
+      <span
+        class="badge"
+        class:badge-mint={room.status === "open"}
+        class:badge-neutral={room.status !== "open"}
+      >
+        {room.status}
+      </span>
+      <span class="badge" class:badge-mint={connected} class:badge-neutral={!connected}>
+        {connected ? "● live" : "○ offline"}
+      </span>
+    </div>
+    <p class="mt-1 font-mono text-sm muted">Room code: {room.code}</p>
 
-  <div class="mt-4 flex flex-wrap gap-2">
-    <button class="btn-ghost" on:click={join}>Join</button>
-    <button class="btn-ghost" on:click={leave}>Leave</button>
-    {#if canManage}
-      <button class="btn-primary" on:click={openRoom}>Open room</button>
-      <button class="btn-ghost" on:click={closeRoom}>Close room</button>
-    {/if}
-  </div>
-
-  <div class="mt-6 grid gap-4 lg:grid-cols-3">
-    <div class="card lg:col-span-2">
-      <h2 class="font-semibold">Live ranking</h2>
-      {#if ranking && ranking.entries.length}
-        <table class="mt-3 w-full text-sm">
-          <thead class="text-left muted">
-            <tr><th class="py-1">#</th><th>User</th><th class="text-right">Score</th></tr>
-          </thead>
-          <tbody>
-            {#each ranking.entries as e}
-              <tr class="border-t">
-                <td class="py-1">{e.rank}</td>
-                <td class="font-mono">{e.user_id.slice(0, 8)}…</td>
-                <td class="text-right">{(e.score_bp / 100).toFixed(1)}%</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {:else}
-        <p class="mt-2 muted">No scores yet.</p>
+    <div class="mt-4 flex flex-wrap gap-2">
+      <button class="btn-ghost" on:click={join}>Join</button>
+      <button class="btn-ghost" on:click={leave}>Leave</button>
+      {#if canManage}
+        <button class="btn-primary" on:click={openRoom}>Open room</button>
+        <button class="btn-ghost" on:click={closeRoom}>Close room</button>
       {/if}
     </div>
 
-    <div class="card">
-      <h2 class="font-semibold">Participants</h2>
-      <ul class="mt-2 space-y-1 text-sm">
-        {#each participants as p}
-          <li class="flex items-center justify-between">
-            <span class="font-mono">{p.user_id.slice(0, 8)}…</span>
-            <span
-              class="badge"
-              class:bg-green-100={p.is_present}
-              class:text-secondary={p.is_present}>{p.is_present ? "present" : "away"}</span
-            >
-          </li>
-        {/each}
-      </ul>
-      {#if participants.length === 0}<p class="muted">Nobody yet.</p>{/if}
-    </div>
-  </div>
+    <div class="mt-6 grid gap-4 lg:grid-cols-3">
+      <div class="card lg:col-span-2">
+        <h2 class="hud font-display text-lg font-bold">Live ranking</h2>
+        {#if ranking && ranking.entries.length}
+          <table class="mt-3 w-full text-sm">
+            <thead class="text-left muted">
+              <tr><th class="py-1">#</th><th>User</th><th class="text-right">Score</th></tr>
+            </thead>
+            <tbody>
+              {#each ranking.entries as e}
+                <tr class="border-t">
+                  <td class="py-1 font-mono">{e.rank}</td>
+                  <td class="font-mono">{e.user_id.slice(0, 8)}…</td>
+                  <td class="text-right">{(e.score_bp / 100).toFixed(1)}%</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {:else}
+          <p class="mt-2 muted">No scores yet.</p>
+        {/if}
+      </div>
 
-  <div class="card mt-4">
-    <h2 class="font-semibold">Event feed</h2>
-    <ul class="mt-2 space-y-1 text-xs font-mono">
-      {#each events as e}
-        <li class="muted">{e.text}</li>
-      {/each}
-      {#if events.length === 0}<li class="muted">Waiting for activity…</li>{/if}
-    </ul>
-  </div>
-{/if}
+      <div class="card">
+        <h2 class="hud font-display text-lg font-bold">Participants</h2>
+        <ul class="mt-2 space-y-1 text-sm">
+          {#each participants as p}
+            <li class="flex items-center justify-between">
+              <span class="font-mono">{p.user_id.slice(0, 8)}…</span>
+              <span
+                class="badge"
+                class:badge-mint={p.is_present}
+                class:badge-neutral={!p.is_present}>{p.is_present ? "present" : "away"}</span
+              >
+            </li>
+          {/each}
+        </ul>
+        {#if participants.length === 0}<p class="muted">Nobody yet.</p>{/if}
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <h2 class="hud font-display text-lg font-bold">Event feed</h2>
+      <ul class="mt-2 space-y-1 text-xs font-mono">
+        {#each events as e}
+          <li class="muted">[{new Date(e.at).toLocaleTimeString()}] {e.text}</li>
+        {/each}
+        {#if events.length === 0}<li class="muted">Waiting for activity…</li>{/if}
+      </ul>
+    </div>
+  {/if}
+</div>

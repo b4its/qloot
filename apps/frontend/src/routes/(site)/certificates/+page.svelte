@@ -35,10 +35,7 @@
     <div class="grad-border">
       <div class="card !p-8">
         <div class="flex items-center justify-between">
-          <span
-            class="grid h-14 w-14 place-items-center rounded-hero text-white"
-            style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-          >
+          <span class="brand-mark grid h-14 w-14 place-items-center rounded-hero">
             <Icon name="certificate" size="24px" />
           </span>
           <span class="badge badge-mint"
