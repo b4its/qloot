@@ -67,6 +67,10 @@ async def publish_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
 async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
     async with transaction(db):
         service = QuestService(db)
+        # Whether winners already existed decides if side effects (reward
+        # notifications, badges) should fire — a re-finalize must be a no-op.
+        already_finalized = (await service.get(quest_id)).status == "finalized"
+
         quest, winners = await service.finalize(quest_id, user)
         rules = {r.rank: r for r in await service.list_rules(quest_id)}
 
@@ -80,7 +84,7 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
             amount = rule.reward_amount if rule else 0
             user_row = await db.get(User, w.user_id)
             if user_row is not None and amount > 0 and w.rank <= quest.top_n_winners:
-                await engine.allocate_quest_reward(
+                allocation = await engine.allocate_quest_reward(
                     quest=quest,
                     user=user_row,
                     rank=w.rank,
@@ -88,21 +92,24 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
                     score_bp=w.score_bp,
                 )
                 created += 1
-                # Notify + award badges (idempotent).
-                await notifications.notify(
-                    user_id=user_row.id,
-                    kind="reward",
-                    title=f"You earned {amount} OPC!",
-                    body=f"Quest '{quest.title}' — rank {w.rank}",
-                    data={"quest_id": str(quest.id), "rank": w.rank, "amount": amount},
-                )
-                await badges.award(user=user_row, code="first_reward")
-                if w.rank <= 3:
-                    await badges.award(
-                        user=user_row,
-                        code="top_3",
-                        meta={"quest_id": str(quest.id), "rank": w.rank},
+                # Only notify/award on the *first* finalize: re-finalizing an
+                # already-finalized quest must not duplicate notifications.
+                if not already_finalized:
+                    await notifications.notify(
+                        user_id=user_row.id,
+                        kind="reward",
+                        title=f"You earned {amount} OPC!",
+                        body=f"Quest '{quest.title}' — rank {w.rank}",
+                        data={"quest_id": str(quest.id), "rank": w.rank, "amount": amount},
                     )
+                    await badges.award(user=user_row, code="first_reward")
+                    if w.rank <= 3:
+                        await badges.award(
+                            user=user_row,
+                            code="top_3",
+                            meta={"quest_id": str(quest.id), "rank": w.rank},
+                        )
+                _ = allocation
             out.append(
                 WinnerOut(
                     rank=w.rank,

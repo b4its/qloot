@@ -270,3 +270,50 @@ async def test_transaction_rollback_leaves_no_partial_state(engine):
         n = (await s.execute(select(func.count()).select_from(RewardAllocation))).scalar_one()
         # No allocation rows from the failed op.
         assert n == 0
+
+
+async def test_late_submission_is_marked_invalid_and_cannot_win(session):
+    """A submission after closes_at must be recorded but never win."""
+    owner = await _user(session, "owner_late@q.com", "teacher")
+    student = await _user(session, "late@q.com")
+    exam = Exam(title="E", owner_id=owner.id, is_active=True)
+    session.add(exam)
+    await session.flush()
+
+    # Quest that already closed an hour ago.
+    closed = await QuestService(session).create(
+        owner,
+        [{"rank": 1, "reward_amount": 100}],
+        title="Closed Quest",
+        top_n_winners=1,
+        status="open",
+        opens_at=datetime.now(UTC) - timedelta(days=2),
+        closes_at=datetime.now(UTC) - timedelta(hours=1),
+    )
+    attempt = await _graded_attempt(session, exam, student, 9500, 30)
+    qa = await QuestService(session).record_attempt(closed.id, student, exam_attempt_id=attempt.id)
+    assert qa.is_valid is False
+    assert qa.invalid_reason and "closed" in qa.invalid_reason
+
+    _, winners = await QuestService(session).finalize(closed.id, owner)
+    assert winners == []
+
+
+async def test_attempt_before_open_is_invalid(session):
+    owner = await _user(session, "owner_future@q.com", "teacher")
+    student = await _user(session, "early@q.com")
+    exam = Exam(title="E", owner_id=owner.id, is_active=True)
+    session.add(exam)
+    await session.flush()
+    future = await QuestService(session).create(
+        owner,
+        [{"rank": 1, "reward_amount": 100}],
+        title="Future Quest",
+        top_n_winners=1,
+        status="open",
+        opens_at=datetime.now(UTC) + timedelta(days=1),
+    )
+    attempt = await _graded_attempt(session, exam, student, 9500, 30)
+    qa = await QuestService(session).record_attempt(future.id, student, exam_attempt_id=attempt.id)
+    assert qa.is_valid is False
+    assert qa.invalid_reason and "before" in qa.invalid_reason

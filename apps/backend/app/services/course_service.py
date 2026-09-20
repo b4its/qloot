@@ -245,6 +245,26 @@ class CourseService:
         if completed and progress.completed_at is None:
             progress.completed_at = datetime.now(UTC)
         await self.session.flush()
+
+        # Badges for learning milestones (ids are deterministic by threshold).
+        if completed:
+            from sqlalchemy import func as _func
+
+            from app.services.social_service import BadgeService
+
+            done = (
+                await self.session.execute(
+                    select(_func.count(LessonProgress.id)).where(
+                        LessonProgress.user_id == user.id,
+                        LessonProgress.completed.is_(True),
+                    )
+                )
+            ).scalar_one()
+            badges = BadgeService(self.session)
+            if done >= 5:
+                await badges.award(user=user, code="quiz_master")
+            if done >= 10:
+                await badges.award(user=user, code="learner")
         return progress
 
     async def my_progress(self, user: User) -> list[LessonProgress]:

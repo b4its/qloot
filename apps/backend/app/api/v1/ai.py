@@ -37,8 +37,10 @@ async def regenerate_question(question_id: uuid.UUID, user: TeacherUser, db: DbS
         question = await db.get(Question, question_id)
         if question is None:
             raise NotFoundError("Question not found")
-        if question.owner_id is not None and question.owner_id != user.id and not user.has_role(
-            "admin"
+        if (
+            question.owner_id is not None
+            and question.owner_id != user.id
+            and not user.has_role("admin")
         ):
             raise ForbiddenError("You do not own this question")
         if question.material_id is None:

@@ -81,7 +81,7 @@ class QuestService:
     async def record_attempt(
         self, quest_id: uuid.UUID, user: User, *, exam_attempt_id: uuid.UUID | None
     ) -> QuestAttempt:
-        await self.get(quest_id)
+        quest = await self.get(quest_id)
         now = datetime.now(UTC)
         existing = (
             await self.session.execute(
@@ -93,14 +93,32 @@ class QuestService:
         if existing is not None:
             # First valid submission wins; do not overwrite.
             return existing
+
+        # Deadline window is server-authoritative: a submission outside
+        # [opens_at, closes_at] is recorded but marked invalid, so it can never
+        # win. (The exam submit path still records so the attempt is auditable.)
+        is_valid = True
+        reason: str | None = None
+        if quest.opens_at is not None and now < quest.opens_at:
+            is_valid, reason = False, "submitted before quest opened"
+        elif quest.closes_at is not None and now > quest.closes_at:
+            is_valid, reason = False, "submitted after quest closed"
+
         attempt = QuestAttempt(
             quest_id=quest_id,
             user_id=user.id,
             exam_attempt_id=exam_attempt_id,
             submitted_at=now,
+            is_valid=is_valid,
+            invalid_reason=reason,
         )
         self.session.add(attempt)
         await self.session.flush()
+
+        # Badge: completing the first quest (attempt recorded, any validity).
+        from app.services.social_service import BadgeService
+
+        await BadgeService(self.session).award(user=user, code="first_quest")
         return attempt
 
     async def finalize(self, quest_id: uuid.UUID, user: User) -> tuple[Quest, list[QuestWinner]]:
@@ -115,8 +133,9 @@ class QuestService:
         rules = {r.rank: r for r in await self.list_rules(quest_id)}
         top_n = quest.top_n_winners or settings.default_top_n_winners
 
-        # Deterministic ordering. Higher score, then faster duration, then
-        # lower attempt id. Only valid, graded attempts counting.
+        # Deterministic ordering (matches the module docstring):
+        #   higher score, then shorter duration, then lower attempt id.
+        # Only valid, graded, non-flagged attempts inside the quest window.
         stmt = (
             select(QuestAttempt, ExamAttempt)
             .join(ExamAttempt, ExamAttempt.id == QuestAttempt.exam_attempt_id)
@@ -131,6 +150,9 @@ class QuestService:
         )
         rows = (await self.session.execute(stmt)).all()
 
+        # Existing winners (idempotent re-finalize) counted once.
+        existing_by_user = {w.user_id: w for w in await self.list_winners(quest_id)}
+
         winners: list[QuestWinner] = []
         rank = 0
         for quest_attempt, exam_attempt in rows:
@@ -141,16 +163,10 @@ class QuestService:
             min_score = rule.min_score_bp if rule and rule.min_score_bp is not None else 0
             if exam_attempt.score_bp is None or exam_attempt.score_bp < min_score:
                 continue
-            # Skip users with an existing winner row (idempotency).
-            already = (
-                await self.session.execute(
-                    select(QuestWinner).where(
-                        QuestWinner.quest_id == quest_id,
-                        QuestWinner.user_id == quest_attempt.user_id,
-                    )
-                )
-            ).scalar_one_or_none()
+
+            already = existing_by_user.get(quest_attempt.user_id)
             if already is not None:
+                # Already a winner: take the slot but do not re-insert.
                 winners.append(already)
                 rank = next_rank
                 continue

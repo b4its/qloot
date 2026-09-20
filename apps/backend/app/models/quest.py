@@ -158,7 +158,11 @@ class Task(Base, TimestampMixin):
 
 class TaskCompletion(Base):
     __tablename__ = "task_completions"
-    __table_args__ = (UniqueConstraint("task_id", "user_id", name="uq_task_completions_task_user"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "task_id", "user_id", "period_key", name="uq_task_completions_task_user_period"
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -169,6 +173,9 @@ class TaskCompletion(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    # Empty for one-off tasks; a date bucket ("2026-09-19") for daily tasks so
+    # the completion resets each period while staying idempotent within it.
+    period_key: Mapped[str] = mapped_column(String(32), default="", nullable=False)
     reward_key: Mapped[str] = mapped_column(String(66), unique=True, nullable=False)
     completed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False

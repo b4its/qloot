@@ -18,8 +18,13 @@ def reward_key(quest_id: uuid.UUID, user_id: uuid.UUID, rank: int, reward_versio
     return _h("reward", str(quest_id), str(user_id), str(rank), str(reward_version))
 
 
-def task_reward_key(task_id: uuid.UUID, user_id: uuid.UUID) -> str:
-    return _h("task", str(task_id), str(user_id))
+def task_reward_key(task_id: uuid.UUID, user_id: uuid.UUID, period: str = "") -> str:
+    """Idempotency key for a task reward.
+
+    ``period`` makes recurring tasks (e.g. daily) rewardable once per period
+    while remaining stable within the period (so retries do not double-pay).
+    """
+    return _h("task", str(task_id), str(user_id), period)
 
 
 def withdrawal_key(withdrawal_id: uuid.UUID) -> str:

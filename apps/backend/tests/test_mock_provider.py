@@ -93,7 +93,9 @@ async def test_grade_rewards_relevant_answer_over_irrelevant():
 async def test_grade_empty_answer_scores_zero():
     provider = MockProvider()
     result = await provider.grade(
-        GradingContext(items=[GradeItem(question="q", correct_answer="kloroplas", student_answer="")])
+        GradingContext(
+            items=[GradeItem(question="q", correct_answer="kloroplas", student_answer="")]
+        )
     )
     assert result.items[0].score_bp == 0
 
@@ -103,7 +105,9 @@ async def test_grade_missing_reference_is_neutral_not_length_rewarded():
     provider = MockProvider()
     long_answer = "kata " * 200
     result = await provider.grade(
-        GradingContext(items=[GradeItem(question="q", correct_answer="", student_answer=long_answer)])
+        GradingContext(
+            items=[GradeItem(question="q", correct_answer="", student_answer=long_answer)]
+        )
     )
     # No key => neutral, and NOT boosted just for being long.
     assert result.items[0].score_bp == 5000
@@ -163,7 +167,9 @@ async def test_summarize_empty_returns_placeholder():
 @pytest.mark.asyncio
 async def test_answer_grounded_in_material():
     provider = MockProvider()
-    result = await provider.answer(QAContext(text=MATERIAL, question="Di mana fotosintesis terjadi?"))
+    result = await provider.answer(
+        QAContext(text=MATERIAL, question="Di mana fotosintesis terjadi?")
+    )
     assert "kloroplas" in result.answer.lower()
     assert result.confidence_bp > 5000
 
@@ -181,5 +187,7 @@ async def test_answer_reports_when_material_does_not_cover_topic():
 async def test_provider_is_deterministic_across_instances():
     a = MockProvider()
     b = MockProvider()
-    ctx = GradingContext(items=[GradeItem(question="q", correct_answer="glukosa oksigen", student_answer="glukosa")])
+    ctx = GradingContext(
+        items=[GradeItem(question="q", correct_answer="glukosa oksigen", student_answer="glukosa")]
+    )
     assert await a.grade(ctx) == await b.grade(ctx)

@@ -82,8 +82,15 @@ class GradingService:
         provider = get_ai_provider()
         result = await provider.grade(GradingContext(items=items))
 
+        # Guard against a provider returning the wrong number of items: treat it
+        # as a retryable provider error rather than crashing mid-write.
+        if len(result.items) != len(rows):
+            raise AIProviderError(
+                f"Provider returned {len(result.items)} grades for {len(rows)} answers"
+            )
+
         total_score = 0
-        for (sa, q), graded in zip(rows, result.items, strict=True):
+        for (sa, q), graded in zip(rows, result.items, strict=False):
             sa.score_bp = min(graded.score_bp, q.max_score_bp)
             sa.max_score_bp = q.max_score_bp
             sa.feedback = graded.feedback
@@ -107,6 +114,19 @@ class GradingService:
         attempt.graded_at = datetime.now(UTC)
         attempt.status = "graded"
         await self.session.flush()
+
+        # Badge: a flawless attempt earns the "perfect exam" badge.
+        if attempt.score_bp >= BP_SCALE:
+            from app.models.identity import User
+            from app.services.social_service import BadgeService
+
+            owner = await self.session.get(User, attempt.user_id)
+            if owner is not None:
+                await BadgeService(self.session).award(
+                    user=owner,
+                    code="perfect_exam",
+                    meta={"attempt_id": str(attempt.id), "exam_id": str(attempt.exam_id)},
+                )
 
         log.info(
             "attempt_graded",
@@ -162,6 +182,7 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
         job.error_message = str(exc)
         if job.attempts >= job.max_attempts:
             job.status = "failed"
+            job.finished_at = datetime.now(UTC)
             attempt.status = "grading_failed"
         else:
             # Exponential backoff, cap at 10 minutes.
@@ -172,4 +193,16 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
             job.available_at = datetime.now(UTC) + timedelta(seconds=delay)
         await session.flush()
         log.warning("grading_job_retry", job_id=str(job.id), attempts=job.attempts)
+        return False
+    except Exception as exc:  # noqa: BLE001
+        # Any other failure (bad data, unexpected provider output, DB error)
+        # must still reach a terminal state — never leave the job stuck in
+        # "running" where the claim query would never pick it up again.
+        job.status = "failed"
+        job.error_code = "internal_error"
+        job.error_message = f"{type(exc).__name__}: {exc}"[:500]
+        job.finished_at = datetime.now(UTC)
+        attempt.status = "grading_failed"
+        await session.flush()
+        log.error("grading_job_failed", job_id=str(job.id), error=str(exc))
         return False

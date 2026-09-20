@@ -99,6 +99,22 @@ class RoomService:
                 raise ConflictError("Room is full")
             member = RoomMember(room_id=room_id, user_id=user.id, role="student")
             self.session.add(member)
+            await self.session.flush()
+
+            # Badge: joining your 5th distinct room.
+            from app.services.social_service import BadgeService
+
+            joined = len(
+                (
+                    await self.session.execute(
+                        select(RoomMember.id).where(RoomMember.user_id == user.id)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if joined >= 5:
+                await BadgeService(self.session).award(user=user, code="room_regular")
         else:
             member.is_present = True
             member.left_at = None

@@ -20,9 +20,31 @@ from app.services.social_service import NotificationService
 router = APIRouter()
 
 
+def _period_key(kind: str, now: datetime) -> str:
+    """Bucket a completion by task kind so recurring tasks reset per period.
+
+    Daily tasks bucket by UTC date; weekly by ISO year-week; one-off tasks have
+    an empty bucket (completed exactly once, forever).
+    """
+    if kind == "daily":
+        return now.strftime("%Y-%m-%d")
+    if kind == "weekly":
+        iso = now.isocalendar()
+        return f"{iso.year}-W{iso.week:02d}"
+    return ""
+
+
 @router.get("", response_model=list[TaskOut])
 async def list_tasks(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
-    stmt = select(Task).where(Task.is_active.is_(True)).order_by(Task.created_at.desc())
+    now = datetime.now(UTC)
+    stmt = (
+        select(Task)
+        .where(Task.is_active.is_(True))
+        # Only tasks whose window is currently open.
+        .where((Task.starts_at.is_(None)) | (Task.starts_at <= now))
+        .where((Task.ends_at.is_(None)) | (Task.ends_at >= now))
+        .order_by(Task.created_at.desc())
+    )
     stmt = stmt.limit(limit).offset(offset)
     return list((await db.execute(stmt)).scalars().all())
 
@@ -58,21 +80,29 @@ async def complete_task(task_id: uuid.UUID, user: CurrentUser, db: DbSession):
         if task is None or not task.is_active:
             raise NotFoundError("Task not found")
         now = datetime.now(UTC)
+        # Enforce the full window (start *and* end), not just the end.
+        if task.starts_at and now < task.starts_at:
+            raise ConflictError("Task has not started yet")
         if task.ends_at and now > task.ends_at:
             raise ConflictError("Task has ended")
 
+        period = _period_key(task.kind, now)
         existing = (
             await db.execute(
                 select(TaskCompletion).where(
-                    TaskCompletion.task_id == task_id, TaskCompletion.user_id == user.id
+                    TaskCompletion.task_id == task_id,
+                    TaskCompletion.user_id == user.id,
+                    TaskCompletion.period_key == period,
                 )
             )
         ).scalar_one_or_none()
         if existing is not None:
-            raise ConflictError("Task already completed")
+            raise ConflictError("Task already completed for this period")
 
-        rkey = task_reward_key(task_id, user.id)
-        completion = TaskCompletion(task_id=task_id, user_id=user.id, reward_key=rkey)
+        rkey = task_reward_key(task_id, user.id, period)
+        completion = TaskCompletion(
+            task_id=task_id, user_id=user.id, period_key=period, reward_key=rkey
+        )
         db.add(completion)
         await db.flush()
         if task.reward_amount > 0:

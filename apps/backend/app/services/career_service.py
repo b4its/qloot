@@ -12,10 +12,9 @@ Implements, deterministically and offline:
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
-
-import re
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -429,9 +428,7 @@ class CareerService:
         for g in grades:
             by_term.setdefault(g.term, []).append(g.grade)
         ordered = sorted(by_term.items(), key=lambda kv: _term_sort_key(kv[0]))
-        return [
-            {"month": term, "value": _clamp(sum(vals) / len(vals))} for term, vals in ordered
-        ]
+        return [{"month": term, "value": _clamp(sum(vals) / len(vals))} for term, vals in ordered]
 
     def _radar_from_grades(self, grades: list[AcademicGrade]) -> list[dict]:
         latest = _latest_per_subject(grades)
@@ -479,7 +476,7 @@ class CareerService:
         buckets: dict[str, list[int]] = {t: [] for t in TRAITS}
         # Reverse-keyed positions: every 3rd item within a trait is inverted,
         # giving each trait a mix of positively- and negatively-keyed items.
-        counts: dict[str, int] = {t: 0 for t in TRAITS}
+        counts: dict[str, int] = dict.fromkeys(TRAITS, 0)
         for i, ans in enumerate(answers):
             trait = TRAITS[i % 5]
             value = max(1, min(5, int(ans)))
@@ -564,9 +561,7 @@ class CareerService:
             # student with no grades cannot out-rank one with a full profile.
             confidence = 0.5 + 0.5 * coverage if personality is None else 0.6 + 0.4 * coverage
             fit = (academic_score * 0.6 + personality_score * 0.4) * confidence
-            scored.append(
-                (fit, major, _clamp(academic_score), _clamp(personality_score), coverage)
-            )
+            scored.append((fit, major, _clamp(academic_score), _clamp(personality_score), coverage))
 
         scored.sort(key=lambda x: x[0], reverse=True)
 
@@ -596,9 +591,7 @@ class CareerService:
             # Reference the concrete subjects that drove the score.
             subject_hits = [
                 (s, grades[s])
-                for s in sorted(
-                    major["subjects"], key=lambda s: major["subjects"][s], reverse=True
-                )
+                for s in sorted(major["subjects"], key=lambda s: major["subjects"][s], reverse=True)
                 if s in grades
             ]
             if subject_hits:
@@ -741,6 +734,7 @@ class CareerService:
     @staticmethod
     def _period_label(anchor: datetime, start_month: int, end_month: int) -> str:
         """Format a concrete 'Mon YYYY – Mon YYYY' range offset from an anchor."""
+
         def shown(offset: int) -> str:
             total = anchor.month - 1 + offset
             year = anchor.year + total // 12
@@ -854,7 +848,12 @@ class CareerService:
             # Relevant-first ordering: resources tagged with the student's major
             # float to the top without hiding the rest of the catalog.
             m = major.lower()
-            items.sort(key=lambda i: (0 if any(m in (t or "").lower() for t in i.tags or []) else 1, i.title))
+
+            def _rank(item: ResourceItem) -> tuple[int, str]:
+                tagged = any(m in (t or "").lower() for t in item.tags or [])
+                return (0 if tagged else 1, item.title)
+
+            items.sort(key=_rank)
         return items
 
     # --- assistant ---------------------------------------------------------

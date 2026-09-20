@@ -63,6 +63,41 @@ async def test_badge_catalog_available(client):
     catalog = await client.get("/api/v1/badges")
     assert catalog.status_code == 200
     assert len(catalog.json()) >= 1
+    # Each badge exposes its sequential on-chain id for display/linking.
+    assert all("on_chain_id" in b for b in catalog.json())
+
+
+async def test_perfect_exam_awards_badge(client):
+    """A flawless graded attempt earns the 'perfect_exam' badge."""
+    await _register(client, "badge_teacher@ex.com", "teacher")
+    exam = await client.post("/api/v1/exams", json={"title": "Perfect Exam"})
+    exam_id = exam.json()["id"]
+    q = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={
+            "prompt": "Apa itu fotosintesis?",
+            "correct_answer": "proses tumbuhan mengubah cahaya",
+        },
+    )
+    qid = q.json()["id"]
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "badge_student@ex.com", "student")
+    attempt = await client.post(f"/api/v1/exams/{exam_id}/attempts")
+    attempt_id = attempt.json()["id"]
+    await client.put(
+        f"/api/v1/attempts/{attempt_id}/answers/{qid}",
+        json={"answer_text": "proses tumbuhan mengubah cahaya"},
+    )
+    await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    grade = await client.post("/api/v1/ai/grade", json={"attempt_id": attempt_id})
+    assert grade.status_code == 200, grade.text
+
+    owned = await client.get("/api/v1/me/badges")
+    assert owned.status_code == 200
+    codes = {b["badge"]["code"] for b in owned.json()}
+    assert "perfect_exam" in codes
 
 
 async def test_material_summary_and_qa(client):

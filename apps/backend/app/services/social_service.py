@@ -105,24 +105,35 @@ class BadgeService:
         self.session = session
 
     async def ensure_catalog(self) -> None:
-        """Idempotently seed the badge catalog and assign on-chain ids."""
+        """Idempotently seed the badge catalog and assign on-chain ids.
+
+        Uses INSERT ... ON CONFLICT DO NOTHING so concurrent startups cannot
+        race the `code` unique constraint.
+        """
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
         catalog = [
             ("first_quest", "First Quest", "Completed your first quest", "🎯", 10),
-            ("quiz_master", "Quiz Master", "Scored 100% on a lesson quiz", "🧠", 25),
+            ("quiz_master", "Quiz Master", "Completed 5 lessons", "🧠", 25),
             ("top_3", "Podium Finish", "Finished in the top 3 of a quest", "🥉", 50),
             ("first_reward", "First OPC", "Earned your first OryphemCoin", "💎", 15),
             ("room_regular", "Room Regular", "Joined 5 rooms", "🎪", 20),
             ("perfect_exam", "Perfect Score", "Scored 100% on an exam", "🌟", 40),
             ("learner", "Dedicated Learner", "Completed 10 lessons", "📚", 30),
         ]
-        for code, name, desc, icon, points in catalog:
-            exists = (
-                await self.session.execute(select(Badge).where(Badge.code == code))
-            ).scalar_one_or_none()
-            if exists is None:
-                self.session.add(
-                    Badge(code=code, name=name, description=desc, icon=icon, points=points)
-                )
+        rows = [
+            {
+                "code": code,
+                "name": name,
+                "description": desc,
+                "icon": icon,
+                "points": points,
+            }
+            for code, name, desc, icon, points in catalog
+        ]
+        await self.session.execute(
+            pg_insert(Badge).values(rows).on_conflict_do_nothing(index_elements=["code"])
+        )
         await self.session.flush()
         await self._assign_on_chain_ids()
 
