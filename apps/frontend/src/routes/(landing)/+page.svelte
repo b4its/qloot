@@ -138,7 +138,7 @@
 </section>
 
 <!-- ================= FEATURES ================= -->
-<section class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+<section id="fitur" class="scroll-mt-20 mx-auto max-w-7xl px-4 py-16 sm:px-6">
   <div class="text-center" use:reveal>
     <p class="mono-label">Kenapa QLoot</p>
     <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">
@@ -162,7 +162,7 @@
 </section>
 
 <!-- ================= CLASS TRACKS ================= -->
-<section class="border-t bg-surface">
+<section id="kelas" class="scroll-mt-20 border-t bg-surface">
   <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
     <div class="flex flex-wrap items-end justify-between gap-4" use:reveal>
       <div>
@@ -202,7 +202,7 @@
 </section>
 
 <!-- ================= MENTORS (TEACHERS) ================= -->
-<section class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+<section id="guru" class="scroll-mt-20 mx-auto max-w-7xl px-4 py-16 sm:px-6">
   <div use:reveal>
     <p class="mono-label">Guru & Pengajar</p>
     <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Diajarkan oleh guru aktif</h2>
@@ -240,7 +240,7 @@
 </section>
 
 <!-- ================= CERTIFICATES ================= -->
-<section class="border-t bg-surface">
+<section id="sertifikat" class="scroll-mt-20 border-t bg-surface">
   <div class="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2">
     <div use:reveal class="flex flex-col justify-center">
       <p class="mono-label">Sertifikat Digital</p>
@@ -298,7 +298,7 @@
 </section>
 
 <!-- ================= TESTIMONIALS ================= -->
-<section class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+<section id="testimoni" class="scroll-mt-20 mx-auto max-w-7xl px-4 py-16 sm:px-6">
   <div use:reveal>
     <p class="mono-label">Testimoni</p>
     <h2 class="mt-2 font-display text-3xl font-bold sm:text-4xl">Kata guru dan siswa</h2>

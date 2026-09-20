@@ -8,6 +8,12 @@ const config = {
     adapter: adapter({ out: "build" }),
     alias: {
       $lib: "./src/lib",
+      // Route groups `(landing)` / `(site)` contain parentheses, which break
+      // bare relative imports in tooling (vite import analysis / tsc). Expose
+      // them through clean aliases instead.
+      $routes: "./src/routes",
+      "$routes-landing": "./src/routes/(landing)",
+      "$routes-site": "./src/routes/(site)",
     },
   },
 };
