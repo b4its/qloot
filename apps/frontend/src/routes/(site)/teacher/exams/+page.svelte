@@ -54,70 +54,82 @@
 
 <svelte:head><title>Exams (Teacher) — QLoot</title></svelte:head>
 
-<h1 class="text-2xl font-bold">Manage Exams</h1>
+<div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+  <p class="mono-label">Panel Guru · Ujian</p>
+  <h1 class="mt-2 font-display text-3xl font-bold">Manage Exams</h1>
+  <p class="mt-2 muted">Buat ujian, tambah soal, dan publikasikan ke kelas.</p>
 
-{#if message}<p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
-    {message}
-  </p>{/if}
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{/if}
+  {#if message}<p class="alert-ok mt-4">
+      {message}
+    </p>{/if}
+  {#if error}
+    <p class="alert-error mt-4">
+      {error}
+    </p>
+  {/if}
 
-<div class="card mt-4">
-  <h2 class="font-semibold">New exam</h2>
-  <div class="mt-3 grid gap-3 sm:grid-cols-3">
-    <input class="input sm:col-span-1" placeholder="Title" bind:value={newExam.title} />
-    <input class="input" type="number" min="1" bind:value={newExam.duration_minutes} />
-    <input class="input" type="number" min="0" max="10000" bind:value={newExam.passing_score_bp} />
-  </div>
-  <p class="mt-1 text-xs muted">Duration in minutes · passing score in basis points (6000 = 60%)</p>
-  <button class="btn-primary mt-3" on:click={create} disabled={newExam.title.length < 2}
-    >Create exam</button
-  >
-</div>
-
-<div class="mt-6 space-y-4">
-  {#each exams as exam}
-    <div class="card">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 class="font-semibold">{exam.title}</h2>
-          <p class="text-sm muted">
-            {exam.questions?.length ?? 0} questions · {exam.duration_minutes} min · pass {(
-              exam.passing_score_bp / 100
-            ).toFixed(0)}%
-          </p>
-        </div>
-        <div class="flex gap-2">
-          <button class="btn-ghost" on:click={() => addQuestion(exam)}>＋ Question</button>
-          <button class="btn-ghost" on:click={() => viewResults(exam)}>Results</button>
-          <button class="btn-primary" on:click={() => togglePublish(exam)}>
-            {exam.is_active ? "Close" : "Publish"}
-          </button>
-        </div>
-      </div>
-
-      {#if showResults === exam.id}
-        <div class="mt-3 border-t pt-3">
-          <h3 class="text-sm font-medium">Participant results</h3>
-          <ul class="mt-1 space-y-1 text-sm">
-            {#each results[exam.id] ?? [] as a}
-              <li class="flex justify-between">
-                <span class="font-mono">{a.user_id.slice(0, 8)}…</span>
-                <span
-                  >{a.score_bp !== null && a.score_bp !== undefined
-                    ? (a.score_bp / 100).toFixed(1) + "%"
-                    : a.status}</span
-                >
-              </li>
-            {/each}
-            {#if !results[exam.id]?.length}<li class="muted">No submissions yet.</li>{/if}
-          </ul>
-        </div>
-      {/if}
+  <div class="card mt-6">
+    <h2 class="hud font-display text-lg font-bold">New exam</h2>
+    <div class="mt-3 grid gap-3 sm:grid-cols-3">
+      <input class="input sm:col-span-1" placeholder="Title" bind:value={newExam.title} />
+      <input class="input" type="number" min="1" bind:value={newExam.duration_minutes} />
+      <input
+        class="input"
+        type="number"
+        min="0"
+        max="10000"
+        bind:value={newExam.passing_score_bp}
+      />
     </div>
-  {/each}
-  {#if exams.length === 0}<p class="muted">No exams yet.</p>{/if}
+    <p class="mt-1 text-xs muted">
+      Durasi dalam menit · passing score dalam basis points (6000 = 60%)
+    </p>
+    <button class="btn-primary mt-3" on:click={create} disabled={newExam.title.length < 2}
+      >Create exam</button
+    >
+  </div>
+
+  <div class="mt-6 space-y-4">
+    {#each exams as exam}
+      <div class="card">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="font-display text-lg font-bold">{exam.title}</h2>
+            <p class="text-sm muted">
+              {exam.questions?.length ?? 0} soal · {exam.duration_minutes} menit · lulus {(
+                exam.passing_score_bp / 100
+              ).toFixed(0)}%
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn-ghost" on:click={() => addQuestion(exam)}>＋ Question</button>
+            <button class="btn-ghost" on:click={() => viewResults(exam)}>Results</button>
+            <button class="btn-primary" on:click={() => togglePublish(exam)}>
+              {exam.is_active ? "Close" : "Publish"}
+            </button>
+          </div>
+        </div>
+
+        {#if showResults === exam.id}
+          <div class="mt-3 border-t pt-3">
+            <h3 class="mono-label">Participant results</h3>
+            <ul class="mt-1 space-y-1 text-sm">
+              {#each results[exam.id] ?? [] as a}
+                <li class="flex justify-between">
+                  <span class="font-mono">{a.user_id.slice(0, 8)}…</span>
+                  <span
+                    >{a.score_bp !== null && a.score_bp !== undefined
+                      ? (a.score_bp / 100).toFixed(1) + "%"
+                      : a.status}</span
+                  >
+                </li>
+              {/each}
+              {#if !results[exam.id]?.length}<li class="muted">No submissions yet.</li>{/if}
+            </ul>
+          </div>
+        {/if}
+      </div>
+    {/each}
+    {#if exams.length === 0}<p class="muted">No exams yet.</p>{/if}
+  </div>
 </div>

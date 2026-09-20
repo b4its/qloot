@@ -40,7 +40,7 @@
   </div>
 
   {#if error}
-    <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+    <p class="alert-error mt-4">{error}</p>
   {/if}
 
   {#if loading}
@@ -58,10 +58,7 @@
       {#each exams as exam, i}
         <a href={`/exams/${exam.id}`} use:reveal={{ delay: i * 40 }} class="card lift block">
           <div class="flex items-center justify-between">
-            <span
-              class="grid h-11 w-11 place-items-center rounded-xl text-white"
-              style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-            >
+            <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
               <Icon name="file-pen" size="17px" />
             </span>
             <span

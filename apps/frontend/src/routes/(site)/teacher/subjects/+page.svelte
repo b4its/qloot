@@ -101,13 +101,13 @@
   </div>
 
   {#if message}
-    <p class="mt-4 rounded-sm bg-secondary/10 p-3 text-sm text-secondary">
-      <Icon name="circle-check" size="12px" class="mr-1" />
+    <p class="alert-ok mt-4">
+      <Icon name="circle-check" size="12px" class="mt-0.5 flex-none" />
       {message}
     </p>
   {/if}
   {#if error}
-    <p class="mt-4 rounded-sm bg-tertiary/10 p-3 text-sm text-tertiary">{error}</p>
+    <p class="alert-error mt-4">{error}</p>
   {/if}
 
   <!-- create form -->
@@ -186,10 +186,7 @@
         {#each subjects as s}
           <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
             <div class="flex items-center gap-4">
-              <span
-                class="grid h-11 w-11 place-items-center rounded-xl text-white"
-                style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-              >
+              <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
                 <Icon name="book-open-reader" size="17px" />
               </span>
               <div>
@@ -214,7 +211,7 @@
                 {s.is_published ? "Sembunyikan" : "Terbitkan"}
               </button>
               <button
-                class="btn-ghost !text-tertiary"
+                class="btn-icon !text-tertiary hover:!border-tertiary"
                 on:click={() => remove(s)}
                 aria-label="Hapus"
               >

@@ -36,28 +36,31 @@
 
 <svelte:head><title>{lesson?.title ?? "Lesson"} — QLoot</title></svelte:head>
 
-{#if loading}
-  <p class="muted">Loading…</p>
-{:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{:else if lesson}
-  <a href={`/learning/${lesson.course_id}`} class="text-sm text-primary">← Back to course</a>
-  <article class="card mt-3">
-    <h1 class="text-2xl font-bold">{lesson.title}</h1>
-    {#if lesson.video_url}
-      <video class="mt-4 w-full rounded-lg" controls src={lesson.video_url}>
-        <track kind="captions" label="Captions" />
-      </video>
-    {/if}
-    {#if lesson.content_md}
-      <pre class="mt-4 whitespace-pre-wrap font-sans text-sm">{lesson.content_md}</pre>
-    {:else}
-      <p class="mt-4 muted">No content yet.</p>
-    {/if}
-    <button class="btn-primary mt-6" on:click={complete} disabled={saving}>
-      {saving ? "Saving…" : "Mark as complete"}
-    </button>
-  </article>
-{/if}
+<div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+  {#if loading}
+    <p class="muted">Loading…</p>
+  {:else if error}
+    <p class="alert-error">
+      {error}
+    </p>
+  {:else if lesson}
+    <a href={`/learning/${lesson.course_id}`} class="text-sm text-primary">← Back to course</a>
+    <article class="card mt-3">
+      <p class="mono-label">Pelajaran</p>
+      <h1 class="mt-2 font-display text-3xl font-bold">{lesson.title}</h1>
+      {#if lesson.video_url}
+        <video class="mt-4 w-full rounded-sm border" controls src={lesson.video_url}>
+          <track kind="captions" label="Captions" />
+        </video>
+      {/if}
+      {#if lesson.content_md}
+        <pre class="mt-4 whitespace-pre-wrap font-sans text-sm">{lesson.content_md}</pre>
+      {:else}
+        <p class="mt-4 muted">No content yet.</p>
+      {/if}
+      <button class="btn-primary mt-6" on:click={complete} disabled={saving}>
+        {saving ? "Saving…" : "Mark as complete"}
+      </button>
+    </article>
+  {/if}
+</div>

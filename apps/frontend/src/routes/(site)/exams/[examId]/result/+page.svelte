@@ -51,69 +51,74 @@
 
 <svelte:head><title>Result — QLoot</title></svelte:head>
 
-{#if loading}
-  <p class="muted">Loading result…</p>
-{:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{:else if attempt}
-  <a href={`/exams/${examId}`} class="text-sm text-primary">← Back to exam</a>
-  <div class="card mt-3">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">Result</h1>
-        <p class="muted">Attempt #{attempt.attempt_number} · {attempt.status}</p>
-      </div>
-      <div class="text-right">
-        <div class="text-3xl font-bold text-primary">{bpToPercent(attempt.score_bp)}</div>
-        {#if attempt.passed !== null && attempt.passed !== undefined}
-          <span
-            class="badge"
-            class:bg-green-100={attempt.passed}
-            class:text-secondary={attempt.passed}
-            class:tone-tertiary={!attempt.passed}
-            class:text-tertiary={!attempt.passed}
-          >
-            {attempt.passed ? "Passed" : "Not passed"}
-          </span>
-        {/if}
-      </div>
-    </div>
-    {#if attempt.status !== "graded" && (attempt.status === "submitted" || attempt.status === "grading_failed")}
-      <button class="btn-primary mt-4" on:click={gradeNow} disabled={grading}>
-        {grading ? "Grading…" : "Grade now (AI)"}
-      </button>
-    {/if}
-  </div>
-
-  <div class="mt-4 space-y-4">
-    {#each answers as a}
-      {@const q = questionFor(a.question_id)}
-      <div class="card">
-        <div class="flex items-start justify-between gap-4">
-          <p class="font-medium">{q?.prompt ?? "Question"}</p>
-          <span class="badge bg-primary/15 text-primary dark:bg-primary-900 dark:text-primary-100">
-            {bpToPercent(a.score_bp)} / {bpToPercent(a.max_score_bp, 0)}
-          </span>
+<div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+  {#if loading}
+    <p class="muted">Loading result…</p>
+  {:else if error}
+    <p class="alert-error">
+      {error}
+    </p>
+  {:else if attempt}
+    <a href={`/exams/${examId}`} class="text-sm text-primary">← Back to exam</a>
+    <div class="card mt-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="mono-label">Hasil Ujian</p>
+          <h1 class="mt-2 font-display text-3xl font-bold">Result</h1>
+          <p class="muted">Attempt #{attempt.attempt_number} · {attempt.status}</p>
         </div>
-        <p class="mt-3 whitespace-pre-wrap text-sm">{a.answer_text ?? "(no answer)"}</p>
-        {#if a.feedback}
-          <div class="mt-3 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
-            <strong>AI feedback:</strong>
-            {a.feedback}
-            {#if a.similarity_bp !== null && a.similarity_bp !== undefined}
-              <span class="muted"> · similarity {bpToPercent(a.similarity_bp)}</span>
-            {/if}
+        <div class="text-right">
+          <div class="font-display text-3xl font-bold text-primary">
+            {bpToPercent(attempt.score_bp)}
           </div>
-        {/if}
-        {#if q?.correct_answer}
-          <details class="mt-3 text-sm">
-            <summary class="cursor-pointer muted">Show reference answer</summary>
-            <p class="mt-2">{q.correct_answer}</p>
-          </details>
-        {/if}
+          {#if attempt.passed !== null && attempt.passed !== undefined}
+            <span
+              class="badge"
+              class:badge-mint={attempt.passed}
+              class:badge-magenta={!attempt.passed}
+            >
+              {attempt.passed ? "Passed" : "Not passed"}
+            </span>
+          {/if}
+        </div>
       </div>
-    {/each}
-  </div>
-{/if}
+      {#if attempt.status !== "graded" && (attempt.status === "submitted" || attempt.status === "grading_failed")}
+        <button class="btn-primary mt-4" on:click={gradeNow} disabled={grading}>
+          {grading ? "Grading…" : "Grade now (AI)"}
+        </button>
+      {/if}
+    </div>
+
+    <div class="mt-4 space-y-4">
+      {#each answers as a}
+        {@const q = questionFor(a.question_id)}
+        <div class="card">
+          <div class="flex items-start justify-between gap-4">
+            <p class="font-medium">{q?.prompt ?? "Question"}</p>
+            <span class="badge badge-indigo">
+              {bpToPercent(a.score_bp)} / {bpToPercent(a.max_score_bp, 0)}
+            </span>
+          </div>
+          <p class="mt-3 whitespace-pre-wrap text-sm">{a.answer_text ?? "(no answer)"}</p>
+          {#if a.feedback}
+            <div class="alert-info mt-3">
+              <span>
+                <strong>AI feedback:</strong>
+                {a.feedback}
+                {#if a.similarity_bp !== null && a.similarity_bp !== undefined}
+                  <span class="muted"> · similarity {bpToPercent(a.similarity_bp)}</span>
+                {/if}
+              </span>
+            </div>
+          {/if}
+          {#if q?.correct_answer}
+            <details class="mt-3 text-sm">
+              <summary class="cursor-pointer muted">Show reference answer</summary>
+              <p class="mt-2">{q.correct_answer}</p>
+            </details>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>

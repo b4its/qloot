@@ -97,86 +97,91 @@
 
 <svelte:head><title>Attempt — QLoot</title></svelte:head>
 
-{#if loading}
-  <p class="muted">Loading attempt…</p>
-{:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{:else if exam && attempt}
-  <div
-    class="sticky top-16 z-20 mb-4 flex items-center justify-between rounded-xl border px-4 py-3 surface"
-  >
-    <h1 class="font-semibold">{exam.title}</h1>
-    <div class="flex items-center gap-3">
-      <span
-        class="badge"
-        class:tone-tertiary={secondsLeft < 60}
-        class:text-tertiary={secondsLeft < 60}
-        class:tone-highlight={secondsLeft >= 60}
-        class:text-highlight={secondsLeft >= 60}
-      >
-        ⏱ {mmss(secondsLeft)}
-      </span>
-      <button class="btn-primary" on:click={submit}>Submit</button>
-    </div>
-  </div>
-
-  <div class="grid gap-4 lg:grid-cols-[1fr_220px]">
-    <div class="space-y-4">
-      {#each exam.questions ?? [] as q, i}
-        {#if i === current}
-          <div class="card">
-            <div class="flex items-center justify-between">
-              <h2 class="font-semibold">Question {i + 1} of {exam.questions?.length}</h2>
-              <span class="text-xs muted">
-                {#if saved[q.id] === "saving"}Saving…
-                {:else if saved[q.id] === "saved"}Tersimpan <Icon name="check" size="10px" />
-                {:else if saved[q.id] === "error"}Save failed
-                {:else}Not saved{/if}
-              </span>
-            </div>
-            <p class="mt-3">{q.prompt}</p>
-            <textarea
-              class="input mt-3 min-h-[160px]"
-              placeholder="Write your answer…"
-              value={answers[q.id] ?? ""}
-              on:input={(e) => {
-                answers[q.id] = (e.currentTarget as HTMLTextAreaElement).value;
-                onInput(q.id);
-              }}
-            ></textarea>
-            <div class="mt-3 flex justify-between">
-              <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}
-                >← Previous</button
-              >
-              <button
-                class="btn-primary"
-                disabled={i === (exam.questions?.length ?? 0) - 1}
-                on:click={() => (current = i + 1)}>Next →</button
-              >
-            </div>
-          </div>
-        {/if}
-      {/each}
+<div class="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+  {#if loading}
+    <p class="muted">Loading attempt…</p>
+  {:else if error}
+    <p class="alert-error">
+      {error}
+    </p>
+  {:else if exam && attempt}
+    <div
+      class="sticky top-16 z-20 mb-4 flex items-center justify-between rounded-sm border px-4 py-3 surface clip-corner"
+    >
+      <h1 class="hud font-display text-lg font-bold">{exam.title}</h1>
+      <div class="flex items-center gap-3">
+        <span
+          class="badge"
+          class:badge-magenta={secondsLeft < 60}
+          class:badge-amber={secondsLeft >= 60}
+        >
+          <Icon name="stopwatch" size="10px" />
+          {mmss(secondsLeft)}
+        </span>
+        <button class="btn-primary" on:click={submit}>Submit</button>
+      </div>
     </div>
 
-    <aside class="card h-fit">
-      <h2 class="font-semibold">Navigator</h2>
-      <div class="mt-3 grid grid-cols-5 gap-2">
+    <div class="grid gap-4 lg:grid-cols-[1fr_220px]">
+      <div class="space-y-4">
         {#each exam.questions ?? [] as q, i}
-          <button
-            class="h-9 w-9 rounded-lg border text-sm"
-            class:bg-primary={i === current}
-            class:text-white={i === current}
-            class:bg-green-100={saved[q.id] === "saved" && i !== current}
-            on:click={() => (current = i)}
-          >
-            {i + 1}
-          </button>
+          {#if i === current}
+            <div class="card">
+              <div class="flex items-center justify-between">
+                <h2 class="hud font-display text-lg font-bold">
+                  Question {i + 1} of {exam.questions?.length}
+                </h2>
+                <span class="text-xs muted">
+                  {#if saved[q.id] === "saving"}Saving…
+                  {:else if saved[q.id] === "saved"}Tersimpan <Icon name="check" size="10px" />
+                  {:else if saved[q.id] === "error"}Save failed
+                  {:else}Not saved{/if}
+                </span>
+              </div>
+              <p class="mt-3">{q.prompt}</p>
+              <textarea
+                class="input mt-3 min-h-[160px]"
+                placeholder="Tulis jawabanmu…"
+                value={answers[q.id] ?? ""}
+                on:input={(e) => {
+                  answers[q.id] = (e.currentTarget as HTMLTextAreaElement).value;
+                  onInput(q.id);
+                }}
+              ></textarea>
+              <div class="mt-3 flex justify-between">
+                <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}
+                  >← Previous</button
+                >
+                <button
+                  class="btn-primary"
+                  disabled={i === (exam.questions?.length ?? 0) - 1}
+                  on:click={() => (current = i + 1)}>Next →</button
+                >
+              </div>
+            </div>
+          {/if}
         {/each}
       </div>
-      <p class="mt-3 text-xs muted">Green = saved. Click to jump.</p>
-    </aside>
-  </div>
-{/if}
+
+      <aside class="card h-fit">
+        <h2 class="hud font-display text-lg font-bold">Navigator</h2>
+        <div class="mt-3 grid grid-cols-5 gap-2">
+          {#each exam.questions ?? [] as q, i}
+            <button
+              class="h-9 w-9 rounded-sm border font-mono text-sm transition-colors"
+              class:border-primary={i === current}
+              class:bg-primary={i === current}
+              class:text-[#05060A]={i === current}
+              class:border-secondary={saved[q.id] === "saved" && i !== current}
+              class:text-secondary={saved[q.id] === "saved" && i !== current}
+              on:click={() => (current = i)}
+            >
+              {i + 1}
+            </button>
+          {/each}
+        </div>
+        <p class="mt-3 text-xs muted">Cyan = tersimpan. Klik untuk lompat.</p>
+      </aside>
+    </div>
+  {/if}
+</div>

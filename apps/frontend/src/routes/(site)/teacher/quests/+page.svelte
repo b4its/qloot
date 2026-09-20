@@ -50,68 +50,72 @@
 
 <svelte:head><title>Quests (Teacher) — QLoot</title></svelte:head>
 
-<h1 class="text-2xl font-bold">Manage Quests</h1>
-<p class="mt-1 muted">
-  Reward the fastest valid finishers. Winners are deterministic: score, then speed, then attempt id.
-</p>
-
-{#if message}<p class="mt-4 rounded-lg bg-primary/10 p-3 text-sm dark:bg-surface">
-    {message}
-  </p>{/if}
-{#if error}
-  <p class="mt-4 rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
+<div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+  <p class="mono-label">Panel Guru · Quest</p>
+  <h1 class="mt-2 font-display text-3xl font-bold">Manage Quests</h1>
+  <p class="mt-1 muted">
+    Beri hadiah pada finisher tercepat yang valid. Pemenang bersifat deterministik: skor, lalu
+    kecepatan, lalu attempt id.
   </p>
-{/if}
 
-<div class="card mt-4">
-  <h2 class="font-semibold">New quest</h2>
-  <div class="mt-3 grid gap-3 sm:grid-cols-2">
-    <input class="input" placeholder="Title" bind:value={newQuest.title} />
-    <select class="input" bind:value={newQuest.exam_id}>
-      <option value="">No linked exam</option>
-      {#each exams as e}<option value={e.id}>{e.title}</option>{/each}
-    </select>
-    <input class="input" type="number" min="1" max="50" bind:value={newQuest.top_n_winners} />
-    <div class="flex items-center gap-2">
-      {#each newQuest.ranks as amount, i}
-        <input class="input w-20" type="number" min="0" bind:value={newQuest.ranks[i]} />
-      {/each}
-      <span class="text-xs muted">OPC per rank</span>
-    </div>
-  </div>
-  <button class="btn-primary mt-3" on:click={create} disabled={newQuest.title.length < 2}
-    >Create quest</button
-  >
-</div>
+  {#if message}<p class="alert-ok mt-4">
+      {message}
+    </p>{/if}
+  {#if error}
+    <p class="alert-error mt-4">
+      {error}
+    </p>
+  {/if}
 
-<div class="mt-6 space-y-4">
-  {#each quests as q}
-    <div class="card">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 class="font-semibold">{q.title}</h2>
-          <p class="text-sm muted">Top {q.top_n_winners} · {q.status}</p>
-        </div>
-        <button
-          class="btn-primary"
-          on:click={() => finalize(q)}
-          disabled={q.status === "finalized"}
-        >
-          {q.status === "finalized" ? "Finalized" : "Finalize winners"}
-        </button>
+  <div class="card mt-6">
+    <h2 class="hud font-display text-lg font-bold">New quest</h2>
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+      <input class="input" placeholder="Title" bind:value={newQuest.title} />
+      <select class="input" bind:value={newQuest.exam_id}>
+        <option value="">No linked exam</option>
+        {#each exams as e}<option value={e.id}>{e.title}</option>{/each}
+      </select>
+      <input class="input" type="number" min="1" max="50" bind:value={newQuest.top_n_winners} />
+      <div class="flex items-center gap-2">
+        {#each newQuest.ranks as amount, i}
+          <input class="input w-20" type="number" min="0" bind:value={newQuest.ranks[i]} />
+        {/each}
+        <span class="text-xs muted">OPC per rank</span>
       </div>
-      {#if winners[q.id]?.length}
-        <ol class="mt-2 space-y-1 text-sm">
-          {#each winners[q.id] as w}
-            <li class="flex justify-between">
-              <span>#{w.rank} · <span class="font-mono">{w.user_id.slice(0, 8)}…</span></span>
-              <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPC</span>
-            </li>
-          {/each}
-        </ol>
-      {/if}
     </div>
-  {/each}
-  {#if quests.length === 0}<p class="muted">No quests yet.</p>{/if}
+    <button class="btn-primary mt-3" on:click={create} disabled={newQuest.title.length < 2}
+      >Create quest</button
+    >
+  </div>
+
+  <div class="mt-6 space-y-4">
+    {#each quests as q}
+      <div class="card">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="font-display text-lg font-bold">{q.title}</h2>
+            <p class="text-sm muted">Top {q.top_n_winners} · {q.status}</p>
+          </div>
+          <button
+            class="btn-primary"
+            on:click={() => finalize(q)}
+            disabled={q.status === "finalized"}
+          >
+            {q.status === "finalized" ? "Finalized" : "Finalize winners"}
+          </button>
+        </div>
+        {#if winners[q.id]?.length}
+          <ol class="mt-2 space-y-1 text-sm">
+            {#each winners[q.id] as w}
+              <li class="flex justify-between border-b pb-1 last:border-0">
+                <span>#{w.rank} · <span class="font-mono">{w.user_id.slice(0, 8)}…</span></span>
+                <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPC</span>
+              </li>
+            {/each}
+          </ol>
+        {/if}
+      </div>
+    {/each}
+    {#if quests.length === 0}<p class="muted">No quests yet.</p>{/if}
+  </div>
 </div>

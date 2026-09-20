@@ -39,42 +39,42 @@
 
 <svelte:head><title>{course?.title ?? "Course"} — QLoot</title></svelte:head>
 
-{#if loading}
-  <p class="muted">Loading…</p>
-{:else if error}
-  <p class="rounded-lg bg-red-50 p-3 text-sm text-tertiary dark:bg-red-950 dark:text-red-200">
-    {error}
-  </p>
-{:else if course}
-  <a href="/learning" class="text-sm text-primary">← Back to courses</a>
-  <h1 class="mt-2 text-2xl font-bold">{course.title}</h1>
-  <p class="mt-1 muted">{course.description}</p>
+<div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+  {#if loading}
+    <p class="muted">Loading…</p>
+  {:else if error}
+    <p class="alert-error">
+      {error}
+    </p>
+  {:else if course}
+    <a href="/learning" class="text-sm text-primary">← Back to courses</a>
+    <p class="mono-label mt-4">Pelajaran</p>
+    <h1 class="mt-2 font-display text-3xl font-bold">{course.title}</h1>
+    <p class="mt-1 muted">{course.description}</p>
 
-  <div class="mt-6 space-y-3">
-    {#each lessons as lesson, i}
-      {@const done = progress[lesson.id]?.completed}
-      <div class="card flex items-center justify-between">
-        <div>
-          <a
-            href={`/learning/${course.id}/lesson/${lesson.id}`}
-            class="font-medium hover:text-primary"
-          >
-            {i + 1}. {lesson.title}
-          </a>
-          <p class="text-xs muted">{done ? "Completed" : "Not started"}</p>
+    <div class="mt-6 space-y-3">
+      {#each lessons as lesson, i}
+        {@const done = progress[lesson.id]?.completed}
+        <div class="card flex items-center justify-between">
+          <div>
+            <a
+              href={`/learning/${course.id}/lesson/${lesson.id}`}
+              class="font-medium transition-colors hover:text-primary"
+            >
+              {i + 1}. {lesson.title}
+            </a>
+            <p class="text-xs muted">{done ? "Completed" : "Not started"}</p>
+          </div>
+          {#if done}
+            <span class="badge badge-mint"><Icon name="check" size="10px" /> Selesai</span>
+          {:else}
+            <button class="btn-ghost" on:click={() => markComplete(lesson)}>Mark complete</button>
+          {/if}
         </div>
-        {#if done}
-          <span class="badge bg-green-100 text-secondary dark:bg-green-900 dark:text-green-100"
-            ><Icon name="check" size="10px" /> Selesai</span
-          >
-          >
-        {:else}
-          <button class="btn-ghost" on:click={() => markComplete(lesson)}>Mark complete</button>
-        {/if}
-      </div>
-    {/each}
-    {#if lessons.length === 0}
-      <p class="muted">No lessons in this course yet.</p>
-    {/if}
-  </div>
-{/if}
+      {/each}
+      {#if lessons.length === 0}
+        <p class="muted">No lessons in this course yet.</p>
+      {/if}
+    </div>
+  {/if}
+</div>

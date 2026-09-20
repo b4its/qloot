@@ -86,7 +86,7 @@
   <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
     {#each links as l}
       <a href={l.href} class="card lift block">
-        <span class="grid h-11 w-11 place-items-center rounded-xl bg-secondary/15 text-secondary">
+        <span class="tile-cool h-11 w-11">
           <Icon name={l.icon} size="18px" />
         </span>
         <h2 class="mt-3 font-display text-lg font-bold">{l.label}</h2>
