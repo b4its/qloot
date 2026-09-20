@@ -3,6 +3,7 @@
   import { auth } from "$lib/stores/auth";
   import { ApiError } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
+  import PasswordInput from "$lib/components/PasswordInput.svelte";
 
   let email = "";
   let password = "";
@@ -67,10 +68,9 @@
           </div>
           <div>
             <label class="mono-label" for="password">Kata sandi</label>
-            <input
+            <PasswordInput
               id="password"
-              class="input mt-1"
-              type="password"
+              class="mt-1"
               bind:value={password}
               required
               autocomplete="current-password"

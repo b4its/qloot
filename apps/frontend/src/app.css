@@ -290,6 +290,19 @@ html.theme-init * {
     box-shadow: 0 0 0 2px rgb(var(--accent) / 0.25);
   }
 
+  /* Password field with show/hide toggle -------------------------------- */
+  .password-toggle {
+    @apply absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-sm transition-colors duration-200;
+    color: rgb(var(--muted));
+  }
+  .password-toggle:hover:not(:disabled) {
+    color: rgb(var(--accent));
+    background-color: rgb(var(--accent) / 0.1);
+  }
+  .password-toggle:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
   /* Badges -------------------------------------------------------------- */
   .badge {
     @apply inline-flex items-center gap-1.5 rounded-sm px-2.5 py-0.5 text-xs font-semibold uppercase;
