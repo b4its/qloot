@@ -23,10 +23,7 @@
 <div class="relative grid min-h-[70vh] place-items-center overflow-hidden px-4">
   <div class="aurora"></div>
   <div class="relative z-10 max-w-md text-center">
-    <span
-      class="mx-auto grid h-16 w-16 place-items-center rounded-hero text-white"
-      style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-    >
+    <span class="brand-mark mx-auto grid h-16 w-16 place-items-center rounded-sm">
       <Icon name={icon} size="26px" />
     </span>
     <p class="mono-label mt-6">Error {status}</p>

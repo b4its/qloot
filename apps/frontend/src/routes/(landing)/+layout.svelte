@@ -48,13 +48,10 @@
   <header class="sticky top-0 z-40 border-b glass">
     <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
       <a href="/" class="flex items-center gap-2.5">
-        <span
-          class="grid h-9 w-9 place-items-center rounded-xl text-white"
-          style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-        >
+        <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
           <Icon name="graduation-cap" size="16px" />
         </span>
-        <span class="font-display text-lg font-bold tracking-tight">QLoot</span>
+        <span class="font-display text-lg font-bold uppercase tracking-tight">QLoot</span>
       </a>
 
       <!-- in-page anchor nav -->
@@ -62,7 +59,7 @@
         {#each anchors as item}
           <button
             type="button"
-            class="rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-ink/5"
+            class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
             on:click={() => goTo(item.id)}
           >
             {item.label}
@@ -79,7 +76,7 @@
             <Icon name="bell" size="14px" />
             {#if $notifications > 0}
               <span
-                class="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-tertiary px-1 text-[10px] font-bold text-white"
+                class="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-sm bg-danger px-1 text-[10px] font-bold text-white"
                 >{$notifications}</span
               >
             {/if}
@@ -116,20 +113,20 @@
         {#each anchors as item}
           <button
             type="button"
-            class="block w-full rounded-lg px-3 py-2 text-left text-sm"
+            class="hud block w-full rounded-sm px-3 py-2 text-left text-xs"
             on:click={() => goTo(item.id)}>{item.label}</button
           >
         {/each}
         <div class="my-2 border-t"></div>
         {#if user}
-          <a href="/dashboard" class="block rounded-lg px-3 py-2 text-sm">Dashboard</a>
-          <a href="/learning" class="block rounded-lg px-3 py-2 text-sm">Pelajaran Saya</a>
-          <button class="block w-full rounded-lg px-3 py-2 text-left text-sm" on:click={logout}>
+          <a href="/dashboard" class="block rounded-sm px-3 py-2 text-sm">Dashboard</a>
+          <a href="/learning" class="block rounded-sm px-3 py-2 text-sm">Pelajaran Saya</a>
+          <button class="block w-full rounded-sm px-3 py-2 text-left text-sm" on:click={logout}>
             Keluar
           </button>
         {:else}
-          <a href="/login" class="block rounded-lg px-3 py-2 text-sm">Masuk</a>
-          <a href="/register" class="block rounded-lg px-3 py-2 text-sm">Daftar</a>
+          <a href="/login" class="block rounded-sm px-3 py-2 text-sm">Masuk</a>
+          <a href="/register" class="block rounded-sm px-3 py-2 text-sm">Daftar</a>
         {/if}
       </nav>
     {/if}
@@ -141,29 +138,30 @@
   </main>
 
   <!-- ================= LANDING FOOTER ================= -->
-  <footer class="mt-16 border-t border-white/5 bg-[#0A0A0C] text-white">
+  <footer class="cyber-rule mt-16 border-t border-white/5 bg-[#05060A] text-white">
     <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6">
       <div class="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
         <div class="flex items-center gap-2.5">
-          <span
-            class="grid h-9 w-9 place-items-center rounded-xl"
-            style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-          >
+          <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
             <Icon name="graduation-cap" size="16px" />
           </span>
-          <span class="font-display text-lg font-bold">QLoot</span>
+          <span class="font-display text-lg font-bold uppercase">QLoot</span>
         </div>
         <nav
           class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/70"
           aria-label="Navigasi footer"
         >
           {#each anchors as item}
-            <button type="button" class="hover:text-white" on:click={() => goTo(item.id)}>
+            <button
+              type="button"
+              class="transition-colors hover:text-primary"
+              on:click={() => goTo(item.id)}
+            >
               {item.label}
             </button>
           {/each}
-          <a class="hover:text-white" href="/about">Tentang</a>
-          <a class="hover:text-white" href="/faq">FAQ</a>
+          <a class="transition-colors hover:text-primary" href="/about">Tentang</a>
+          <a class="transition-colors hover:text-primary" href="/faq">FAQ</a>
         </nav>
       </div>
 

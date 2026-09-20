@@ -16,10 +16,7 @@
   title="Saldo OryphemCoin (OPC)"
   aria-label={`Saldo ${$opc.available} OPC, buka dompet`}
 >
-  <span
-    class="grid h-6 w-6 flex-none place-items-center rounded-lg text-white"
-    style="background-image:linear-gradient(135deg,#FFD166,#5B48FF)"
-  >
+  <span class="brand-mark-cool grid h-6 w-6 flex-none place-items-center rounded-sm">
     <Icon name="coins" size="11px" />
   </span>
   <span class="flex flex-col items-start leading-tight">

@@ -96,7 +96,7 @@
             <div class="mt-4 flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <span
-                  class="grid h-8 w-8 place-items-center rounded-full bg-ink/5 text-xs font-semibold"
+                  class="brand-mark-cool grid h-8 w-8 place-items-center rounded-sm text-xs font-semibold"
                   >BS</span
                 >
                 <div class="leading-tight">
@@ -151,7 +151,7 @@
   <div class="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
     {#each features as f, i}
       <div use:reveal={{ delay: i * 50 }} class="card lift">
-        <span class="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+        <span class="tile h-11 w-11">
           <Icon name={f.icon} size="18px" />
         </span>
         <h3 class="mt-3 font-display text-lg font-bold">{f.title}</h3>
@@ -181,7 +181,7 @@
         <div use:reveal={{ delay: i * 60 }} class="grad-border lift">
           <span class="block p-5">
             <span
-              class="grid h-11 w-11 place-items-center rounded-xl text-white"
+              class="brand-mark grid h-11 w-11 place-items-center rounded-sm"
               style={`background-image:${t.accent}`}
             >
               <Icon name={t.icon} size="18px" />
@@ -216,8 +216,7 @@
       <div use:reveal={{ delay: i * 40 }} class="card w-72 flex-none snap-start">
         <div class="flex items-center gap-3">
           <span
-            class="grid h-12 w-12 place-items-center rounded-full font-display font-bold text-white"
-            style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
+            class="brand-mark-cool grid h-12 w-12 place-items-center rounded-sm font-display font-bold"
           >
             {initials(m.name)}
           </span>

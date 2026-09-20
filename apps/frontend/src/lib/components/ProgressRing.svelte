@@ -14,8 +14,8 @@
   <svg width={size} height={size} class="-rotate-90" role="img" aria-label={`${label} ${value}%`}>
     <defs>
       <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#5B48FF" />
-        <stop offset="100%" stop-color="#00E5A8" />
+        <stop offset="0%" stop-color="#FCEE0A" />
+        <stop offset="100%" stop-color="#00F0FF" />
       </linearGradient>
     </defs>
     <circle

@@ -11,10 +11,7 @@
 
 <div class="nft lift card" class:p-4={compact}>
   <div class="flex items-center justify-between">
-    <span
-      class="grid h-11 w-11 place-items-center rounded-xl text-white"
-      style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-    >
+    <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
       <Icon name={icon} size="18px" />
     </span>
     {#if verified}

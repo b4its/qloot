@@ -58,13 +58,10 @@
   <header class="sticky top-0 z-40 border-b glass">
     <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
       <a href="/" class="flex items-center gap-2.5">
-        <span
-          class="grid h-9 w-9 place-items-center rounded-xl text-white"
-          style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-        >
+        <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
           <Icon name="graduation-cap" size="16px" />
         </span>
-        <span class="font-display text-lg font-bold tracking-tight">QLoot</span>
+        <span class="font-display text-lg font-bold uppercase tracking-tight">QLoot</span>
       </a>
 
       <!-- primary marketing nav -->
@@ -72,7 +69,7 @@
         {#each primaryNav as item}
           <a
             href={item.href}
-            class="rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-ink/5"
+            class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
             class:text-primary={path.startsWith(item.href)}
           >
             {item.label}
@@ -103,7 +100,7 @@
             <Icon name="bell" size="14px" />
             {#if $notifications > 0}
               <span
-                class="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-tertiary px-1 text-[10px] font-bold text-white"
+                class="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-sm bg-danger px-1 text-[10px] font-bold text-white"
                 >{$notifications}</span
               >
             {/if}
@@ -157,7 +154,7 @@
           {#each appNav as item}
             <a
               href={item.href}
-              class="flex flex-none items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors hover:bg-ink/5"
+              class="flex flex-none items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-primary/10 hover:text-primary"
               class:nav-active={path.startsWith(item.href)}
             >
               <Icon name={item.icon} size="12px" />
@@ -174,7 +171,7 @@
         {#each primaryNav as item}
           <a
             href={item.href}
-            class="block rounded-lg px-3 py-2 text-sm"
+            class="hud block rounded-sm px-3 py-2 text-xs"
             on:click={() => (mobileOpen = false)}>{item.label}</a
           >
         {/each}
@@ -182,17 +179,17 @@
         {#each appNav as item}
           <a
             href={item.href}
-            class="block rounded-lg px-3 py-2 text-sm"
+            class="block rounded-sm px-3 py-2 text-sm"
             on:click={() => (mobileOpen = false)}
           >
             <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
           </a>
         {/each}
         {#if hasRole(user, "teacher")}
-          <a href="/teacher" class="block rounded-lg px-3 py-2 text-sm">Panel Guru</a>
+          <a href="/teacher" class="block rounded-sm px-3 py-2 text-sm">Panel Guru</a>
         {/if}
         {#if hasRole(user, "admin")}
-          <a href="/admin" class="block rounded-lg px-3 py-2 text-sm">Admin</a>
+          <a href="/admin" class="block rounded-sm px-3 py-2 text-sm">Admin</a>
         {/if}
       </nav>
     {/if}
@@ -218,18 +215,15 @@
   </main>
 
   <!-- ================= FOOTER ================= -->
-  <footer class="mt-16 border-t border-white/5 bg-[#0A0A0C] text-white">
+  <footer class="cyber-rule mt-16 border-t border-white/5 bg-[#05060A] text-white">
     <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6">
       <div class="grid gap-10 lg:grid-cols-5">
         <div class="lg:col-span-2">
           <div class="flex items-center gap-2.5">
-            <span
-              class="grid h-9 w-9 place-items-center rounded-xl"
-              style="background-image:linear-gradient(135deg,#5B48FF,#00E5A8)"
-            >
+            <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
               <Icon name="graduation-cap" size="16px" />
             </span>
-            <span class="font-display text-lg font-bold">QLoot</span>
+            <span class="font-display text-lg font-bold uppercase">QLoot</span>
           </div>
           <p class="mt-4 max-w-sm text-sm text-white/60">
             Platform e-learning kelas dengan gamifikasi, AI, dan teknologi on-chain. Pelajaran per
@@ -248,36 +242,49 @@
         </div>
 
         <div>
-          <p class="mono-label !text-white/40">Belajar</p>
+          <p class="mono-label !text-primary">Belajar</p>
           <ul class="mt-3 space-y-2 text-sm text-white/70">
-            <li><a class="hover:text-white" href="/courses">Daftar Pelajaran</a></li>
-            <li><a class="hover:text-white" href="/paths">Jalur Belajar</a></li>
-            <li><a class="hover:text-white" href="/community">Komunitas</a></li>
-            <li><a class="hover:text-white" href="/career">Panduan Karier</a></li>
-          </ul>
-        </div>
-
-        <div>
-          <p class="mono-label !text-white/40">Perusahaan</p>
-          <ul class="mt-3 space-y-2 text-sm text-white/70">
-            <li><a class="hover:text-white" href="/about">Tentang</a></li>
-            <li><a class="hover:text-white" href="/business">Untuk Bisnis</a></li>
-            <li><a class="hover:text-white" href="/careers">Karier</a></li>
-            <li><a class="hover:text-white" href="/blog">Blog</a></li>
-          </ul>
-        </div>
-
-        <div>
-          <p class="mono-label !text-white/40">Sumber Daya</p>
-          <ul class="mt-3 space-y-2 text-sm text-white/70">
-            <li><a class="hover:text-white" href="/faq">FAQ</a></li>
-            <li><a class="hover:text-white" href="/certificates">Sertifikat</a></li>
             <li>
-              <a class="hover:text-white" href={`${API_BASE}/docs`} target="_blank" rel="noopener"
-                >Dokumentasi API</a
+              <a class="transition-colors hover:text-primary" href="/courses">Daftar Pelajaran</a>
+            </li>
+            <li><a class="transition-colors hover:text-primary" href="/paths">Jalur Belajar</a></li>
+            <li><a class="transition-colors hover:text-primary" href="/community">Komunitas</a></li>
+            <li>
+              <a class="transition-colors hover:text-primary" href="/career">Panduan Karier</a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="mono-label !text-primary">Perusahaan</p>
+          <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <li><a class="transition-colors hover:text-primary" href="/about">Tentang</a></li>
+            <li>
+              <a class="transition-colors hover:text-primary" href="/business">Untuk Bisnis</a>
+            </li>
+            <li><a class="transition-colors hover:text-primary" href="/careers">Karier</a></li>
+            <li><a class="transition-colors hover:text-primary" href="/blog">Blog</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="mono-label !text-primary">Sumber Daya</p>
+          <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <li><a class="transition-colors hover:text-primary" href="/faq">FAQ</a></li>
+            <li>
+              <a class="transition-colors hover:text-primary" href="/certificates">Sertifikat</a>
+            </li>
+            <li>
+              <a
+                class="transition-colors hover:text-primary"
+                href={`${API_BASE}/docs`}
+                target="_blank"
+                rel="noopener">Dokumentasi API</a
               >
             </li>
-            <li><a class="hover:text-white" href="/legal">Legal & Privasi</a></li>
+            <li>
+              <a class="transition-colors hover:text-primary" href="/legal">Legal & Privasi</a>
+            </li>
           </ul>
         </div>
       </div>
@@ -287,15 +294,15 @@
       >
         <p>© {new Date().getFullYear()} QLoot. Dibuat untuk pengalaman belajar yang lebih baik.</p>
         <div class="flex items-center gap-3">
-          <a href="https://github.com" class="text-white/60 hover:text-white" aria-label="GitHub">
+          <a href="https://github.com" class="text-white/60 hover:text-primary" aria-label="GitHub">
             <Icon name="github" set="brands" size="16px" />
           </a>
-          <a href="https://x.com" class="text-white/60 hover:text-white" aria-label="X">
+          <a href="https://x.com" class="text-white/60 hover:text-primary" aria-label="X">
             <Icon name="x-twitter" set="brands" size="16px" />
           </a>
           <a
             href="https://linkedin.com"
-            class="text-white/60 hover:text-white"
+            class="text-white/60 hover:text-primary"
             aria-label="LinkedIn"
           >
             <Icon name="linkedin" set="brands" size="16px" />
