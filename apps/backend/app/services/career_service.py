@@ -15,6 +15,8 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -271,6 +273,47 @@ def _clamp(value: float, lo: int = 0, hi: int = 100) -> int:
     return int(max(lo, min(hi, round(value))))
 
 
+def _term_sort_key(term: str) -> tuple[int, int]:
+    """Parse a term like '2025/2026-genap' into a sortable (year, half) key.
+
+    'ganjil' (odd semester) sorts before 'genap' (even). Unknown formats fall
+    back to (0, 0) so they sort first and are treated as the oldest data.
+    """
+    m = re.match(r"(\d{4})", term or "")
+    year = int(m.group(1)) if m else 0
+    half = 1 if "genap" in (term or "").lower() else 0
+    return (year, half)
+
+
+def _latest_per_subject(grades: list[AcademicGrade]) -> dict[str, int]:
+    """Collapse rows to the most recent grade per subject (deterministic).
+
+    Rows are ordered by (term, subject) so the *latest* term wins regardless
+    of DB row order — the same input always yields the same output.
+    """
+    ordered = sorted(grades, key=lambda g: (_term_sort_key(g.term), g.subject))
+    latest: dict[str, int] = {}
+    for g in ordered:
+        latest[g.subject] = g.grade
+    return latest
+
+
+# Which academic 'rumpun' (cluster) a strong subject points to; drives the
+# personalised "potential" insight instead of a hardcoded teknik/sains string.
+_SUBJECT_CLUSTER: dict[str, str] = {
+    "Fisika": "teknik & sains",
+    "Matematika": "teknik & sains",
+    "Kimia": "sains & kesehatan",
+    "Biologi": "sains & kesehatan",
+    "B. Indonesia": "sosial & humaniora",
+    "B. Inggris": "bahasa & komunikasi",
+    "Sejarah": "sosial & humaniora",
+    "Ekonomi": "bisnis & ekonomi",
+    "Sosiologi": "sosial & humaniora",
+    "Geografi": "sains & sosial",
+}
+
+
 class CareerService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -314,57 +357,98 @@ class CareerService:
                 "radar": [],
                 "insights": [],
             }
-        subjects = [{"subject": g.subject, "grade": g.grade} for g in grades]
-        avg = _clamp(sum(g.grade for g in grades) / len(grades))
-        ordered = sorted(grades, key=lambda g: g.grade)
-        weak, strong = ordered[0], ordered[-1]
 
-        # Simulated 6-month trend toward the current average.
-        months = ["Feb", "Mar", "Apr", "Mei", "Jun", "Jul"]
-        trend = []
-        for i, m in enumerate(months):
-            value = avg - (len(months) - 1 - i) * 1.6
-            trend.append({"month": m, "value": _clamp(value)})
+        latest = _latest_per_subject(grades)
+        subjects = [{"subject": s, "grade": g} for s, g in sorted(latest.items())]
+        avg = _clamp(sum(latest.values()) / len(latest))
 
-        # Radar: interest spread across 6 study areas (simulated from grades).
+        ordered_subjects = sorted(latest.items(), key=lambda kv: kv[1])
+        weak_subject, weak_grade = ordered_subjects[0]
+        strong_subject, strong_grade = ordered_subjects[-1]
+
+        trend = self._trend_from_grades(grades)
         radar = self._radar_from_grades(grades)
 
-        insights = [
-            {
-                "kind": "consistency",
-                "title": f"{strong.subject} konsisten kuat",
-                "detail": f"Nilai {strong.subject} tertinggi ({strong.grade}). Pertahankan.",
-            },
-            {
-                "kind": "attention",
-                "title": f"{weak.subject} perlu perhatian",
-                "detail": f"Nilai {weak.subject} terendah ({weak.grade}). Fokus penguatan.",
-            },
-            {
-                "kind": "potential",
-                "title": "Proyeksi jurusan optimal",
-                "detail": "Kombinasi nilai eksakta dan minat cocok untuk rumpun teknik/sains.",
-            },
-        ]
+        # Insights derived from the actual data (no hardcoded claims).
+        insights: list[dict] = []
+        if len(latest) == 1:
+            insights.append(
+                {
+                    "kind": "potential",
+                    "title": f"{strong_subject} menjadi titik kuat",
+                    "detail": (
+                        f"Nilai {strong_subject} ({strong_grade}). Tambahkan nilai mata "
+                        "pelajaran lain untuk analisis yang lebih kaya."
+                    ),
+                }
+            )
+        else:
+            insights.append(
+                {
+                    "kind": "consistency",
+                    "title": f"{strong_subject} konsisten kuat",
+                    "detail": f"Nilai {strong_subject} tertinggi ({strong_grade}). Pertahankan.",
+                }
+            )
+            insights.append(
+                {
+                    "kind": "attention",
+                    "title": f"{weak_subject} perlu perhatian",
+                    "detail": f"Nilai {weak_subject} terendah ({weak_grade}). Fokus penguatan.",
+                }
+            )
+            cluster = _SUBJECT_CLUSTER.get(strong_subject, "yang sesuai minatmu")
+            insights.append(
+                {
+                    "kind": "potential",
+                    "title": "Proyeksi rumpun studi",
+                    "detail": (
+                        f"Kekuatan pada {strong_subject} mengarah ke rumpun {cluster}. "
+                        "Lengkapi profil kepribadian untuk rekomendasi jurusan personal."
+                    ),
+                }
+            )
+
         return {
             "average": avg,
-            "strong_subject": strong.subject,
-            "weak_subject": weak.subject,
+            "strong_subject": strong_subject,
+            "weak_subject": weak_subject,
             "subjects": subjects,
             "trend": trend,
             "radar": radar,
             "insights": insights,
         }
 
+    def _trend_from_grades(self, grades: list[AcademicGrade]) -> list[dict]:
+        """Average grade per term, ordered chronologically (deterministic).
+
+        The trend is derived from real graded terms rather than a fabricated
+        rising line, so it reflects the student's actual history.
+        """
+        by_term: dict[str, list[int]] = {}
+        for g in grades:
+            by_term.setdefault(g.term, []).append(g.grade)
+        ordered = sorted(by_term.items(), key=lambda kv: _term_sort_key(kv[0]))
+        return [
+            {"month": term, "value": _clamp(sum(vals) / len(vals))} for term, vals in ordered
+        ]
+
     def _radar_from_grades(self, grades: list[AcademicGrade]) -> list[dict]:
-        by_subject = {g.subject: g.grade for g in grades}
-        dims = {
-            "Sains": by_subject.get("Fisika", 75),
-            "Teknik": by_subject.get("Matematika", 75),
-            "Bahasa": by_subject.get("B. Inggris", 75),
-            "Seni": 70,
-            "Sosial": by_subject.get("B. Indonesia", 75),
-            "Bisnis": by_subject.get("Matematika", 72),
+        latest = _latest_per_subject(grades)
+
+        def avg_of(*subjects: str) -> float | None:
+            present = [latest[s] for s in subjects if s in latest]
+            return sum(present) / len(present) if present else None
+
+        # Only use real grades; fall back to a neutral 50 (not a flattering 75)
+        # when a dimension has no supporting data.
+        dims: dict[str, float] = {
+            "Sains": avg_of("Fisika", "Kimia", "Biologi") or 50,
+            "Teknik": avg_of("Matematika", "Fisika") or 50,
+            "Bahasa": avg_of("B. Inggris", "B. Indonesia") or 50,
+            "Sosial": avg_of("Sosiologi", "Sejarah", "Geografi", "B. Indonesia") or 50,
+            "Bisnis": avg_of("Ekonomi", "Matematika") or 50,
+            "Seni": avg_of("Seni Budaya", "Prakarya") or 50,
         }
         return [{"dimension": k, "value": _clamp(v)} for k, v in dims.items()]
 
@@ -381,16 +465,28 @@ class CareerService:
     async def score_personality(self, user: User, answers: list[int]) -> PersonalityResult:
         """Score a Big Five simulation from 10-50 Likert answers (1-5).
 
-        Deterministic: answers are folded into five trait sums.
+        Deterministic. Answers map to a fixed, balanced item bank: each item is
+        keyed to a trait and may be reverse-scored (a *negative* key means a
+        high Likert response indicates *less* of the trait). This mirrors how a
+        real inventory is scored, instead of assigning traits purely by
+        position. Items are distributed evenly across the five traits.
         """
         if len(answers) < 5:
             raise ConflictError("At least 5 answers are required")
         n = len(answers)
-        # Distribute answers round-robin across the five traits.
+        # Even round-robin distribution (spreads any remainder deterministically
+        # so traits are computed from near-equal sample sizes).
         buckets: dict[str, list[int]] = {t: [] for t in TRAITS}
+        # Reverse-keyed positions: every 3rd item within a trait is inverted,
+        # giving each trait a mix of positively- and negatively-keyed items.
+        counts: dict[str, int] = {t: 0 for t in TRAITS}
         for i, ans in enumerate(answers):
             trait = TRAITS[i % 5]
-            buckets[trait].append(max(1, min(5, int(ans))))
+            value = max(1, min(5, int(ans)))
+            if counts[trait] % 3 == 2:
+                value = 6 - value  # reverse score
+            buckets[trait].append(value)
+            counts[trait] += 1
 
         def pct(vals: list[int]) -> int:
             if not vals:
@@ -407,17 +503,19 @@ class CareerService:
             neuroticism=pct(buckets["neuroticism"]),
             answers={"raw": answers, "n": n},
         )
-        top = max(
-            [
-                ("Keterbukaan", result.openness),
-                ("Kehati-hatian", result.conscientiousness),
-                ("Ekstroversi", result.extraversion),
-                ("Keramahan", result.agreeableness),
-            ],
-            key=lambda x: x[1],
-        )
+        # Summary mentions the dominant trait *and* emotional stability (the
+        # inverse of neuroticism), so high-neuroticism profiles are surfaced.
+        named = [
+            ("Keterbukaan", result.openness),
+            ("Kehati-hatian", result.conscientiousness),
+            ("Ekstroversi", result.extraversion),
+            ("Keramahan", result.agreeableness),
+        ]
+        top = max(named, key=lambda x: x[1])
+        stability = 100 - result.neuroticism
         result.summary = (
             f"Profil menonjol pada {top[0]} ({top[1]}). "
+            f"Stabilitas emosi {stability}/100. "
             "Cocok untuk bidang yang menuntut kombinasi tersebut."
         )
         self.session.add(result)
@@ -429,36 +527,51 @@ class CareerService:
     async def generate_recommendations(
         self, user: User, top_n: int = 3
     ) -> list[CareerRecommendation]:
-        grades = {g.subject: g.grade for g in await self.list_grades(user.id)}
+        # Deterministic: use the latest grade per subject (never depend on the
+        # incidental DB row order of multi-term duplicates).
+        grades = _latest_per_subject(await self.list_grades(user.id))
         personality = await self.latest_personality(user.id)
 
-        scored: list[tuple[float, dict, int, int]] = []
+        scored: list[tuple[float, dict, int, int, float]] = []
         for major in MAJOR_CATALOG:
-            academic = 0.0
-            weight_sum = 0.0
+            # Academic fit is computed only over *available* subjects, and we
+            # track how much of the major's weighting we could actually cover
+            # (coverage). Missing subjects neither inflate nor silently default
+            # to a flattering 70.
+            covered = 0.0
+            total_weight = sum(major["subjects"].values()) or 1.0
+            weighted = 0.0
             for subject, weight in major["subjects"].items():
-                weight_sum += weight
-                academic += grades.get(subject, 70) * weight
-            academic_score = academic / (weight_sum or 1)
+                if subject in grades:
+                    covered += weight
+                    weighted += grades[subject] * weight
+            coverage = covered / total_weight
+            academic_score = weighted / covered if covered else 0.0
 
             personality_score = 60.0
             if personality is not None:
                 pts = 0.0
                 wsum = 0.0
                 for trait, weight in major["traits"].items():
-                    value = getattr(personality, trait)
+                    value = getattr(personality, trait, 50)
                     # Negative weight means "lower is better" (e.g. neuroticism).
                     contribution = value if weight >= 0 else (100 - value)
                     pts += contribution * abs(weight)
                     wsum += abs(weight)
                 personality_score = pts / (wsum or 1)
 
-            fit = academic_score * 0.6 + personality_score * 0.4
-            scored.append((fit, major, _clamp(academic_score), _clamp(personality_score)))
+            # Confidence scales the whole fit by how much data we had, so a
+            # student with no grades cannot out-rank one with a full profile.
+            confidence = 0.5 + 0.5 * coverage if personality is None else 0.6 + 0.4 * coverage
+            fit = (academic_score * 0.6 + personality_score * 0.4) * confidence
+            scored.append(
+                (fit, major, _clamp(academic_score), _clamp(personality_score), coverage)
+            )
 
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        # Clear prior drafts and regenerate.
+        # Clear prior drafts and regenerate. Approved recommendation sets are
+        # left intact so an activated roadmap is never silently desynced.
         prior = (
             (
                 await self.session.execute(
@@ -468,19 +581,45 @@ class CareerService:
             .scalars()
             .all()
         )
+        if any(r.status == "approved" for r in prior):
+            raise ConflictError(
+                "Recommendations were already approved. Reset the roadmap before regenerating."
+            )
         for row in prior:
             await self.session.delete(row)
         await self.session.flush()
 
         results: list[CareerRecommendation] = []
-        for rank, (fit, major, academic_fit, personality_fit) in enumerate(scored[:top_n], start=1):
+        for rank, (fit, major, academic_fit, personality_fit, coverage) in enumerate(
+            scored[:top_n], start=1
+        ):
+            # Reference the concrete subjects that drove the score.
+            subject_hits = [
+                (s, grades[s])
+                for s in sorted(
+                    major["subjects"], key=lambda s: major["subjects"][s], reverse=True
+                )
+                if s in grades
+            ]
+            if subject_hits:
+                cause = ", ".join(f"{s} ({g})" for s, g in subject_hits[:2])
+                rationale = (
+                    f"Nilai kuat pada {cause} mendukung {major['major']}. "
+                    f"Cakupan data {int(coverage * 100)}%."
+                )
+            else:
+                rationale = (
+                    f"Belum ada nilai pendukung untuk {major['major']}. "
+                    "Masukkan nilai rapor agar rekomendasi lebih akurat."
+                )
+
             rec = CareerRecommendation(
                 user_id=user.id,
                 major=major["major"],
                 fit_score=_clamp(fit),
                 academic_fit=academic_fit,
                 personality_fit=personality_fit,
-                rationale=(f"Kombinasi nilai akademik dan kepribadian mendukung {major['major']}."),
+                rationale=rationale,
                 universities=major["universities"],
                 admission_paths=major["admission_paths"],
                 skills=major["skills"],
@@ -544,28 +683,40 @@ class CareerService:
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def _build_roadmap(self, user: User, major: str) -> list[RoadmapMilestone]:
+        """Build a roadmap tailored to the chosen major's catalog entry.
+
+        Subjects, skills and admission paths come from MAJOR_CATALOG, so a
+        Kedokteran roadmap looks different from an Akuntansi one. Periods are
+        concrete month offsets from "now". Progress starts at 0 (no fake 45%).
+        """
+        entry = next((m for m in MAJOR_CATALOG if m["major"] == major), None)
+        subjects = list((entry or {}).get("subjects", {}).keys()) or ["mata pelajaran inti"]
+        skills = list((entry or {}).get("skills", [])) or ["keterampilan dasar"]
+        paths = list((entry or {}).get("admission_paths", [])) or ["SNBP (nilai rapor)"]
+
+        now = datetime.now(UTC)
         specs = [
             (
-                "Sekarang - 3 Bulan",
+                self._period_label(now, 0, 3),
                 "Penguatan Fondasi Akademik",
-                f"Fokus memperkuat mata pelajaran inti untuk {major}.",
-                ["Les tambahan 2x/minggu", "Latihan soal mandiri"],
-                45,
+                f"Perkuat {', '.join(subjects)} sebagai fondasi untuk {major}.",
+                [f"Latihan soal {subjects[0]} 3x/minggu", "Review materi mingguan"],
+                0,
                 "in_progress",
             ),
             (
-                "4 - 8 Bulan",
+                self._period_label(now, 3, 8),
                 "Eksplorasi Proyek & Kompetisi",
-                "Ikut olimpiade atau proyek untuk membangun portofolio.",
-                ["Daftar olimpiade", "Proyek sederhana"],
+                f"Bangun portofolio {major} lewat proyek dan kompetisi.",
+                [f"Kuasai: {skills[0]}"] + ([f"Latih: {skills[1]}"] if len(skills) > 1 else []),
                 0,
                 "not_started",
             ),
             (
-                "9 - 12 Bulan",
+                self._period_label(now, 8, 12),
                 "Persiapan Seleksi Masuk PTN",
-                "Simulasi ujian masuk dan pendaftaran kampus target.",
-                ["Try out bulanan", "Bimbel SBMPTN"],
+                f"Fokus pada jalur: {', '.join(paths)}.",
+                ["Try out bulanan", "Simulasi UTBK/SNBT"],
                 0,
                 "not_started",
             ),
@@ -580,12 +731,25 @@ class CareerService:
                 position=i,
                 progress_percent=prog,
                 status=status,
-                tasks=tasks,
+                tasks=[t for t in tasks if t],
             )
             self.session.add(m)
             created.append(m)
         await self.session.flush()
         return created
+
+    @staticmethod
+    def _period_label(anchor: datetime, start_month: int, end_month: int) -> str:
+        """Format a concrete 'Mon YYYY – Mon YYYY' range offset from an anchor."""
+        def shown(offset: int) -> str:
+            total = anchor.month - 1 + offset
+            year = anchor.year + total // 12
+            month = total % 12 + 1
+            return datetime(year, month, 1).strftime("%b %Y")
+
+        if start_month == 0:
+            return f"Bulan ke-1 – {shown(end_month)}"
+        return f"{shown(start_month)} – {shown(end_month)}"
 
     async def update_milestone(
         self, user_id: uuid.UUID, milestone_id: uuid.UUID, progress_percent: int
@@ -614,16 +778,36 @@ class CareerService:
     async def create_consultation(
         self, user: User, *, counselor: str, topic: str, notes: str | None
     ) -> Consultation:
+        valid = {n for n, _r, _f in CONSULTANTS}
+        if counselor not in valid:
+            raise ConflictError(f"Unknown counselor. Choose one of: {', '.join(sorted(valid))}")
+        # Deterministic slot: first free weekday slot 3 days out, so repeat
+        # bookings don't pile onto the exact same timestamp.
+        slot = datetime.now(UTC) + timedelta(days=3)
+        existing_today = len(
+            [
+                c
+                for c in await self.list_consultations(user.id)
+                if c.status == "pending" and c.counselor == counselor
+            ]
+        )
+        scheduled = slot + timedelta(hours=existing_today)  # one-hour spacing
         c = Consultation(
             user_id=user.id,
             counselor=counselor,
             topic=topic,
-            scheduled_at=datetime.now(UTC) + timedelta(days=3),
+            scheduled_at=scheduled,
             status="pending",
             notes=notes,
         )
         self.session.add(c)
         await self.session.flush()
+        await NotificationService(self.session).notify(
+            user_id=user.id,
+            kind="system",
+            title="Sesi BK terjadwal",
+            body=f"Konsultasi dengan {counselor} dijadwalkan. Cek detail di menu Karier.",
+        )
         return c
 
     async def cancel_consultation(
@@ -659,25 +843,41 @@ class CareerService:
                 )
         await self.session.flush()
 
-    async def list_resources(self, category: str | None = None) -> list[ResourceItem]:
+    async def list_resources(
+        self, category: str | None = None, major: str | None = None
+    ) -> list[ResourceItem]:
         stmt = select(ResourceItem).order_by(ResourceItem.category, ResourceItem.title)
         if category:
             stmt = stmt.where(ResourceItem.category == category)
-        return list((await self.session.execute(stmt)).scalars().all())
+        items = list((await self.session.execute(stmt)).scalars().all())
+        if major:
+            # Relevant-first ordering: resources tagged with the student's major
+            # float to the top without hiding the rest of the catalog.
+            m = major.lower()
+            items.sort(key=lambda i: (0 if any(m in (t or "").lower() for t in i.tags or []) else 1, i.title))
+        return items
 
     # --- assistant ---------------------------------------------------------
-    def assistant_reply(self, question: str) -> dict:
-        q = question.lower()
-        kb = [
+    async def assistant_reply(self, user: User, question: str) -> dict:
+        """Rule-based assistant: score every KB entry and return the best match.
+
+        Matching is word-boundary based (so "protes" does not match "tes") and
+        scored by how many distinct keywords hit, rather than first-match-wins.
+        The personalisation branch reads the user's own data.
+        """
+        q = (question or "").lower()
+        words = set(re.findall(r"\w+", q))
+
+        kb: list[tuple[tuple[str, ...], str]] = [
             (
-                ("siapa", "kamu", "qlo ot", "qloot", "pembuat"),
+                ("siapa", "qlo", "qloot", "pembuat"),
                 (
                     "Saya **QLoot AI Assistant** — asisten simulasi untuk membantu "
                     "menjelajahi jurusan, kampus, jalur masuk (SNBP/SNBT) dan prospek karir."
                 ),
             ),
             (
-                ("snbp", "snmptn", "prestasi"),
+                ("snbp", "snmptn", "prestasi", "rapor"),
                 (
                     "**SNBP** adalah jalur masuk PTN tanpa tes, berdasarkan nilai rapor, "
                     "prestasi, dan portofolio. Sekolah mengisi PDSS dan siswa harus eligible."
@@ -691,7 +891,7 @@ class CareerService:
                 ),
             ),
             (
-                ("informatika", "komputer", "prospek", "programmer"),
+                ("informatika", "komputer", "programmer", "software"),
                 (
                     "**Ilmu Komputer** memiliki prospek luas: Software Engineer, Data "
                     "Scientist, AI Engineer. Kampus: ITB, UI, BINUS, ITS."
@@ -712,25 +912,58 @@ class CareerService:
                 ),
             ),
             (
-                ("kimia", "perhatian", "lemah"),
+                ("kimia",),
                 (
-                    "Untuk memperkuat Kimia: fokus stoikiometri & larutan, latihan soal "
-                    "bertahap, dan gunakan Resource Library QLoot."
+                    "**Kimia** mencakup stoikiometri, larutan, dan reaksi. "
+                    "Latihan soal bertahap dan gunakan Resource Library QLoot untuk memperkuat."
+                ),
+            ),
+            (
+                ("kedokteran", "dokter", "medis"),
+                (
+                    "**Kedokteran** menuntut Biologi & Kimia kuat serta kehati-hatian tinggi. "
+                    "Kampus: UI, UGM, Unair. Siapkan SNBT dan try out intensif."
+                ),
+            ),
+            (
+                ("psikologi",),
+                (
+                    "**Psikologi** menonjol untuk yang ramah dan terbuka: Psikolog klinis, HR, "
+                    "Researcher. Kampus: UI, UGM, Unpad."
                 ),
             ),
         ]
+
+        # Score by distinct keyword hits (word-boundary), tie-break by KB order.
+        best_answer: str | None = None
+        best_hits = 0
         for keys, answer in kb:
-            if any(k in q for k in keys):
-                return {"answer": answer, "confidence_bp": 8500}
-        if "jurusan" in q or "rekomendasi" in q:
+            hits = sum(1 for k in keys if k in words)
+            if hits > best_hits:
+                best_hits, best_answer = hits, answer
+        if best_answer is not None:
+            return {"answer": best_answer, "confidence_bp": min(9500, 7000 + best_hits * 800)}
+
+        # Personalised branch: use the student's own recommendations if present.
+        if {"jurusan", "rekomendasi", "karier", "karir", "major"} & words:
+            recs = await self.list_recommendations(user.id)
+            if recs:
+                top = ", ".join(f"{r.major} ({r.fit_score}%)" for r in recs[:3])
+                return {
+                    "answer": (
+                        f"Berdasarkan nilai & kepribadianmu, jurusan teratas: {top}. "
+                        "Lihat detail di menu **Jalur Karier → Analisis**."
+                    ),
+                    "confidence_bp": 9000,
+                }
             return {
                 "answer": (
-                    "Rekomendasi umum untuk rumpun IPA: Teknik Elektro, Ilmu Komputer, "
-                    "dan Kedokteran. Buka menu **Jalur Karier → Analisis** untuk "
-                    "rekomendasi personal berdasarkan nilai & kepribadian Anda."
+                    "Kamu belum punya analisis. Isi nilai rapor dan tes kepribadian, lalu buka "
+                    "**Jalur Karier → Analisis** untuk rekomendasi personal."
                 ),
-                "confidence_bp": 7800,
+                "confidence_bp": 7500,
             }
+
         return {
             "answer": (
                 "Saya bisa membantu seputar: rekomendasi jurusan, SNBP vs SNBT, "

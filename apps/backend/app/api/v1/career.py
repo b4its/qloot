@@ -128,15 +128,20 @@ async def cancel_consultation(consultation_id: uuid.UUID, user: CurrentUser, db:
 
 # --- resource library ------------------------------------------------------
 @router.get("/resources", response_model=list[ResourceOut])
-async def resources(user: CurrentUser, db: DbSession, category: str | None = None):
+async def resources(
+    user: CurrentUser,
+    db: DbSession,
+    category: str | None = None,
+    major: str | None = None,
+):
     async with transaction(db):
         service = CareerService(db)
         await service.ensure_resources()
-        return await service.list_resources(category)
+        return await service.list_resources(category, major)
 
 
 # --- assistant -------------------------------------------------------------
 @router.post("/assistant", response_model=ChatOut)
 async def assistant(payload: ChatIn, user: CurrentUser, db: DbSession):
-    reply = CareerService(db).assistant_reply(payload.message)
+    reply = await CareerService(db).assistant_reply(user, payload.message)
     return ChatOut(answer=reply["answer"], confidence_bp=reply["confidence_bp"])
