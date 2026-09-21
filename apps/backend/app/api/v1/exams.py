@@ -83,6 +83,18 @@ async def close_exam(exam_id: uuid.UUID, user: TeacherUser, db: DbSession):
         return await ExamService(db).unpublish(exam_id, user)
 
 
+@router.delete("/exams/{exam_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_exam(exam_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        await ExamService(db).delete(exam_id, user)
+
+
+@router.delete("/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_question(question_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        await ExamService(db).delete_question(question_id, user)
+
+
 @router.post(
     "/exams/{exam_id}/questions", response_model=QuestionOut, status_code=status.HTTP_201_CREATED
 )

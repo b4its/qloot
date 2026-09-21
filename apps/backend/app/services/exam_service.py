@@ -123,6 +123,40 @@ class ExamService:
         await self.session.flush()
         return question
 
+    async def delete_question(self, question_id: uuid.UUID, user: User) -> None:
+        question = await self.session.get(Question, question_id)
+        if question is None:
+            raise NotFoundError("Question not found")
+        if not user.has_role("admin") and question.owner_id != user.id:
+            raise ForbiddenError("You do not own this question")
+        # Refuse while a submitted/graded attempt references the question, so we
+        # never orphan student answers or corrupt a score denominator.
+        referenced = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(StudentAnswer)
+                .where(StudentAnswer.question_id == question_id)
+            )
+        ).scalar_one()
+        if referenced:
+            raise ConflictError("Cannot delete a question that already has answers")
+        await self.session.delete(question)
+        await self.session.flush()
+
+    async def delete(self, exam_id: uuid.UUID, user: User) -> None:
+        exam = await self._get_owned_exam(exam_id, user)
+        # Refuse once anyone has attempted it — deleting would orphan attempts
+        # and their answers/scores.
+        attempts = (
+            await self.session.execute(
+                select(func.count()).select_from(ExamAttempt).where(ExamAttempt.exam_id == exam_id)
+            )
+        ).scalar_one()
+        if attempts:
+            raise ConflictError("Cannot delete an exam that has attempts")
+        await self.session.delete(exam)
+        await self.session.flush()
+
     # --- attempts ----------------------------------------------------------
     async def start_attempt(self, exam_id: uuid.UUID, user: User) -> ExamAttempt:
         exam = await self.get(exam_id)
