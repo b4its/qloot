@@ -757,6 +757,66 @@ async def seed_badges(session: AsyncSession) -> None:
     log.info("bulk_badges_ready", added=made)
 
 
+async def seed_community(session: AsyncSession, students) -> None:
+    """Seed the community feed with ~200 posts + comments + likes."""
+    from app.models.community import CommunityComment, CommunityLike, CommunityPost
+    from app.services.community_service import TOPICS
+
+    if await _count(session, CommunityPost) >= TARGET:
+        return
+    rng = random.Random(31)
+    bodies = [
+        "Tips menyusun portofolio: mulai dari masalah, bukan dari visual.",
+        "Rekaman sesi minggu ini sudah tersedia di kelas. Silakan disimak!",
+        "Kumpulan dataset publik untuk latihan visualisasi — cek tautan di kelas.",
+        "Bagaimana cara efektif belajar untuk ujian? Ini strategi saya…",
+        "Baru selesai quest pertama, seru! Ada tips menaikkan skor?",
+        "Materi Fisika pekan ini menantang. Mari diskusi di kolom komentar.",
+        "Sertifikat digital sekarang bisa diverifikasi lewat tautan unik, keren!",
+        "Berbagi ringkasan bab 3 — semoga membantu teman-teman sekelas.",
+        "Kuis AI-nya lumayan akurat untuk latihan esai. Rekomendasi!",
+        "Ada yang ingin belajar bareng di ruang simulasi sore ini?",
+    ]
+    made = 0
+    for i in range(1, TARGET + 1):
+        author = students[i % len(students)]
+        topic = TOPICS[i % len(TOPICS)]
+        post = CommunityPost(
+            id=det_uuid("cpost", str(i)),
+            author_id=author.id,
+            topic=topic,
+            body=f"{bodies[i % len(bodies)]} (#{i:03d})",
+            like_count=0,
+            comment_count=0,
+            created_at=datetime.now(UTC) - timedelta(hours=i),
+        )
+        session.add(post)
+        # 0-3 comments per post.
+        n_comments = i % 4
+        for c in range(n_comments):
+            commenter = students[(i + c) % len(students)]
+            session.add(
+                CommunityComment(
+                    id=det_uuid("ccomment", str(i), str(c)),
+                    post_id=post.id,
+                    author_id=commenter.id,
+                    body="Setuju! Terima kasih berbaginya.",
+                    created_at=datetime.now(UTC) - timedelta(hours=i, minutes=-c),
+                )
+            )
+        post.comment_count = n_comments
+        # A few likes spread across students.
+        likers = rng.sample(students, k=min(len(students), i % 6))
+        for s in likers:
+            session.add(CommunityLike(post_id=post.id, user_id=s.id))
+        post.like_count = len(likers)
+        made += 1
+        if made % 50 == 0:
+            await session.flush()
+    await session.flush()
+    log.info("bulk_community_ready", posts=made)
+
+
 async def main() -> None:
     from app.db.session import session_scope
     from app.services.social_service import BadgeService
@@ -773,6 +833,7 @@ async def main() -> None:
         await seed_quests_and_tasks(session, teachers)
         await seed_career(session, students)
         await seed_notifications(session, students, teachers)
+        await seed_community(session, students)
         await seed_ledger(session, students)
     log.info("seed_bulk_done")
 

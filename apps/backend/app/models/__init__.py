@@ -10,6 +10,7 @@ from app.models.career import (
     RoadmapMilestone,
 )
 from app.models.certificate import Certificate
+from app.models.community import CommunityComment, CommunityLike, CommunityPost
 from app.models.exam import (
     BP_SCALE,
     Exam,
@@ -101,6 +102,9 @@ __all__ = [
     "Consultation",
     "ResourceItem",
     "Certificate",
+    "CommunityPost",
+    "CommunityComment",
+    "CommunityLike",
     "WalletAccount",
     "WalletLedgerEntry",
     "RewardAllocation",
