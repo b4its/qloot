@@ -23,11 +23,6 @@
     try {
       course = await api.get<Course>(`/courses/${id}`);
       lessons = await api.get<Lesson[]>(`/courses/${id}/lessons`);
-      // If the student has earned a certificate for this course, show it.
-      if (!$auth.loading && $auth.user && !canManage) {
-        const mine = await api.get<Certificate[]>("/certificates").catch(() => []);
-        certificate = mine.find((c) => c.course_id === id) ?? null;
-      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
@@ -35,7 +30,26 @@
     }
   }
 
+  let certificateChecked = false;
+  async function loadCertificate() {
+    if (certificateChecked) return;
+    if ($auth.loading || !$auth.user || canManage) return;
+    certificateChecked = true;
+    try {
+      const mine = await api.get<Certificate[]>("/certificates");
+      certificate = mine.find((c) => c.course_id === id) ?? null;
+    } catch {
+      certificate = null;
+    }
+  }
+
   onMount(load);
+
+  // Auth resolves asynchronously after mount; re-check the certificate whenever
+  // the id or auth state becomes available (previously only ran once, too early).
+  $: if (id && !$auth.loading && $auth.user && !canManage) {
+    loadCertificate();
+  }
 </script>
 
 <svelte:head><title>{course ? course.title : "Pelajaran"} — QLoot</title></svelte:head>

@@ -19,7 +19,8 @@
   $: qParam = $page.url.searchParams.get("q") ?? "";
   $: if (qParam !== lastQ) {
     lastQ = qParam;
-    if (qParam) query = qParam;
+    // Mirror the URL both ways: clearing ?q= must also clear the search box.
+    query = qParam;
   }
 
   $: user = $auth.user;
