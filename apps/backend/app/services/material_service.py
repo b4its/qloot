@@ -119,10 +119,18 @@ class MaterialService:
         material = await self.session.get(LearningMaterial, job.material_id)
         if material is None:
             raise NotFoundError("Material not found")
+        # Without extracted text there is nothing to ground questions on; failing
+        # loudly beats generating meaningless questions from an empty context.
+        text = (material.extracted_text or "").strip()
+        if len(text) < 20:
+            raise ValidationError(
+                "Materi belum memiliki teks yang cukup untuk membuat soal. "
+                "Unggah PDF yang berisi teks."
+            )
         provider = get_ai_provider()
         payload = job.payload or {}
         ctx = GenerationContext(
-            text=material.extracted_text or "",
+            text=text,
             count=int(payload.get("count", 5)),
             language=payload.get("language", "id"),
             title=material.filename,
