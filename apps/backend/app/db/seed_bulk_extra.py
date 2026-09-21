@@ -126,7 +126,18 @@ async def seed_attempts_and_grading(session: AsyncSession, students) -> None:
 
     # --- grading_jobs + grading_results (>= 200) ---------------------------
     if await _count(session, GradingJob) < TARGET:
-        for attempt in attempts[:TARGET]:
+        # One job per attempt is enforced by uq_grading_jobs_attempt, and the
+        # demo seed already creates jobs for some attempts — skip those.
+        existing_attempts = {
+            j.attempt_id
+            for j in (await session.execute(select(GradingJob))).scalars()
+            if j.attempt_id is not None
+        }
+        made = 0
+        for attempt in attempts:
+            if attempt.id in existing_attempts:
+                continue
+            existing_attempts.add(attempt.id)
             session.add(
                 GradingJob(
                     id=det_uuid("gjob", str(attempt.id)),
@@ -140,14 +151,21 @@ async def seed_attempts_and_grading(session: AsyncSession, students) -> None:
                     finished_at=datetime.now(UTC),
                 )
             )
+            made += 1
+            if made >= TARGET:
+                break
         await session.flush()
 
     if await _count(session, GradingResult) < TARGET:
         jobs = await _pick(session, GradingJob, 300)
+        existing_jobs = {
+            r.job_id for r in (await session.execute(select(GradingResult))).scalars()
+        }
         made = 0
         for job in jobs:
-            if job.attempt_id is None:
+            if job.attempt_id is None or job.id in existing_jobs:
                 continue
+            existing_jobs.add(job.id)
             session.add(
                 GradingResult(
                     id=det_uuid("gres", str(job.id)),
@@ -327,8 +345,13 @@ async def seed_quest_outcomes(session: AsyncSession, students) -> None:
         await session.flush()
 
     if await _count(session, QuestWinner) < TARGET:
-        existing_w = {
+        # QuestWinner is unique on (quest_id, user_id) AND (quest_id, rank),
+        # so track both pairs and skip any combination that already exists.
+        existing_quest_user = {
             (w.quest_id, w.user_id) for w in (await session.execute(select(QuestWinner))).scalars()
+        }
+        existing_quest_rank = {
+            (w.quest_id, w.rank) for w in (await session.execute(select(QuestWinner))).scalars()
         }
         made = 0
         i = 0
@@ -337,13 +360,15 @@ async def seed_quest_outcomes(session: AsyncSession, students) -> None:
             student = students[i % len(students)]
             attempt = attempts[i % len(attempts)]
             i += 1
-            key = (quest.id, student.id)
-            if key in existing_w:
+            rank = (i % 3) + 1
+            user_key = (quest.id, student.id)
+            rank_key = (quest.id, rank)
+            if user_key in existing_quest_user or rank_key in existing_quest_rank:
                 if i > TARGET * 6:
                     break
                 continue
-            existing_w.add(key)
-            rank = (i % 3) + 1
+            existing_quest_user.add(user_key)
+            existing_quest_rank.add(rank_key)
             session.add(
                 QuestWinner(
                     id=det_uuid("qwinner", str(quest.id), str(student.id)),
