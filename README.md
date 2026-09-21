@@ -64,7 +64,7 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   quest, notifikasi, dan badge dengan id on-chain. **XP & level (simulasi deterministik)**:
   XP dihitung dari aktivitas nyata (skor ujian terbaik, kemenangan quest, tugas, badge) —
   tidak pernah disimpan sehingga tak bisa drift — lalu dipetakan ke level dengan progres
-  menuju level berikutnya di papan peringkat.
+  menuju level berikutnya di halaman peringkat **dan profil**.
 - **Panduan karier (simulasi)** — dashboard akademik (nilai, tren, radar minat, insight AI),
   tes kepribadian Big Five, rekomendasi jurusan AI dengan persetujuan guru BK
   (human-in-the-loop), roadmap milestone, ruang konsultasi BK, perpustakaan sumber, dan

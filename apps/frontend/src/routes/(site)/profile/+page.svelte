@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { SessionInfo } from "$lib/types";
+  import type { GamificationProfile, SessionInfo } from "$lib/types";
   import { auth } from "$lib/stores/auth";
-  import { formatDate } from "$lib/utils/format";
+  import { formatDate, formatNumber } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
 
   let sessions: SessionInfo[] = [];
+  let profile: GamificationProfile | null = null;
   let loading = true;
   let error = "";
   let revoking = "";
@@ -17,7 +18,10 @@
     loading = true;
     error = "";
     try {
-      sessions = await api.get<SessionInfo[]>("/auth/sessions");
+      [sessions, profile] = await Promise.all([
+        api.get<SessionInfo[]>("/auth/sessions"),
+        api.get<GamificationProfile>("/gamification/me"),
+      ]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat sesi";
     } finally {
@@ -86,6 +90,45 @@
         </div>
       </div>
     </div>
+
+    {#if profile}
+      <div class="mt-6 card">
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-bold">Progres gamifikasi</h2>
+          <Icon name="ranking-star" size="14px" class="text-primary" />
+        </div>
+        <div class="mt-4 flex flex-wrap items-center gap-6">
+          <div>
+            <p class="mono-label">Level</p>
+            <p class="font-display text-3xl font-bold text-primary">{profile.level}</p>
+          </div>
+          <div>
+            <p class="mono-label">Total XP</p>
+            <p class="font-display text-3xl font-bold">{formatNumber(profile.xp)}</p>
+          </div>
+          <div class="min-w-[12rem] flex-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="muted">Menuju level {profile.level + 1}</span>
+              <span class="mono"
+                >{formatNumber(profile.xp_into_level)} / {formatNumber(profile.xp_for_next_level)}</span
+              >
+            </div>
+            <div class="mt-2 h-2 w-full overflow-hidden rounded-full" style="background: rgb(var(--line))">
+              <div
+                class="h-full rounded-full bg-primary transition-all"
+                style={`width: ${Math.min(100, Math.max(0, profile.progress * 100))}%`}
+              ></div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2 border-t pt-4 text-xs">
+          <span class="badge badge-indigo">Ujian {formatNumber(profile.breakdown.exams)} XP</span>
+          <span class="badge badge-indigo">Quest {formatNumber(profile.breakdown.quests)} XP</span>
+          <span class="badge badge-indigo">Tugas {formatNumber(profile.breakdown.tasks)} XP</span>
+          <span class="badge badge-indigo">Badge {formatNumber(profile.breakdown.badges)} XP</span>
+        </div>
+      </div>
+    {/if}
 
     <div class="mt-6 card">
       <div class="flex items-center justify-between">
