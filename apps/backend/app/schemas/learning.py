@@ -59,6 +59,9 @@ class LessonCreate(BaseModel):
     content_md: str | None = None
     video_url: str | None = None
     position: int = 0
+    # Lessons are published on creation by default (matches CourseCreate); set
+    # false explicitly to stage a draft.
+    is_published: bool = True
 
 
 class LessonUpdate(BaseModel):

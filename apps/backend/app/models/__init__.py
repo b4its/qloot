@@ -9,6 +9,7 @@ from app.models.career import (
     ResourceItem,
     RoadmapMilestone,
 )
+from app.models.certificate import Certificate
 from app.models.exam import (
     BP_SCALE,
     Exam,
@@ -99,6 +100,7 @@ __all__ = [
     "RoadmapMilestone",
     "Consultation",
     "ResourceItem",
+    "Certificate",
     "WalletAccount",
     "WalletLedgerEntry",
     "RewardAllocation",

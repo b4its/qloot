@@ -116,9 +116,15 @@ async def set_progress(
     lesson_id: uuid.UUID, payload: ProgressUpdate, user: CurrentUser, db: DbSession
 ):
     async with transaction(db):
-        return await CourseService(db).set_progress(
+        progress = await CourseService(db).set_progress(
             lesson_id, user, progress_percent=payload.progress_percent, completed=payload.completed
         )
+        # Completing the final lesson of a course issues a (simulated) certificate.
+        if payload.completed:
+            from app.services.certificate_service import CertificateService
+
+            await CertificateService(db).issue_for_course(user, progress.course_id)
+        return progress
 
 
 @router.get("/me/learning-progress", response_model=list[ProgressOut])
