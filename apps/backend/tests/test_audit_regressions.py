@@ -282,3 +282,100 @@ async def test_material_ask_and_summary_are_access_controlled(client):
         f"/api/v1/materials/{material_id}/ask", json={"question": "Di mana fotosintesis terjadi?"}
     )
     assert other_ask.status_code == 403
+
+
+async def test_admin_reward_retry_resets_existing_outbox(client, engine):
+    """Retrying a reward that already has an outbox row must not crash.
+
+    The retry used to set the NOT NULL ``available_at`` column to None,
+    raising a constraint violation for the normal retry case.
+    """
+    import uuid as _uuid
+
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.identity import Role, UserRole
+    from app.models.wallet import RewardAllocation, TransactionOutbox
+    from app.services.keys import tx_idempotency_key
+
+    # Register a teacher, promote to admin.
+    r = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "retry_admin@ex.com",
+            "full_name": "Retry Admin",
+            "password": "Password123!",
+            "role": "teacher",
+        },
+    )
+    assert r.status_code == 201, r.text
+    admin_id = _uuid.UUID(r.json()["id"])
+    student = await _register(client, "retry_student@ex.com", "student")
+    student_id = _uuid.UUID(student["id"])
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    alloc_id = _uuid.uuid4()
+    reward_key = f"rk-{alloc_id.hex[:8]}"
+    async with sm() as s:
+        admin_role = (await s.execute(select(Role).where(Role.name == "admin"))).scalar_one()
+        for ur in (
+            (await s.execute(select(UserRole).where(UserRole.user_id == admin_id))).scalars().all()
+        ):
+            await s.delete(ur)
+        await s.flush()
+        s.add(UserRole(user_id=admin_id, role_id=admin_role.id))
+        # A pending reward allocation whose outbox row already exists (failed).
+        s.add(
+            RewardAllocation(
+                id=alloc_id,
+                user_id=student_id,
+                reward_key=reward_key,
+                reward_type="quest_rank",
+                amount=50,
+                status="pending",
+                token_id=0,
+            )
+        )
+        s.add(
+            TransactionOutbox(
+                topic="reward",
+                idempotency_key=tx_idempotency_key("reward", reward_key),
+                payload={"allocation_id": str(alloc_id)},
+                status="failed",
+                attempts=3,
+            )
+        )
+        await s.commit()
+
+    # Re-login as the promoted admin so the request carries the admin role.
+    await client.post("/api/v1/auth/logout")
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "retry_admin@ex.com", "password": "Password123!"},
+    )
+    assert login.status_code == 200, login.text
+
+    resp = await client.post(f"/api/v1/admin/rewards/{alloc_id}/retry")
+    assert resp.status_code < 500, resp.text
+    assert resp.status_code == 200, resp.text
+
+    # Clean up so the seeded outbox/allocation do not leak into other tests
+    # (the suite shares one database).
+    from sqlalchemy import delete
+
+    from app.models.wallet import BlockchainTransaction as _BT
+    from app.models.wallet import WalletLedgerEntry as _LE
+
+    async with sm() as s:
+        await s.execute(
+            delete(TransactionOutbox).where(
+                TransactionOutbox.idempotency_key == tx_idempotency_key("reward", reward_key)
+            )
+        )
+        await s.execute(delete(RewardAllocation).where(RewardAllocation.id == alloc_id))
+        await s.execute(delete(_LE).where(_LE.reference_id == str(alloc_id)))
+        await s.execute(
+            delete(_BT).where(_BT.idempotency_key == tx_idempotency_key("reward", reward_key))
+        )
+        await s.commit()

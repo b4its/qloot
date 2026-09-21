@@ -8,10 +8,11 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.api.deps import AdminUser, DbSession
+from app.api.deps import AdminUser, DbSession, LimitParam, OffsetParam
 from app.blockchain.worker_logic import process_outbox_item
 from app.core.config import settings
 from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.db.base import utcnow
 from app.db.session import transaction
 from app.models.identity import AuditLog, Role, User, UserRole
 from app.models.quest import Quest
@@ -36,7 +37,9 @@ class AuditLogOut(BaseModel):
 
 
 @router.get("/users", response_model=list[UserOut])
-async def list_users(admin: AdminUser, db: DbSession, limit: int = 100, offset: int = 0):
+async def list_users(
+    admin: AdminUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     stmt = select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
     users = (await db.execute(stmt)).scalars().all()
     return [
@@ -93,7 +96,9 @@ async def set_user_role(user_id: uuid.UUID, payload: RoleUpdate, admin: AdminUse
 
 
 @router.get("/rewards")
-async def list_rewards(admin: AdminUser, db: DbSession, limit: int = 100, offset: int = 0):
+async def list_rewards(
+    admin: AdminUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     stmt = (
         select(RewardAllocation)
         .order_by(RewardAllocation.created_at.desc())
@@ -155,7 +160,8 @@ async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
         else:
             outbox.status = "pending"
             outbox.attempts = 0
-            outbox.available_at = None
+            # available_at is NOT NULL: resetting to None crashed the retry.
+            outbox.available_at = utcnow()
             await db.flush()
         ok = await process_outbox_item(db, outbox.id)
         db.add(
@@ -244,7 +250,9 @@ async def blockchain_unpause(admin: AdminUser, db: DbSession):
 
 
 @router.get("/audit-logs")
-async def audit_logs(admin: AdminUser, db: DbSession, limit: int = 100, offset: int = 0):
+async def audit_logs(
+    admin: AdminUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     stmt = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     return [
