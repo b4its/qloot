@@ -5,16 +5,23 @@
   import type { Quest, Winner } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import { bpToPercent, formatDate, statusLabel } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 20;
   let quests: Quest[] = [];
   let winnersByQuest: Record<string, Winner[]> = {};
   let loading = true;
   let error = "";
+  let page = 1;
+  let hasMore = false;
   $: canManage = hasRole($auth.user, "teacher");
 
   async function load() {
+    loading = true;
+    error = "";
     try {
-      quests = await api.get<Quest[]>("/quests");
+      quests = await api.get<Quest[]>(`/quests?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
+      hasMore = quests.length === PAGE;
       for (const q of quests) {
         if (q.status === "finalized") {
           winnersByQuest[q.id] = await api.get<Winner[]>(`/quests/${q.id}/winners`);
@@ -27,13 +34,30 @@
     }
   }
 
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
+  }
+
   async function finalize(q: Quest) {
-    await api.post(`/quests/${q.id}/finalize`);
-    await load();
+    error = "";
+    try {
+      await api.post(`/quests/${q.id}/finalize`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal finalisasi quest";
+    }
   }
   async function publish(q: Quest) {
-    await api.post(`/quests/${q.id}/publish`);
-    await load();
+    error = "";
+    try {
+      await api.post(`/quests/${q.id}/publish`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mempublikasikan quest";
+    }
   }
 
   onMount(load);
@@ -118,5 +142,15 @@
         </div>
       {/each}
     </div>
+
+    <Pagination
+      {page}
+      pageSize={PAGE}
+      {hasMore}
+      {loading}
+      label="quest"
+      onPrev={() => go(-1)}
+      onNext={() => go(1)}
+    />
   {/if}
 </div>

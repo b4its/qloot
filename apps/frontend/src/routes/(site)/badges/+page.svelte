@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api } from "$lib/api/client";
+  import { api, ApiError } from "$lib/api/client";
   import type { Badge, UserBadge } from "$lib/types";
   import { relativeTime } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
@@ -8,6 +8,7 @@
   let catalog: Badge[] = [];
   let earned: UserBadge[] = [];
   let loading = true;
+  let error = "";
 
   // Map badge codes to Font Awesome icons (backend stores an emoji `icon`).
   const codeIcon: Record<string, string> = {
@@ -21,11 +22,15 @@
   };
 
   onMount(async () => {
+    loading = true;
+    error = "";
     try {
       [catalog, earned] = await Promise.all([
         api.get<Badge[]>("/badges"),
         api.get<UserBadge[]>("/me/badges"),
       ]);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat badge";
     } finally {
       loading = false;
     }
@@ -40,6 +45,10 @@
   <p class="mono-label">Pencapaian</p>
   <h1 class="mt-2 font-display text-4xl font-bold">Badge</h1>
   <p class="mt-2 muted">Koleksi pencapaian yang kamu buka dengan belajar dan berkompetisi.</p>
+
+  {#if error}
+    <p class="alert-error mt-4">{error}</p>
+  {/if}
 
   {#if loading}
     <div class="mt-6 grid gap-4 sm:grid-cols-3">

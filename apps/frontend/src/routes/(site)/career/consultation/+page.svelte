@@ -45,8 +45,13 @@
   }
 
   async function cancel(c: Consultation) {
-    await api.post(`/career/consultations/${c.id}/cancel`);
-    await load();
+    error = "";
+    try {
+      await api.post(`/career/consultations/${c.id}/cancel`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal membatalkan sesi";
+    }
   }
 
   onMount(load);

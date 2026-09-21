@@ -97,8 +97,8 @@
     try {
       const updated = await api.post<Post>(`/community/posts/${p.id}/like`);
       posts = posts.map((x) => (x.id === p.id ? { ...x, ...updated } : x));
-    } catch {
-      /* ignore */
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menyukai kiriman";
     }
   }
 
@@ -115,8 +115,8 @@
     try {
       const detail = await api.get<Post>(`/community/posts/${p.id}`);
       posts = posts.map((x) => (x.id === p.id ? { ...x, comments: detail.comments ?? [] } : x));
-    } catch {
-      /* ignore */
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat komentar";
     }
   }
 
