@@ -438,14 +438,19 @@ class CareerService:
             return sum(present) / len(present) if present else None
 
         # Only use real grades; fall back to a neutral 50 (not a flattering 75)
-        # when a dimension has no supporting data.
+        # when a dimension has no supporting data. Note: test for ``None``
+        # explicitly — a genuine grade of 0 must not be coerced to 50 by ``or``.
+        def dim(*subjects: str) -> float:
+            value = avg_of(*subjects)
+            return 50.0 if value is None else value
+
         dims: dict[str, float] = {
-            "Sains": avg_of("Fisika", "Kimia", "Biologi") or 50,
-            "Teknik": avg_of("Matematika", "Fisika") or 50,
-            "Bahasa": avg_of("B. Inggris", "B. Indonesia") or 50,
-            "Sosial": avg_of("Sosiologi", "Sejarah", "Geografi", "B. Indonesia") or 50,
-            "Bisnis": avg_of("Ekonomi", "Matematika") or 50,
-            "Seni": avg_of("Seni Budaya", "Prakarya") or 50,
+            "Sains": dim("Fisika", "Kimia", "Biologi"),
+            "Teknik": dim("Matematika", "Fisika"),
+            "Bahasa": dim("B. Inggris", "B. Indonesia"),
+            "Sosial": dim("Sosiologi", "Sejarah", "Geografi", "B. Indonesia"),
+            "Bisnis": dim("Ekonomi", "Matematika"),
+            "Seni": dim("Seni Budaya", "Prakarya"),
         }
         return [{"dimension": k, "value": _clamp(v)} for k, v in dims.items()]
 

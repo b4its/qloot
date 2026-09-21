@@ -138,7 +138,12 @@ class RoomService:
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def live_leaderboard(self, room_id: uuid.UUID) -> list[dict]:
-        """Live ranking of present members by best exam score in this room."""
+        """Ranking of room members by best exam score in this room.
+
+        Includes every member (each row carries ``is_present`` so the UI can
+        distinguish present from away) — the score still comes only from exams
+        attached to this room.
+        """
         from sqlalchemy import func
         from sqlalchemy import select as _select
 
