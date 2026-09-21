@@ -1,7 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { AcademicDashboard, Personality, UserBadge, Course, Badge } from "$lib/types";
+  import type {
+    AcademicDashboard,
+    Personality,
+    UserBadge,
+    Course,
+    Badge,
+    Progress,
+    Attempt,
+  } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import ProgressRing from "$lib/components/ProgressRing.svelte";
@@ -75,20 +83,63 @@
     { href: "/profile", label: "Profil", icon: "user" },
   ];
 
-  // Streak grid (GitHub contribution style) — simulated activity.
+  // Real activity heatmap: bucket actual events (lesson completions, exam
+  // submissions, badge awards) into days. No fabricated data — an account with
+  // no events simply shows an empty grid.
   const weeks = 18;
-  function activity(i: number): number {
-    const seed = (i * 2654435761) % 100;
-    if (seed < 55) return 0;
-    if (seed < 75) return 1;
-    if (seed < 90) return 2;
+  const dayMs = 24 * 60 * 60 * 1000;
+  let activityCounts: Record<string, number> = {};
+
+  function dayKey(d: Date): string {
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  }
+
+  function buildActivity(
+    prog: Progress[],
+    attempts: Attempt[],
+    userBadges: UserBadge[],
+  ): Record<string, number> {
+    const counts: Record<string, number> = {};
+    const add = (iso?: string | null) => {
+      if (!iso) return;
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return;
+      const k = dayKey(d);
+      counts[k] = (counts[k] ?? 0) + 1;
+    };
+    for (const p of prog) if (p.completed) add(p.completed_at);
+    for (const a of attempts) add(a.submitted_at);
+    for (const b of userBadges) add(b.awarded_at);
+    return counts;
+  }
+
+  // Cells are laid out oldest → newest, aligned so the last cell is today.
+  $: gridStart = (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(today.getTime() - (weeks * 7 - 1) * dayMs);
+  })();
+
+  function cellDate(i: number): Date {
+    return new Date(gridStart.getTime() + i * dayMs);
+  }
+
+  function cellLevel(i: number): number {
+    const inFuture = cellDate(i).getTime() > Date.now();
+    if (inFuture) return -1; // rendered as a dimmed placeholder
+    const n = activityCounts[dayKey(cellDate(i))] ?? 0;
+    if (n === 0) return 0;
+    if (n === 1) return 1;
+    if (n <= 3) return 2;
     return 3;
   }
+
+  $: totalActivity = Object.values(activityCounts).reduce((a, b) => a + b, 0);
   const intensity = ["bg-ink/5", "bg-secondary/30", "bg-secondary/55", "bg-secondary/80"];
 
   onMount(async () => {
     try {
-      [acad, personality, badges, wallet, subjects, grades, badgeCatalog] = await Promise.all([
+      const [a, p, b, w, s, g, bc, prog, atts] = await Promise.all([
         api.get<AcademicDashboard>("/career/dashboard").catch(() => null),
         api.get<Personality | null>("/career/personality").catch(() => null),
         api.get<UserBadge[]>("/me/badges").catch(() => []),
@@ -96,7 +147,17 @@
         api.get<Course[]>("/courses").catch(() => []),
         api.get<Grade[]>("/career/grades").catch(() => []),
         api.get<Badge[]>("/badges").catch(() => []),
+        api.get<Progress[]>("/me/learning-progress").catch(() => []),
+        api.get<Attempt[]>("/attempts").catch(() => []),
       ]);
+      acad = a;
+      personality = p;
+      badges = b;
+      wallet = w;
+      subjects = s;
+      grades = g;
+      badgeCatalog = bc;
+      activityCounts = buildActivity(prog, atts, b);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "";
     } finally {
@@ -230,19 +291,34 @@
             <h2 class="font-display font-bold">Aktivitas belajar</h2>
             <span class="mono-label">{weeks} minggu terakhir</span>
           </div>
-          <div class="mt-4 flex flex-wrap gap-1">
-            {#each Array(weeks * 7) as _, i}
+          {#if totalActivity === 0}
+            <p class="mt-4 text-sm muted">
+              Belum ada aktivitas tercatat. Selesaikan materi, kumpulkan ujian, atau raih badge
+              untuk mengisi kalender ini.
+            </p>
+          {:else}
+            <div class="mt-4 flex flex-wrap gap-1">
+              {#each Array(weeks * 7) as _, i}
+                {@const lvl = cellLevel(i)}
+                <span
+                  class="h-3 w-3 rounded-[3px] {lvl < 0 ? 'bg-transparent' : intensity[lvl]}"
+                  title={lvl < 0
+                    ? "Belum berjalan"
+                    : `${activityCounts[dayKey(cellDate(i))] ?? 0} aktivitas · ${cellDate(i).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })}`}
+                ></span>
+              {/each}
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs muted">
               <span
-                class="h-3 w-3 rounded-[3px] {intensity[activity(i)]}"
-                title={`Aktivitas #${i + 1}`}
-              ></span>
-            {/each}
-          </div>
-          <div class="mt-3 flex items-center gap-2 text-xs muted">
-            <span>Sedikit</span>
-            {#each intensity as c}<span class="h-3 w-3 rounded-[3px] {c}"></span>{/each}
-            <span>Banyak</span>
-          </div>
+                >{totalActivity} aktivitas · {Object.keys(activityCounts).length} hari aktif</span
+              >
+              <span class="flex items-center gap-2">
+                <span>Sedikit</span>
+                {#each intensity as c}<span class="h-3 w-3 rounded-[3px] {c}"></span>{/each}
+                <span>Banyak</span>
+              </span>
+            </div>
+          {/if}
         </div>
 
         <div class="card">
