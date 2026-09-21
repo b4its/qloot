@@ -5,10 +5,16 @@ from __future__ import annotations
 from fastapi import APIRouter
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam
 from app.blockchain.client import get_chain_client
 from app.core.errors import NotFoundError
-from app.models.wallet import BlockchainEvent, BlockchainTransaction, ContractDeployment
+from app.models.wallet import (
+    BlockchainEvent,
+    BlockchainTransaction,
+    ContractDeployment,
+    RewardAllocation,
+    WithdrawalRequest,
+)
 
 router = APIRouter()
 
@@ -39,13 +45,26 @@ async def contract(db: DbSession, user: CurrentUser):
 
 
 @router.get("/transactions")
-async def transactions(db: DbSession, user: CurrentUser, limit: int = 100, offset: int = 0):
-    stmt = (
-        select(BlockchainTransaction)
-        .order_by(BlockchainTransaction.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+async def transactions(
+    db: DbSession, user: CurrentUser, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    """On-chain transactions.
+
+    Admins see every transaction; other users only see transactions linked to
+    their own reward allocations or withdrawals (never the global firehose).
+    """
+    stmt = select(BlockchainTransaction).order_by(BlockchainTransaction.created_at.desc())
+    if not user.has_role("admin"):
+        reward_tx = select(RewardAllocation.blockchain_transaction_id).where(
+            RewardAllocation.user_id == user.id,
+            RewardAllocation.blockchain_transaction_id.is_not(None),
+        )
+        wd_tx = select(WithdrawalRequest.blockchain_transaction_id).where(
+            WithdrawalRequest.user_id == user.id,
+            WithdrawalRequest.blockchain_transaction_id.is_not(None),
+        )
+        stmt = stmt.where(BlockchainTransaction.id.in_(reward_tx.union(wd_tx)))
+    stmt = stmt.limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     client = get_chain_client()
     return [
@@ -66,7 +85,7 @@ async def transactions(db: DbSession, user: CurrentUser, limit: int = 100, offse
 
 
 @router.get("/transactions/{tx_hash}")
-async def transaction_detail(tx_hash: str, db: DbSession, user: CurrentUser):
+async def transaction_detail(tx_hash: str, db: DbSession, admin: AdminUser):
     stmt = select(BlockchainTransaction).where(BlockchainTransaction.transaction_hash == tx_hash)
     tx = (await db.execute(stmt)).scalar_one_or_none()
     if tx is None:
@@ -96,7 +115,7 @@ async def transaction_detail(tx_hash: str, db: DbSession, user: CurrentUser):
 
 
 @router.get("/events")
-async def events(db: DbSession, user: CurrentUser, limit: int = 100, offset: int = 0):
+async def events(db: DbSession, admin: AdminUser, limit: LimitParam = 100, offset: OffsetParam = 0):
     stmt = (
         select(BlockchainEvent)
         .order_by(BlockchainEvent.block_number.desc())
@@ -117,9 +136,7 @@ async def events(db: DbSession, user: CurrentUser, limit: int = 100, offset: int
 
 
 @router.get("/allocations")
-async def allocations(db: DbSession, user: CurrentUser, limit: int = 100):
-    from app.models.wallet import RewardAllocation
-
+async def allocations(db: DbSession, admin: AdminUser, limit: LimitParam = 100):
     stmt = select(RewardAllocation).order_by(RewardAllocation.created_at.desc()).limit(limit)
     rows = (await db.execute(stmt)).scalars().all()
     return [
