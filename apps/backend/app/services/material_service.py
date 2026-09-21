@@ -78,6 +78,18 @@ class MaterialService:
             raise NotFoundError("Material not found")
         return m
 
+    async def list_for_owner(self, user: User, *, limit: int = 100) -> list[LearningMaterial]:
+        """List the materials owned by the user (most recent first)."""
+        from sqlalchemy import select
+
+        stmt = (
+            select(LearningMaterial)
+            .where(LearningMaterial.owner_id == user.id)
+            .order_by(LearningMaterial.created_at.desc())
+            .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def enqueue_generation(
         self,
         material_id: uuid.UUID,

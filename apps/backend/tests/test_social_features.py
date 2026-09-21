@@ -122,6 +122,11 @@ async def test_material_summary_and_qa(client):
     assert ask.json()["answer"]
     assert 0 <= ask.json()["confidence_bp"] <= 10000
 
+    # The owner can list their materials.
+    listing = await client.get("/api/v1/materials")
+    assert listing.status_code == 200, listing.text
+    assert any(m["id"] == mat_id for m in listing.json())
+
 
 async def test_class_based_subject_access(client):
     """A student only sees subjects for their own class (+ broadcasts)."""

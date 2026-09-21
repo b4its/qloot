@@ -43,6 +43,13 @@ async def upload_material(
     return MaterialOut.model_validate(material)
 
 
+@router.get("", response_model=list[MaterialOut])
+async def list_materials(user: TeacherUser, db: DbSession, limit: int = 100):
+    """List materials owned by the caller (most recent first)."""
+    rows = await MaterialService(db).list_for_owner(user, limit=limit)
+    return [MaterialOut.model_validate(m) for m in rows]
+
+
 @router.get("/{material_id}", response_model=MaterialOut)
 async def get_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession):
     return MaterialOut.model_validate(await MaterialService(db).get(material_id))
