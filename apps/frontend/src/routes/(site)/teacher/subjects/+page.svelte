@@ -5,16 +5,20 @@
   import type { Course, Lesson } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
 
   // Redirect once auth resolves; a mount-only check could fire before the
   // session loaded, briefly exposing teacher-only UI.
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
+  const PAGE = 20;
   let subjects: Course[] = [];
   let loading = true;
   let error = "";
   let message = "";
   let busy = false;
+  let page = 1;
+  let hasMore = false;
 
   // Create form
   let form = {
@@ -31,18 +35,29 @@
   let lessonsLoading = false;
   let newLesson = { title: "", content_md: "" };
   let lessonBusy = false;
+  // Inline lesson edit state.
+  let editingLesson: string | null = null;
+  let editLesson = { title: "", content_md: "" };
 
   const classTypes = ["IPA", "IPS", "Bahasa", "Umum"];
 
   async function load() {
     loading = true;
     try {
-      subjects = await api.get<Course[]>("/courses");
+      subjects = await api.get<Course[]>(`/courses?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
+      hasMore = subjects.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
       loading = false;
     }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
   }
 
   async function openLessons(s: Course) {
@@ -81,6 +96,50 @@
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menambah materi";
+    } finally {
+      lessonBusy = false;
+    }
+  }
+
+  function startEditLesson(l: Lesson) {
+    editingLesson = l.id;
+    editLesson = { title: l.title, content_md: l.content_md ?? "" };
+  }
+
+  async function saveLesson(s: Course) {
+    if (!editingLesson) return;
+    if (editLesson.title.trim().length < 2) {
+      error = "Judul materi minimal 2 karakter.";
+      return;
+    }
+    lessonBusy = true;
+    error = "";
+    try {
+      await api.patch(`/lessons/${editingLesson}`, {
+        title: editLesson.title.trim(),
+        content_md: editLesson.content_md.trim() || null,
+      });
+      lessons = await api.get<Lesson[]>(`/courses/${s.id}/lessons`);
+      editingLesson = null;
+      message = "Materi diperbarui.";
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui materi";
+    } finally {
+      lessonBusy = false;
+    }
+  }
+
+  async function removeLesson(s: Course, l: Lesson) {
+    if (!confirm(`Hapus materi "${l.title}"?`)) return;
+    lessonBusy = true;
+    error = "";
+    try {
+      await api.delete(`/lessons/${l.id}`);
+      lessons = await api.get<Lesson[]>(`/courses/${s.id}/lessons`);
+      message = "Materi dihapus.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus materi";
     } finally {
       lessonBusy = false;
     }
@@ -278,16 +337,60 @@
                 {:else}
                   <ol class="space-y-1 text-sm">
                     {#each lessons as l, i}
-                      <li class="flex items-center justify-between border-b py-1 last:border-0">
-                        <span>{i + 1}. {l.title}</span>
-                        <span
-                          class="badge"
-                          class:badge-mint={l.is_published}
-                          class:badge-neutral={!l.is_published}
-                        >
-                          {l.is_published ? "Terbit" : "Draf"}
-                        </span>
-                      </li>
+                      {#if editingLesson === l.id}
+                        <li class="border-b py-2 last:border-0">
+                          <input
+                            class="input"
+                            bind:value={editLesson.title}
+                            placeholder="Judul materi"
+                          />
+                          <textarea
+                            class="input mt-2 min-h-[60px]"
+                            placeholder="Konten (Markdown)"
+                            bind:value={editLesson.content_md}
+                          ></textarea>
+                          <div class="mt-2 flex gap-2">
+                            <button
+                              class="btn-primary !py-1.5"
+                              on:click={() => saveLesson(s)}
+                              disabled={lessonBusy}>Simpan</button
+                            >
+                            <button
+                              class="btn-ghost !py-1.5"
+                              on:click={() => (editingLesson = null)}>Batal</button
+                            >
+                          </div>
+                        </li>
+                      {:else}
+                        <li class="flex items-center justify-between border-b py-1 last:border-0">
+                          <span>{i + 1}. {l.title}</span>
+                          <span class="flex items-center gap-2">
+                            <span
+                              class="badge"
+                              class:badge-mint={l.is_published}
+                              class:badge-neutral={!l.is_published}
+                            >
+                              {l.is_published ? "Terbit" : "Draf"}
+                            </span>
+                            <button
+                              class="btn-icon"
+                              on:click={() => startEditLesson(l)}
+                              disabled={lessonBusy}
+                              aria-label="Sunting materi"
+                            >
+                              <Icon name="pen" size="11px" />
+                            </button>
+                            <button
+                              class="btn-icon !text-tertiary hover:!border-tertiary"
+                              on:click={() => removeLesson(s, l)}
+                              disabled={lessonBusy}
+                              aria-label="Hapus materi"
+                            >
+                              <Icon name="trash" size="11px" />
+                            </button>
+                          </span>
+                        </li>
+                      {/if}
                     {/each}
                     {#if lessons.length === 0}<li class="muted">Belum ada materi.</li>{/if}
                   </ol>
@@ -314,5 +417,15 @@
         {/each}
       </div>
     {/if}
+
+    <Pagination
+      {page}
+      pageSize={PAGE}
+      {hasMore}
+      {loading}
+      label="pelajaran"
+      onPrev={() => go(-1)}
+      onNext={() => go(1)}
+    />
   </div>
 </div>
