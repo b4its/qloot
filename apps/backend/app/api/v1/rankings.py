@@ -175,30 +175,29 @@ async def quest_ranking(quest_id: uuid.UUID, db: DbSession, user: CurrentUser):
 @router.get("/me")
 async def my_ranking(db: DbSession, user: CurrentUser):
     """The caller's own total, OPC balance, and live global position."""
-    best_per_exam = (
-        select(func.max(ExamAttempt.score_bp).label("best"))
-        .where(ExamAttempt.user_id == user.id)
-        .where(ExamAttempt.score_bp.is_not(None))
-        .group_by(ExamAttempt.exam_id)
+    # Use the *same* best-per-exam aggregation as the global board so the
+    # caller's own total and rank agree with their global position. Retries must
+    # not double-count and flagged attempts must be excluded — re-implementing
+    # the sum here previously diverged from ``global_ranking``.
+    best_per_exam = _best_per_exam_subquery()
+    totals = (
+        select(
+            best_per_exam.c.user_id.label("user_id"),
+            func.coalesce(func.sum(best_per_exam.c.best), 0).label("score"),
+        )
+        .group_by(best_per_exam.c.user_id)
         .subquery()
     )
     total = (
-        await db.execute(select(func.coalesce(func.sum(best_per_exam.c.best), 0)))
-    ).scalar_one()
+        await db.execute(
+            select(func.coalesce(totals.c.score, 0)).where(totals.c.user_id == user.id)
+        )
+    ).scalar_one_or_none()
     account = (
         await db.execute(select(WalletAccount).where(WalletAccount.user_id == user.id))
     ).scalar_one_or_none()
 
     # Position: count active users with a strictly higher total.
-    totals = (
-        select(
-            ExamAttempt.user_id.label("user_id"),
-            func.coalesce(func.sum(ExamAttempt.score_bp), 0).label("score"),
-        )
-        .where(ExamAttempt.score_bp.is_not(None))
-        .group_by(ExamAttempt.user_id)
-        .subquery()
-    )
     higher = (
         await db.execute(
             select(func.count())
