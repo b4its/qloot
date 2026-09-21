@@ -52,7 +52,10 @@ async def list_materials(user: TeacherUser, db: DbSession, limit: int = 100):
 
 @router.get("/{material_id}", response_model=MaterialOut)
 async def get_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return MaterialOut.model_validate(await MaterialService(db).get(material_id))
+    # Enforce the same visibility rule as summarize/ask (owner, admin, or an
+    # enrolled student) — previously any authenticated user could read metadata.
+    material = await MaterialService(db).get_viewable(material_id, user)
+    return MaterialOut.model_validate(material)
 
 
 @router.post("/{material_id}/generate-questions", response_model=dict)

@@ -42,13 +42,24 @@ async def create_exam(payload: ExamCreate, user: TeacherUser, db: DbSession):
 async def get_exam(exam_id: uuid.UUID, user: CurrentUser, db: DbSession):
     service = ExamService(db)
     exam = await service.get(exam_id)
+    # Students may only see published/active exams; teachers may preview any
+    # active exam plus their own drafts.
+    service.ensure_visible(exam, user)
     questions = await service.list_questions(exam_id)
+    # Answer keys are only for the owner (or admins) — never leak them to the
+    # students taking the exam.
+    reveal_answers = user.has_role("admin") or exam.owner_id == user.id
     # Validate the base fields first: validating ExamDetailOut directly would
     # read the lazy ``questions`` relationship and raise MissingGreenlet.
     base = ExamOut.model_validate(exam)
     return ExamDetailOut(
         **base.model_dump(),
-        questions=[QuestionOut.model_validate(q) for q in questions],
+        questions=[
+            QuestionOut.model_validate(q).model_copy(
+                update={} if reveal_answers else {"correct_answer": None}
+            )
+            for q in questions
+        ],
     )
 
 

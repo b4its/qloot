@@ -78,6 +78,12 @@ class MaterialService:
             raise NotFoundError("Material not found")
         return m
 
+    async def get_viewable(self, material_id: uuid.UUID, user: User) -> LearningMaterial:
+        """Fetch a material only if the user is allowed to view it."""
+        material = await self.get(material_id)
+        await self._authorize_view(material, user)
+        return material
+
     async def list_for_owner(self, user: User, *, limit: int = 100) -> list[LearningMaterial]:
         """List the materials owned by the user (most recent first)."""
         from sqlalchemy import select

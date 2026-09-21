@@ -49,6 +49,24 @@ class ExamService:
             raise NotFoundError("Exam not found")
         return exam
 
+    @staticmethod
+    def ensure_visible(exam: Exam, user: User) -> None:
+        """Enforce read visibility for a single exam.
+
+        Admins see anything; a teacher sees their own exams (incl. drafts) and
+        any active exam; everyone else (students) sees only active exams.
+        """
+        if user.has_role("admin"):
+            return
+        if exam.owner_id == user.id:
+            return
+        if user.has_role("teacher"):
+            if exam.is_active:
+                return
+            raise ForbiddenError("You do not own this exam")
+        if not exam.is_active:
+            raise NotFoundError("Exam not found")
+
     async def list_all(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Exam]:
         stmt = select(Exam).order_by(Exam.created_at.desc()).limit(limit).offset(offset)
         if not user.has_role("teacher", "admin"):
