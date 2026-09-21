@@ -59,6 +59,13 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class ForgotPasswordOut(BaseModel):
+    message: str
+    # In non-production environments the raw reset token is returned so the
+    # simulated flow can be completed end-to-end without an email server.
+    reset_token: str | None = None
+
+
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)

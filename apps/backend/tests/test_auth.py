@@ -106,3 +106,52 @@ async def test_sessions_listing_and_revoke(client):
     sid = items[0]["id"]
     revoke = await client.delete(f"/api/v1/auth/sessions/{sid}")
     assert revoke.status_code == 200
+
+
+async def test_password_reset_full_flow(client):
+    """Forgot-password returns a dev token that can reset the password."""
+    await _register(client, "reset_me@example.com", password="OldPassword1!")
+    await client.post("/api/v1/auth/logout")
+
+    forgot = await client.post(
+        "/api/v1/auth/forgot-password", json={"email": "reset_me@example.com"}
+    )
+    assert forgot.status_code == 200, forgot.text
+    token = forgot.json().get("reset_token")
+    assert token  # non-production returns the token for the simulated flow
+
+    reset = await client.post(
+        "/api/v1/auth/reset-password", json={"token": token, "new_password": "NewPassword2!"}
+    )
+    assert reset.status_code == 200, reset.text
+
+    # Old password no longer works; the new one does.
+    old = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "reset_me@example.com", "password": "OldPassword1!"},
+    )
+    assert old.status_code == 401
+    new = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "reset_me@example.com", "password": "NewPassword2!"},
+    )
+    assert new.status_code == 200
+
+
+async def test_password_reset_rejects_bad_token(client):
+    await _register(client, "reset_bad@example.com")
+    await client.post("/api/v1/auth/logout")
+    bad = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": "not-a-real-token", "new_password": "Whatever1!"},
+    )
+    assert bad.status_code == 422
+
+
+async def test_forgot_password_does_not_leak_unknown_email(client):
+    resp = await client.post(
+        "/api/v1/auth/forgot-password", json={"email": "nobody@nowhere.example"}
+    )
+    assert resp.status_code == 200
+    # Unknown email yields no token but the same generic message.
+    assert resp.json()["reset_token"] is None

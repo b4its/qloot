@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.errors import AuthError
 from app.db.session import transaction
 from app.schemas.auth import (
+    ForgotPasswordOut,
     ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
@@ -155,12 +156,18 @@ async def revoke_session(session_id: uuid.UUID, user: CurrentUser, db: DbSession
     return Message(message="Session revoked")
 
 
-@router.post("/forgot-password", response_model=Message)
-async def forgot_password(payload: ForgotPasswordRequest, db: DbSession) -> Message:
+@router.post("/forgot-password", response_model=ForgotPasswordOut)
+async def forgot_password(payload: ForgotPasswordRequest, db: DbSession) -> ForgotPasswordOut:
+    token: str | None = None
     async with transaction(db):
-        await AuthService(db).request_password_reset(payload.email)
-    # Always return the same response to avoid account enumeration.
-    return Message(message="If the account exists, a reset link has been sent")
+        token = await AuthService(db).request_password_reset(payload.email)
+    # Always return the same message to avoid account enumeration. Outside
+    # production we also return the raw token so the simulated reset flow can be
+    # completed without an email server.
+    return ForgotPasswordOut(
+        message="If the account exists, a reset link has been sent",
+        reset_token=None if settings.is_production else token,
+    )
 
 
 @router.post("/reset-password", response_model=Message)
