@@ -778,6 +778,9 @@ async def seed_community(session: AsyncSession, students) -> None:
         "Ada yang ingin belajar bareng di ruang simulasi sore ini?",
     ]
     made = 0
+    comment_made = 0
+    like_made = 0
+    posts: list[CommunityPost] = []
     for i in range(1, TARGET + 1):
         author = students[i % len(students)]
         topic = TOPICS[i % len(TOPICS)]
@@ -791,6 +794,14 @@ async def seed_community(session: AsyncSession, students) -> None:
             created_at=datetime.now(UTC) - timedelta(hours=i),
         )
         session.add(post)
+        posts.append(post)
+        made += 1
+
+    # Flush posts FIRST so comment/like rows (which have a FK but no ORM
+    # relationship) never reference un-flushed posts.
+    await session.flush()
+
+    for i, post in enumerate(posts, start=1):
         # 0-3 comments per post.
         n_comments = i % 4
         for c in range(n_comments):
@@ -804,17 +815,22 @@ async def seed_community(session: AsyncSession, students) -> None:
                     created_at=datetime.now(UTC) - timedelta(hours=i, minutes=-c),
                 )
             )
+            comment_made += 1
         post.comment_count = n_comments
-        # A few likes spread across students.
+        # A few likes spread across students (deterministic ids).
         likers = rng.sample(students, k=min(len(students), i % 6))
-        for s in likers:
-            session.add(CommunityLike(post_id=post.id, user_id=s.id))
+        for li, s in enumerate(likers):
+            session.add(
+                CommunityLike(
+                    id=det_uuid("clike", str(i), str(li)),
+                    post_id=post.id,
+                    user_id=s.id,
+                )
+            )
+            like_made += 1
         post.like_count = len(likers)
-        made += 1
-        if made % 50 == 0:
-            await session.flush()
     await session.flush()
-    log.info("bulk_community_ready", posts=made)
+    log.info("bulk_community_ready", posts=made, comments=comment_made, likes=like_made)
 
 
 async def main() -> None:
@@ -835,6 +851,17 @@ async def main() -> None:
         await seed_notifications(session, students, teachers)
         await seed_community(session, students)
         await seed_ledger(session, students)
+
+        # Part 2: fill the remaining tables (attempts, grading, certificates,
+        # quest outcomes, leaderboards, audit/ops and blockchain tables).
+        from app.db import seed_bulk_extra as extra
+
+        await extra.seed_attempts_and_grading(session, students)
+        await extra.seed_progress_and_certificates(session, students)
+        await extra.seed_quest_outcomes(session, students)
+        await extra.seed_progress_boards(session, students, teachers)
+        await extra.seed_ops_tables(session, students, teachers)
+        await extra.seed_misc(session, students, teachers)
     log.info("seed_bulk_done")
 
 
