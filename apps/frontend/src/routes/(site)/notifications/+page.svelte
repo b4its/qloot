@@ -31,16 +31,28 @@
   }
 
   async function markAll() {
-    await api.post("/notifications/read-all");
-    notifications.clear();
-    await load();
+    error = "";
+    try {
+      await api.post("/notifications/read-all");
+      notifications.clear();
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menandai semua dibaca";
+    }
   }
 
   async function markOne(n: Notification) {
     if (n.read_at) return;
-    await api.post(`/notifications/${n.id}/read`);
-    n.read_at = new Date().toISOString();
-    await notifications.refresh();
+    error = "";
+    try {
+      await api.post(`/notifications/${n.id}/read`);
+      const readAt = new Date().toISOString();
+      // Reassign so Svelte reactivity fires for the unread dot.
+      items = items.map((x) => (x.id === n.id ? { ...x, read_at: readAt } : x));
+      await notifications.refresh();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menandai notifikasi";
+    }
   }
 
   onMount(load);
