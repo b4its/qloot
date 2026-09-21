@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.errors import ForbiddenError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.core.logging import get_logger
 from app.models.exam import ExamAttempt
 from app.models.identity import User
@@ -70,6 +70,15 @@ class QuestService:
                 setattr(quest, k, v)
         await self.session.flush()
         return quest
+
+    async def delete(self, quest_id: uuid.UUID, user: User) -> None:
+        quest = await self._owned(quest_id, user)
+        # A finalized quest has rewards/winners on record; deleting it would
+        # orphan those. Only open/draft quests may be removed.
+        if quest.status == "finalized":
+            raise ConflictError("Cannot delete a finalized quest")
+        await self.session.delete(quest)
+        await self.session.flush()
 
     async def publish(self, quest_id: uuid.UUID, user: User) -> Quest:
         quest = await self._owned(quest_id, user)

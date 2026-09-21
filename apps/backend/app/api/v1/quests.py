@@ -63,6 +63,12 @@ async def update_quest(quest_id: uuid.UUID, payload: QuestUpdate, user: TeacherU
         )
 
 
+@router.delete("/{quest_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        await QuestService(db).delete(quest_id, user)
+
+
 @router.post("/{quest_id}/publish", response_model=QuestOut)
 async def publish_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
     async with transaction(db):
