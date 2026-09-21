@@ -44,9 +44,9 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      sepolia: ETHERSCAN_API_KEY,
-    },
+    // Etherscan API v2: a single (universal) key covers all chains. The old
+    // per-network map relied on the deprecated v1 endpoints.
+    apiKey: ETHERSCAN_API_KEY,
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS === "true",
