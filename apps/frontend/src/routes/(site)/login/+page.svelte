@@ -9,7 +9,6 @@
   let password = "";
   let error = "";
   let loading = false;
-  let walletBusy = false;
 
   async function submit(e: Event) {
     e.preventDefault();
@@ -23,15 +22,6 @@
     } finally {
       loading = false;
     }
-  }
-
-  async function walletLogin() {
-    // Web3 gimmick: simulate a wallet signature flow.
-    walletBusy = true;
-    error = "";
-    await new Promise((r) => setTimeout(r, 900));
-    walletBusy = false;
-    error = "Masuk dengan Wallet belum tersedia di demo ini. Gunakan email untuk mencoba.";
   }
 </script>
 
@@ -84,18 +74,6 @@
             {loading ? "Memproses…" : "Masuk"}
           </button>
         </form>
-
-        <div class="my-5 flex items-center gap-3 text-xs muted">
-          <span class="h-px flex-1 bg-line"></span> atau <span class="h-px flex-1 bg-line"></span>
-        </div>
-
-        <button class="btn-secondary w-full" on:click={walletLogin} disabled={walletBusy}>
-          {#if walletBusy}<Icon name="spinner" spin size="13px" />{:else}<Icon
-              name="wallet"
-              size="13px"
-            />{/if}
-          Masuk dengan Wallet
-        </button>
 
         <p class="mt-5 text-center text-sm muted">
           Belum punya akun? <a href="/register" class="text-primary hover:underline">Daftar</a>

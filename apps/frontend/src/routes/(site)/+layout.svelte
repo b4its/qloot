@@ -49,8 +49,8 @@
   let newsletterEmail = "";
   let newsletterMsg = "";
   function subscribe() {
-    // Simulated newsletter signup (no email is actually sent).
-    newsletterMsg = `Terima kasih! ${newsletterEmail} akan menerima info kelas baru.`;
+    // Simulasi: tidak ada email yang benar-benar dikirim atau disimpan.
+    newsletterMsg = `Terima kasih! (mode simulasi — ${newsletterEmail} tidak benar-benar didaftarkan).`;
     newsletterEmail = "";
   }
 
