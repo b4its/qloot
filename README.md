@@ -114,7 +114,7 @@ Browser → SvelteKit → FastAPI ─┬─ PostgreSQL
                                └─ Workers: ai, blockchain, indexer
                                         └─ ERC-1155 OryphemCoin (OPC)
                                            ├─ local: Anvil (chain 31337, dry-run)
-                                           └─ Sepolia: proxy 0xB811…8078 (chain 11155111)
+                                           └─ Sepolia: proxy OPC (chain 11155111)
 ```
 
 Backend berlapis: Router (`app/api/v1`) → Service (`app/services`) → Repository
@@ -223,10 +223,10 @@ yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
    diverifikasi publik lewat `/verify/<credential_id>`.
 7. **Komunitas** — diskusi, like, dan komentar antar pelajar.
 8. **Karier** — tes Big Five, rekomendasi jurusan & roadmap, konsultasi BK, asisten AI.
-9. **Wallet** — lihat saldo (wallet bersama + bagianmu), ledger, reward, kirim OPC internal,
-   dan buat penarikan ke wallet pribadi. **Ganti wallet** sendiri kapan saja (tempel alamat atau
-   hubungkan MetaMask); setiap akun otomatis memakai wallet default platform
-   `0x6EdcA860c066FCdA6c434095d5901810DCE12b48` sampai diubah.
+9. **Wallet** — lihat saldo terfokusmu, ledger, reward, kirim OPC internal, dan buat penarikan ke
+   wallet pribadi. **Ganti wallet** sendiri kapan saja (tempel alamat atau hubungkan MetaMask);
+   setiap akun otomatis memakai wallet default platform (dibaca dari `.env`, tidak ditampilkan
+   ke pengguna lain) sampai diubah.
 
 **Sebagai admin:** kelola peran pengguna dan aktifkan/nonaktifkan akun (`/admin/users`),
 tinjau hadiah (`/admin/rewards`), pantau blockchain (`/admin/blockchain`), dan audit log
@@ -306,37 +306,31 @@ Semua reward on-chain dicetak ke **satu wallet bersama** (treasury), sementara
 **kepemilikan tiap pengguna dilacak per-akun** pada **ledger double-entry**
 (`wallet_accounts.cached_balance`). Jadi saldo “milik dirinya sendiri” tetap jelas dan bisa
 ditarik ke wallet pribadi, meski token fisik berada di satu wallet. Halaman **/wallet**
-menampilkan kartu *Wallet bersama* (address + tautan Etherscan) berdampingan dengan
-*Bagianmu (terfokus)*.
+hanya menampilkan saldo terfokus milikmu dan **alamat wallet pribadimu sendiri** — alamat
+wallet bersama/platform tidak pernah ditampilkan ke pengguna (hanya operator/admin, dan
+alamatnya disimpan di `.env`, tidak di kode).
 
 ### Deployment Sepolia (live, terverifikasi)
 
-| Item | Nilai |
-|---|---|
-| **Token OPC (proxy)** | `0xB8113bC5243daFE07557D1f6A9d1819494598078` |
-| Implementation | `0xcFDa69423591284B8BC980559B4af7AB795Ab1Cb` |
-| Treasury (wallet bersama) | `0x6EdcA860c066FCdA6c434095d5901810DCE12b48` |
-| Chain | Sepolia (`11155111`) |
-| Tx deploy | `0x878d344ac2dadd46f51d12ced28b0c5938812b60240c93e00f4fe103b5fd0ac6` |
-| Explorer | <https://sepolia.etherscan.io/address/0xB8113bC5243daFE07557D1f6A9d1819494598078> |
-
-Proxy berhasil **di-link ke implementation** di Etherscan (kontrak terverifikasi). Manifest
-publik ada di `blockchain/deployments/sepolia.public.json`; manifest upgrade OpenZeppelin di
-`blockchain/.openzeppelin/sepolia.json`. Untuk membaca token: buka address proxy di Etherscan
-→ *Read Contract* → `balanceOf(treasury, 0)`.
+Alamat kontrak, treasury, dan hash transaksi deploy **tidak** ditulis di repo ini. Semua nilai
+runtime (contract/treasury) dibaca dari `.env` (`OPC_CONTRACT_ADDRESS`, `TREASURY_ADDRESS`),
+sedangkan artefak deployment berada di `blockchain/deployments/*.json` dan
+`blockchain/.openzeppelin/` yang **tidak di-track git** (lihat `.gitignore`). Setelah deploy,
+salin alamatnya ke `.env` lokalmu; jangan pernah commit nilai-nilainya.
 
 ### Konfigurasi
 `BLOCKCHAIN_DRY_RUN=true` (default) tetap **simulasi** — worker mengembalikan hash palsu
-deterministik tanpa menyentuh jaringan. Untuk live, isi `.env`:
+deterministik tanpa menyentuh jaringan. Untuk live, isi `.env` (lihat `.env.example`):
 
 ```bash
 CHAIN_ID=11155111
 BLOCKCHAIN_NETWORK=sepolia
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<key>
+SEPOLIA_RPC_URL=<rpc-url>                 # JANGAN commit
 BLOCKCHAIN_PRIVATE_KEY=<deployer-key>     # JANGAN commit
-ETHERSCAN_API_KEY=<key>
-TREASURY_ADDRESS=0x6EdcA860c066FCdA6c434095d5901810DCE12b48
-OPC_CONTRACT_ADDRESS=0xB8113bC5243daFE07557D1f6A9d1819494598078
+ETHERSCAN_API_KEY=<key>                   # JANGAN commit
+TREASURY_ADDRESS=<treasury-address>
+DEFAULT_WALLET_ADDRESS=<default-personal-wallet>
+OPC_CONTRACT_ADDRESS=<opc-proxy-address>
 BLOCKCHAIN_DRY_RUN=true                    # ubah ke false untuk submit on-chain
 ```
 

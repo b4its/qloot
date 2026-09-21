@@ -1,0 +1,16 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "contractName": "OryphemCoin1155",
+  "standard": "ERC-1155 (UUPS proxy)",
+  "address": "0x0000000000000000000000000000000000000000",
+  "implementation": "0x0000000000000000000000000000000000000000",
+  "treasury": "0x0000000000000000000000000000000000000000",
+  "tokenId": 0,
+  "uri": "https://metadata.qloot.example/opc/{id}.json",
+  "admin": "0x0000000000000000000000000000000000000000",
+  "deployer": "0x0000000000000000000000000000000000000000",
+  "txHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "blockNumber": 0,
+  "deployedAt": "<iso-timestamp>"
+}

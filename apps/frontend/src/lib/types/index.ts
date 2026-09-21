@@ -174,9 +174,8 @@ export interface Wallet {
   token_id: number;
   available: number;
   pending: number;
+  /** The caller's own personal withdrawal wallet (never the platform address). */
   withdrawal_address?: string | null;
-  /** Shared custodial wallet holding all pooled OPC on-chain. */
-  custodial_address?: string | null;
   network?: string | null;
 }
 
@@ -209,10 +208,11 @@ export interface BlockchainStatus {
   dry_run: boolean;
   network: string;
   chain_id: number;
-  contract_address?: string | null;
-  treasury_address?: string | null;
   token_id: number;
   confirmations_required: number;
+  /** Address fields are only present on the admin status endpoint. */
+  contract_address?: string | null;
+  treasury_address?: string | null;
 }
 
 export interface BlockchainTx {

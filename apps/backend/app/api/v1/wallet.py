@@ -37,12 +37,9 @@ async def _account_out(db, user: User) -> WalletOut:
         token_id=account.token_id,
         available=account.cached_balance,
         pending=account.cached_pending,
-        # The user's own withdrawal wallet, falling back to the platform default
-        # so a freshly provisioned account already has a usable address.
+        # Only the caller's *own* wallet address is exposed — the shared
+        # platform treasury address is never surfaced to users.
         withdrawal_address=effective_wallet_address(account),
-        # Surface the shared custodial wallet so the UI can show where the
-        # pooled tokens live, alongside the user's own focused balance.
-        custodial_address=settings.treasury_address or None,
         network=settings.blockchain_network,
     )
 

@@ -21,11 +21,18 @@ router = APIRouter()
 
 @router.get("/status")
 async def status(user: CurrentUser):
+    """Address-free chain status (safe for any authenticated user)."""
     return get_chain_client().status()
 
 
+@router.get("/status/admin")
+async def admin_status(admin: AdminUser):
+    """Full chain status incl. contract/treasury addresses (admin only)."""
+    return get_chain_client().admin_status()
+
+
 @router.get("/contract")
-async def contract(db: DbSession, user: CurrentUser):
+async def contract(db: DbSession, admin: AdminUser):
     stmt = select(ContractDeployment).where(ContractDeployment.is_active.is_(True))
     deployments = (await db.execute(stmt)).scalars().all()
     return {
@@ -40,7 +47,7 @@ async def contract(db: DbSession, user: CurrentUser):
             }
             for d in deployments
         ],
-        "client": get_chain_client().status(),
+        "client": get_chain_client().admin_status(),
     }
 
 

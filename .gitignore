@@ -35,7 +35,12 @@ blockchain/coverage/
 blockchain/coverage.json
 
 # Deployments / secrets
+# Deployment artifacts embed real contract/treasury addresses and tx hashes;
+# keep them out of git (copy values into .env locally instead).
 blockchain/deployments/private/
+blockchain/deployments/*.json
+!blockchain/deployments/*.example.json
+blockchain/.openzeppelin/
 infrastructure/proxy/certs/
 
 # Data volumes

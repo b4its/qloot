@@ -15,11 +15,9 @@ class WalletOut(BaseModel):
     token_id: int
     available: int
     pending: int
-    withdrawal_address: str | None
-    # The single shared custodial wallet that holds all pooled OPC on-chain.
-    # A user's own balance (``available``) is their focused share of it, tracked
-    # per-user in the double-entry ledger.
-    custodial_address: str | None = None
+    # The caller's *own* personal withdrawal wallet. The shared platform
+    # (custodial) address is never exposed to users.
+    withdrawal_address: str | None = None
     network: str | None = None
 
 

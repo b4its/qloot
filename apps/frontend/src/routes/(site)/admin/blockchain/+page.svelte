@@ -26,7 +26,8 @@
   let eventLoading = false;
 
   async function loadStatus() {
-    status = await api.get<BlockchainStatus>("/blockchain/status");
+    // Admin-only endpoint: includes contract/treasury addresses.
+    status = await api.get<BlockchainStatus>("/blockchain/status/admin");
   }
 
   async function loadTxs() {

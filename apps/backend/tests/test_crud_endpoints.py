@@ -229,28 +229,43 @@ async def test_admin_can_deactivate_and_reactivate_user(client, engine):
     assert on.json()["is_active"] is True
 
 
-async def test_wallet_exposes_shared_custodial_address(client):
-    """The wallet response must surface the shared custodial wallet address."""
+async def test_wallet_never_exposes_platform_address(client):
+    """The shared platform/treasury address must never reach a regular user."""
     from app.core.config import settings
 
     await _register(client, "wallet_custodial@ex.com", "student")
     r = await client.get("/api/v1/wallet")
     assert r.status_code == 200, r.text
     body = r.json()
-    # The shared (treasury) wallet is exposed so the UI can show where pooled
-    # tokens live, while ``available`` is the user's own focused share.
-    assert "custodial_address" in body
-    assert body["custodial_address"] == (settings.treasury_address or None)
+    # The caller only ever sees their *own* withdrawal wallet; the shared
+    # custodial/treasury address is deliberately not part of the response.
+    assert "custodial_address" not in body
     assert "available" in body and body["available"] == 0
+    # Whatever we do expose must never equal the platform treasury address.
+    assert body.get("withdrawal_address") != (settings.treasury_address or None)
 
 
-async def test_new_account_defaults_to_platform_wallet(client):
-    """A fresh account's personal wallet defaults to the platform address."""
+async def test_new_account_defaults_to_platform_wallet(client, monkeypatch):
+    """A fresh account's personal wallet defaults to the configured address."""
     from app.core.config import settings
+
+    default = "0x000000000000000000000000000000000000dEaD"
+    monkeypatch.setattr(settings, "default_wallet_address", default)
 
     await _register(client, "wallet_default@ex.com", "student")
     body = (await client.get("/api/v1/wallet")).json()
-    assert body["withdrawal_address"] == settings.default_wallet_address
+    assert body["withdrawal_address"] == default
+
+
+async def test_new_account_has_no_address_without_default(client, monkeypatch):
+    """With no configured default, a new account simply has no address yet."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "default_wallet_address", "")
+
+    await _register(client, "wallet_nodefault@ex.com", "student")
+    body = (await client.get("/api/v1/wallet")).json()
+    assert body["withdrawal_address"] in (None, "")
 
 
 async def test_user_can_change_own_wallet_address(client):
@@ -268,12 +283,12 @@ async def test_user_can_change_own_wallet_address(client):
 
 
 async def test_wallet_change_accepts_lowercase_and_checksums(client):
-    """A lowercase address is accepted and returned checksummed."""
+    """A lowercase address is accepted and returned EIP-55 checksummed."""
     await _register(client, "wallet_case@ex.com", "student")
-    lower = "0x6edca860c066fcda6c434095d5901810dce12b48"
+    lower = "0x1234567890abcdef1234567890abcdef12345678"
     r = await client.patch("/api/v1/wallet/address", json={"address": lower, "source": "metamask"})
     assert r.status_code == 200, r.text
-    assert r.json()["withdrawal_address"] == "0x6EdcA860c066FCdA6c434095d5901810DCE12b48"
+    assert r.json()["withdrawal_address"] == "0x1234567890AbcdEF1234567890aBcdef12345678"
 
 
 async def test_wallet_change_rejects_invalid_address(client):
@@ -318,6 +333,28 @@ async def test_wallet_change_audited(client, engine):
         )
     assert len(logs) == 1
     assert logs[0].data["source"] == "metamask"
+
+
+async def test_blockchain_status_hides_addresses_for_users(client):
+    """The user-facing chain status must not leak contract/treasury addresses."""
+    await _register(client, "chain_status_user@ex.com", "student")
+    r = await client.get("/api/v1/blockchain/status")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "contract_address" not in body
+    assert "treasury_address" not in body
+    # Non-address fields are still present.
+    assert "network" in body and "chain_id" in body
+
+
+async def test_blockchain_contract_requires_admin(client):
+    """Deployment addresses are admin-only."""
+    await _register(client, "chain_contract_user@ex.com", "student")
+    denied = await client.get("/api/v1/blockchain/contract")
+    assert denied.status_code == 403, denied.text
+
+    denied_status = await client.get("/api/v1/blockchain/status/admin")
+    assert denied_status.status_code == 403, denied_status.text
 
 
 async def test_student_cannot_approve_own_career_plan(client, engine):

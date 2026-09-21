@@ -257,25 +257,9 @@
       </div>
     </div>
 
-    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+    <div class="mt-4 grid gap-4">
       <div class="card">
-        <div class="mono-label">Wallet bersama</div>
-        <div class="mt-1 font-mono text-sm break-all">{wallet.custodial_address ?? "—"}</div>
-        <div class="mt-1 text-xs muted">
-          Dompet kustodial bersama tempat seluruh OPC on-chain disimpan. Saldo di atas adalah
-          bagianmu yang difokuskan pada akunmu.
-        </div>
-        {#if wallet.custodial_address}
-          <a
-            class="btn-ghost mt-2 !py-1 text-xs"
-            href={`https://sepolia.etherscan.io/address/${wallet.custodial_address}`}
-            target="_blank"
-            rel="noopener">Lihat di Etherscan</a
-          >
-        {/if}
-      </div>
-      <div class="card sm:col-span-2">
-        <div class="mono-label">Bagianmu (terfokus)</div>
+        <div class="mono-label">Saldo terfokus</div>
         <div class="mt-1 flex flex-wrap items-baseline gap-2">
           <span class="font-display text-2xl font-bold text-highlight"
             >{formatNumber(wallet.available)}</span
@@ -290,8 +274,8 @@
           {/if}
         </div>
         <div class="mt-1 text-xs muted">
-          Reward masuk ke wallet bersama; kepemilikanmu dilacak per-akun dan bisa ditarik ke wallet
-          pribadi kapan saja.
+          Reward kredit dikreditkan ke akunmu lewat ledger double-entry dan bisa ditarik ke wallet
+          pribadimu kapan saja.
         </div>
       </div>
     </div>

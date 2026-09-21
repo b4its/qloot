@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from app.blockchain.client import _b32, _stable_uint
+from app.blockchain.client import ChainClient, _b32, _stable_uint
+from app.core.config import settings
 
 
 def test_b32_hashes_non_hex_strings():
@@ -32,3 +33,23 @@ def test_stable_uint_is_deterministic_and_in_range():
     assert v1 == v2
     assert 0 <= v1 < (1 << 256)
     assert _stable_uint("a") != _stable_uint("b")
+
+
+def test_status_hides_addresses_by_default(monkeypatch):
+    """The public status must not carry contract/treasury addresses."""
+    monkeypatch.setattr(settings, "opc_contract_address", "0x" + "11" * 20)
+    monkeypatch.setattr(settings, "treasury_address", "0x" + "22" * 20)
+    status = ChainClient().status()
+    assert "contract_address" not in status
+    assert "treasury_address" not in status
+    assert {"dry_run", "network", "chain_id", "token_id", "confirmations_required"} <= set(status)
+
+
+def test_admin_status_includes_addresses(monkeypatch):
+    contract = "0x" + "11" * 20
+    treasury = "0x" + "22" * 20
+    monkeypatch.setattr(settings, "opc_contract_address", contract)
+    monkeypatch.setattr(settings, "treasury_address", treasury)
+    status = ChainClient().admin_status()
+    assert status["contract_address"] == contract
+    assert status["treasury_address"] == treasury

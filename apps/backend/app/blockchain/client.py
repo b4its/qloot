@@ -311,14 +311,26 @@ class ChainClient:
             return None
 
     def status(self) -> dict:
+        """Public, address-free status (safe for any authenticated user).
+
+        Contract/treasury addresses are intentionally omitted so the platform's
+        on-chain addresses are never leaked to non-operators. Use
+        :meth:`admin_status` for the privileged view.
+        """
         return {
             "dry_run": self.dry_run,
             "network": settings.blockchain_network,
             "chain_id": settings.chain_id,
-            "contract_address": settings.opc_contract_address or None,
-            "treasury_address": settings.treasury_address or None,
             "token_id": settings.opc_token_id,
             "confirmations_required": settings.opc_confirmations,
+        }
+
+    def admin_status(self) -> dict:
+        """Privileged status including contract/treasury addresses (admin only)."""
+        return {
+            **self.status(),
+            "contract_address": settings.opc_contract_address or None,
+            "treasury_address": settings.treasury_address or None,
         }
 
     def explorer_url(self, tx_hash: str) -> str | None:
