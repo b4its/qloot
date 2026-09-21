@@ -58,13 +58,22 @@ class Settings(BaseSettings):
     )
 
     # --- AI ----------------------------------------------------------------
-    ai_provider: Literal["mock", "gemini"] = "mock"
+    # "openai" = any OpenAI-compatible /chat/completions endpoint (DeepSeek,
+    # local gateways, etc.). "gemini" = Google REST. "mock" = offline simulation.
+    ai_provider: Literal["mock", "gemini", "openai"] = "mock"
     gemini_api_key: str = ""
+    # OpenAI-compatible endpoint (used when ai_provider == "openai").
+    # Defaults to the Docker host gateway so a gateway on the host is reachable
+    # from inside containers.
+    ai_base_url: str = "http://host.docker.internal:20128/v1"
+    ai_api_key: str = ""
     ai_generation_model: str = "gemini-2.0-flash"
     ai_scoring_model: str = "gemini-2.0-flash"
     ai_http_timeout_seconds: int = 60
     ai_max_upload_bytes: int = 10 * 1024 * 1024
     ai_max_questions: int = 20
+    # Display name of the built-in study/career assistant.
+    assistant_name: str = "Asisten Qlo"
 
     # --- Blockchain --------------------------------------------------------
     chain_id: int = 31337

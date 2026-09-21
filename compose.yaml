@@ -11,6 +11,10 @@ x-backend-env: &backend-env
   environment:
     POSTGRES_HOST: postgres
     REDIS_URL: redis://redis:6379/0
+  # Reach host-run services (e.g. a local OpenAI-compatible AI gateway) via
+  # host.docker.internal. On Linux this maps to the docker bridge gateway.
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
 
 x-backend-build: &backend-build
   build:
