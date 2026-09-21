@@ -655,15 +655,23 @@ class CareerService:
         return len(recs)
 
     async def approve(self, user: User) -> int:
-        recs = await self.list_recommendations(user.id)
+        return await self.approve_user(user.id)
+
+    async def approve_user(self, user_id: uuid.UUID) -> int:
+        """Approve a user's recommendations and activate their roadmap.
+
+        Kept user-id-based (not caller-based) so a counselor can approve a
+        student's plan; the caller-side RBAC lives in the router.
+        """
+        recs = await self.list_recommendations(user_id)
         if not recs:
             raise NotFoundError("No recommendations to approve")
         for r in recs:
             r.status = "approved"
-        if not await self.list_milestones(user.id):
-            await self._build_roadmap(user, recs[0].major)
+        if not await self.list_milestones(user_id):
+            await self._build_roadmap_by_id(user_id, recs[0].major)
         await NotificationService(self.session).notify(
-            user_id=user.id,
+            user_id=user_id,
             kind="system",
             title="Roadmap diaktifkan",
             body="Selamat! Roadmap jalur studi Anda telah disahkan.",
@@ -681,6 +689,9 @@ class CareerService:
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def _build_roadmap(self, user: User, major: str) -> list[RoadmapMilestone]:
+        return await self._build_roadmap_by_id(user.id, major)
+
+    async def _build_roadmap_by_id(self, user_id: uuid.UUID, major: str) -> list[RoadmapMilestone]:
         """Build a roadmap tailored to the chosen major's catalog entry.
 
         Subjects, skills and admission paths come from MAJOR_CATALOG, so a
@@ -722,7 +733,7 @@ class CareerService:
         created: list[RoadmapMilestone] = []
         for i, (period, title, desc, tasks, prog, status) in enumerate(specs):
             m = RoadmapMilestone(
-                user_id=user.id,
+                user_id=user_id,
                 title=title,
                 description=desc,
                 period=period,

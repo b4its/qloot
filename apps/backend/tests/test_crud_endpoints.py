@@ -240,3 +240,52 @@ async def test_wallet_exposes_shared_custodial_address(client):
     assert "custodial_address" in body
     assert body["custodial_address"] == (settings.treasury_address or None)
     assert "available" in body and body["available"] == 0
+
+
+async def test_student_cannot_approve_own_career_plan(client, engine):
+    """Only a counselor (teacher/admin) may approve recommendations."""
+    student = await _register(client, "crud_career_stu@ex.com", "student")
+    await client.post("/api/v1/career/grades", json={"subject": "Fisika", "grade": 90})
+    await client.post("/api/v1/career/recommendations/generate")
+    await client.post("/api/v1/career/recommendations/submit")
+
+    denied = await client.post("/api/v1/career/recommendations/approve")
+    assert denied.status_code == 403, denied.text
+
+    # A teacher can approve the specific student.
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "crud_career_bk@ex.com", "teacher")
+    ok = await client.post(f"/api/v1/career/recommendations/approve?user_id={student['id']}")
+    assert ok.status_code == 200, ok.text
+
+
+async def test_generate_questions_rejects_foreign_exam(client):
+    """A teacher cannot attach AI questions to another teacher's exam."""
+    import io
+
+    from tests.pdf_util import make_pdf
+
+    # Teacher A owns an exam.
+    await _register(client, "crud_exam_a@ex.com", "teacher")
+    exam = await client.post("/api/v1/exams", json={"title": "Exam A", "duration_minutes": 30})
+    exam_id = exam.json()["id"]
+    await client.post("/api/v1/auth/logout")
+
+    # Teacher B uploads a material and tries to generate into exam A.
+    await _register(client, "crud_exam_b@ex.com", "teacher")
+    up = await client.post(
+        "/api/v1/materials/upload",
+        files={
+            "file": (
+                "m.pdf",
+                io.BytesIO(make_pdf("Fisika kuantum membahas partikel dan gelombang secara rinci.")),
+                "application/pdf",
+            )
+        },
+    )
+    material_id = up.json()["id"]
+    resp = await client.post(
+        f"/api/v1/materials/{material_id}/generate-questions",
+        json={"count": 2, "language": "id", "exam_id": exam_id},
+    )
+    assert resp.status_code == 403, resp.text

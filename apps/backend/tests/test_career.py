@@ -16,6 +16,16 @@ async def _register(client, email, role="student"):
     return r.json()
 
 
+async def _approve_as_counselor(client, student_id, email="career_bk_default@ex.com"):
+    """Log out, become a teacher (counselor), and approve the student's plan."""
+    await client.post("/api/v1/auth/logout")
+    await _register(client, email, "teacher")
+    resp = await client.post(f"/api/v1/career/recommendations/approve?user_id={student_id}")
+    assert resp.status_code == 200, resp.text
+    await client.post("/api/v1/auth/logout")
+    return resp
+
+
 async def test_academic_dashboard_empty_then_with_grades(client):
     await _register(client, "career_dash@ex.com")
     d0 = await client.get("/api/v1/career/dashboard")
@@ -90,7 +100,7 @@ async def test_personality_scoring_and_recommendation_engine(client):
 
 
 async def test_recommendation_review_and_roadmap_activation(client):
-    await _register(client, "career_road@ex.com")
+    student = await _register(client, "career_road@ex.com")
     for subject, grade in [("Fisika", 90), ("Matematika", 88), ("B. Inggris", 80)]:
         await client.post("/api/v1/career/grades", json={"subject": subject, "grade": grade})
     await client.post("/api/v1/career/personality", json={"answers": [5, 4, 3, 4, 2] * 3})
@@ -99,12 +109,27 @@ async def test_recommendation_review_and_roadmap_activation(client):
     sub = await client.post("/api/v1/career/recommendations/submit")
     assert sub.status_code == 200
 
+    # A student may not approve their own plan (human-in-the-loop / BK review).
+    blocked = await client.post("/api/v1/career/recommendations/approve")
+    assert blocked.status_code == 403, blocked.text
+
     roadmap_before = await client.get("/api/v1/career/roadmap")
     assert roadmap_before.json() == []
 
-    appr = await client.post("/api/v1/career/recommendations/approve")
-    assert appr.status_code == 200
+    # The counselor (teacher) approves the student's plan.
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "career_bk1@ex.com", "teacher")
+    appr = await client.post(
+        f"/api/v1/career/recommendations/approve?user_id={student['id']}"
+    )
+    assert appr.status_code == 200, appr.text
 
+    # Back as the student: the roadmap is now active.
+    await client.post("/api/v1/auth/logout")
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "career_road@ex.com", "password": "Password123!"},
+    )
     roadmap = await client.get("/api/v1/career/roadmap")
     assert roadmap.status_code == 200
     milestones = roadmap.json()
@@ -209,14 +234,18 @@ async def test_recommendation_without_grades_flags_missing_data(client):
 
 
 async def test_roadmap_is_major_specific(client):
-    await _register(client, "career_roadmap_major@ex.com")
+    student = await _register(client, "career_roadmap_major@ex.com")
     for subject, grade in [("Biologi", 95), ("Kimia", 92), ("Matematika", 80)]:
         await client.post("/api/v1/career/grades", json={"subject": subject, "grade": grade})
     await client.post("/api/v1/career/personality", json={"answers": [5, 4, 4, 5, 2] * 3})
     recs = (await client.post("/api/v1/career/recommendations/generate")).json()
     top_major = recs[0]["major"]
     await client.post("/api/v1/career/recommendations/submit")
-    await client.post("/api/v1/career/recommendations/approve")
+    await _approve_as_counselor(client, student["id"], "career_bk_major@ex.com")
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "career_roadmap_major@ex.com", "password": "Password123!"},
+    )
     milestones = (await client.get("/api/v1/career/roadmap")).json()
     assert len(milestones) == 3
     # Milestones must reference the chosen major's subjects/skills, not generic text.
@@ -228,11 +257,15 @@ async def test_roadmap_is_major_specific(client):
 
 
 async def test_recommendations_approved_cannot_be_regenerated(client):
-    await _register(client, "career_locked@ex.com")
+    student = await _register(client, "career_locked@ex.com")
     await client.post("/api/v1/career/grades", json={"subject": "Fisika", "grade": 90})
     await client.post("/api/v1/career/recommendations/generate")
     await client.post("/api/v1/career/recommendations/submit")
-    await client.post("/api/v1/career/recommendations/approve")
+    await _approve_as_counselor(client, student["id"], "career_bk_locked@ex.com")
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "career_locked@ex.com", "password": "Password123!"},
+    )
     again = await client.post("/api/v1/career/recommendations/generate")
     assert again.status_code == 409
 

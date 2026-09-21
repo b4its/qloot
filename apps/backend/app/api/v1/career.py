@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, TeacherUser
 from app.db.session import transaction
 from app.schemas.career import (
     ChatIn,
@@ -80,9 +80,18 @@ async def submit_for_review(user: CurrentUser, db: DbSession):
 
 
 @router.post("/recommendations/approve", response_model=Message)
-async def approve_recommendations(user: CurrentUser, db: DbSession):
+async def approve_recommendations(
+    counselor: TeacherUser, db: DbSession, user_id: uuid.UUID | None = None
+):
+    """Approve a student's recommendations (counselor/teacher only).
+
+    The human-in-the-loop design requires the *counselor* (guru BK) to approve,
+    never the student themselves. ``user_id`` selects the student; it defaults
+    to the caller only for a teacher reviewing their own preview.
+    """
     async with transaction(db):
-        n = await CareerService(db).approve(user)
+        target = user_id or counselor.id
+        n = await CareerService(db).approve_user(target)
     return Message(message=f"{n} recommendations approved; roadmap activated")
 
 
