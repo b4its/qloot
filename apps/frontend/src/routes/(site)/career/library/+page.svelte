@@ -25,7 +25,7 @@
       if (recommendForMajor && topMajor) qs.set("major", topMajor);
       items = await api.get<ResourceItem[]>(`/career/resources?${qs.toString()}`);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load resources";
+      error = e instanceof ApiError ? e.message : "Gagal memuat sumber daya";
     } finally {
       loading = false;
     }
@@ -52,18 +52,18 @@
   });
 </script>
 
-<svelte:head><title>Resource Library — QLoot</title></svelte:head>
+<svelte:head><title>Perpustakaan Sumber Daya — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
-      <p class="mono-label">Panduan Karier · Resource</p>
-      <h1 class="mt-2 font-display text-3xl font-bold">Resource Library</h1>
+      <p class="mono-label">Panduan Karier · Sumber Daya</p>
+      <h1 class="mt-2 font-display text-3xl font-bold">Perpustakaan Sumber Daya</h1>
       <p class="mt-1 text-sm muted">
         Kursus, ekstrakurikuler, dan materi belajar (katalog simulasi).
       </p>
     </div>
-    <a href="/career" class="btn-ghost">← Career home</a>
+    <a href="/career" class="btn-ghost">← Beranda karier</a>
   </div>
 
   <div class="mt-6 flex flex-wrap gap-1 border-b">
@@ -104,9 +104,11 @@
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Loading…</p>
+    <p class="mt-6 muted">Memuat …</p>
   {:else if !items.length}
-    <div class="card mt-4 text-center"><p class="muted">No resources in this category.</p></div>
+    <div class="card mt-4 text-center">
+      <p class="muted">Belum ada sumber daya di kategori ini.</p>
+    </div>
   {:else}
     <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each items as item}
@@ -123,7 +125,7 @@
               /></span
             >
             <span class="badge" class:badge-mint={item.is_free} class:badge-amber={!item.is_free}>
-              {item.is_free ? "Free" : "Paid"}
+              {item.is_free ? "Gratis" : "Berbayar"}
             </span>
           </div>
           <h2 class="mt-3 font-display text-base font-bold">{item.title}</h2>

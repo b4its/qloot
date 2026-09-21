@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import { formatNumber } from "$lib/utils/format";
+  import { formatNumber, statusLabel } from "$lib/utils/format";
 
   interface RewardRow {
     id: string;
@@ -37,10 +37,10 @@
     busy = id;
     try {
       await api.post(`/admin/rewards/${id}/retry`);
-      message = "Retry diantrekan.";
+      message = "Percobaan ulang diantrekan.";
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal retry";
+      error = e instanceof ApiError ? e.message : "Gagal mengulangi";
     } finally {
       busy = "";
     }
@@ -64,11 +64,11 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Rewards — QLoot Admin</title></svelte:head>
+<svelte:head><title>Hadiah — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-  <p class="mono-label">Admin · Rewards</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Rewards</h1>
+  <p class="mono-label">Admin · Hadiah</p>
+  <h1 class="mt-2 font-display text-3xl font-bold">Hadiah</h1>
   <p class="mt-2 muted">Pantau, ulangi, dan batalkan alokasi OPC.</p>
 
   {#if message}<p class="alert-ok mt-4">
@@ -91,7 +91,8 @@
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr
-            ><th class="py-1">Key</th><th>User</th><th class="text-right">Amount</th><th>Status</th
+            ><th class="py-1">Kunci</th><th>Pengguna</th><th class="text-right">Jumlah</th><th
+              >Status</th
             ><th></th></tr
           >
         </thead>
@@ -106,19 +107,19 @@
                   class="badge"
                   class:badge-mint={r.status === "confirmed"}
                   class:badge-amber={r.status === "pending"}
-                  class:badge-magenta={r.status === "failed"}>{r.status}</span
+                  class:badge-magenta={r.status === "failed"}>{statusLabel(r.status)}</span
                 >
               </td>
               <td class="text-right">
                 {#if r.status === "failed"}<button
                     class="btn-ghost"
                     on:click={() => retry(r.id)}
-                    disabled={busy === r.id}>{busy === r.id ? "…" : "Retry"}</button
+                    disabled={busy === r.id}>{busy === r.id ? "…" : "Ulangi"}</button
                   >{/if}
                 {#if r.status === "pending"}<button
                     class="btn-ghost"
                     on:click={() => cancel(r.id)}
-                    disabled={busy === r.id}>{busy === r.id ? "…" : "Cancel"}</button
+                    disabled={busy === r.id}>{busy === r.id ? "…" : "Batal"}</button
                   >{/if}
               </td>
             </tr>

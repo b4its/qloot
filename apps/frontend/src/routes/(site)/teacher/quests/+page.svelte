@@ -3,6 +3,7 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Quest, Exam, Winner } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
+  import { statusLabel } from "$lib/utils/format";
 
   let quests: Quest[] = [];
   let exams: Exam[] = [];
@@ -66,11 +67,11 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Quests (Teacher) — QLoot</title></svelte:head>
+<svelte:head><title>Quest (Guru) — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <p class="mono-label">Panel Guru · Quest</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Manage Quests</h1>
+  <h1 class="mt-2 font-display text-3xl font-bold">Kelola Quest</h1>
   <p class="mt-1 muted">
     Beri hadiah pada finisher tercepat yang valid. Pemenang bersifat deterministik: skor, lalu
     kecepatan, lalu attempt id.
@@ -86,11 +87,11 @@
   {/if}
 
   <div class="card mt-6">
-    <h2 class="hud font-display text-lg font-bold">New quest</h2>
+    <h2 class="hud font-display text-lg font-bold">Quest baru</h2>
     <div class="mt-3 grid gap-3 sm:grid-cols-2">
-      <input class="input" placeholder="Title" bind:value={newQuest.title} />
+      <input class="input" placeholder="Judul" bind:value={newQuest.title} />
       <select class="input" bind:value={newQuest.exam_id}>
-        <option value="">No linked exam</option>
+        <option value="">Tanpa ujian tertaut</option>
         {#each exams as e}<option value={e.id}>{e.title}</option>{/each}
       </select>
       <input class="input" type="number" min="1" max="50" bind:value={newQuest.top_n_winners} />
@@ -98,7 +99,7 @@
         {#each newQuest.ranks as amount, i}
           <input class="input w-20" type="number" min="0" bind:value={newQuest.ranks[i]} />
         {/each}
-        <span class="text-xs muted">OPC per rank</span>
+        <span class="text-xs muted">OPC per peringkat</span>
       </div>
     </div>
     <button
@@ -118,7 +119,7 @@
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 class="font-display text-lg font-bold">{q.title}</h2>
-              <p class="text-sm muted">Top {q.top_n_winners} · {q.status}</p>
+              <p class="text-sm muted">Top {q.top_n_winners} · {statusLabel(q.status)}</p>
             </div>
             <button
               class="btn-primary"
@@ -128,8 +129,8 @@
               {busy === `f-${q.id}`
                 ? "Memproses…"
                 : q.status === "finalized"
-                  ? "Finalized"
-                  : "Finalize winners"}
+                  ? "Final"
+                  : "Finalisasi pemenang"}
             </button>
           </div>
           {#if winners[q.id]?.length}

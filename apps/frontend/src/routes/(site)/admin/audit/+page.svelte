@@ -40,11 +40,11 @@
   onMount(loadMore);
 </script>
 
-<svelte:head><title>Audit — QLoot Admin</title></svelte:head>
+<svelte:head><title>Log Audit — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <p class="mono-label">Admin · Audit</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Audit log</h1>
+  <h1 class="mt-2 font-display text-3xl font-bold">Log Audit</h1>
   <p class="mt-2 muted">Setiap tindakan istimewa tercatat dan dapat ditelusuri.</p>
 
   {#if error}
@@ -62,7 +62,7 @@
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr>
-            <th class="py-1">When</th><th>Action</th><th>Entity</th><th>Actor</th><th>Data</th>
+            <th class="py-1">Waktu</th><th>Tindakan</th><th>Entitas</th><th>Aktor</th><th>Data</th>
           </tr>
         </thead>
         <tbody>

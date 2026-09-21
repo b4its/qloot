@@ -118,11 +118,11 @@
   });
 </script>
 
-<svelte:head><title>Attempt — QLoot</title></svelte:head>
+<svelte:head><title>Pengerjaan — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-8 sm:px-6">
   {#if loading}
-    <p class="muted">Loading attempt…</p>
+    <p class="muted">Memuat pengerjaan…</p>
   {:else if error}
     <p class="alert-error">
       {error}
@@ -143,7 +143,7 @@
         </span>
         <button class="btn-primary" on:click={submit} disabled={submitting}>
           {#if submitting}<Icon name="spinner" spin size="12px" />{/if}
-          {submitting ? "Mengirim…" : "Submit"}
+          {submitting ? "Mengirim…" : "Kumpulkan"}
         </button>
       </div>
     </div>
@@ -162,13 +162,13 @@
             <div class="card">
               <div class="flex items-center justify-between">
                 <h2 class="hud font-display text-lg font-bold">
-                  Question {i + 1} of {exam.questions?.length}
+                  Soal {i + 1} dari {exam.questions?.length}
                 </h2>
                 <span class="text-xs muted">
-                  {#if saved[q.id] === "saving"}Saving…
+                  {#if saved[q.id] === "saving"}Menyimpan…
                   {:else if saved[q.id] === "saved"}Tersimpan <Icon name="check" size="10px" />
-                  {:else if saved[q.id] === "error"}Save failed
-                  {:else}Not saved{/if}
+                  {:else if saved[q.id] === "error"}Gagal menyimpan
+                  {:else}Belum tersimpan{/if}
                 </span>
               </div>
               <p class="mt-3">{q.prompt}</p>
@@ -183,12 +183,12 @@
               ></textarea>
               <div class="mt-3 flex justify-between">
                 <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}
-                  >← Previous</button
+                  >← Sebelumnya</button
                 >
                 <button
                   class="btn-primary"
                   disabled={i === (exam.questions?.length ?? 0) - 1}
-                  on:click={() => (current = i + 1)}>Next →</button
+                  on:click={() => (current = i + 1)}>Berikutnya →</button
                 >
               </div>
             </div>
@@ -197,7 +197,7 @@
       </div>
 
       <aside class="card h-fit">
-        <h2 class="hud font-display text-lg font-bold">Navigator</h2>
+        <h2 class="hud font-display text-lg font-bold">Navigasi</h2>
         <div class="mt-3 grid grid-cols-5 gap-2">
           {#each exam.questions ?? [] as q, i}
             <button

@@ -29,7 +29,7 @@
     },
     {
       href: "/career/library",
-      label: "Resource Library",
+      label: "Perpustakaan Sumber Daya",
       desc: "Kursus, ekstrakurikuler, dan materi belajar",
       icon: "book-open",
     },

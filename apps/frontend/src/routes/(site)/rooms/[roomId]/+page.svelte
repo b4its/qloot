@@ -4,6 +4,7 @@
   import { api, wsUrl, ApiError } from "$lib/api/client";
   import type { Room, RankingResponse } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
+  import { statusLabel } from "$lib/utils/format";
 
   let room: Room | null = null;
   let participants: { user_id: string; is_present: boolean; role: string }[] = [];
@@ -28,7 +29,7 @@
       participants = await api.get(`/rooms/${roomId}/participants`);
       ranking = await api.get<RankingResponse>(`/rankings/rooms/${roomId}`);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load room";
+      error = e instanceof ApiError ? e.message : "Gagal memuat ruang";
     } finally {
       loading = false;
     }
@@ -119,17 +120,17 @@
   });
 </script>
 
-<svelte:head><title>{room?.name ?? "Room"} — QLoot</title></svelte:head>
+<svelte:head><title>{room?.name ?? "Ruang"} — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   {#if loading}
-    <p class="muted">Loading room…</p>
+    <p class="muted">Memuat ruang…</p>
   {:else if error}
     <p class="alert-error">
       {error}
     </p>
   {:else if room}
-    <a href="/rooms" class="text-sm text-primary">← All rooms</a>
+    <a href="/rooms" class="text-sm text-primary">← Semua ruang</a>
     <div class="mt-2 flex flex-wrap items-center gap-3">
       <h1 class="font-display text-3xl font-bold">{room.name}</h1>
       <span
@@ -137,30 +138,30 @@
         class:badge-mint={room.status === "open"}
         class:badge-neutral={room.status !== "open"}
       >
-        {room.status}
+        {statusLabel(room.status)}
       </span>
       <span class="badge" class:badge-mint={connected} class:badge-neutral={!connected}>
         {connected ? "● live" : "○ offline"}
       </span>
     </div>
-    <p class="mt-1 font-mono text-sm muted">Room code: {room.code}</p>
+    <p class="mt-1 font-mono text-sm muted">Kode ruang: {room.code}</p>
 
     <div class="mt-4 flex flex-wrap gap-2">
-      <button class="btn-ghost" on:click={join}>Join</button>
-      <button class="btn-ghost" on:click={leave}>Leave</button>
+      <button class="btn-ghost" on:click={join}>Gabung</button>
+      <button class="btn-ghost" on:click={leave}>Keluar</button>
       {#if canManage}
-        <button class="btn-primary" on:click={openRoom}>Open room</button>
-        <button class="btn-ghost" on:click={closeRoom}>Close room</button>
+        <button class="btn-primary" on:click={openRoom}>Buka ruang</button>
+        <button class="btn-ghost" on:click={closeRoom}>Tutup ruang</button>
       {/if}
     </div>
 
     <div class="mt-6 grid gap-4 lg:grid-cols-3">
       <div class="card lg:col-span-2">
-        <h2 class="hud font-display text-lg font-bold">Live ranking</h2>
+        <h2 class="hud font-display text-lg font-bold">Peringkat langsung</h2>
         {#if ranking && ranking.entries.length}
           <table class="mt-3 w-full text-sm">
             <thead class="text-left muted">
-              <tr><th class="py-1">#</th><th>User</th><th class="text-right">Score</th></tr>
+              <tr><th class="py-1">#</th><th>Pengguna</th><th class="text-right">Skor</th></tr>
             </thead>
             <tbody>
               {#each ranking.entries as e}
@@ -173,12 +174,12 @@
             </tbody>
           </table>
         {:else}
-          <p class="mt-2 muted">No scores yet.</p>
+          <p class="mt-2 muted">Belum ada skor.</p>
         {/if}
       </div>
 
       <div class="card">
-        <h2 class="hud font-display text-lg font-bold">Participants</h2>
+        <h2 class="hud font-display text-lg font-bold">Peserta</h2>
         <ul class="mt-2 space-y-1 text-sm">
           {#each participants as p}
             <li class="flex items-center justify-between">
@@ -186,22 +187,22 @@
               <span
                 class="badge"
                 class:badge-mint={p.is_present}
-                class:badge-neutral={!p.is_present}>{p.is_present ? "present" : "away"}</span
+                class:badge-neutral={!p.is_present}>{p.is_present ? "hadir" : "tidak hadir"}</span
               >
             </li>
           {/each}
         </ul>
-        {#if participants.length === 0}<p class="muted">Nobody yet.</p>{/if}
+        {#if participants.length === 0}<p class="muted">Belum ada peserta.</p>{/if}
       </div>
     </div>
 
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">Event feed</h2>
+      <h2 class="hud font-display text-lg font-bold">Umpan aktivitas</h2>
       <ul class="mt-2 space-y-1 text-xs font-mono">
         {#each events as e}
           <li class="muted">[{new Date(e.at).toLocaleTimeString()}] {e.text}</li>
         {/each}
-        {#if events.length === 0}<li class="muted">Waiting for activity…</li>{/if}
+        {#if events.length === 0}<li class="muted">Menunggu aktivitas…</li>{/if}
       </ul>
     </div>
   {/if}

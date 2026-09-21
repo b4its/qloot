@@ -46,17 +46,17 @@
   onMount(load);
 </script>
 
-<svelte:head><title>{course?.title ?? "Course"} — QLoot</title></svelte:head>
+<svelte:head><title>{course?.title ?? "Pelajaran"} — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
-    <p class="muted">Loading…</p>
+    <p class="muted">Memuat …</p>
   {:else if error}
     <p class="alert-error">
       {error}
     </p>
   {:else if course}
-    <a href="/learning" class="text-sm text-primary">← Back to courses</a>
+    <a href="/learning" class="text-sm text-primary">← Kembali ke pelajaran</a>
     <p class="mono-label mt-4">Pelajaran</p>
     <h1 class="mt-2 font-display text-3xl font-bold">{course.title}</h1>
     <p class="mt-1 muted">{course.description}</p>
@@ -72,17 +72,17 @@
             >
               {i + 1}. {lesson.title}
             </a>
-            <p class="text-xs muted">{done ? "Completed" : "Not started"}</p>
+            <p class="text-xs muted">{done ? "Selesai" : "Belum dimulai"}</p>
           </div>
           {#if done}
             <span class="badge badge-mint"><Icon name="check" size="10px" /> Selesai</span>
           {:else}
-            <button class="btn-ghost" on:click={() => markComplete(lesson)}>Mark complete</button>
+            <button class="btn-ghost" on:click={() => markComplete(lesson)}>Tandai selesai</button>
           {/if}
         </div>
       {/each}
       {#if lessons.length === 0}
-        <p class="muted">No lessons in this course yet.</p>
+        <p class="muted">Belum ada pelajaran di kursus ini.</p>
       {/if}
     </div>
   {/if}

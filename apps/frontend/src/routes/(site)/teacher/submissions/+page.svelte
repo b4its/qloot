@@ -16,25 +16,25 @@
         api.get<TeacherAnalytics>("/teacher/analytics"),
       ]);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load submissions";
+      error = e instanceof ApiError ? e.message : "Gagal memuat pengumpulan";
     } finally {
       loading = false;
     }
   });
 </script>
 
-<svelte:head><title>Submissions — QLoot Teacher</title></svelte:head>
+<svelte:head><title>Pengumpulan — QLoot Guru</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
       <p class="mono-label">Panel Guru · Jawaban</p>
-      <h1 class="mt-2 font-display text-3xl font-bold">Submissions</h1>
+      <h1 class="mt-2 font-display text-3xl font-bold">Pengumpulan</h1>
       <p class="mt-1 text-sm muted">
         Jawaban siswa terbaru dari ujianmu, lengkap dengan feedback AI.
       </p>
     </div>
-    <a href="/teacher" class="btn-ghost">← Teacher home</a>
+    <a href="/teacher" class="btn-ghost">← Beranda Guru</a>
   </div>
 
   {#if error}
@@ -46,31 +46,31 @@
   {#if analytics}
     <div class="mt-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
       <div class="card">
-        <div class="mono-label">Exams</div>
+        <div class="mono-label">Ujian</div>
         <div class="mt-1 font-display text-2xl font-bold">{analytics.exams}</div>
       </div>
       <div class="card">
-        <div class="mono-label">Graded</div>
+        <div class="mono-label">Ternilai</div>
         <div class="mt-1 font-display text-2xl font-bold">{analytics.graded_attempts}</div>
       </div>
       <div class="card">
-        <div class="mono-label">Avg score</div>
+        <div class="mono-label">Rata-rata skor</div>
         <div class="mt-1 font-display text-2xl font-bold">
           {bpToPercent(analytics.average_score_bp)}
         </div>
       </div>
       <div class="card">
-        <div class="mono-label">Pass rate</div>
+        <div class="mono-label">Tingkat kelulusan</div>
         <div class="mt-1 font-display text-2xl font-bold">
           {bpToPercent(analytics.pass_rate_bp)}
         </div>
       </div>
       <div class="card">
-        <div class="mono-label">Winners</div>
+        <div class="mono-label">Pemenang</div>
         <div class="mt-1 font-display text-2xl font-bold">{analytics.winners}</div>
       </div>
       <div class="card">
-        <div class="mono-label">OPC awarded</div>
+        <div class="mono-label">OPC diberikan</div>
         <div class="mt-1 font-display text-2xl font-bold text-highlight">
           {analytics.opc_awarded}
         </div>
@@ -79,17 +79,16 @@
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Loading…</p>
+    <p class="mt-6 muted">Memuat …</p>
   {:else if !rows.length}
-    <div class="card mt-4 text-center"><p class="muted">No submissions yet.</p></div>
+    <div class="card mt-4 text-center"><p class="muted">Belum ada pengumpulan.</p></div>
   {:else}
     <div class="card mt-4 overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr
-            ><th class="py-1">Exam</th><th>Question</th><th>Answer</th><th class="text-right"
-              >Score</th
-            ><th>Feedback</th></tr
+            ><th class="py-1">Ujian</th><th>Soal</th><th>Jawaban</th><th class="text-right">Skor</th
+            ><th>Umpan balik</th></tr
           >
         </thead>
         <tbody>

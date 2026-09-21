@@ -3,6 +3,7 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Room } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
+  import { statusLabel } from "$lib/utils/format";
 
   let rooms: Room[] = [];
   let loading = true;
@@ -20,7 +21,7 @@
     try {
       rooms = await api.get<Room[]>("/rooms");
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load rooms";
+      error = e instanceof ApiError ? e.message : "Gagal memuat ruang";
     } finally {
       loading = false;
     }
@@ -35,7 +36,7 @@
       });
       window.location.href = `/rooms/${room.id}`;
     } catch (e) {
-      joinError = e instanceof ApiError ? e.message : "Could not join room";
+      joinError = e instanceof ApiError ? e.message : "Gagal bergabung ke ruang";
     } finally {
       joinLoading = false;
     }
@@ -47,29 +48,28 @@
       showCreate = false;
       window.location.href = `/rooms/${room.id}`;
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Could not create room";
+      error = e instanceof ApiError ? e.message : "Gagal membuat ruang";
     }
   }
 
   onMount(load);
 </script>
 
-<svelte:head><title>Rooms — QLoot</title></svelte:head>
+<svelte:head><title>Ruang — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <p class="mono-label">Kompetisi Langsung</p>
-      <h1 class="mt-2 font-display text-4xl font-bold">Rooms</h1>
+      <h1 class="mt-2 font-display text-4xl font-bold">Ruang</h1>
     </div>
     {#if canManage}
-      <button class="btn-primary" on:click={() => (showCreate = !showCreate)}>＋ Create room</button
-      >
+      <button class="btn-primary" on:click={() => (showCreate = !showCreate)}>＋ Buat ruang</button>
     {/if}
   </div>
 
   <div class="card mt-6">
-    <h2 class="hud font-display text-lg font-bold">Join with a code</h2>
+    <h2 class="hud font-display text-lg font-bold">Gabung dengan kode</h2>
     <div class="mt-2 flex gap-2">
       <input
         class="input max-w-xs uppercase"
@@ -82,7 +82,7 @@
         on:click={joinByCode}
         disabled={joinLoading || joinCode.length < 4}
       >
-        {joinLoading ? "Joining…" : "Join"}
+        {joinLoading ? "Bergabung…" : "Gabung"}
       </button>
     </div>
     {#if joinError}<p class="alert-error mt-2">{joinError}</p>{/if}
@@ -90,16 +90,16 @@
 
   {#if showCreate}
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">New room</h2>
+      <h2 class="hud font-display text-lg font-bold">Ruang baru</h2>
       <div class="mt-3 grid gap-3 sm:grid-cols-3">
-        <input class="input sm:col-span-2" placeholder="Room name" bind:value={newRoom.name} />
+        <input class="input sm:col-span-2" placeholder="Nama ruang" bind:value={newRoom.name} />
         <input class="input" type="number" min="2" bind:value={newRoom.max_participants} />
       </div>
       <label class="mt-3 flex items-center gap-2 text-sm">
-        <input type="checkbox" bind:checked={newRoom.is_public} /> Public room
+        <input type="checkbox" bind:checked={newRoom.is_public} /> Ruang publik
       </label>
       <button class="btn-primary mt-4" on:click={createRoom} disabled={newRoom.name.length < 2}
-        >Create</button
+        >Buat</button
       >
     </div>
   {/if}
@@ -111,9 +111,9 @@
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Loading rooms…</p>
+    <p class="mt-6 muted">Memuat ruang…</p>
   {:else if rooms.length === 0}
-    <div class="card mt-6 text-center"><p class="muted">No rooms available.</p></div>
+    <div class="card mt-6 text-center"><p class="muted">Belum ada ruang tersedia.</p></div>
   {:else}
     <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each rooms as room}
@@ -123,10 +123,10 @@
             <span
               class="badge"
               class:badge-mint={room.status === "open"}
-              class:badge-neutral={room.status !== "open"}>{room.status}</span
+              class:badge-neutral={room.status !== "open"}>{statusLabel(room.status)}</span
             >
           </div>
-          <p class="mt-2 font-mono text-sm muted">Code: {room.code}</p>
+          <p class="mt-2 font-mono text-sm muted">Kode: {room.code}</p>
         </a>
       {/each}
     </div>

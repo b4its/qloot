@@ -42,11 +42,11 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Users — QLoot Admin</title></svelte:head>
+<svelte:head><title>Pengguna — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <p class="mono-label">Admin · Pengguna</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Users</h1>
+  <h1 class="mt-2 font-display text-3xl font-bold">Pengguna</h1>
   <p class="mt-2 muted">Kelola peran dan akun pengguna platform.</p>
 
   {#if message}<p class="alert-ok mt-4">
@@ -64,12 +64,13 @@
         {#each Array(6) as _}<div class="skeleton h-8"></div>{/each}
       </div>
     {:else if users.length === 0}
-      <p class="py-2 muted">Tidak ada pengguna.</p>
+      <p class="py-2 muted">Belum ada pengguna.</p>
     {:else}
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr
-            ><th class="py-1">Email</th><th>Name</th><th>Roles</th><th>Joined</th><th>Set role</th
+            ><th class="py-1">Email</th><th>Nama</th><th>Peran</th><th>Bergabung</th><th
+              >Atur peran</th
             ></tr
           >
         </thead>
@@ -89,9 +90,9 @@
                   disabled={busy === u.id}
                   on:change={(e) => setRole(u, (e.currentTarget as HTMLSelectElement).value)}
                 >
-                  <option value="student">student</option>
-                  <option value="teacher">teacher</option>
-                  <option value="admin">admin</option>
+                  <option value="student">Siswa</option>
+                  <option value="teacher">Guru</option>
+                  <option value="admin">Admin</option>
                 </select>
               </td>
             </tr>

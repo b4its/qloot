@@ -2,7 +2,13 @@
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Wallet, LedgerEntry, Reward, BlockchainStatus, BlockchainTx } from "$lib/types";
-  import { formatDate, formatNumber, shortHash, etherscanUrl } from "$lib/utils/format";
+  import {
+    formatDate,
+    formatNumber,
+    shortHash,
+    etherscanUrl,
+    statusLabel,
+  } from "$lib/utils/format";
 
   let wallet: Wallet | null = null;
   let ledger: LedgerEntry[] = [];
@@ -64,7 +70,7 @@
       status = await api.get<BlockchainStatus>("/blockchain/status");
       txs = await api.get<BlockchainTx[]>("/blockchain/transactions");
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load wallet";
+      error = e instanceof ApiError ? e.message : "Gagal memuat dompet";
     } finally {
       loading = false;
     }
@@ -77,21 +83,21 @@
         amount: Number(withdrawAmount),
         destination_address: withdrawAddr,
       });
-      withdrawMsg = "Withdrawal requested and queued for the blockchain worker.";
+      withdrawMsg = "Penarikan diminta dan dimasukkan ke antrean worker blockchain.";
       await load();
     } catch (e) {
-      withdrawMsg = e instanceof ApiError ? e.message : "Withdrawal failed";
+      withdrawMsg = e instanceof ApiError ? e.message : "Penarikan gagal";
     }
   }
 
   onMount(load);
 </script>
 
-<svelte:head><title>Wallet — QLoot</title></svelte:head>
+<svelte:head><title>Dompet — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <p class="mono-label">Web3</p>
-  <h1 class="mt-2 font-display text-4xl font-bold">Wallet</h1>
+  <h1 class="mt-2 font-display text-4xl font-bold">Dompet</h1>
   <p class="mt-1 muted">
     Saldo OPC kustodialmu. Treasury memegang token on-chain; saldomu dilacak dalam ledger
     double-entry.
@@ -104,39 +110,39 @@
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Loading wallet…</p>
+    <p class="mt-6 muted">Memuat dompet…</p>
   {:else if wallet}
     <div class="mt-6 grid gap-4 sm:grid-cols-3">
       <div class="card">
-        <div class="mono-label">Available</div>
+        <div class="mono-label">Tersedia</div>
         <div class="mt-1 font-display text-3xl font-bold text-highlight">
           {formatNumber(wallet.available)}
         </div>
         <div class="text-xs muted">OPC (token id {wallet.token_id})</div>
       </div>
       <div class="card">
-        <div class="mono-label">Pending</div>
+        <div class="mono-label">Menunggu</div>
         <div class="mt-1 font-display text-3xl font-bold">{formatNumber(wallet.pending)}</div>
-        <div class="text-xs muted">awaiting confirmation</div>
+        <div class="text-xs muted">menunggu konfirmasi</div>
       </div>
       <div class="card">
-        <div class="mono-label">Network</div>
+        <div class="mono-label">Jaringan</div>
         <div class="mt-1 font-display text-lg font-bold">{status?.network ?? "—"}</div>
         <div class="text-xs muted">
-          {status?.dry_run ? "simulation (dry-run)" : `chain ${status?.chain_id}`}
+          {status?.dry_run ? "simulasi (dry-run)" : `chain ${status?.chain_id}`}
         </div>
       </div>
     </div>
 
     <div class="mt-4 grid gap-4 lg:grid-cols-2">
       <div class="card">
-        <h2 class="hud font-display text-lg font-bold">Withdraw to a personal wallet</h2>
+        <h2 class="hud font-display text-lg font-bold">Tarik ke dompet pribadi</h2>
         <div class="mt-3 space-y-3">
           <input
             class="input"
             type="number"
             min="1"
-            placeholder="Amount (OPC)"
+            placeholder="Jumlah (OPC)"
             bind:value={withdrawAmount}
           />
           <input
@@ -148,7 +154,7 @@
           <button
             class="btn-primary"
             on:click={withdraw}
-            disabled={withdrawAmount <= 0 || withdrawAddr.length !== 42}>Request withdrawal</button
+            disabled={withdrawAmount <= 0 || withdrawAddr.length !== 42}>Minta penarikan</button
           >
           {#if withdrawMsg}<p class="text-sm muted">{withdrawMsg}</p>{/if}
         </div>
@@ -221,7 +227,7 @@
 
     <div class="mt-4 grid gap-4 lg:grid-cols-2">
       <div class="card">
-        <h2 class="hud font-display text-lg font-bold">Recent rewards</h2>
+        <h2 class="hud font-display text-lg font-bold">Hadiah terbaru</h2>
         <ul class="mt-2 space-y-2 text-sm">
           {#each rewards.slice(0, 6) as r}
             <li class="flex items-center justify-between border-b pb-1 last:border-0">
@@ -231,24 +237,24 @@
                 <span
                   class="badge"
                   class:badge-mint={r.status === "confirmed"}
-                  class:badge-amber={r.status !== "confirmed"}>{r.status}</span
+                  class:badge-amber={r.status !== "confirmed"}>{statusLabel(r.status)}</span
                 >
               </span>
             </li>
           {/each}
-          {#if rewards.length === 0}<li class="muted">No rewards yet.</li>{/if}
+          {#if rewards.length === 0}<li class="muted">Belum ada hadiah.</li>{/if}
         </ul>
       </div>
     </div>
 
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">Ledger</h2>
+      <h2 class="hud font-display text-lg font-bold">Buku besar</h2>
       <div class="mt-2 overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="text-left muted">
             <tr
-              ><th class="py-1">Date</th><th>Type</th><th>Amount</th><th class="text-right"
-                >Balance</th
+              ><th class="py-1">Tanggal</th><th>Tipe</th><th>Jumlah</th><th class="text-right"
+                >Saldo</th
               ></tr
             >
           </thead>
@@ -266,7 +272,8 @@
                 <td class="text-right font-mono">{formatNumber(entry.balance_after)}</td>
               </tr>
             {/each}
-            {#if ledger.length === 0}<tr><td colspan="4" class="py-2 muted">Empty ledger.</td></tr
+            {#if ledger.length === 0}<tr
+                ><td colspan="4" class="py-2 muted">Buku besar kosong.</td></tr
               >{/if}
           </tbody>
         </table>
@@ -274,7 +281,7 @@
     </div>
 
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">On-chain transactions</h2>
+      <h2 class="hud font-display text-lg font-bold">Transaksi on-chain</h2>
       <ul class="mt-2 space-y-2 text-sm">
         {#each txs.slice(0, 10) as tx}
           {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, status?.chain_id)}
@@ -283,7 +290,7 @@
               <span
                 class="badge"
                 class:badge-mint={tx.status === "confirmed"}
-                class:badge-amber={tx.status !== "confirmed"}>{tx.status}</span
+                class:badge-amber={tx.status !== "confirmed"}>{statusLabel(tx.status)}</span
               >
               <span class="ml-2">{tx.method}</span>
             </span>
@@ -299,7 +306,7 @@
             </span>
           </li>
         {/each}
-        {#if txs.length === 0}<li class="muted">No transactions yet.</li>{/if}
+        {#if txs.length === 0}<li class="muted">Belum ada transaksi.</li>{/if}
       </ul>
     </div>
   {/if}

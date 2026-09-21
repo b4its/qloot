@@ -4,7 +4,7 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Quest, Winner } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
-  import { bpToPercent, formatDate } from "$lib/utils/format";
+  import { bpToPercent, formatDate, statusLabel } from "$lib/utils/format";
 
   let quests: Quest[] = [];
   let winnersByQuest: Record<string, Winner[]> = {};
@@ -21,7 +21,7 @@
         }
       }
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load quests";
+      error = e instanceof ApiError ? e.message : "Gagal memuat quest";
     } finally {
       loading = false;
     }
@@ -39,15 +39,15 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Quests — QLoot</title></svelte:head>
+<svelte:head><title>Quest — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex items-center justify-between">
     <div>
       <p class="mono-label">Gamifikasi</p>
-      <h1 class="mt-2 font-display text-4xl font-bold">Quests</h1>
+      <h1 class="mt-2 font-display text-4xl font-bold">Quest</h1>
     </div>
-    {#if canManage}<a href="/teacher/quests" class="btn-primary">＋ Manage quests</a>{/if}
+    {#if canManage}<a href="/teacher/quests" class="btn-primary">＋ Kelola quest</a>{/if}
   </div>
 
   {#if error}
@@ -57,9 +57,9 @@
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Loading quests…</p>
+    <p class="mt-6 muted">Memuat quest…</p>
   {:else if quests.length === 0}
-    <div class="card mt-6 text-center"><p class="muted">No quests yet.</p></div>
+    <div class="card mt-6 text-center"><p class="muted">Belum ada quest.</p></div>
   {:else}
     <div class="mt-6 grid gap-4 lg:grid-cols-2">
       {#each quests as q}
@@ -70,22 +70,23 @@
               class="badge"
               class:badge-mint={q.status === "open"}
               class:badge-indigo={q.status === "finalized"}
-              class:badge-neutral={q.status !== "open" && q.status !== "finalized"}>{q.status}</span
+              class:badge-neutral={q.status !== "open" && q.status !== "finalized"}
+              >{statusLabel(q.status)}</span
             >
           </div>
-          <p class="mt-1 text-sm muted">{q.description ?? "Speed quest for top finishers."}</p>
+          <p class="mt-1 text-sm muted">{q.description ?? "Quest cepat untuk peserta teratas."}</p>
           {#if q.rules?.length}
             <ul class="mt-3 space-y-1 text-sm">
               {#each q.rules as r}
                 <li class="flex justify-between border-b pb-1 last:border-0">
-                  <span>Rank {r.rank}</span>
+                  <span>Peringkat {r.rank}</span>
                   <span class="font-mono text-highlight">{r.reward_amount} OPC</span>
                 </li>
               {/each}
             </ul>
           {/if}
           {#if q.closes_at}
-            <p class="mt-2 text-xs muted">Closes {formatDate(q.closes_at)}</p>
+            <p class="mt-2 text-xs muted">Ditutup {formatDate(q.closes_at)}</p>
           {/if}
 
           {#if q.status === "finalized" && winnersByQuest[q.id]?.length}
@@ -107,10 +108,10 @@
           {#if canManage}
             <div class="mt-3 flex gap-2">
               {#if q.status !== "open"}<button class="btn-ghost" on:click={() => publish(q)}
-                  >Publish</button
+                  >Publikasikan</button
                 >{/if}
               {#if q.status !== "finalized"}<button class="btn-primary" on:click={() => finalize(q)}
-                  >Finalize winners</button
+                  >Finalisasi pemenang</button
                 >{/if}
             </div>
           {/if}
