@@ -4,18 +4,9 @@
   import { api, ApiError } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
   import { formatDate } from "$lib/utils/format";
+  import type { CertificateVerify } from "$lib/types";
 
-  interface VerifyResult {
-    valid: boolean;
-    credential_id: string;
-    course_title?: string | null;
-    recipient_name?: string | null;
-    issued_by?: string | null;
-    issued_at?: string | null;
-    verification_hash?: string | null;
-  }
-
-  let result: VerifyResult | null = null;
+  let result: CertificateVerify | null = null;
   let loading = true;
   let error = "";
   let credentialId = "";
@@ -23,7 +14,7 @@
   onMount(async () => {
     credentialId = $page.params.credentialId ?? "";
     try {
-      result = await api.get<VerifyResult>(`/certificates/verify/${credentialId}`);
+      result = await api.get<CertificateVerify>(`/certificates/verify/${credentialId}`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memverifikasi kredensial";
     } finally {

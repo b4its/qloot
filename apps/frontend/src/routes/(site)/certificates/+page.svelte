@@ -3,19 +3,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import { api, ApiError } from "$lib/api/client";
   import { auth } from "$lib/stores/auth";
-
-  interface Certificate {
-    id: string;
-    credential_id: string;
-    verification_hash: string;
-    course_id: string;
-    course_title: string;
-    recipient_name: string;
-    issued_by: string;
-    edition_number: number;
-    edition_total: number;
-    issued_at: string;
-  }
+  import type { Certificate } from "$lib/types";
 
   let certs: Certificate[] = [];
   let active: Certificate | null = null;
