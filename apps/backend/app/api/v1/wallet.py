@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.errors import ConflictError, NotFoundError
@@ -41,6 +41,21 @@ async def _account_out(db, user: User) -> WalletOut:
 @router.get("", response_model=WalletOut)
 async def get_wallet(user: CurrentUser, db: DbSession):
     return await _account_out(db, user)
+
+
+@router.get("/transfer-recipients", response_model=list[dict])
+async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", limit: int = 8):
+    """Search active users to transfer OPC to (simulated directory)."""
+    stmt = select(User).where(User.is_active.is_(True), User.id != user.id)
+    term = q.strip()
+    if term:
+        like = f"%{term.lower()}%"
+        stmt = stmt.where(
+            (func.lower(User.full_name).like(like)) | (func.lower(User.email).like(like))
+        )
+    stmt = stmt.order_by(User.full_name).limit(limit)
+    rows = (await db.execute(stmt)).scalars().all()
+    return [{"user_id": str(u.id), "full_name": u.full_name, "email": u.email} for u in rows]
 
 
 @router.get("/ledger", response_model=list[LedgerEntryOut])

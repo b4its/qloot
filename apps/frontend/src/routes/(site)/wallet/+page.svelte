@@ -15,6 +15,47 @@
   let withdrawAddr = "";
   let withdrawMsg = "";
 
+  // Internal transfer state.
+  let recipients: { user_id: string; full_name: string; email: string }[] = [];
+  let recipientQuery = "";
+  let recipientBusy = false;
+  let transferTarget: { user_id: string; full_name: string; email: string } | null = null;
+  let transferAmount = 0;
+  let transferNote = "";
+  let transferMsg = "";
+
+  async function searchRecipients() {
+    recipientBusy = true;
+    try {
+      recipients = await api.get<typeof recipients>(
+        `/wallet/transfer-recipients?q=${encodeURIComponent(recipientQuery)}`,
+      );
+    } catch {
+      recipients = [];
+    } finally {
+      recipientBusy = false;
+    }
+  }
+
+  async function transfer() {
+    transferMsg = "";
+    if (!transferTarget || transferAmount <= 0) return;
+    try {
+      await api.post("/wallet/transfers", {
+        to_user_id: transferTarget.user_id,
+        amount: Number(transferAmount),
+        note: transferNote || null,
+      });
+      transferMsg = `Berhasil mengirim ${transferAmount} OPC ke ${transferTarget.full_name}.`;
+      transferAmount = 0;
+      transferNote = "";
+      transferTarget = null;
+      await load();
+    } catch (e) {
+      transferMsg = e instanceof ApiError ? e.message : "Transfer gagal";
+    }
+  }
+
   async function load() {
     try {
       wallet = await api.get<Wallet>("/wallet");
@@ -113,6 +154,70 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2 class="hud font-display text-lg font-bold">Kirim OPC ke pengguna lain</h2>
+        <div class="mt-3 space-y-3">
+          {#if transferTarget}
+            <div class="flex items-center justify-between rounded-sm border px-3 py-2 text-sm">
+              <span>
+                <span class="font-medium">{transferTarget.full_name}</span>
+                <span class="block text-xs muted">{transferTarget.email}</span>
+              </span>
+              <button class="btn-ghost !py-1 text-xs" on:click={() => (transferTarget = null)}
+                >Ganti</button
+              >
+            </div>
+          {:else}
+            <div class="flex items-center gap-2">
+              <input
+                class="input"
+                placeholder="Cari nama atau email…"
+                bind:value={recipientQuery}
+                on:keydown={(e) => e.key === "Enter" && searchRecipients()}
+              />
+              <button class="btn-secondary flex-none" on:click={searchRecipients} disabled={recipientBusy}
+                >Cari</button
+              >
+            </div>
+            {#if recipients.length}
+              <ul class="max-h-40 space-y-1 overflow-y-auto">
+                {#each recipients as r}
+                  <li>
+                    <button
+                      class="flex w-full items-center justify-between rounded-sm border px-3 py-1.5 text-left text-sm transition-colors hover:border-primary"
+                      on:click={() => {
+                        transferTarget = r;
+                        recipients = [];
+                        recipientQuery = "";
+                      }}
+                    >
+                      <span>{r.full_name}</span>
+                      <span class="text-xs muted">{r.email}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          {/if}
+          <input
+            class="input"
+            type="number"
+            min="1"
+            placeholder="Jumlah (OPC)"
+            bind:value={transferAmount}
+          />
+          <input class="input" placeholder="Catatan (opsional)" bind:value={transferNote} />
+          <button
+            class="btn-primary"
+            on:click={transfer}
+            disabled={!transferTarget || transferAmount <= 0}>Kirim</button
+          >
+          {#if transferMsg}<p class="text-sm muted">{transferMsg}</p>{/if}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-4 lg:grid-cols-2">
       <div class="card">
         <h2 class="hud font-display text-lg font-bold">Recent rewards</h2>
         <ul class="mt-2 space-y-2 text-sm">

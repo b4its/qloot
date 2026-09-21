@@ -132,6 +132,24 @@ async def test_repeated_transfers_do_not_collide(client, engine):
     assert wallet.json()["available"] == 80
 
 
+async def test_transfer_recipient_search(client):
+    """Recipient search returns other active users and excludes the caller."""
+    await _register(client, "s_seeker@ex.com", "student", "Seeker")
+    me = (await client.get("/api/v1/auth/me")).json()["id"]
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "s_target@ex.com", "student", "Targetted Name")
+    await client.post("/api/v1/auth/logout")
+
+    await client.post(
+        "/api/v1/auth/login", json={"email": "s_seeker@ex.com", "password": "Password123!"}
+    )
+    r = await client.get("/api/v1/wallet/transfer-recipients?q=targetted")
+    assert r.status_code == 200, r.text
+    ids = [x["user_id"] for x in r.json()]
+    assert me not in ids
+    assert any(x["full_name"] == "Targetted Name" for x in r.json())
+
+
 async def test_room_ranking_excludes_unrelated_exams(client, engine):
     """Scores from exams not tied to a room must not appear in its ranking."""
 
