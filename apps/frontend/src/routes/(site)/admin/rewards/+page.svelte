@@ -2,33 +2,36 @@
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import { formatNumber, statusLabel } from "$lib/utils/format";
+  import type { Reward } from "$lib/types";
+  import Pagination from "$lib/components/Pagination.svelte";
 
-  interface RewardRow {
-    id: string;
-    reward_key: string;
-    user_id: string;
-    amount: number;
-    status: string;
-    quest_id?: string | null;
-    created_at: string;
-  }
-
-  let rewards: RewardRow[] = [];
+  const PAGE = 20;
+  let rewards: Reward[] = [];
   let error = "";
   let message = "";
   let loading = true;
   let busy = "";
+  let page = 1;
+  let hasMore = false;
 
   async function load() {
     loading = true;
     error = "";
     try {
-      rewards = await api.get<RewardRow[]>("/admin/rewards?limit=100");
+      rewards = await api.get<Reward[]>(`/admin/rewards?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
+      hasMore = rewards.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat hadiah";
     } finally {
       loading = false;
     }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
   }
 
   async function retry(id: string) {
@@ -100,7 +103,7 @@
           {#each rewards as r}
             <tr class="border-t">
               <td class="py-1 font-mono text-xs">{r.reward_key.slice(0, 10)}…</td>
-              <td class="font-mono text-xs">{r.user_id.slice(0, 8)}…</td>
+              <td class="font-mono text-xs">{(r.user_id ?? "").slice(0, 8)}…</td>
               <td class="text-right font-mono">{formatNumber(r.amount)}</td>
               <td>
                 <span
@@ -128,4 +131,14 @@
       </table>
     {/if}
   </div>
+
+  <Pagination
+    {page}
+    pageSize={PAGE}
+    {hasMore}
+    {loading}
+    label="hadiah"
+    onPrev={() => go(-1)}
+    onNext={() => go(1)}
+  />
 </div>

@@ -4,6 +4,7 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Recommendation, Milestone } from "$lib/types";
   import { statusLabel } from "$lib/utils/format";
+  import { auth, hasRole } from "$lib/stores/auth";
 
   let recs: Recommendation[] = [];
   let milestones: Milestone[] = [];
@@ -11,6 +12,10 @@
   let busy = false;
   let error = "";
   let message = "";
+
+  // Only a counselor (teacher/admin) may approve the human-in-the-loop review;
+  // a student can create, submit, and view — never approve their own plan.
+  $: isCounselor = hasRole($auth.user, "teacher") || hasRole($auth.user, "admin");
 
   async function load() {
     loading = true;
@@ -126,13 +131,15 @@
         >
           Kirim untuk ditinjau
         </button>
-        <button
-          class="btn-primary"
-          on:click={approve}
-          disabled={busy || !recs.length || status === "approved"}
-        >
-          Setujui & aktifkan peta jalan
-        </button>
+        {#if isCounselor}
+          <button
+            class="btn-primary"
+            on:click={approve}
+            disabled={busy || !recs.length || status === "approved"}
+          >
+            Setujui & aktifkan peta jalan
+          </button>
+        {/if}
       </div>
     </div>
   </div>

@@ -201,6 +201,8 @@ export interface Reward {
   quest_id?: string | null;
   task_id?: string | null;
   created_at: string;
+  /** Present on the admin rewards listing. */
+  user_id?: string;
 }
 
 export interface BlockchainStatus {

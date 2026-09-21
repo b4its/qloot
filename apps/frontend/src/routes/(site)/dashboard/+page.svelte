@@ -9,6 +9,7 @@
     Badge,
     Progress,
     Attempt,
+    GradeRow,
   } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
@@ -28,11 +29,6 @@
   let error = "";
 
   // Grade entry (feeds the academic dashboard + recommender).
-  interface Grade {
-    subject: string;
-    grade: number;
-    term: string;
-  }
   const SUBJECTS = [
     "Matematika",
     "Fisika",
@@ -45,7 +41,7 @@
     "Sosiologi",
     "Geografi",
   ];
-  let grades: Grade[] = [];
+  let grades: GradeRow[] = [];
   let gradeSubject = SUBJECTS[0];
   let gradeValue = 80;
   let gradeTerm = "2025/2026-genap";
@@ -65,7 +61,7 @@
         grade: Number(gradeValue),
         term: gradeTerm,
       });
-      grades = await api.get<Grade[]>("/career/grades");
+      grades = await api.get<GradeRow[]>("/career/grades");
       await reloadAcademic();
       gradeMsg = `${gradeSubject}: ${gradeValue}`;
     } catch (e) {
@@ -145,7 +141,7 @@
         api.get<UserBadge[]>("/me/badges").catch(() => []),
         api.get<{ available: number; token_id: number }>("/wallet").catch(() => null),
         api.get<Course[]>("/courses").catch(() => []),
-        api.get<Grade[]>("/career/grades").catch(() => []),
+        api.get<GradeRow[]>("/career/grades").catch(() => []),
         api.get<Badge[]>("/badges").catch(() => []),
         api.get<Progress[]>("/me/learning-progress").catch(() => []),
         api.get<Attempt[]>("/attempts").catch(() => []),
