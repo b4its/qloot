@@ -161,30 +161,54 @@ class BadgeService:
             .all()
         }
         next_id = 1
+        assigned: list[Badge] = []
         for badge in rows:
             while next_id in used:
                 next_id += 1
             if next_id > 255:
+                # ERC-1155 badge ids are uint8; anything beyond is left without
+                # an on-chain id. Log it instead of silently dropping.
+                log.warning(
+                    "badge_on_chain_id_capacity_reached",
+                    pending=len(rows) - len(assigned),
+                    cap=255,
+                )
                 break
             badge.on_chain_id = next_id
             used.add(next_id)
+            assigned.append(badge)
         await self.session.flush()
-        # Enqueue on-chain registration for newly assigned badges.
+        # Enqueue on-chain registration for newly assigned badges. Skip any
+        # outbox row that already exists so a repeat call is a harmless no-op
+        # rather than an IntegrityError.
         from app.models.wallet import TransactionOutbox
         from app.services.keys import tx_idempotency_key
 
-        for badge in rows:
-            if not badge.on_chain_id:
-                continue
-            self.session.add(
-                TransactionOutbox(
-                    topic="badge",
-                    idempotency_key=tx_idempotency_key("badge_register", badge.code),
-                    payload={"badge_id": badge.on_chain_id, "uri": "", "register": True},
-                    status="pending",
+        if assigned:
+            keys = [tx_idempotency_key("badge_register", b.code) for b in assigned]
+            existing_keys = set(
+                (
+                    await self.session.execute(
+                        select(TransactionOutbox.idempotency_key).where(
+                            TransactionOutbox.idempotency_key.in_(keys)
+                        )
+                    )
                 )
+                .scalars()
+                .all()
             )
-        await self.session.flush()
+            for badge, key in zip(assigned, keys, strict=False):
+                if key in existing_keys:
+                    continue
+                self.session.add(
+                    TransactionOutbox(
+                        topic="badge",
+                        idempotency_key=key,
+                        payload={"badge_id": badge.on_chain_id, "uri": "", "register": True},
+                        status="pending",
+                    )
+                )
+            await self.session.flush()
 
     async def award(
         self, *, user: User, code: str, meta: dict | None = None, notify: bool = True
