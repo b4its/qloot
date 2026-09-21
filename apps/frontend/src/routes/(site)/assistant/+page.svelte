@@ -13,7 +13,7 @@
   let messages: Msg[] = [
     {
       role: "bot",
-      text: "Hi! I'm the QLoot AI Assistant. Ask me about majors, campuses, admission paths (SNBP/SNBT) or career prospects.",
+      text: "Hai! Saya **Asisten Qlo** (boleh dipanggil **Kulo**). Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
     },
   ];
   let input = "";
@@ -62,15 +62,16 @@
   onMount(() => {});
 </script>
 
-<svelte:head><title>AI Assistant — QLoot</title></svelte:head>
+<svelte:head><title>Asisten Qlo — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
       <p class="mono-label">Panduan Karier · Asisten</p>
-      <h1 class="mt-2 font-display text-3xl font-bold">AI Assistant</h1>
+      <h1 class="mt-2 font-display text-3xl font-bold">Asisten Qlo</h1>
       <p class="mt-1 text-sm muted">
-        Pemandu berbasis aturan (simulasi) untuk pertanyaan belajar & karier.
+        Pemandu berbasis aturan (simulasi) untuk pertanyaan belajar & karier — bisa dipanggil
+        <span class="font-medium">Kulo</span>.
       </p>
     </div>
     <a href="/career" class="btn-ghost">← Career home</a>

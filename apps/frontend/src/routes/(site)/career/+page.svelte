@@ -35,7 +35,7 @@
     },
     {
       href: "/assistant",
-      label: "AI Assistant",
+      label: "Asisten Qlo",
       desc: "Tanya seputar jurusan, kampus, dan karier",
       icon: "robot",
     },
