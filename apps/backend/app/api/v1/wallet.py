@@ -132,6 +132,10 @@ async def transfer(payload: TransferRequest, user: CurrentUser, db: DbSession):
         if hi != lo:
             await engine.get_or_create_account(hi)
         account = await engine.get_or_create_account(user.id)
+        # A frozen account must not be able to move funds out (credit() already
+        # blocks a frozen recipient; this covers the sender/debit side).
+        if account.is_frozen:
+            raise ConflictError("Wallet is frozen")
         if account.cached_balance < payload.amount:
             raise ConflictError("Insufficient balance")
         # Every transfer needs a unique reference: include a nonce so repeated

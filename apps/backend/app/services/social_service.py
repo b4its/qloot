@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -229,8 +230,14 @@ class BadgeService:
         if existing is not None:
             return None
         ub = UserBadge(user_id=user.id, badge_id=badge.id, meta=meta)
-        self.session.add(ub)
-        await self.session.flush()
+        try:
+            # SAVEPOINT so a concurrent award of the same badge (unique on
+            # user_id+badge_id) is a harmless no-op instead of a 500.
+            async with self.session.begin_nested():
+                self.session.add(ub)
+                await self.session.flush()
+        except IntegrityError:
+            return None
         # Mirror the badge award on-chain (best-effort; custodial model mints to
         # the treasury address and records the user ref).
         if badge.on_chain_id and settings.treasury_address:
