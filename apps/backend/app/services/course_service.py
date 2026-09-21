@@ -219,6 +219,13 @@ class CourseService:
         await self.session.flush()
         return lesson
 
+    async def delete_lesson(self, lesson_id: uuid.UUID, user: User) -> None:
+        lesson = await self.get_lesson(lesson_id)
+        course = await self.get(lesson.course_id)
+        self._authorize(course, user)
+        await self.session.delete(lesson)
+        await self.session.flush()
+
     async def set_progress(
         self, lesson_id: uuid.UUID, user: User, *, progress_percent: int, completed: bool
     ) -> LessonProgress:

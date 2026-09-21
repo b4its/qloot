@@ -113,6 +113,12 @@ async def update_lesson(
         )
 
 
+@router.delete("/lessons/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_lesson(lesson_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        await CourseService(db).delete_lesson(lesson_id, user)
+
+
 @router.post("/lessons/{lesson_id}/progress", response_model=ProgressOut)
 async def set_progress(
     lesson_id: uuid.UUID, payload: ProgressUpdate, user: CurrentUser, db: DbSession
