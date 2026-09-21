@@ -1,0 +1,627 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0xB8113bC5243daFE07557D1f6A9d1819494598078",
+      "txHash": "0x878d344ac2dadd46f51d12ced28b0c5938812b60240c93e00f4fe103b5fd0ac6",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "98a278422c3c80cef7f84485772b9ad57922076fba68894745acd1cf3f191e1c": {
+      "address": "0xcFDa69423591284B8BC980559B4af7AB795Ab1Cb",
+      "txHash": "0x1445be52e34a5e68cde580d7bcb35ac5e4d17a85dd9f12c118b15d24e86a2149",
+      "layout": {
+        "solcVersion": "0.8.28",
+        "storage": [
+          {
+            "label": "maxMintPerTx",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:69"
+          },
+          {
+            "label": "dailyMintCap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:70"
+          },
+          {
+            "label": "mintWindows",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_uint256,t_struct(MintWindow)9398_storage)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:75"
+          },
+          {
+            "label": "_legacyName",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_string_storage",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:76"
+          },
+          {
+            "label": "_legacySymbol",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_string_storage",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:77"
+          },
+          {
+            "label": "rewardFinalized",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_mapping(t_bytes32,t_bool)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:78"
+          },
+          {
+            "label": "treasury",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_address",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:84"
+          },
+          {
+            "label": "opcBalance",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:86"
+          },
+          {
+            "label": "xp",
+            "offset": 0,
+            "slot": "8",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:88"
+          },
+          {
+            "label": "level",
+            "offset": 0,
+            "slot": "9",
+            "type": "t_mapping(t_address,t_uint32)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:90"
+          },
+          {
+            "label": "totalXpDistributed",
+            "offset": 0,
+            "slot": "10",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:92"
+          },
+          {
+            "label": "totalMinted",
+            "offset": 0,
+            "slot": "11",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:94"
+          },
+          {
+            "label": "totalBurned",
+            "offset": 0,
+            "slot": "12",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:96"
+          },
+          {
+            "label": "rewardKeyUsed",
+            "offset": 0,
+            "slot": "13",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:99"
+          },
+          {
+            "label": "courses",
+            "offset": 0,
+            "slot": "14",
+            "type": "t_mapping(t_uint256,t_struct(Course)9451_storage)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:107"
+          },
+          {
+            "label": "courseExists",
+            "offset": 0,
+            "slot": "15",
+            "type": "t_mapping(t_uint256,t_bool)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:109"
+          },
+          {
+            "label": "enrolled",
+            "offset": 0,
+            "slot": "16",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_bool))",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:111"
+          },
+          {
+            "label": "completed",
+            "offset": 0,
+            "slot": "17",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_bool))",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:113"
+          },
+          {
+            "label": "courseCompletionCount",
+            "offset": 0,
+            "slot": "18",
+            "type": "t_mapping(t_uint256,t_uint256)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:115"
+          },
+          {
+            "label": "totalCourses",
+            "offset": 0,
+            "slot": "19",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:117"
+          },
+          {
+            "label": "badges",
+            "offset": 0,
+            "slot": "20",
+            "type": "t_mapping(t_uint8,t_struct(Badge)9491_storage)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:125"
+          },
+          {
+            "label": "hasBadge",
+            "offset": 0,
+            "slot": "21",
+            "type": "t_mapping(t_address,t_mapping(t_uint8,t_bool))",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:127"
+          },
+          {
+            "label": "userBadgeCount",
+            "offset": 0,
+            "slot": "22",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:129"
+          },
+          {
+            "label": "badgeSupply",
+            "offset": 0,
+            "slot": "23",
+            "type": "t_mapping(t_uint8,t_uint256)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:131"
+          },
+          {
+            "label": "achievementUnlocked",
+            "offset": 0,
+            "slot": "24",
+            "type": "t_mapping(t_address,t_mapping(t_bytes32,t_bool))",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:134"
+          },
+          {
+            "label": "achievementCount",
+            "offset": 0,
+            "slot": "25",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:136"
+          },
+          {
+            "label": "depositOf",
+            "offset": 0,
+            "slot": "26",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:139"
+          },
+          {
+            "label": "totalDeposits",
+            "offset": 0,
+            "slot": "27",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:140"
+          },
+          {
+            "label": "totalWithdrawals",
+            "offset": 0,
+            "slot": "28",
+            "type": "t_uint256",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:141"
+          },
+          {
+            "label": "v2Initialized",
+            "offset": 0,
+            "slot": "29",
+            "type": "t_bool",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:144"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "30",
+            "type": "t_array(t_uint256)40_storage",
+            "contract": "OryphemCoin1155",
+            "src": "contracts/OryphemCoin1155.sol:147"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_address,t_bool))": {
+            "label": "mapping(address => mapping(address => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(RoleData)24_storage)": {
+            "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_address,t_uint256))": {
+            "label": "mapping(uint256 => mapping(address => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_string_storage": {
+            "label": "string",
+            "numberOfBytes": "32"
+          },
+          "t_struct(AccessControlStorage)34_storage": {
+            "label": "struct AccessControlUpgradeable.AccessControlStorage",
+            "members": [
+              {
+                "label": "_roles",
+                "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(ERC1155Storage)197_storage": {
+            "label": "struct ERC1155Upgradeable.ERC1155Storage",
+            "members": [
+              {
+                "label": "_balances",
+                "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_operatorApprovals",
+                "type": "t_mapping(t_address,t_mapping(t_address,t_bool))",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "_uri",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_struct(ERC1155SupplyStorage)546_storage": {
+            "label": "struct ERC1155SupplyUpgradeable.ERC1155SupplyStorage",
+            "members": [
+              {
+                "label": "_totalSupply",
+                "type": "t_mapping(t_uint256,t_uint256)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_totalSupplyAll",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(InitializableStorage)932_storage": {
+            "label": "struct Initializable.InitializableStorage",
+            "members": [
+              {
+                "label": "_initialized",
+                "type": "t_uint64",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "_initializing",
+                "type": "t_bool",
+                "offset": 8,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(PausableStorage)640_storage": {
+            "label": "struct PausableUpgradeable.PausableStorage",
+            "members": [
+              {
+                "label": "_paused",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_struct(RoleData)24_storage": {
+            "label": "struct AccessControlUpgradeable.RoleData",
+            "members": [
+              {
+                "label": "hasRole",
+                "type": "t_mapping(t_address,t_bool)",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "adminRole",
+                "type": "t_bytes32",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_array(t_uint256)40_storage": {
+            "label": "uint256[40]",
+            "numberOfBytes": "1280"
+          },
+          "t_mapping(t_address,t_mapping(t_bytes32,t_bool))": {
+            "label": "mapping(address => mapping(bytes32 => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_bool))": {
+            "label": "mapping(address => mapping(uint256 => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint8,t_bool))": {
+            "label": "mapping(address => mapping(uint8 => bool))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint32)": {
+            "label": "mapping(address => uint32)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_bool)": {
+            "label": "mapping(bytes32 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_bool)": {
+            "label": "mapping(uint256 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Course)9451_storage)": {
+            "label": "mapping(uint256 => struct OryphemCoin1155.Course)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(MintWindow)9398_storage)": {
+            "label": "mapping(uint256 => struct OryphemCoin1155.MintWindow)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint8,t_bool)": {
+            "label": "mapping(uint8 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint8,t_struct(Badge)9491_storage)": {
+            "label": "mapping(uint8 => struct OryphemCoin1155.Badge)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint8,t_uint256)": {
+            "label": "mapping(uint8 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Badge)9491_storage": {
+            "label": "struct OryphemCoin1155.Badge",
+            "members": [
+              {
+                "label": "uri",
+                "type": "t_string_storage",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "soulbound",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "exists",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(Course)9451_storage": {
+            "label": "struct OryphemCoin1155.Course",
+            "members": [
+              {
+                "label": "rewardAmount",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "badgeId",
+                "type": "t_uint8",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "active",
+                "type": "t_bool",
+                "offset": 1,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(MintWindow)9398_storage": {
+            "label": "struct OryphemCoin1155.MintWindow",
+            "members": [
+              {
+                "label": "day",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "minted",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint32": {
+            "label": "uint32",
+            "numberOfBytes": "4"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.AccessControl": [
+            {
+              "contract": "AccessControlUpgradeable",
+              "label": "_roles",
+              "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
+              "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21",
+              "offset": 0,
+              "slot": "0"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ERC1155Supply": [
+            {
+              "contract": "ERC1155SupplyUpgradeable",
+              "label": "_totalSupply",
+              "type": "t_mapping(t_uint256,t_uint256)",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol:28",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "ERC1155SupplyUpgradeable",
+              "label": "_totalSupplyAll",
+              "type": "t_uint256",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol:29",
+              "offset": 0,
+              "slot": "1"
+            }
+          ],
+          "erc7201:openzeppelin.storage.ERC1155": [
+            {
+              "contract": "ERC1155Upgradeable",
+              "label": "_balances",
+              "type": "t_mapping(t_uint256,t_mapping(t_address,t_uint256))",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol:27",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "ERC1155Upgradeable",
+              "label": "_operatorApprovals",
+              "type": "t_mapping(t_address,t_mapping(t_address,t_bool))",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol:29",
+              "offset": 0,
+              "slot": "1"
+            },
+            {
+              "contract": "ERC1155Upgradeable",
+              "label": "_uri",
+              "type": "t_string_storage",
+              "src": "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol:32",
+              "offset": 0,
+              "slot": "2"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:69",
+              "offset": 0,
+              "slot": "0"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts/proxy/utils/Initializable.sol:73",
+              "offset": 8,
+              "slot": "0"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

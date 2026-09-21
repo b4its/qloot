@@ -1,0 +1,19 @@
+{
+  "contractName": "OryphemCoin1155",
+  "standard": "ERC-1155 (UUPS proxy)",
+  "name": "OryphemCoin",
+  "symbol": "OPC",
+  "uri": "https://metadata.qloot.example/opc/{id}.json",
+  "address": "0xB8113bC5243daFE07557D1f6A9d1819494598078",
+  "implementation": "0xcFDa69423591284B8BC980559B4af7AB795Ab1Cb",
+  "proxyAdmin": "0x0000000000000000000000000000000000000000",
+  "deployer": "0xcff5028422e01c0D7Ecb1527B1BDf4E3364e10C8",
+  "admin": "0xcff5028422e01c0D7Ecb1527B1BDf4E3364e10C8",
+  "treasury": "0x6EdcA860c066FCdA6c434095d5901810DCE12b48",
+  "tokenId": 0,
+  "chainId": 11155111,
+  "network": "sepolia",
+  "txHash": "0x878d344ac2dadd46f51d12ced28b0c5938812b60240c93e00f4fe103b5fd0ac6",
+  "blockNumber": 11750968,
+  "deployedAt": "2026-09-21T12:42:17.194Z"
+}
