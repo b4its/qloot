@@ -110,9 +110,7 @@
     openComments = new Set([...openComments, p.id]);
     try {
       const detail = await api.get<Post>(`/community/posts/${p.id}`);
-      posts = posts.map((x) =>
-        x.id === p.id ? { ...x, comments: detail.comments ?? [] } : x,
-      );
+      posts = posts.map((x) => (x.id === p.id ? { ...x, comments: detail.comments ?? [] } : x));
     } catch {
       /* ignore */
     }
@@ -127,9 +125,7 @@
       commentDraft = { ...commentDraft, [p.id]: "" };
       await toggleComments(p); // refresh
       await toggleComments(p); // reopen
-      posts = posts.map((x) =>
-        x.id === p.id ? { ...x, comment_count: x.comment_count + 1 } : x,
-      );
+      posts = posts.map((x) => (x.id === p.id ? { ...x, comment_count: x.comment_count + 1 } : x));
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengirim komentar";
     } finally {
@@ -345,8 +341,7 @@
           berbagi materi.
         </li>
         <li class="flex items-start gap-2">
-          <Icon name="circle-check" class="mt-0.5 text-secondary" size="11px" /> Satu topik per
-          diskusi.
+          <Icon name="circle-check" class="mt-0.5 text-secondary" size="11px" /> Satu topik per diskusi.
         </li>
       </ul>
     </div>

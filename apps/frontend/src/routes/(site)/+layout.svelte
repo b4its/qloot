@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
   import { auth, hasRole } from "$lib/stores/auth";
   import { notifications } from "$lib/stores/notifications";
   import { opc } from "$lib/stores/opc";
@@ -30,6 +31,7 @@
 
   let mobileOpen = false;
   let searchOpen = false;
+  let searchQuery = "";
   $: user = $auth.user;
   $: path = $page.url.pathname;
   $: isAppArea =
@@ -37,6 +39,20 @@
     path.startsWith("/profile") ||
     path.startsWith("/admin") ||
     path.startsWith("/teacher");
+
+  function submitSearch() {
+    const q = searchQuery.trim();
+    searchOpen = false;
+    goto(`/courses${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+  }
+
+  let newsletterEmail = "";
+  let newsletterMsg = "";
+  function subscribe() {
+    // Simulated newsletter signup (no email is actually sent).
+    newsletterMsg = `Terima kasih! ${newsletterEmail} akan menerima info kelas baru.`;
+    newsletterEmail = "";
+  }
 
   async function logout() {
     await auth.logout();
@@ -135,15 +151,22 @@
     <!-- search drawer -->
     {#if searchOpen}
       <div class="border-t px-4 py-3 sm:px-6">
-        <div class="mx-auto flex max-w-7xl items-center gap-3">
+        <form
+          class="mx-auto flex max-w-7xl items-center gap-3"
+          on:submit|preventDefault={submitSearch}
+        >
           <Icon name="magnifying-glass" class="muted" />
           <input
             class="input !border-0 !bg-transparent !px-0"
             placeholder="Cari pelajaran, kelas, atau guru…"
             aria-label="Cari"
+            bind:value={searchQuery}
           />
-          <button class="btn-ghost" on:click={() => (searchOpen = false)}>Tutup</button>
-        </div>
+          <button class="btn-primary !py-1.5" type="submit">Cari</button>
+          <button class="btn-ghost" type="button" on:click={() => (searchOpen = false)}
+            >Tutup</button
+          >
+        </form>
       </div>
     {/if}
 
@@ -229,15 +252,23 @@
             Platform e-learning kelas dengan gamifikasi, AI, dan teknologi on-chain. Pelajaran per
             kelas, sertifikat digital, dan komunitas dalam satu tempat.
           </p>
-          <div class="mt-5 flex max-w-sm items-center gap-2">
-            <input
-              class="input !border-white/10 !bg-surface/5 text-white placeholder:text-white/40"
-              placeholder="Email kamu untuk info kelas baru"
-              aria-label="Email"
-            />
-            <button class="btn-primary flex-none" aria-label="Langganan buletin">
-              <Icon name="paper-plane" size="13px" />
-            </button>
+          <div class="mt-5 max-w-sm">
+            <form class="flex items-center gap-2" on:submit|preventDefault={subscribe}>
+              <input
+                class="input !border-white/10 !bg-surface/5 text-white placeholder:text-white/40"
+                placeholder="Email kamu untuk info kelas baru"
+                aria-label="Email"
+                type="email"
+                bind:value={newsletterEmail}
+                required
+              />
+              <button class="btn-primary flex-none" type="submit" aria-label="Langganan buletin">
+                <Icon name="paper-plane" size="13px" />
+              </button>
+            </form>
+            {#if newsletterMsg}
+              <p class="mt-2 text-xs text-primary">{newsletterMsg}</p>
+            {/if}
           </div>
         </div>
 

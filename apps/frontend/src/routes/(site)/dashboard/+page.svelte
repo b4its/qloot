@@ -18,6 +18,54 @@
   let loading = true;
   let error = "";
 
+  // Grade entry (feeds the academic dashboard + recommender).
+  interface Grade {
+    subject: string;
+    grade: number;
+    term: string;
+  }
+  const SUBJECTS = [
+    "Matematika",
+    "Fisika",
+    "Kimia",
+    "Biologi",
+    "B. Indonesia",
+    "B. Inggris",
+    "Ekonomi",
+    "Sejarah",
+    "Sosiologi",
+    "Geografi",
+  ];
+  let grades: Grade[] = [];
+  let gradeSubject = SUBJECTS[0];
+  let gradeValue = 80;
+  let gradeTerm = "2025/2026-genap";
+  let gradeBusy = false;
+  let gradeMsg = "";
+
+  async function reloadAcademic() {
+    acad = await api.get<AcademicDashboard>("/career/dashboard").catch(() => acad);
+  }
+
+  async function addGrade() {
+    gradeMsg = "";
+    gradeBusy = true;
+    try {
+      await api.post("/career/grades", {
+        subject: gradeSubject,
+        grade: Number(gradeValue),
+        term: gradeTerm,
+      });
+      grades = await api.get<Grade[]>("/career/grades");
+      await reloadAcademic();
+      gradeMsg = `${gradeSubject}: ${gradeValue}`;
+    } catch (e) {
+      gradeMsg = e instanceof ApiError ? e.message : "Gagal menyimpan nilai";
+    } finally {
+      gradeBusy = false;
+    }
+  }
+
   const sections = [
     { href: "/dashboard", label: "Beranda", icon: "gauge-high" },
     { href: "/learning", label: "Pelajaran Saya", icon: "book-open-reader" },
@@ -39,12 +87,13 @@
 
   onMount(async () => {
     try {
-      [acad, personality, badges, wallet, subjects] = await Promise.all([
+      [acad, personality, badges, wallet, subjects, grades] = await Promise.all([
         api.get<AcademicDashboard>("/career/dashboard").catch(() => null),
         api.get<Personality | null>("/career/personality").catch(() => null),
         api.get<UserBadge[]>("/me/badges").catch(() => []),
         api.get<{ available: number; token_id: number }>("/wallet").catch(() => null),
         api.get<Course[]>("/courses").catch(() => []),
+        api.get<Grade[]>("/career/grades").catch(() => []),
       ]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "";
@@ -132,6 +181,44 @@
           <p class="mt-2 font-display text-3xl font-bold"><StatCounter value={badges.length} /></p>
           <p class="text-xs muted">dari {7} tersedia</p>
         </div>
+      </div>
+
+      <!-- grades editor -->
+      <div class="card mt-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-bold">Nilai akademik</h2>
+          <a href="/career/roadmap" class="text-xs text-primary"
+            >Analisis jurusan <Icon name="arrow-right" size="10px" /></a
+          >
+        </div>
+        <p class="mt-1 text-xs muted">
+          Masukkan nilai rapor — dipakai untuk dashboard, tren, dan rekomendasi jurusan.
+        </p>
+        <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
+          <select class="input" bind:value={gradeSubject}>
+            {#each SUBJECTS as s}<option value={s}>{s}</option>{/each}
+          </select>
+          <input class="input" type="number" min="0" max="100" bind:value={gradeValue} />
+          <input class="input" placeholder="2025/2026-genap" bind:value={gradeTerm} />
+          <button class="btn-primary" on:click={addGrade} disabled={gradeBusy}>
+            {#if gradeBusy}<Icon name="spinner" spin size="12px" />{:else}<Icon
+                name="plus"
+                size="12px"
+              />{/if}
+            Simpan
+          </button>
+        </div>
+        {#if gradeMsg}<p class="mt-2 text-xs muted">{gradeMsg}</p>{/if}
+        {#if grades.length}
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            {#each grades as g}
+              <span class="badge badge-neutral">
+                {g.subject} · {g.grade}
+                <span class="muted">({g.term})</span>
+              </span>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       <!-- streak + current path -->

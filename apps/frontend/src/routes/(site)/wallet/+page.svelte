@@ -175,8 +175,10 @@
                 bind:value={recipientQuery}
                 on:keydown={(e) => e.key === "Enter" && searchRecipients()}
               />
-              <button class="btn-secondary flex-none" on:click={searchRecipients} disabled={recipientBusy}
-                >Cari</button
+              <button
+                class="btn-secondary flex-none"
+                on:click={searchRecipients}
+                disabled={recipientBusy}>Cari</button
               >
             </div>
             {#if recipients.length}

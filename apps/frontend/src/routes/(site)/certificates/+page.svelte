@@ -70,7 +70,11 @@
     const shareUrl = verifyUrl(active.credential_id);
     try {
       if (navigator.share) {
-        await navigator.share({ title: active.course_title, text: "Sertifikat QLoot", url: shareUrl });
+        await navigator.share({
+          title: active.course_title,
+          text: "Sertifikat QLoot",
+          url: shareUrl,
+        });
       } else {
         await navigator.clipboard?.writeText(shareUrl);
         copied = true;

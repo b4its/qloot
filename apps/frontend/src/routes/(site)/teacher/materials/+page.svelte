@@ -225,7 +225,8 @@
           <ul class="mt-2 space-y-1 text-sm">
             {#each summary.key_points as kp}
               <li class="flex items-start gap-2">
-                <Icon name="circle-check" class="mt-0.5 text-secondary" size="11px" /> {kp}
+                <Icon name="circle-check" class="mt-0.5 text-secondary" size="11px" />
+                {kp}
               </li>
             {/each}
           </ul>
@@ -239,7 +240,11 @@
           bind:value={question}
           on:keydown={(e) => e.key === "Enter" && ask()}
         />
-        <button class="btn-primary flex-none" on:click={ask} disabled={asking || question.trim().length < 3}>
+        <button
+          class="btn-primary flex-none"
+          on:click={ask}
+          disabled={asking || question.trim().length < 3}
+        >
           {#if asking}<Icon name="spinner" spin size="12px" />{:else}<Icon
               name="paper-plane"
               size="12px"

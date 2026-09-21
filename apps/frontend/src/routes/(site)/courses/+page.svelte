@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
   import type { Course } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
@@ -9,7 +10,7 @@
   let subjects: Course[] = [];
   let loading = true;
   let error = "";
-  let query = "";
+  let query = $page.url.searchParams.get("q") ?? "";
   let classFilter = "all";
 
   $: user = $auth.user;

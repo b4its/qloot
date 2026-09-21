@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api } from "$lib/api/client";
+  import { api, ApiError } from "$lib/api/client";
   import type { Notification } from "$lib/types";
   import { notifications } from "$lib/stores/notifications";
   import { relativeTime } from "$lib/utils/format";
@@ -8,6 +8,7 @@
 
   let items: Notification[] = [];
   let loading = true;
+  let error = "";
 
   const iconFor: Record<string, { name: string; klass: string }> = {
     reward: { name: "gem", klass: "text-highlight" },
@@ -19,8 +20,11 @@
 
   async function load() {
     loading = true;
+    error = "";
     try {
       items = await api.get<Notification[]>("/notifications");
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat notifikasi";
     } finally {
       loading = false;
     }
@@ -54,6 +58,10 @@
       <Icon name="check-double" size="12px" /> Tandai semua dibaca
     </button>
   </div>
+
+  {#if error}
+    <p class="alert-error mt-6">{error}</p>
+  {/if}
 
   {#if loading}
     <div class="mt-6 space-y-2">
