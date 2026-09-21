@@ -175,6 +175,9 @@ export interface Wallet {
   available: number;
   pending: number;
   withdrawal_address?: string | null;
+  /** Shared custodial wallet holding all pooled OPC on-chain. */
+  custodial_address?: string | null;
+  network?: string | null;
 }
 
 export interface LedgerEntry {

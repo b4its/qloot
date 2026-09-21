@@ -99,8 +99,8 @@
   <p class="mono-label">Web3</p>
   <h1 class="mt-2 font-display text-4xl font-bold">Dompet</h1>
   <p class="mt-1 muted">
-    Saldo OPC kustodialmu. Treasury memegang token on-chain; saldomu dilacak dalam ledger
-    double-entry.
+    Saldo OPC kustodialmu. Semua reward on-chain masuk ke satu wallet bersama; bagianmu terfokus
+    pada akunmu dan dilacak dalam ledger double-entry.
   </p>
 
   {#if error}
@@ -130,6 +130,45 @@
         <div class="mt-1 font-display text-lg font-bold">{status?.network ?? "—"}</div>
         <div class="text-xs muted">
           {status?.dry_run ? "simulasi (dry-run)" : `chain ${status?.chain_id}`}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+      <div class="card">
+        <div class="mono-label">Wallet bersama</div>
+        <div class="mt-1 font-mono text-sm break-all">{wallet.custodial_address ?? "—"}</div>
+        <div class="mt-1 text-xs muted">
+          Dompet kustodial bersama tempat seluruh OPC on-chain disimpan. Saldo di atas adalah
+          bagianmu yang difokuskan pada akunmu.
+        </div>
+        {#if wallet.custodial_address}
+          <a
+            class="btn-ghost mt-2 !py-1 text-xs"
+            href={`https://sepolia.etherscan.io/address/${wallet.custodial_address}`}
+            target="_blank"
+            rel="noopener">Lihat di Etherscan</a
+          >
+        {/if}
+      </div>
+      <div class="card sm:col-span-2">
+        <div class="mono-label">Bagianmu (terfokus)</div>
+        <div class="mt-1 flex flex-wrap items-baseline gap-2">
+          <span class="font-display text-2xl font-bold text-highlight"
+            >{formatNumber(wallet.available)}</span
+          >
+          <span class="text-sm muted">OPC tersedia</span>
+          {#if wallet.withdrawal_address}
+            <span class="badge badge-indigo font-mono text-xs"
+              >→ {shortHash(wallet.withdrawal_address, 6)}</span
+            >
+          {:else}
+            <span class="badge badge-neutral text-xs">belum ada alamat pribadi</span>
+          {/if}
+        </div>
+        <div class="mt-1 text-xs muted">
+          Reward masuk ke wallet bersama; kepemilikanmu dilacak per-akun dan bisa ditarik ke wallet
+          pribadi kapan saja.
         </div>
       </div>
     </div>
