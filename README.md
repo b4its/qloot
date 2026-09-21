@@ -294,22 +294,22 @@ make ci                # lint + typecheck + backend tests + contract tests
 
 ---
 
-## Blockchain & OryphemToken (OPT)
+## Blockchain & aset digital (OPT · QTC · ORT + ORX)
 
-**OryphemToken (OPT)** adalah kontrak **ERC-1155 multi-token** upgradeable (UUPS) +
-OpenZeppelin yang menjadi registry aset digital QLoot. Satu kontrak memuat **3 aset** plus
-token bukti badge:
+QLoot memiliki **4 kontrak terpisah** (masing-masing punya alamat sendiri), semuanya
+ERC-1155 upgradeable (UUPS) via OpenZeppelin:
 
-| Token id | Simbol | Nama | Peran | Suplai |
+| Kode | Kontrak | Standar | Peran | Suplai |
 |---|---|---|---|---|
-| `0` | **OPT** | OryphemToken | Mata uang dasar (reward belajar) | **Tanpa batas** |
-| `1` | **QTC** | QlootChain | Aset premium (sertifikat, enkripsi pesan) | **1e15** |
-| `2` | **ORT** | OryphemIntelligence | Kredit layanan AI (1 request = 1 ORT) | Tanpa batas |
-| `1_000_000 + badgeId` | — | Badge | Token bukti badge | 1 per badge |
+| **OPT** | `OryphemToken` | ERC-1155 | Mata uang dasar (diperoleh di sistem QLoot) | **Tanpa batas** |
+| **QTC** | `QlootChain` | ERC-1155 | Aset premium: menyimpan sertifikat ke jaringan, enkripsi pesan (didekripsi dengan kunci khusus), dll | **1e15** |
+| **ORT** | `OryphemIntelligence` | ERC-1155 | Aset murni untuk bertanya ke QLO (AI). 1 request = 1 ORT | Tanpa batas |
+| **ORX** | `OryphemProxy` | router (non-token) | Mengatur jaringan/kurs antara OPT ↔ QTC/ORT | — |
 
-**OryphemProxy (ORX)** adalah *router* on-chain yang mengatur konversi OPT ke aset lain:
-**1 ORT = 50 OPT**, **1 QTC = 1000 OPT** (`swapOptFor` / `proxyRates`). Hanya **hash opaque**
-yang di-emit on-chain — tidak pernah email, nama, jawaban, atau skor.
+**OryphemProxy (ORX)** adalah *router* yang mengatur seluruh jaringan antar aset:
+**1 ORT = 50 OPT** dan **1 QTC = 1000 OPT** (`proxyRates`, `swapOptFor`). ORX di-*grant*
+`ROUTER_ROLE` di tiap aset sehingga bisa membakar OPT pengguna dan mencetak aset tujuan.
+Hanya **hash opaque** yang di-emit on-chain — tidak pernah email, nama, jawaban, atau skor.
 
 ### Model wallet bersama (custodial) + saldo terfokus
 Semua reward on-chain dicetak ke **satu wallet bersama** (treasury), sementara
@@ -323,10 +323,11 @@ alamatnya disimpan di `.env`, tidak di kode).
 ### Deployment Sepolia (live, terverifikasi)
 
 Alamat kontrak, treasury, dan hash transaksi deploy **tidak** ditulis di repo ini. Semua nilai
-runtime (contract/treasury) dibaca dari `.env` (`OPC_CONTRACT_ADDRESS`, `TREASURY_ADDRESS`),
-sedangkan artefak deployment berada di `blockchain/deployments/*.json` dan
+runtime dibaca dari `.env` (`OPT_CONTRACT_ADDRESS`, `QTC_CONTRACT_ADDRESS`,
+`ORT_CONTRACT_ADDRESS`, `ORX_CONTRACT_ADDRESS`, `TREASURY_ADDRESS`; alias `OPC_CONTRACT_ADDRESS`
+= OPT), sedangkan artefak deployment berada di `blockchain/deployments/*.json` dan
 `blockchain/.openzeppelin/` yang **tidak di-track git** (lihat `.gitignore`). Setelah deploy,
-salin alamatnya ke `.env` lokalmu; jangan pernah commit nilai-nilainya.
+jalankan `make blockchain-status` untuk melihat semua alamat; jangan pernah commit nilainya.
 
 ### Konfigurasi
 `BLOCKCHAIN_DRY_RUN=true` (default) tetap **simulasi** — worker mengembalikan hash palsu
@@ -358,41 +359,38 @@ make blockchain-down                     # hentikan + hapus Anvil & network
 make blockchain-reset                    # hapus manifest lokal + state Anvil (mulai bersih)
 make blockchain-redeploy                 # reset lalu deploy ulang ke lokal
 make blockchain-build                    # kompilasi kontrak
-make blockchain-test                     # 51 uji kontrak
-make blockchain-deploy NETWORK=localhost # deploy proxy OryphemToken ke Anvil
+make blockchain-test                     # 32 uji kontrak
+make blockchain-deploy NETWORK=localhost # deploy OPT + QTC + ORT + ORX ke Anvil
 
 # --- Inspeksi (lokal atau sepolia) ---
-make blockchain-status NETWORK=localhost        # ringkas: name/symbol, supply, treasury
-make blockchain-show-all NETWORK=localhost      # ringkas lengkap (supply, saldo, roles)
-make blockchain-supply NETWORK=localhost TOKEN_ID=0
-make blockchain-balance NETWORK=localhost ADDRESS=0xf39F… TOKEN_ID=0
-make blockchain-events NETWORK=localhost        # dump event terbaru (LOOKBACK_BLOCKS=5000)
+make blockchain-status NETWORK=localhost        # keempat kontrak: address, supply, kurs
+make blockchain-show-all NETWORK=localhost      # ringkas lengkap (supply, kurs, roles)
+make blockchain-supply NETWORK=localhost ASSET=QTC
+make blockchain-balance NETWORK=localhost ASSET=ORT ADDRESS=0xf39F…
+make blockchain-events NETWORK=localhost ASSET=ORX   # LOOKBACK_BLOCKS=5000
 
-# --- Operasi token (contoh lokal; tambahkan CONFIRM_SEPOLIA=yes untuk sepolia) ---
-make blockchain-mint NETWORK=localhost TO=0xf39F… AMOUNT=1000 TOKEN_ID=0   # 0=OPT 1=QTC 2=ORT
-make blockchain-transfer NETWORK=localhost TO=0x7099… AMOUNT=250 TOKEN_ID=0  # [FROM=0x..]
-make blockchain-swap NETWORK=localhost ASSET=2 AMOUNT=10        # ORX: beli 10 ORT (500 OPT)
-make blockchain-ai-request NETWORK=localhost REQUESTS=1        # ORX: 1 request = 1 ORT
-make blockchain-reward NETWORK=localhost TO=0x7099… AMOUNT=100 KEY=1 REASON=quest
-make blockchain-add-xp NETWORK=localhost TO=0x7099… AMOUNT=250
-make blockchain-create-badge NETWORK=localhost BADGE_ID=1 BADGE_URI=ipfs://.. SOULBOUND=true
-make blockchain-award-badge NETWORK=localhost TO=0x7099… BADGE_ID=1
-make blockchain-create-course NETWORK=localhost COURSE_ID=1001 REWARD=500 BADGE_ID=1 ACTIVE=true
-make blockchain-set-course NETWORK=localhost COURSE_ID=1001 REWARD=750 BADGE_ID=1 ACTIVE=true
-make blockchain-course-state NETWORK=localhost ADDRESS=0x7099… COURSE_ID=1001
-make blockchain-pause NETWORK=localhost          # pause transfer
-make blockchain-unpause NETWORK=localhost        # lanjutkan transfer
-make blockchain-grant-role NETWORK=localhost ROLE=MINTER_ROLE ADDRESS=0x3C44…
-make blockchain-revoke-role NETWORK=localhost ROLE=MINTER_ROLE ADDRESS=0x3C44…
-make blockchain-upgrade NETWORK=localhost        # upgrade proxy ke implementation terbaru
+# --- Operasi aset (contoh lokal; tambahkan CONFIRM_SEPOLIA=yes untuk sepolia) ---
+make blockchain-mint NETWORK=localhost ASSET=OPT TO=0xf39F… AMOUNT=100000
+make blockchain-transfer NETWORK=localhost ASSET=OPT TO=0x7099… AMOUNT=250  # [FROM=0x..]
+make blockchain-swap NETWORK=localhost ASSET=ORT AMOUNT=10   # ORX: beli 10 ORT (500 OPT)
+make blockchain-swap NETWORK=localhost ASSET=QTC AMOUNT=2    # ORX: beli 2 QTC (2000 OPT)
+make blockchain-ai-request NETWORK=localhost REQUESTS=1      # ORX: 1 request = 1 ORT
+make blockchain-reward NETWORK=localhost ASSET=OPT TO=0x7099… AMOUNT=100 KEY=1 REASON=quest
+make blockchain-pause NETWORK=localhost ASSET=OPT    # pause satu aset
+make blockchain-unpause NETWORK=localhost ASSET=OPT
+make blockchain-grant-role NETWORK=localhost ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0x3C44…
+make blockchain-revoke-role NETWORK=localhost ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0x3C44…
+make blockchain-upgrade NETWORK=localhost ASSET=ALL  # upgrade OPT/QTC/ORT/ORX
 
 # --- Sepolia (dijaga: butuh CONFIRM_SEPOLIA=yes) ---
 make blockchain-deploy NETWORK=sepolia CONFIRM_SEPOLIA=yes
-# deploy.js otomatis memverifikasi implementation + proxy (AUTO_VERIFY=false untuk melewatkan)
+# deploy.js otomatis memverifikasi keempat implementation + proxy (AUTO_VERIFY=false untuk skip)
 make blockchain-verify NETWORK=sepolia CONFIRM_SEPOLIA=yes   # verifikasi ulang bila perlu
 make blockchain-publish NETWORK=sepolia
-make blockchain-mint NETWORK=sepolia CONFIRM_SEPOLIA=yes TO=0x… AMOUNT=100
+make blockchain-mint NETWORK=sepolia CONFIRM_SEPOLIA=yes ASSET=OPT TO=0x… AMOUNT=100
 ```
+
+> `ASSET` = `OPT` (default) | `QTC` | `ORT`, atau `ORX`/`ALL` untuk upgrade.
 
 > **Reset vs down.** `blockchain-down` menghentikan Anvil dan menghapus network-nya
 > (`down --remove-orphans`) sehingga `docker network` yang tertinggal tidak lagi

@@ -7,17 +7,17 @@ async function main() {
   const requests = process.env.REQUESTS;
   if (!requests || BigInt(requests) <= 0n) throw new Error("REQUESTS (>0) is required");
 
-  const token = await lib.getDeployedContract();
+  const orx = await lib.attach("ORX");
   const signer = (await ethers.getSigners())[0];
 
   console.log(`Paying ${requests} AI request(s) with ORT ...`);
-  const tx = await token.payAiRequest(BigInt(requests));
+  const tx = await orx.payAiRequest(BigInt(requests));
   console.log(`aiRequest tx: ${tx.hash}`);
   await tx.wait();
 
-  console.log(`ORT balance   = ${await token.balanceOf(signer.address, 2)}`);
-  console.log(`aiRequestsOf  = ${await token.aiRequestsOf(signer.address)}`);
-  console.log(`totalRequests = ${await token.totalAiRequests()}`);
+  const ort = await lib.attach("ORT");
+  console.log(`ORT balance   = ${await ort.balanceOf(signer.address, 0)}`);
+  console.log(`totalRequests = ${await orx.totalAiRequests()}`);
 }
 
 main().catch((e) => {

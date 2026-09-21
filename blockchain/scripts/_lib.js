@@ -1,10 +1,27 @@
 // Shared helpers for QLoot blockchain scripts.
+//
+// QLoot ships FOUR separate contracts, each with its own address:
+//   OPT  OryphemToken          (ERC-1155 base currency)
+//   QTC  QlootChain            (ERC-1155 premium asset, cap 1e15)
+//   ORT  OryphemIntelligence   (ERC-1155 AI credit)
+//   ORX  OryphemProxy          (asset router: 1 ORT = 50 OPT, 1 QTC = 1000 OPT)
+//
+// The deployment manifest stores every contract under `contracts[KEY]`, plus a
+// flat `address` = the OPT proxy for backwards compatibility.
 const fs = require("fs");
 const path = require("path");
 const { ethers, network } = require("hardhat");
 
 const DEPLOYMENTS_DIR = path.resolve(__dirname, "..", "deployments");
-const CONTRACT_NAME = "OryphemToken";
+const CONTRACT_NAME = "OryphemToken"; // default/legacy single-contract name
+
+/** Registry of the QLoot contracts deployed together. */
+const CONTRACTS = {
+  OPT: { name: "OryphemToken", symbol: "OPT" },
+  QTC: { name: "QlootChain", symbol: "QTC" },
+  ORT: { name: "OryphemIntelligence", symbol: "ORT" },
+  ORX: { name: "OryphemProxy", symbol: "ORX" },
+};
 
 function deploymentFile(networkName) {
   return path.join(DEPLOYMENTS_DIR, `${networkName}.json`);
@@ -30,8 +47,8 @@ function writeDeployment(data, networkName = network.name) {
 }
 
 /**
- * Write a PUBLIC manifest (no private material) that the backend can consume.
- * Only addresses, chain id and ABI-relevant info — never keys.
+ * Write a PUBLIC manifest (no private material) the backend can consume.
+ * Carries the per-asset addresses so the app can talk to each contract.
  */
 function writePublicManifest(data, networkName = network.name) {
   fs.mkdirSync(DEPLOYMENTS_DIR, { recursive: true });
@@ -39,9 +56,12 @@ function writePublicManifest(data, networkName = network.name) {
     network: networkName,
     chainId: Number(data.chainId),
     contractName: data.contractName || CONTRACT_NAME,
-    standard: data.standard || "ERC-1155",
+    standard: data.standard || "ERC-1155 (UUPS proxy)",
+    // Flat address = OPT proxy (legacy consumers); full map under `contracts`.
     address: data.address,
     implementation: data.implementation,
+    contracts: data.contracts,
+    assets: data.assets,
     treasury: data.treasury,
     tokenId: data.tokenId ?? 0,
     uri: data.uri,
@@ -56,17 +76,38 @@ function writePublicManifest(data, networkName = network.name) {
   return pub;
 }
 
-async function attach(address) {
+/**
+ * Attach to a deployed contract by ABI source name.
+ * @param {string} address
+ * @param {string} abiName Solidity contract name (e.g. "OryphemToken")
+ */
+async function attachName(address, abiName) {
   const [signer] = await ethers.getSigners();
-  const factory = await ethers.getContractFactory(CONTRACT_NAME);
-  // Use the plain Contract (not the factory wrapper) so all ABI functions,
-  // including `uri(uint256)`, are directly callable.
+  const factory = await ethers.getContractFactory(abiName);
   return new ethers.Contract(address, factory.interface.fragments, signer);
 }
 
+/**
+ * Attach to a QLoot contract.
+ * @param {string} key OPT | QTC | ORT | ORX
+ * @param {object} [dep] deployment (defaults to the current network manifest)
+ */
+async function attach(key = "OPT", dep = readDeployment()) {
+  const entry = CONTRACTS[key] || { name: key };
+  const rec = dep.contracts && dep.contracts[key];
+  const address = rec ? rec.address : dep.address;
+  const abiName = rec && rec.name ? rec.name : entry.name;
+  return attachName(address, abiName);
+}
+
+/** Attach to the OPT contract (legacy helper). */
 async function getDeployedContract() {
-  const dep = readDeployment();
-  return attach(dep.address);
+  return attach("OPT");
+}
+
+function contractAddress(key, dep = readDeployment()) {
+  const rec = dep.contracts && dep.contracts[key];
+  return rec ? rec.address : key === "OPT" ? dep.address : undefined;
 }
 
 function toBytes32(value) {
@@ -82,32 +123,59 @@ function explorerUrl(chainId, txHash) {
 
 /**
  * Verify the implementation and the proxy of a UUPS deployment on Etherscan.
+ * Accepts a single record ({address, implementation}) or the full manifest
+ * ({contracts:{...}}) and verifies EVERY contract's implementation + proxy.
  *
- * A UUPS proxy has no constructor and its logic lives in the *implementation*,
- * so the implementation is verified first (no constructor args), then the proxy
- * (hardhat-verify links it to the implementation). "Already verified" is treated
- * as success. Returns the number of unexpected failures.
+ * OPT and ORT share identical bytecode (both are thin subclasses of the same
+ * base), so hardhat-verify cannot disambiguate them automatically — we always
+ * pass the fully-qualified `contract` name.
  */
 async function verifyDeployment(dep) {
   const { run, network } = require("hardhat");
-  const targets = [
-    { label: "implementation", address: dep.implementation, args: [] },
-    { label: "proxy", address: dep.address, args: [] },
-  ].filter((t) => t.address);
+  const records = dep.contracts
+    ? Object.entries(dep.contracts).map(([key, r]) => ({ label: key, ...r }))
+    : [{ label: "OPT", address: dep.address, implementation: dep.implementation }];
+
+  const fqName = (name) => {
+    const file =
+      name === "OryphemToken"
+        ? "OryphemToken.sol"
+        : name === "QlootChain"
+        ? "QlootChain.sol"
+        : name === "OryphemIntelligence"
+        ? "OryphemIntelligence.sol"
+        : name === "OryphemProxy"
+        ? "OryphemProxy.sol"
+        : `${name}.sol`;
+    return `contracts/${file}:${name}`;
+  };
 
   let failures = 0;
-  for (const t of targets) {
-    console.log(`Verifying ${t.label} ${t.address} on ${network.name} ...`);
-    try {
-      await run("verify:verify", { address: t.address, constructorArguments: t.args });
-      console.log(`  ${t.label}: verification submitted.`);
-    } catch (err) {
-      const msg = String(err.message).toLowerCase();
-      if (msg.includes("already verified")) {
-        console.log(`  ${t.label}: already verified.`);
-      } else {
-        failures += 1;
-        console.error(`  ${t.label}: FAILED — ${err.message}`);
+  for (const rec of records) {
+    const contract = rec.name ? fqName(rec.name) : undefined;
+    for (const [kind, address] of [
+      ["implementation", rec.implementation],
+      ["proxy", rec.address],
+    ]) {
+      if (!address) continue;
+      const label = `${rec.label} ${kind}`;
+      console.log(`Verifying ${label} ${address} on ${network.name} ...`);
+      try {
+        // The proxy is a generic ERC1967Proxy: let hardhat-verify resolve it.
+        const args =
+          kind === "proxy"
+            ? { address, constructorArguments: [] }
+            : { address, constructorArguments: [], contract };
+        await run("verify:verify", args);
+        console.log(`  ${label}: verification submitted.`);
+      } catch (err) {
+        const msg = String(err.message).toLowerCase();
+        if (msg.includes("already verified")) {
+          console.log(`  ${label}: already verified.`);
+        } else {
+          failures += 1;
+          console.error(`  ${label}: FAILED — ${err.message}`);
+        }
       }
     }
   }
@@ -117,13 +185,16 @@ async function verifyDeployment(dep) {
 module.exports = {
   DEPLOYMENTS_DIR,
   CONTRACT_NAME,
+  CONTRACTS,
   deploymentFile,
   manifestFile,
   readDeployment,
   writeDeployment,
   writePublicManifest,
   attach,
+  attachName,
   getDeployedContract,
+  contractAddress,
   toBytes32,
   explorerUrl,
   verifyDeployment,

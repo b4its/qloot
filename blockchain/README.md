@@ -1,27 +1,25 @@
-# QLoot Blockchain — OryphemToken (OPT · QTC · ORT)
+# QLoot Blockchain — digital assets (OPT · QTC · ORT + ORX)
 
-## Contract
+## Contracts
 
-`OryphemToken` (`blockchain/contracts/OryphemToken.sol`) is a
-**UUPS-upgradeable ERC-1155 multi-token** that acts as the on-chain
-digital-asset and reward registry for QLoot.
+QLoot deploys **four separate contracts** (each its own UUPS proxy → its own address):
 
-### Token model
+| Code | Contract | File | Role | Supply |
+|---|---|---|---|---|
+| **OPT** | `OryphemToken` | `contracts/OryphemToken.sol` | Base currency | unlimited |
+| **QTC** | `QlootChain` | `contracts/QlootChain.sol` | Premium chain asset (certificates, encrypted messages) | capped `1e15` |
+| **ORT** | `OryphemIntelligence` | `contracts/OryphemIntelligence.sol` | AI credit (1 request = 1 ORT) | unlimited |
+| **ORX** | `OryphemProxy` | `contracts/OryphemProxy.sol` | Router between OPT and QTC/ORT | — |
 
-| Token id | Symbol | Asset | Supply |
-|---|---|---|---|
-| `0` | **OPT** | OryphemToken (base currency) | unlimited |
-| `1` | **QTC** | QlootChain (certificates, encrypted messages) | capped `1e15` |
-| `2` | **ORT** | OryphemIntelligence (AI credit, 1 request = 1 ORT) | unlimited |
-| `1_000_000 + badgeId` | — | Badge proof token (1 unit per awarded badge) | — |
+The three assets share `OryphemAssetBase` and use token id `0` in their own contract.
 
 ### OryphemProxy (ORX) — the router
 
 `swapOptFor(assetId, amount)` converts OPT into ORT/QTC at fixed rates:
 **1 ORT = 50 OPT**, **1 QTC = 1000 OPT** (`proxyRates()`/`ORT_RATE`/`QTC_RATE`).
-`payAiRequest(requests)` burns ORT (1 request = 1 ORT). The QTC cap is enforced on
-every mint; OPT and ORT are uncapped (`maxSupplyOf(id)` returns `type(uint256).max`
-for unlimited assets).
+`payAiRequest(requests)` burns ORT (1 request = 1 ORT). The ORX holds `ROUTER_ROLE`
+on each asset so it can settle swaps (`routerBurn`/`routerMint`). QTC's cap is
+enforced on every mint; OPT and ORT are uncapped.
 
 ### Extensions
 
@@ -34,50 +32,40 @@ for unlimited assets).
 | Role | Purpose |
 |---|---|
 | `DEFAULT_ADMIN_ROLE` | Grant/revoke roles, upgrades |
-| `ADMIN_ROLE` | Config: limits, treasury, courses, badges, levels |
-| `MINTER_ROLE` | Mint/burn OPT/QTC/ORT, complete withdrawals |
-| `REWARDER_ROLE` | Pay rewards, add XP, award badges, unlock achievements |
-| `ROUTER_ROLE` | OryphemProxy (ORX) router operations |
+| `ADMIN_ROLE` | Config: limits, supply cap, treasury, URI |
+| `MINTER_ROLE` | Mint/burn the asset |
+| `REWARDER_ROLE` | Pay idempotent rewards |
+| `ROUTER_ROLE` | OryphemProxy (ORX) router burn/mint |
 | `PAUSER_ROLE` | Pause/unpause |
 | `URI_MANAGER_ROLE` | Set the metadata URI |
 
 ### Feature set
 
-- **Assets**: OPT (id 0, unlimited), QTC (id 1, cap 1e15), ORT (id 2, unlimited);
-  per-user OPT mirror (`opcBalance`), `totalMinted`/`totalBurned`, `maxSupplyOf(id)`.
-- **XP & level**: `addXp` (100 XP per level), `levelFromXp`, admin `setLevel`.
-- **Courses**: `createCourse`/`setCourse`, `enroll`, `completeCourse` (pays OPT +
-  XP + badge, idempotent per user+course), `courseCompletionCount`.
-- **Badges**: `registerBadge` (uri + soulbound), `awardBadge` (idempotent, mints
-  a proof token), soulbound badges blocked from transfer.
-- **Achievements**: `unlockAchievement` with per-user counters.
-- **OryphemProxy (ORX)**: `swapOptFor` (OPT↔ORT/QTC at fixed rates), `payAiRequest`
-  (1 request = 1 ORT), `proxyRates`/`maxSupplyOf`, router totals.
-- **Rewards**: idempotent `rewardUser` / `rewardUsers` (uint256 keys, batch ≤ 200).
-- **Treasury**: `depositOPC` / `withdrawOPC` with per-account and global totals.
+- **Assets**: OPT (unlimited), QTC (cap `1e15`), ORT (unlimited) — each a separate
+  ERC-1155 UUPS contract; `totalMinted`/`totalBurned`, `maxSupply`, `setMaxSupply`.
+- **Mint/burn**: `mint`, `mintBatch`, `routerMint`/`routerBurn`, `burn`.
+- **Rewards**: idempotent `rewardUser` (uint256 keys).
+- **OryphemProxy (ORX)**: `swapOptFor` (OPT→ORT/QTC at fixed rates), `payAiRequest`
+  (1 request = 1 ORT), `proxyRates`, router totals.
 - **Safety**: pausable, reentrancy-guarded, per-tx and rolling daily mint caps,
   custom errors (EIP-170 friendly bytecode).
 
 ### Events
 
-`RewardPaid`, `XpAdded`, `LevelSet`, `CourseCreated`, `CourseUpdated`, `Enrolled`,
-`CourseCompleted`, `BadgeRegistered`, `BadgeAwarded`, `AchievementUnlocked`,
-`Swapped`, `AiRequestPaid`, `AssetMinted`,
-`Deposited`, `Withdrawn`, `TreasuryUpdated`, `V2Initialized` — plus the standard
-ERC-1155 `TransferSingle`/`TransferBatch`.
+`Minted`, `Burned`, `RewardPaid`, `MaxSupplyUpdated`, `LimitsUpdated` (assets);
+`Routed`, `AiRequestPaid`, `AssetsUpdated`, `TreasuryUpdated` (ORX) — plus the
+standard ERC-1155 `TransferSingle`/`TransferBatch`.
 
 Only **opaque hashes** are used for off-chain references (user/quest refs) —
 never emails, names or answers.
 
 ## Upgrade
 
-The contract is upgrade-safe: the original v1 storage layout is preserved and
-new state is appended only. `initializeV2(admin, treasury)` is a reinitializer
-that runs once after an upgrade.
+The contracts are upgrade-safe (UUPS). Upgrade all four, or one via `ASSET`:
 
 ```bash
-NETWORK=localhost make blockchain-upgrade
-NETWORK=sepolia CONFIRM_SEPOLIA=yes make blockchain-upgrade
+NETWORK=localhost make blockchain-upgrade ASSET=ALL
+NETWORK=sepolia CONFIRM_SEPOLIA=yes make blockchain-upgrade ASSET=OPT
 ```
 
 ## Commands
@@ -88,40 +76,37 @@ and targets validate their required variables with a usage hint.
 
 ```bash
 make blockchain-build            # compile
-make blockchain-test             # 60 tests
+make blockchain-test             # 32 tests
 
 # Local (Anvil on :8545, chain 31337)
 make blockchain-up                        # start Anvil (docker)
 make blockchain-down                      # stop + remove Anvil & its network
 make blockchain-reset                     # wipe local manifests + Anvil state
 make blockchain-redeploy                  # reset then deploy fresh locally
-make blockchain-deploy NETWORK=localhost
-make blockchain-status NETWORK=localhost
+make blockchain-deploy NETWORK=localhost  # deploy OPT + QTC + ORT + ORX
+make blockchain-status NETWORK=localhost  # all 4 contracts: addresses, supply, rates
 make blockchain-show-all NETWORK=localhost
-make blockchain-supply NETWORK=localhost TOKEN_ID=0     # 0=OPT 1=QTC 2=ORT
-make blockchain-balance NETWORK=localhost ADDRESS=0x.. TOKEN_ID=0
-make blockchain-events NETWORK=localhost  # LOOKBACK_BLOCKS=5000
-make blockchain-mint NETWORK=localhost TO=0x.. AMOUNT=1000 TOKEN_ID=0
-make blockchain-transfer NETWORK=localhost TO=0x.. AMOUNT=250 TOKEN_ID=0
-make blockchain-swap NETWORK=localhost ASSET=2 AMOUNT=10     # ORX: OPT -> ORT/QTC
-make blockchain-ai-request NETWORK=localhost REQUESTS=1      # ORX: pay with ORT
-make blockchain-create-badge NETWORK=localhost BADGE_ID=1 BADGE_URI="ipfs://b" SOULBOUND=true
-make blockchain-award-badge NETWORK=localhost TO=0x.. BADGE_ID=1
-make blockchain-create-course NETWORK=localhost COURSE_ID=1001 REWARD=500 BADGE_ID=1
-make blockchain-set-course NETWORK=localhost COURSE_ID=1001 REWARD=750 BADGE_ID=1
-make blockchain-add-xp NETWORK=localhost TO=0x.. AMOUNT=250
-make blockchain-reward NETWORK=localhost TO=0x.. AMOUNT=100 REASON=quest KEY=1
-make blockchain-course-state NETWORK=localhost ADDRESS=0x.. COURSE_ID=1001
-make blockchain-pause NETWORK=localhost
-make blockchain-unpause NETWORK=localhost
+make blockchain-supply NETWORK=localhost ASSET=QTC          # ASSET=OPT|QTC|ORT
+make blockchain-balance NETWORK=localhost ASSET=ORT ADDRESS=0x..
+make blockchain-events NETWORK=localhost ASSET=ORX          # LOOKBACK_BLOCKS=5000
+make blockchain-mint NETWORK=localhost ASSET=OPT TO=0x.. AMOUNT=100000
+make blockchain-transfer NETWORK=localhost ASSET=OPT TO=0x.. AMOUNT=250
+make blockchain-swap NETWORK=localhost ASSET=ORT AMOUNT=10  # ORX: OPT -> ORT/QTC
+make blockchain-ai-request NETWORK=localhost REQUESTS=1     # ORX: pay with ORT
+make blockchain-reward NETWORK=localhost ASSET=OPT TO=0x.. AMOUNT=100 REASON=quest KEY=1
+make blockchain-pause NETWORK=localhost ASSET=OPT
+make blockchain-unpause NETWORK=localhost ASSET=OPT
+make blockchain-grant-role NETWORK=localhost ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0x..
 
 # Sepolia (guarded with CONFIRM_SEPOLIA=yes)
 make blockchain-deploy NETWORK=sepolia CONFIRM_SEPOLIA=yes
-# deploy.js auto-verifies implementation + proxy (AUTO_VERIFY=false to skip)
+# deploy.js auto-verifies all 4 implementations + proxies (AUTO_VERIFY=false to skip)
 make blockchain-verify NETWORK=sepolia CONFIRM_SEPOLIA=yes
 make blockchain-publish NETWORK=sepolia
-make blockchain-upgrade NETWORK=sepolia CONFIRM_SEPOLIA=yes
+make blockchain-upgrade NETWORK=sepolia CONFIRM_SEPOLIA=yes ASSET=ALL
 ```
+
+> `ASSET` = `OPT` (default) | `QTC` | `ORT`, or `ORX`/`ALL` for upgrades.
 
 > If `make blockchain-up` previously failed with `network … not found`, the stale
 > container is now removed automatically; `blockchain-down` also deletes the

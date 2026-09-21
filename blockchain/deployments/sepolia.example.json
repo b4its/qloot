@@ -2,19 +2,44 @@
   "network": "sepolia",
   "chainId": 11155111,
   "contractName": "OryphemToken",
-  "standard": "ERC-1155 (UUPS proxy) multi-token",
+  "standard": "ERC-1155 (UUPS proxy) multi-contract",
   "name": "OryphemToken",
   "symbol": "OPT",
-  "assets": [
-    { "id": 0, "symbol": "OPT", "name": "OryphemToken", "role": "base currency (unlimited)" },
-    { "id": 1, "symbol": "QTC", "name": "QlootChain", "role": "premium chain asset (cap 1e15)" },
-    { "id": 2, "symbol": "ORT", "name": "OryphemIntelligence", "role": "AI credit (1 req = 1 ORT)" }
-  ],
   "address": "0x0000000000000000000000000000000000000000",
   "implementation": "0x0000000000000000000000000000000000000000",
+  "contracts": {
+    "OPT": {
+      "name": "OryphemToken",
+      "symbol": "OPT",
+      "address": "0x0000000000000000000000000000000000000000",
+      "implementation": "0x0000000000000000000000000000000000000000",
+      "role": "base currency (unlimited)"
+    },
+    "QTC": {
+      "name": "QlootChain",
+      "symbol": "QTC",
+      "address": "0x0000000000000000000000000000000000000000",
+      "implementation": "0x0000000000000000000000000000000000000000",
+      "role": "premium chain asset (cap 1e15)"
+    },
+    "ORT": {
+      "name": "OryphemIntelligence",
+      "symbol": "ORT",
+      "address": "0x0000000000000000000000000000000000000000",
+      "implementation": "0x0000000000000000000000000000000000000000",
+      "role": "AI credit (1 request = 1 ORT)"
+    },
+    "ORX": {
+      "name": "OryphemProxy",
+      "symbol": "ORX",
+      "address": "0x0000000000000000000000000000000000000000",
+      "implementation": "0x0000000000000000000000000000000000000000",
+      "role": "router (1 ORT = 50 OPT, 1 QTC = 1000 OPT)"
+    }
+  },
   "treasury": "0x0000000000000000000000000000000000000000",
   "tokenId": 0,
-  "uri": "https://metadata.qloot.example/opt/{id}.json",
+  "uri": "https://metadata.qloot.example/{id}.json",
   "admin": "0x0000000000000000000000000000000000000000",
   "deployer": "0x0000000000000000000000000000000000000000",
   "txHash": "0x0000000000000000000000000000000000000000000000000000000000000000",

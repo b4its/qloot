@@ -1,4 +1,8 @@
-// Deploy OryphemToken (ERC-1155 multi-token, UUPS proxy).
+// Deploy the QLoot digital assets (UUPS proxies):
+//   OPT  OryphemToken          (ERC-1155 base currency, unlimited)
+//   QTC  QlootChain            (ERC-1155 premium asset, cap 1e15)
+//   ORT  OryphemIntelligence   (ERC-1155 AI credit)
+//   ORX  OryphemProxy          (router: 1 ORT = 50 OPT, 1 QTC = 1000 OPT)
 //
 // Secret handling: the deployer key is read from BLOCKCHAIN_PRIVATE_KEY via the
 // hardhat network config. It is never accepted as a CLI argument.
@@ -6,14 +10,40 @@
 //   NETWORK=localhost make blockchain-deploy
 //   NETWORK=sepolia CONFIRM_SEPOLIA=yes make blockchain-deploy
 //
-// After a successful deploy on a public network the implementation and the
-// proxy are verified on Etherscan automatically (set AUTO_VERIFY=false to skip).
-const { ethers, network, upgrades, run } = require("hardhat");
+// After a successful deploy on a public network every implementation + proxy is
+// verified on Etherscan automatically (AUTO_VERIFY=false to skip).
+const { ethers, network, upgrades } = require("hardhat");
 const lib = require("./_lib");
 
-const OPC_NAME = process.env.OPT_NAME || "OryphemToken";
-const OPC_SYMBOL = process.env.OPT_SYMBOL || "OPT";
-const OPC_URI = process.env.OPT_URI || "https://metadata.qloot.example/opt/{id}.json";
+const OPT_NAME = process.env.OPT_NAME || "OryphemToken";
+const OPT_SYMBOL = process.env.OPT_SYMBOL || "OPT";
+const QTC_NAME = process.env.QTC_NAME || "QlootChain";
+const QTC_SYMBOL = process.env.QTC_SYMBOL || "QTC";
+const ORT_NAME = process.env.ORT_NAME || "OryphemIntelligence";
+const ORT_SYMBOL = process.env.ORT_SYMBOL || "ORT";
+const OPT_URI = process.env.OPT_URI || "https://metadata.qloot.example/{id}.json";
+
+async function deployProxy(factoryName, args, label) {
+  const Factory = await ethers.getContractFactory(factoryName);
+  const proxy = await upgrades.deployProxy(Factory, args, {
+    kind: "uups",
+    initializer: "initialize",
+  });
+  await proxy.waitForDeployment();
+  const address = await proxy.getAddress();
+  const impl = await upgrades.erc1967.getImplementationAddress(address);
+  const tx = proxy.deploymentTransaction();
+  const receipt = tx ? await tx.wait() : null;
+  console.log(`${label} proxy         : ${address}`);
+  console.log(`${label} implementation: ${impl}`);
+  return {
+    name: factoryName,
+    address,
+    implementation: impl,
+    txHash: tx ? tx.hash : null,
+    blockNumber: receipt ? receipt.blockNumber : null,
+  };
+}
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -24,70 +54,107 @@ async function main() {
   const treasury = process.env.TREASURY_ADDRESS || deployer.address;
 
   console.log("----------------------------------------");
-  console.log(`Network     : ${network.name} (chainId=${chainId})`);
-  console.log(`Deployer    : ${deployer.address}`);
-  console.log(`Admin       : ${admin}`);
-  console.log(`Treasury    : ${treasury}`);
-  console.log(`URI         : ${OPC_URI}`);
+  console.log(`Network  : ${network.name} (chainId=${chainId})`);
+  console.log(`Deployer : ${deployer.address}`);
+  console.log(`Admin    : ${admin}`);
+  console.log(`Treasury : ${treasury}`);
+  console.log(`URI      : ${OPT_URI}`);
   console.log("----------------------------------------");
 
-  const Factory = await ethers.getContractFactory(lib.CONTRACT_NAME);
-  const opc = await upgrades.deployProxy(
-    Factory,
-    [OPC_NAME, OPC_SYMBOL, OPC_URI, admin, treasury],
-    { kind: "uups", initializer: "initialize" }
+  // 1) The three ERC-1155 assets.
+  const opt = await deployProxy(
+    lib.CONTRACTS.OPT.name,
+    [OPT_NAME, OPT_SYMBOL, OPT_URI, admin],
+    "OPT"
   );
-  await opc.waitForDeployment();
+  const qtc = await deployProxy(
+    lib.CONTRACTS.QTC.name,
+    [QTC_NAME, QTC_SYMBOL, OPT_URI, admin],
+    "QTC"
+  );
+  const ort = await deployProxy(
+    lib.CONTRACTS.ORT.name,
+    [ORT_NAME, ORT_SYMBOL, OPT_URI, admin],
+    "ORT"
+  );
 
-  const address = await opc.getAddress();
-  const deployTx = opc.deploymentTransaction();
-  const receipt = deployTx ? await deployTx.wait() : null;
-  const implAddress = await upgrades.erc1967.getImplementationAddress(address);
-  const proxyAdmin = await upgrades.erc1967.getAdminAddress(address).catch(() => null);
+  // 2) The OryphemProxy router wired to the three assets.
+  const orx = await deployProxy(
+    lib.CONTRACTS.ORX.name,
+    [admin, opt.address, qtc.address, ort.address, treasury],
+    "ORX"
+  );
+
+  // 3) Grant the router ROUTER_ROLE on each asset so it can settle swaps.
+  const ROUTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("ROUTER_ROLE"));
+  for (const [key, rec] of [
+    ["OPT", opt],
+    ["QTC", qtc],
+    ["ORT", ort],
+  ]) {
+    const asset = await lib.attachName(rec.address, rec.name);
+    const tx = await asset.grantRole(ROUTER_ROLE, orx.address);
+    await tx.wait();
+    console.log(`Granted ROUTER_ROLE on ${key} to ORX (${orx.address})`);
+  }
 
   const record = {
     contractName: lib.CONTRACT_NAME,
-    standard: "ERC-1155 (UUPS proxy) multi-token",
-    name: OPC_NAME,
-    symbol: OPC_SYMBOL,
-    uri: OPC_URI,
+    standard: "ERC-1155 (UUPS proxy) multi-contract",
+    name: OPT_NAME,
+    symbol: OPT_SYMBOL,
+    uri: OPT_URI,
+    // Flat = OPT, for legacy consumers.
+    address: opt.address,
+    implementation: opt.implementation,
+    contracts: {
+      OPT: { ...opt, symbol: OPT_SYMBOL, role: "base currency (unlimited)" },
+      QTC: { ...qtc, symbol: QTC_SYMBOL, role: "premium chain asset (cap 1e15)" },
+      ORT: { ...ort, symbol: ORT_SYMBOL, role: "AI credit (1 request = 1 ORT)" },
+      ORX: { ...orx, role: "OryphemProxy router (1 ORT = 50 OPT, 1 QTC = 1000 OPT)" },
+    },
     assets: [
-      { id: 0, symbol: "OPT", name: "OryphemToken", role: "base currency (unlimited)" },
-      { id: 1, symbol: "QTC", name: "QlootChain", role: "premium chain asset (cap 1e15)" },
-      { id: 2, symbol: "ORT", name: "OryphemIntelligence", role: "AI credit (1 req = 1 ORT)" },
+      { key: "OPT", id: 0, symbol: OPT_SYMBOL, name: OPT_NAME, role: "base currency (unlimited)" },
+      {
+        key: "QTC",
+        id: 1,
+        symbol: QTC_SYMBOL,
+        name: QTC_NAME,
+        role: "premium chain asset (cap 1e15)",
+      },
+      { key: "ORT", id: 2, symbol: ORT_SYMBOL, name: ORT_NAME, role: "AI credit (1 req = 1 ORT)" },
+      { key: "ORX", id: null, symbol: "ORX", name: "OryphemProxy", role: "router" },
     ],
-    address,
-    implementation: implAddress,
-    proxyAdmin,
     deployer: deployer.address,
     admin,
     treasury,
     tokenId: 0,
     chainId,
     network: network.name,
-    txHash: deployTx ? deployTx.hash : null,
-    blockNumber: receipt ? receipt.blockNumber : null,
+    txHash: opt.txHash,
+    blockNumber: opt.blockNumber,
     deployedAt: new Date().toISOString(),
   };
 
   lib.writeDeployment(record, network.name);
   lib.writePublicManifest(record, network.name);
 
-  const explorer = lib.explorerUrl(chainId, deployTx ? deployTx.hash : null);
-  console.log(`OryphemToken proxy   : ${address}`);
-  console.log(`implementation        : ${implAddress}`);
-  console.log(`tx: ${deployTx ? deployTx.hash : "(unknown)"}`);
-  if (explorer) console.log(`explorer: ${explorer}`);
+  console.log("----------------------------------------");
+  console.log(`OPT  OryphemToken        : ${opt.address}`);
+  console.log(`QTC  QlootChain          : ${qtc.address}`);
+  console.log(`ORT  OryphemIntelligence : ${ort.address}`);
+  console.log(`ORX  OryphemProxy        : ${orx.address}`);
   console.log(`manifest: deployments/${network.name}.json`);
-  console.log(`public  : deployments/${network.name}.public.json`);
+  console.log("----------------------------------------");
 
-  // Auto-verify on public networks (Etherscan API v2). Skip on local chains
-  // and when AUTO_VERIFY=false.
+  // Auto-verify on public networks (Etherscan API v2).
   const isLocal = ["hardhat", "localhost", "anvil"].includes(network.name);
   const shouldVerify = !isLocal && process.env.AUTO_VERIFY !== "false";
   if (shouldVerify) {
     console.log("");
     console.log("Verifying on Etherscan ...");
+    // Small wait so Etherscan has indexed the bytecode before verifying.
+    await new Promise((r) => setTimeout(r, 20000));
     const failures = await lib.verifyDeployment(record);
     if (failures) {
       console.warn(
@@ -99,8 +166,8 @@ async function main() {
 
   console.log("");
   console.log("REMINDER: move DEFAULT_ADMIN_ROLE / ADMIN_ROLE / PAUSER_ROLE to a");
-  console.log("multisig and grant MINTER/REWARDER to a dedicated backend signer.");
-  return address;
+  console.log("multisig and grant MINTER/REWARDER/ROUTER to dedicated signers.");
+  return record;
 }
 
 main()

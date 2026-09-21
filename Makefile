@@ -380,7 +380,7 @@ blockchain-logs: ## Tail Anvil logs
 	$(COMPOSE_DEV) logs -f --tail=100 anvil
 
 .PHONY: blockchain-deploy
-blockchain-deploy: _need-sepolia-confirm ## Deploy OryphemCoin: [NETWORK=localhost|sepolia]
+blockchain-deploy: _need-sepolia-confirm ## Deploy all assets (OPT/QTC/ORT + ORX): [NETWORK=localhost|sepolia]
 	$(RUN) scripts/deploy.js --network $(NETWORK)
 
 .PHONY: blockchain-redeploy
@@ -405,21 +405,21 @@ blockchain-publish: ## Publish metadata + deployment manifest
 	$(RUN) scripts/publish-metadata.js --network $(NETWORK)
 
 .PHONY: blockchain-mint
-blockchain-mint: _need-sepolia-confirm ## Mint asset: TO=0x.. AMOUNT=100 [TOKEN_ID=0|1|2]
-	$(call _need-var,TO,make blockchain-mint TO=0xabc.. AMOUNT=100 TOKEN_ID=0)
-	$(call _need-var,AMOUNT,make blockchain-mint TO=0xabc.. AMOUNT=100 TOKEN_ID=0)
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/mint.js --network $(NETWORK)
+blockchain-mint: _need-sepolia-confirm ## Mint asset: ASSET=OPT|QTC|ORT TO=0x.. AMOUNT=100
+	$(call _need-var,TO,make blockchain-mint ASSET=OPT TO=0xabc.. AMOUNT=100)
+	$(call _need-var,AMOUNT,make blockchain-mint ASSET=OPT TO=0xabc.. AMOUNT=100)
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) TO=$(TO) AMOUNT=$(AMOUNT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/mint.js --network $(NETWORK)
 
 .PHONY: blockchain-transfer
-blockchain-transfer: _need-sepolia-confirm ## Transfer asset: TO=0x.. AMOUNT=10 [FROM=0x.. TOKEN_ID=0|1|2]
-	$(call _need-var,TO,make blockchain-transfer TO=0xabc.. AMOUNT=10 TOKEN_ID=0)
-	$(call _need-var,AMOUNT,make blockchain-transfer TO=0xabc.. AMOUNT=10 TOKEN_ID=0)
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) FROM=$(FROM) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/transfer.js --network $(NETWORK)
+blockchain-transfer: _need-sepolia-confirm ## Transfer asset: ASSET=OPT|QTC|ORT TO=0x.. AMOUNT=10 [FROM=0x..]
+	$(call _need-var,TO,make blockchain-transfer ASSET=OPT TO=0xabc.. AMOUNT=10)
+	$(call _need-var,AMOUNT,make blockchain-transfer ASSET=OPT TO=0xabc.. AMOUNT=10)
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) TO=$(TO) AMOUNT=$(AMOUNT) FROM=$(FROM) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/transfer.js --network $(NETWORK)
 
 .PHONY: blockchain-swap
-blockchain-swap: _need-sepolia-confirm ## ORX: swap OPT -> asset (self): ASSET=1|2 AMOUNT=10
-	$(call _need-var,ASSET,make blockchain-swap ASSET=2 AMOUNT=10)
-	$(call _need-var,AMOUNT,make blockchain-swap ASSET=2 AMOUNT=10)
+blockchain-swap: _need-sepolia-confirm ## ORX: swap OPT -> asset: ASSET=ORT|QTC AMOUNT=10
+	$(call _need-var,ASSET,make blockchain-swap ASSET=ORT AMOUNT=10)
+	$(call _need-var,AMOUNT,make blockchain-swap ASSET=ORT AMOUNT=10)
 	cd blockchain && ASSET=$(ASSET) AMOUNT=$(AMOUNT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/swap.js --network $(NETWORK)
 
 .PHONY: blockchain-ai-request
@@ -428,88 +428,56 @@ blockchain-ai-request: _need-sepolia-confirm ## ORX: pay AI requests with ORT (1
 	cd blockchain && REQUESTS=$(REQUESTS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/ai-request.js --network $(NETWORK)
 
 .PHONY: blockchain-balance
-blockchain-balance: ## Show balance: ADDRESS=0x.. [TOKEN_ID=0]
-	$(call _need-var,ADDRESS,make blockchain-balance ADDRESS=0xabc.. TOKEN_ID=0)
-	cd blockchain && ADDRESS=$(ADDRESS) TOKEN_ID=$(TOKEN_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/balance.js --network $(NETWORK)
+blockchain-balance: ## Show balance: ASSET=OPT|QTC|ORT ADDRESS=0x..
+	$(call _need-var,ADDRESS,make blockchain-balance ASSET=OPT ADDRESS=0xabc..)
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) ADDRESS=$(ADDRESS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/balance.js --network $(NETWORK)
 
 .PHONY: blockchain-supply
-blockchain-supply: ## Show total supply of a token id [TOKEN_ID=0]
-	cd blockchain && TOKEN_ID=$(TOKEN_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/supply.js --network $(NETWORK)
+blockchain-supply: ## Show total supply (and cap) of an asset: ASSET=OPT|QTC|ORT
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/supply.js --network $(NETWORK)
 
 .PHONY: blockchain-events
-blockchain-events: ## Dump recent contract events [LOOKBACK_BLOCKS=5000]
-	$(RUN) scripts/events.js --network $(NETWORK)
+blockchain-events: ## Dump recent contract events: [ASSET=OPT|QTC|ORT|ORX LOOKBACK_BLOCKS=5000]
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/events.js --network $(NETWORK)
 
 .PHONY: blockchain-status
-blockchain-status: ## Show network + contract + treasury summary
+blockchain-status: ## Show all 4 contracts (addresses, supply, rates)
 	$(RUN) scripts/status.js --network $(NETWORK)
 
 .PHONY: blockchain-show-all
-blockchain-show-all: ## Print full on-chain summary (network, supply, balances, roles)
+blockchain-show-all: ## Print full on-chain summary (assets, supply, rates, roles)
 	$(RUN) scripts/show-all.js --network $(NETWORK)
 
 .PHONY: blockchain-pause
-blockchain-pause: _need-sepolia-confirm ## Pause token transfers
-	$(RUN) scripts/pause.js --network $(NETWORK)
+blockchain-pause: _need-sepolia-confirm ## Pause an asset: [ASSET=OPT|QTC|ORT]
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/pause.js --network $(NETWORK)
 
 .PHONY: blockchain-unpause
-blockchain-unpause: _need-sepolia-confirm ## Unpause token transfers
-	$(RUN) scripts/unpause.js --network $(NETWORK)
+blockchain-unpause: _need-sepolia-confirm ## Unpause an asset: [ASSET=OPT|QTC|ORT]
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/unpause.js --network $(NETWORK)
 
 .PHONY: blockchain-grant-role
-blockchain-grant-role: _need-sepolia-confirm ## Grant role: ROLE=MINTER_ROLE ADDRESS=0x..
-	$(call _need-var,ROLE,make blockchain-grant-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
-	$(call _need-var,ADDRESS,make blockchain-grant-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
-	cd blockchain && ROLE=$(ROLE) ADDRESS=$(ADDRESS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/grant-role.js --network $(NETWORK)
+blockchain-grant-role: _need-sepolia-confirm ## Grant role: ASSET=OPT|QTC|ORT ROLE=MINTER_ROLE ADDRESS=0x..
+	$(call _need-var,ROLE,make blockchain-grant-role ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	$(call _need-var,ADDRESS,make blockchain-grant-role ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) ROLE=$(ROLE) ADDRESS=$(ADDRESS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/grant-role.js --network $(NETWORK)
 
 .PHONY: blockchain-revoke-role
-blockchain-revoke-role: _need-sepolia-confirm ## Revoke role: ROLE=MINTER_ROLE ADDRESS=0x..
-	$(call _need-var,ROLE,make blockchain-revoke-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
-	$(call _need-var,ADDRESS,make blockchain-revoke-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
-	cd blockchain && ROLE=$(ROLE) ADDRESS=$(ADDRESS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/revoke-role.js --network $(NETWORK)
+blockchain-revoke-role: _need-sepolia-confirm ## Revoke role: ASSET=OPT|QTC|ORT ROLE=MINTER_ROLE ADDRESS=0x..
+	$(call _need-var,ROLE,make blockchain-revoke-role ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	$(call _need-var,ADDRESS,make blockchain-revoke-role ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) ROLE=$(ROLE) ADDRESS=$(ADDRESS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/revoke-role.js --network $(NETWORK)
 
 .PHONY: blockchain-upgrade
-blockchain-upgrade: _need-sepolia-confirm ## Upgrade the OPC proxy to the latest implementation
-	$(RUN) scripts/upgrade.js --network $(NETWORK)
-
-.PHONY: blockchain-create-badge
-blockchain-create-badge: _need-sepolia-confirm ## Register a badge: BADGE_ID=1 [BADGE_URI=ipfs://.. SOULBOUND=true]
-	$(call _need-var,BADGE_ID,make blockchain-create-badge BADGE_ID=1 BADGE_URI=ipfs://.. SOULBOUND=true)
-	cd blockchain && BADGE_ID=$(BADGE_ID) BADGE_URI="$(BADGE_URI)" SOULBOUND=$(SOULBOUND) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/create-badge.js --network $(NETWORK)
-
-.PHONY: blockchain-award-badge
-blockchain-award-badge: _need-sepolia-confirm ## Award a badge: TO=0x.. BADGE_ID=1
-	$(call _need-var,TO,make blockchain-award-badge TO=0xabc.. BADGE_ID=1)
-	$(call _need-var,BADGE_ID,make blockchain-award-badge TO=0xabc.. BADGE_ID=1)
-	cd blockchain && TO=$(TO) BADGE_ID=$(BADGE_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/award-badge.js --network $(NETWORK)
-
-.PHONY: blockchain-create-course
-blockchain-create-course: _need-sepolia-confirm ## Create a course: COURSE_ID=1001 [REWARD=500 BADGE_ID=1 ACTIVE=true]
-	$(call _need-var,COURSE_ID,make blockchain-create-course COURSE_ID=1001 REWARD=500 BADGE_ID=1 ACTIVE=true)
-	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/create-course.js --network $(NETWORK)
-
-.PHONY: blockchain-set-course
-blockchain-set-course: _need-sepolia-confirm ## Update a course: COURSE_ID=1001 [REWARD=750 BADGE_ID=1 ACTIVE=true]
-	$(call _need-var,COURSE_ID,make blockchain-set-course COURSE_ID=1001 REWARD=750 BADGE_ID=1 ACTIVE=true)
-	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/set-course.js --network $(NETWORK)
-
-.PHONY: blockchain-add-xp
-blockchain-add-xp: _need-sepolia-confirm ## Grant XP: TO=0x.. AMOUNT=250
-	$(call _need-var,TO,make blockchain-add-xp TO=0xabc.. AMOUNT=250)
-	$(call _need-var,AMOUNT,make blockchain-add-xp TO=0xabc.. AMOUNT=250)
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/add-xp.js --network $(NETWORK)
+blockchain-upgrade: _need-sepolia-confirm ## Upgrade proxy(ies): [ASSET=OPT|QTC|ORT|ORX|ALL]
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),ALL) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/upgrade.js --network $(NETWORK)
 
 .PHONY: blockchain-reward
-blockchain-reward: _need-sepolia-confirm ## Pay an idempotent reward: TO=0x.. AMOUNT=100 KEY=1 [REASON=quest]
-	$(call _need-var,TO,make blockchain-reward TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
-	$(call _need-var,AMOUNT,make blockchain-reward TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
-	$(call _need-var,KEY,make blockchain-reward TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) REASON=$(REASON) KEY=$(KEY) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/reward-user.js --network $(NETWORK)
-
-.PHONY: blockchain-course-state
-blockchain-course-state: ## Show a user's OPC/XP/badges/course state: ADDRESS=0x.. [COURSE_ID=1001]
-	$(call _need-var,ADDRESS,make blockchain-course-state ADDRESS=0xabc.. COURSE_ID=1001)
-	cd blockchain && ADDRESS=$(ADDRESS) COURSE_ID=$(COURSE_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/course-state.js --network $(NETWORK)
+blockchain-reward: _need-sepolia-confirm ## Pay an idempotent reward: ASSET=OPT|QTC|ORT TO=0x.. AMOUNT=100 KEY=1 [REASON=quest]
+	$(call _need-var,TO,make blockchain-reward ASSET=OPT TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
+	$(call _need-var,AMOUNT,make blockchain-reward ASSET=OPT TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
+	$(call _need-var,KEY,make blockchain-reward ASSET=OPT TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
+	cd blockchain && ASSET=$(if $(ASSET),$(ASSET),OPT) TO=$(TO) AMOUNT=$(AMOUNT) REASON=$(REASON) KEY=$(KEY) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/reward-user.js --network $(NETWORK)
 
 # ----------------------------------------------------------------------------
 # Production / observability

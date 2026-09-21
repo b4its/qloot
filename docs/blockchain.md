@@ -1,20 +1,22 @@
-# QLoot Blockchain — OryphemToken (OPT · QTC · ORT)
+# QLoot Blockchain — aset digital (OPT · QTC · ORT + ORX)
 
 See [`blockchain/README.md`](../blockchain/README.md) for the full reference.
 
-## Contract
+## Contracts
 
-`OryphemToken` (`blockchain/contracts/OryphemToken.sol`) is a
-**UUPS-upgradeable ERC-1155 multi-token** and the on-chain digital-asset registry for QLoot.
+QLoot deploys **four separate ERC-1155 UUPS contracts**, each with its own address:
 
-- Token id `0` = **OPT** (OryphemToken) balance — base currency, unlimited supply.
-- Token id `1` = **QTC** (QlootChain) — premium asset, capped at `1e15`.
-- Token id `2` = **ORT** (OryphemIntelligence) — AI credit (1 request = 1 ORT).
-- Token id `1_000_000 + badgeId` = badge proof token.
+| Code | Contract | File | Role | Supply |
+|---|---|---|---|---|
+| **OPT** | `OryphemToken` | `contracts/OryphemToken.sol` | Base currency | unlimited |
+| **QTC** | `QlootChain` | `contracts/QlootChain.sol` | Premium chain asset (certificates, encrypted messages) | capped `1e15` |
+| **ORT** | `OryphemIntelligence` | `contracts/OryphemIntelligence.sol` | AI credit (1 request = 1 ORT) | unlimited |
+| **ORX** | `OryphemProxy` | `contracts/OryphemProxy.sol` | Router between OPT and QTC/ORT | — |
 
-The **OryphemProxy (ORX)** router governs conversions: `1 ORT = 50 OPT`, `1 QTC = 1000 OPT`.
+All three assets share `OryphemAssetBase` and use token id `0` within their own contract.
 
-### Extensions
+The **OryphemProxy (ORX)** router governs conversions: `1 ORT = 50 OPT`, `1 QTC = 1000 OPT`
+(`swapOptFor`); `payAiRequest` burns 1 ORT per AI request.
 
 ### Extensions
 
@@ -25,18 +27,15 @@ plus a custom transient-storage reentrancy guard.
 ### Roles
 
 `DEFAULT_ADMIN_ROLE`, `ADMIN_ROLE`, `MINTER_ROLE`, `REWARDER_ROLE`,
-`PAUSER_ROLE`, `URI_MANAGER_ROLE`.
+`PAUSER_ROLE`, `URI_MANAGER_ROLE`, `ROUTER_ROLE`.
 
 ### Feature set
 
-- Per-user OPC balances, `totalMinted`, `totalBurned`.
-- XP and level (100 XP per level) with `addXp` / `levelFromXp` / `setLevel`.
-- Courses: create, enroll, complete (OPC + XP + badge, idempotent).
-- Badges: registered metadata, soulbound or transferable, idempotent awards.
-- Achievements: arbitrary unlockable achievements.
-- Idempotent rewards keyed by uint256 keys (batch ≤ 200).
-- Treasury accounting: deposits and withdrawals.
-- Caps: per-transaction and rolling daily mint limits; pausable.
+- Per-asset supply, `totalMinted`, `totalBurned`, optional circulating cap.
+- Role-based mint/burn + `mintBatch`, idempotent `rewardUser` keyed by uint256.
+- Pausable, per-tx + rolling daily mint caps, URI management.
+- **ORX router**: `swapOptFor` (OPT → QTC/ORT at fixed rates), `payAiRequest`.
+- ORX totals: `totalOptSwappedIn`, `totalOrtMinted`, `totalQtcMinted`, `totalAiRequests`.
 
 ### Events
 

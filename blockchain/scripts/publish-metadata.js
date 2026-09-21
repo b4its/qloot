@@ -1,32 +1,34 @@
-// Publish/refresh token metadata and emit a public deployment manifest.
+// Set the ERC-1155 metadata URI on every QLoot asset and refresh the manifest.
+//   OPT_URI="https://metadata.qloot.example/{id}.json" make blockchain-publish
 const { ethers, network } = require("hardhat");
 const lib = require("./_lib");
 
 async function main() {
   const dep = lib.readDeployment();
-  const opc = await lib.attach(dep.address);
   const [signer] = await ethers.getSigners();
-
-  const newUri = process.env.OPC_URI || dep.uri;
+  const newUri = process.env.OPT_URI || dep.uri;
   const URI_MANAGER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("URI_MANAGER_ROLE"));
-  const canManage = await opc.hasRole(URI_MANAGER_ROLE, signer.address);
 
-  if (canManage && newUri !== dep.uri) {
-    console.log(`Setting URI -> ${newUri}`);
-    const tx = await opc.setURI(newUri);
-    await tx.wait();
-    dep.uri = newUri;
-    lib.writeDeployment(dep, network.name);
-  } else {
-    console.log(`URI unchanged (${dep.uri}); caller canManage=${canManage}`);
+  for (const key of ["OPT", "QTC", "ORT"]) {
+    const token = await lib.attach(key, dep);
+    const canManage = await token.hasRole(URI_MANAGER_ROLE, signer.address);
+    if (canManage && newUri) {
+      console.log(`${key}: setting URI -> ${newUri}`);
+      const tx = await token.setURI(newUri);
+      await tx.wait();
+    } else {
+      console.log(`${key}: URI unchanged (canManage=${canManage})`);
+    }
   }
 
+  dep.uri = newUri;
+  lib.writeDeployment(dep, network.name);
   const pub = lib.writePublicManifest(dep, network.name);
   console.log("Public manifest written:");
   console.log(JSON.stringify(pub, null, 2));
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error(e.message || e);
   process.exit(1);
 });
