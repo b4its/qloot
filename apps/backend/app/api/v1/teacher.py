@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from sqlalchemy import case, func, select
 
-from app.api.deps import DbSession, TeacherUser
+from app.api.deps import DbSession, LimitParam, OffsetParam, TeacherUser
 from app.models.exam import Exam, ExamAttempt, Question, StudentAnswer
 from app.models.quest import Quest, QuestWinner
 from app.models.wallet import RewardAllocation
@@ -14,7 +14,9 @@ router = APIRouter()
 
 
 @router.get("/teacher/submissions")
-async def submissions(user: TeacherUser, db: DbSession, limit: int = 50, offset: int = 0):
+async def submissions(
+    user: TeacherUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+):
     """Recent student answers across this teacher's exams, with AI feedback."""
     stmt = (
         select(StudentAnswer, Question, ExamAttempt, Exam.title)

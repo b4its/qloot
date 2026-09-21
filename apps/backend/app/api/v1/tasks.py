@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession, TeacherUser
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.db.session import transaction
 from app.models.quest import Task, TaskCompletion
@@ -35,7 +35,9 @@ def _period_key(kind: str, now: datetime) -> str:
 
 
 @router.get("", response_model=list[TaskOut])
-async def list_tasks(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
+async def list_tasks(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+):
     now = datetime.now(UTC)
     stmt = (
         select(Task)

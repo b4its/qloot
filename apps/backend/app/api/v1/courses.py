@@ -10,7 +10,7 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DbSession, TeacherUser
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.learning import (
@@ -29,7 +29,9 @@ router = APIRouter()
 
 
 @router.get("/courses", response_model=list[CourseOut])
-async def list_courses(user: CurrentUser, db: DbSession, limit: int = 100, offset: int = 0):
+async def list_courses(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     """Subjects visible to the caller (students: their class only)."""
     service = CourseService(db)
     courses = await service.list_for_user(user, limit=limit, offset=offset)

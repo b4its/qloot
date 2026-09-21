@@ -12,7 +12,7 @@ import uuid
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
-from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OptionalUser
+from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam, OptionalUser
 from app.models.exam import ExamAttempt
 from app.models.identity import User
 from app.models.quest import QuestWinner
@@ -48,7 +48,9 @@ def _best_per_exam_subquery(*, room_exam_ids=None):
 
 
 @router.get("/global")
-async def global_ranking(db: DbSession, user: CurrentUser, limit: LimitParam = 50):
+async def global_ranking(
+    db: DbSession, user: CurrentUser, limit: LimitParam = 50, offset: OffsetParam = 0
+):
     """Global leaderboard over each user's best-per-exam totals.
 
     Only active users who have at least one graded attempt are ranked, so the
@@ -89,6 +91,7 @@ async def global_ranking(db: DbSession, user: CurrentUser, limit: LimitParam = 5
             User.id.asc(),
         )
         .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).all()
     return {
@@ -101,7 +104,11 @@ async def global_ranking(db: DbSession, user: CurrentUser, limit: LimitParam = 5
 
 @router.get("/rooms/{room_id}")
 async def room_ranking(
-    room_id: uuid.UUID, db: DbSession, user: CurrentUser, limit: LimitParam = 50
+    room_id: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
 ):
     from app.models.exam import Exam
     from app.models.room import RoomMember
@@ -136,6 +143,7 @@ async def room_ranking(
             RoomMember.user_id.asc(),
         )
         .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).all()
     return {
@@ -148,12 +156,20 @@ async def room_ranking(
 
 
 @router.get("/quests/{quest_id}")
-async def quest_ranking(quest_id: uuid.UUID, db: DbSession, user: CurrentUser):
+async def quest_ranking(
+    quest_id: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
     stmt = (
         select(QuestWinner, User.full_name)
         .join(User, User.id == QuestWinner.user_id)
         .where(QuestWinner.quest_id == quest_id)
         .order_by(QuestWinner.rank)
+        .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).all()
     return {

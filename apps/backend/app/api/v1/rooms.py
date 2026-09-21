@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DbSession, TeacherUser
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.room import (
@@ -28,7 +28,9 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[RoomOut])
-async def list_rooms(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
+async def list_rooms(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+):
     return await RoomService(db).list_all(user, limit=limit, offset=offset)
 
 
@@ -120,8 +122,14 @@ async def live_leaderboard(room_id: uuid.UUID, user: CurrentUser, db: DbSession)
 
 
 @router.get("/{room_id}/events", response_model=list[RoomEventOut])
-async def room_events(room_id: uuid.UUID, user: CurrentUser, db: DbSession, limit: int = 50):
-    return await RoomService(db).recent_events(room_id, limit=limit)
+async def room_events(
+    room_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
+):
+    return await RoomService(db).recent_events(room_id, limit=limit, offset=offset)
 
 
 @router.post("/{room_id}/invite", response_model=InviteOut)

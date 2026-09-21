@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from app.api.deps import AdminUser, CurrentUser, DbSession
+from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam
 from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.social import (
@@ -24,7 +24,11 @@ router = APIRouter()
 # --- notifications ---------------------------------------------------------
 @router.get("/notifications", response_model=list[NotificationOut])
 async def list_notifications(
-    user: CurrentUser, db: DbSession, unread_only: bool = False, limit: int = 50, offset: int = 0
+    user: CurrentUser,
+    db: DbSession,
+    unread_only: bool = False,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
 ):
     return await NotificationService(db).list_for_user(
         user.id, limit=limit, offset=offset, unread_only=unread_only

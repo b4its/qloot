@@ -84,7 +84,9 @@ class MaterialService:
         await self._authorize_view(material, user)
         return material
 
-    async def list_for_owner(self, user: User, *, limit: int = 100) -> list[LearningMaterial]:
+    async def list_for_owner(
+        self, user: User, *, limit: int = 100, offset: int = 0
+    ) -> list[LearningMaterial]:
         """List the materials owned by the user (most recent first)."""
         from sqlalchemy import select
 
@@ -93,6 +95,7 @@ class MaterialService:
             .where(LearningMaterial.owner_id == user.id)
             .order_by(LearningMaterial.created_at.desc())
             .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 

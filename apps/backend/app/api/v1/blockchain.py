@@ -136,8 +136,15 @@ async def events(db: DbSession, admin: AdminUser, limit: LimitParam = 100, offse
 
 
 @router.get("/allocations")
-async def allocations(db: DbSession, admin: AdminUser, limit: LimitParam = 100):
-    stmt = select(RewardAllocation).order_by(RewardAllocation.created_at.desc()).limit(limit)
+async def allocations(
+    db: DbSession, admin: AdminUser, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    stmt = (
+        select(RewardAllocation)
+        .order_by(RewardAllocation.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     rows = (await db.execute(stmt)).scalars().all()
     return [
         {

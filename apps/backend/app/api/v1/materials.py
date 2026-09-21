@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, File, Form, UploadFile, status
 
-from app.api.deps import CurrentUser, DbSession, TeacherUser
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.db.session import transaction
 from app.models.exam import Question
 from app.schemas.material import (
@@ -44,9 +44,11 @@ async def upload_material(
 
 
 @router.get("", response_model=list[MaterialOut])
-async def list_materials(user: TeacherUser, db: DbSession, limit: int = 100):
+async def list_materials(
+    user: TeacherUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     """List materials owned by the caller (most recent first)."""
-    rows = await MaterialService(db).list_for_owner(user, limit=limit)
+    rows = await MaterialService(db).list_for_owner(user, limit=limit, offset=offset)
     return [MaterialOut.model_validate(m) for m in rows]
 
 

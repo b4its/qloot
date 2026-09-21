@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
 from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.community import (
@@ -25,7 +25,11 @@ router = APIRouter(prefix="/community", tags=["community"])
 
 @router.get("/posts", response_model=list[PostOut])
 async def list_posts(
-    user: CurrentUser, db: DbSession, topic: str | None = None, limit: int = 30, offset: int = 0
+    user: CurrentUser,
+    db: DbSession,
+    topic: str | None = None,
+    limit: LimitParam = 30,
+    offset: OffsetParam = 0,
 ):
     return await CommunityService(db).list_posts(
         viewer_id=user.id, topic=topic, limit=limit, offset=offset

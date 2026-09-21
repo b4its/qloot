@@ -189,12 +189,15 @@ class RoomService:
             for i, r in enumerate(rows)
         ]
 
-    async def recent_events(self, room_id: uuid.UUID, *, limit: int = 50) -> list[RoomEvent]:
+    async def recent_events(
+        self, room_id: uuid.UUID, *, limit: int = 50, offset: int = 0
+    ) -> list[RoomEvent]:
         stmt = (
             select(RoomEvent)
             .where(RoomEvent.room_id == room_id)
             .order_by(RoomEvent.created_at.desc())
             .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 

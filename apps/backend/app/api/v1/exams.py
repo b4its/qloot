@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DbSession, TeacherUser
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.db.session import transaction
 from app.schemas.exam import (
     AnswerOut,
@@ -28,7 +28,9 @@ router = APIRouter()
 
 
 @router.get("/exams", response_model=list[ExamOut])
-async def list_exams(user: CurrentUser, db: DbSession, limit: int = 50, offset: int = 0):
+async def list_exams(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+):
     return await ExamService(db).list_all(user, limit=limit, offset=offset)
 
 

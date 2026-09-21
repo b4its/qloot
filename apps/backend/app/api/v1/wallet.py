@@ -75,12 +75,15 @@ async def get_ledger(
 
 
 @router.get("/rewards", response_model=list[RewardOut])
-async def my_rewards(user: CurrentUser, db: DbSession, limit: LimitParam = 100):
+async def my_rewards(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     stmt = (
         select(RewardAllocation)
         .where(RewardAllocation.user_id == user.id)
         .order_by(RewardAllocation.created_at.desc())
         .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).scalars().all()
     return [
