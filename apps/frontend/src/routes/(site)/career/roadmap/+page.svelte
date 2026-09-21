@@ -63,8 +63,13 @@
   }
 
   async function setProgress(id: string, value: number) {
-    await api.patch(`/career/roadmap/${id}`, { progress_percent: value });
-    await load();
+    error = "";
+    try {
+      await api.patch(`/career/roadmap/${id}`, { progress_percent: value });
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui progres";
+    }
   }
 
   $: status = recs.length ? recs[0].status : "none";
