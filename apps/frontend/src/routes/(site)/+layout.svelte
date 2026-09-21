@@ -11,7 +11,7 @@
 
   const primaryNav = [
     { href: "/courses", label: "Pelajaran" },
-    { href: "/paths", label: "Jalur Belajar" },
+    { href: "/paths", label: "Mata Pelajaran" },
     { href: "/community", label: "Komunitas" },
     { href: "/about", label: "Tentang" },
   ];
@@ -278,7 +278,9 @@
             <li>
               <a class="transition-colors hover:text-primary" href="/courses">Daftar Pelajaran</a>
             </li>
-            <li><a class="transition-colors hover:text-primary" href="/paths">Jalur Belajar</a></li>
+            <li>
+              <a class="transition-colors hover:text-primary" href="/paths">Mata Pelajaran</a>
+            </li>
             <li><a class="transition-colors hover:text-primary" href="/community">Komunitas</a></li>
             <li>
               <a class="transition-colors hover:text-primary" href="/career">Panduan Karier</a>
