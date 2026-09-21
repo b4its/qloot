@@ -80,6 +80,20 @@ async def test_student_cannot_create_course(client):
     assert resp.status_code == 403
 
 
+async def test_student_cannot_create_lesson(client):
+    await _register(client, "lesson_t@example.com", role="teacher")
+    course = await client.post(
+        "/api/v1/courses",
+        json={"title": "Kelas Materi", "class_code": "1A", "class_type": "IPA"},
+    )
+    course_id = course.json()["id"]
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "lesson_s@example.com", role="student")
+    resp = await client.post(f"/api/v1/courses/{course_id}/lessons", json={"title": "Langgar"})
+    assert resp.status_code in (401, 403)
+
+
 async def test_teacher_can_create_course(client):
     await _register(client, "teach@example.com", role="teacher")
     resp = await client.post(

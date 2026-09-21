@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
-  import type { Course } from "$lib/types";
+  import type { Course, Lesson } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
 
@@ -25,6 +25,13 @@
     description: "",
   };
 
+  // Inline lesson management.
+  let lessonsFor: string | null = null;
+  let lessons: Lesson[] = [];
+  let lessonsLoading = false;
+  let newLesson = { title: "", content_md: "" };
+  let lessonBusy = false;
+
   const classTypes = ["IPA", "IPS", "Bahasa", "Umum"];
 
   async function load() {
@@ -35,6 +42,47 @@
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
       loading = false;
+    }
+  }
+
+  async function openLessons(s: Course) {
+    if (lessonsFor === s.id) {
+      lessonsFor = null;
+      return;
+    }
+    lessonsFor = s.id;
+    lessonsLoading = true;
+    newLesson = { title: "", content_md: "" };
+    try {
+      lessons = await api.get<Lesson[]>(`/courses/${s.id}/lessons`);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat materi";
+    } finally {
+      lessonsLoading = false;
+    }
+  }
+
+  async function addLesson(s: Course) {
+    if (newLesson.title.trim().length < 2) {
+      error = "Judul materi minimal 2 karakter.";
+      return;
+    }
+    error = "";
+    lessonBusy = true;
+    try {
+      await api.post(`/courses/${s.id}/lessons`, {
+        title: newLesson.title.trim(),
+        content_md: newLesson.content_md.trim() || null,
+        position: lessons.length,
+      });
+      lessons = await api.get<Lesson[]>(`/courses/${s.id}/lessons`);
+      newLesson = { title: "", content_md: "" };
+      message = "Materi ditambahkan.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menambah materi";
+    } finally {
+      lessonBusy = false;
     }
   }
 
@@ -184,40 +232,84 @@
     {:else}
       <div class="mt-4 card !p-0 divide-y">
         {#each subjects as s}
-          <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-            <div class="flex items-center gap-4">
-              <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
-                <Icon name="book-open-reader" size="17px" />
-              </span>
-              <div>
-                <div class="flex items-center gap-2">
-                  <p class="font-semibold">{s.title}</p>
-                  <span class="badge badge-indigo"
-                    >Kelas {s.class_code}{s.class_type ? ` · ${s.class_type}` : ""}</span
-                  >
-                  {#if !s.is_published}<span class="badge badge-amber">Draf</span>{/if}
+          <div class="px-5 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div class="flex items-center gap-4">
+                <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
+                  <Icon name="book-open-reader" size="17px" />
+                </span>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <p class="font-semibold">{s.title}</p>
+                    <span class="badge badge-indigo"
+                      >Kelas {s.class_code}{s.class_type ? ` · ${s.class_type}` : ""}</span
+                    >
+                    {#if !s.is_published}<span class="badge badge-amber">Draf</span>{/if}
+                  </div>
+                  <p class="text-xs muted">
+                    {s.subject ?? "Tanpa mata pelajaran"} · {s.lesson_count ?? 0} materi
+                  </p>
                 </div>
-                <p class="text-xs muted">
-                  {s.subject ?? "Tanpa mata pelajaran"} · {s.lesson_count ?? 0} materi
-                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="btn-ghost" on:click={() => openLessons(s)}>
+                  <Icon name="list" size="12px" /> Materi
+                </button>
+                <button class="btn-secondary" on:click={() => togglePublish(s)}>
+                  <Icon name={s.is_published ? "eye-slash" : "upload"} size="12px" />
+                  {s.is_published ? "Sembunyikan" : "Terbitkan"}
+                </button>
+                <button
+                  class="btn-icon !text-tertiary hover:!border-tertiary"
+                  on:click={() => remove(s)}
+                  aria-label="Hapus"
+                >
+                  <Icon name="trash" size="12px" />
+                </button>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <a href={`/courses/${s.id}`} class="btn-ghost"
-                ><Icon name="eye" size="12px" /> Lihat</a
-              >
-              <button class="btn-secondary" on:click={() => togglePublish(s)}>
-                <Icon name={s.is_published ? "eye-slash" : "upload"} size="12px" />
-                {s.is_published ? "Sembunyikan" : "Terbitkan"}
-              </button>
-              <button
-                class="btn-icon !text-tertiary hover:!border-tertiary"
-                on:click={() => remove(s)}
-                aria-label="Hapus"
-              >
-                <Icon name="trash" size="12px" />
-              </button>
-            </div>
+
+            {#if lessonsFor === s.id}
+              <div class="mt-4 border-t pt-4">
+                {#if lessonsLoading}
+                  <div class="space-y-2">
+                    {#each Array(2) as _}<div class="skeleton h-8"></div>{/each}
+                  </div>
+                {:else}
+                  <ol class="space-y-1 text-sm">
+                    {#each lessons as l, i}
+                      <li class="flex items-center justify-between border-b py-1 last:border-0">
+                        <span>{i + 1}. {l.title}</span>
+                        <span
+                          class="badge"
+                          class:badge-mint={l.is_published}
+                          class:badge-neutral={!l.is_published}
+                        >
+                          {l.is_published ? "Terbit" : "Draf"}
+                        </span>
+                      </li>
+                    {/each}
+                    {#if lessons.length === 0}<li class="muted">Belum ada materi.</li>{/if}
+                  </ol>
+
+                  <div class="mt-3 space-y-2">
+                    <input class="input" placeholder="Judul materi" bind:value={newLesson.title} />
+                    <textarea
+                      class="input min-h-[70px]"
+                      placeholder="Konten (Markdown)"
+                      bind:value={newLesson.content_md}
+                    ></textarea>
+                    <button class="btn-primary" on:click={() => addLesson(s)} disabled={lessonBusy}>
+                      {#if lessonBusy}<Icon name="spinner" spin size="12px" />{:else}<Icon
+                          name="plus"
+                          size="12px"
+                        />{/if}
+                      Tambah materi
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {/if}
           </div>
         {/each}
       </div>
