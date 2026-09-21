@@ -317,3 +317,34 @@ async def test_attempt_before_open_is_invalid(session):
     qa = await QuestService(session).record_attempt(future.id, student, exam_attempt_id=attempt.id)
     assert qa.is_valid is False
     assert qa.invalid_reason and "before" in qa.invalid_reason
+
+
+async def test_refund_reward_preserves_ledger_invariant(session):
+    """Refunding a spent reward must not silently floor the balance at 0.
+
+    The double-entry invariant ``credit - debit == cached_balance`` (which
+    ``reconcile()`` checks) must hold even when the credit was already spent.
+    """
+    student = await _user(session, "refund@q.com")
+    engine = RewardEngine(session)
+    alloc_id = uuid.uuid4()
+    await engine.credit(
+        user=student,
+        amount=100,
+        reference_type="reward",
+        reference_id=str(alloc_id),
+        reward_key_value="rk",
+        token_id=0,
+    )
+    # Spend it: withdraw the whole balance so nothing remains.
+    await engine.debit_for_withdrawal(
+        user=student, amount=100, withdrawal_id=uuid.uuid4(), destination="0x" + "2" * 40
+    )
+    assert await engine.balance(student.id) == 0
+
+    # Now the on-chain mint fails -> refund the original reward.
+    await engine.refund_reward(user_id=student.id, amount=100, allocation_id=alloc_id)
+
+    cached, computed = await engine.reconcile(student.id)
+    assert cached == computed, "refund must keep cached balance reconcilable"
+    assert cached == -100

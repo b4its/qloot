@@ -287,8 +287,11 @@ class RewardEngine:
     ) -> WalletLedgerEntry | None:
         """Reverse a reward credit whose on-chain mint failed/reverted.
 
-        Idempotent on the allocation id; the balance floor is 0 so a partial
-        reversal can never push the ledger negative.
+        Idempotent on the allocation id. The reversal records the true balance
+        (which may go negative if the user already spent the credit) so the
+        double-entry invariant ``credit - debit == cached_balance`` — used by
+        ``reconcile()`` — is preserved. Flooring at 0 previously created a
+        phantom mismatch.
         """
         account = await self.get_or_create_account(user_id)
         reference_id = str(allocation_id)
@@ -304,7 +307,7 @@ class RewardEngine:
         if dup is not None:
             return dup
 
-        new_balance = max(0, account.cached_balance - amount)
+        new_balance = account.cached_balance - amount
         entry = WalletLedgerEntry(
             account_id=account.id,
             token_id=account.token_id,
