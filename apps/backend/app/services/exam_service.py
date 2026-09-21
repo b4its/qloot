@@ -244,19 +244,27 @@ class ExamService:
         stmt = select(StudentAnswer).where(StudentAnswer.attempt_id == attempt_id)
         return list((await self.session.execute(stmt)).scalars().all())
 
-    async def my_attempts(self, user: User) -> list[ExamAttempt]:
+    async def my_attempts(
+        self, user: User, *, limit: int = 100, offset: int = 0
+    ) -> list[ExamAttempt]:
         stmt = (
             select(ExamAttempt)
             .where(ExamAttempt.user_id == user.id)
             .order_by(ExamAttempt.started_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
-    async def exam_results(self, exam_id: uuid.UUID, user: User) -> list[ExamAttempt]:
+    async def exam_results(
+        self, exam_id: uuid.UUID, user: User, *, limit: int = 200, offset: int = 0
+    ) -> list[ExamAttempt]:
         await self._get_owned_exam(exam_id, user)
         stmt = (
             select(ExamAttempt)
             .where(ExamAttempt.exam_id == exam_id)
             .order_by(ExamAttempt.score_bp.desc().nullslast())
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())

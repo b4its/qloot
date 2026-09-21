@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
 from app.core.errors import NotFoundError
 from app.models.exam import ExamAttempt
 from app.models.identity import User
@@ -21,7 +21,7 @@ async def my_gamification(user: CurrentUser, db: DbSession):
 
 
 @router.get("/levels")
-async def levels(user: CurrentUser, db: DbSession, limit: int = 50):
+async def levels(user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0):
     """Leaderboard ordered by XP (level), computed from real activity."""
     # Candidate set: active users with at least one graded attempt.
     graded = (
@@ -40,15 +40,17 @@ async def levels(user: CurrentUser, db: DbSession, limit: int = 50):
         .all()
     )
     xp_map = await GamificationService(db).xp_for_users([u.id for u in users])
-    ranked = sorted(users, key=lambda u: (-xp_map.get(u.id, 0), str(u.id)))[:limit]
+    ordered = sorted(users, key=lambda u: (-xp_map.get(u.id, 0), str(u.id)))
+    # Rank is global (position in the full ordering); only the window is paged.
+    window = ordered[offset : offset + limit]
     entries = []
-    for i, u in enumerate(ranked):
+    for i, u in enumerate(window):
         xp = xp_map.get(u.id, 0)
         entries.append(
             {
                 "user_id": str(u.id),
                 "display_name": u.full_name,
-                "rank": i + 1,
+                "rank": offset + i + 1,
                 "xp": xp,
                 "level": level_for_xp(xp)[0],
             }

@@ -64,8 +64,14 @@ async def toggle_like(post_id: uuid.UUID, user: CurrentUser, db: DbSession):
 
 
 @router.get("/posts/{post_id}/comments", response_model=list[CommentOut])
-async def list_comments(post_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return await CommunityService(db).list_comments(post_id)
+async def list_comments(
+    post_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
+    return await CommunityService(db).list_comments(post_id, limit=limit, offset=offset)
 
 
 @router.post(

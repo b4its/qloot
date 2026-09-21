@@ -240,11 +240,18 @@ async def my_ranking(db: DbSession, user: CurrentUser):
 
 
 @router.get("/leaderboards")
-async def list_materialized(db: DbSession, user: OptionalUser, limit: LimitParam = 20):
+async def list_materialized(
+    db: DbSession, user: OptionalUser, limit: LimitParam = 20, offset: OffsetParam = 0
+):
     """List materialized leaderboard snapshots (if any have been built)."""
     from app.models.ranking import Leaderboard
 
-    stmt = select(Leaderboard).order_by(Leaderboard.updated_at.desc()).limit(limit)
+    stmt = (
+        select(Leaderboard)
+        .order_by(Leaderboard.updated_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     rows = (await db.execute(stmt)).scalars().all()
     return [
         {

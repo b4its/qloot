@@ -205,8 +205,16 @@ class CourseService:
             raise NotFoundError("Materi pelajaran tidak ditemukan")
         return lesson
 
-    async def list_lessons(self, course_id: uuid.UUID) -> list[Lesson]:
-        stmt = select(Lesson).where(Lesson.course_id == course_id).order_by(Lesson.position)
+    async def list_lessons(
+        self, course_id: uuid.UUID, *, limit: int = 200, offset: int = 0
+    ) -> list[Lesson]:
+        stmt = (
+            select(Lesson)
+            .where(Lesson.course_id == course_id)
+            .order_by(Lesson.position)
+            .limit(limit)
+            .offset(offset)
+        )
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def update_lesson(self, lesson_id: uuid.UUID, user: User, **data) -> Lesson:

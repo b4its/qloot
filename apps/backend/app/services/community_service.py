@@ -53,12 +53,16 @@ class CommunityService:
         decorated["comments"] = comments
         return decorated
 
-    async def list_comments(self, post_id: uuid.UUID) -> list[dict]:
+    async def list_comments(
+        self, post_id: uuid.UUID, *, limit: int = 100, offset: int = 0
+    ) -> list[dict]:
         stmt = (
             select(CommunityComment, User.full_name)
             .join(User, User.id == CommunityComment.author_id)
             .where(CommunityComment.post_id == post_id)
             .order_by(CommunityComment.created_at)
+            .limit(limit)
+            .offset(offset)
         )
         rows = (await self.session.execute(stmt)).all()
         return [

@@ -137,9 +137,15 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
 
 
 @router.get("/{quest_id}/winners", response_model=list[WinnerOut])
-async def list_winners(quest_id: uuid.UUID, user: CurrentUser, db: DbSession):
+async def list_winners(
+    quest_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
     service = QuestService(db)
-    winners = await service.list_winners(quest_id)
+    winners = await service.list_winners(quest_id, limit=limit, offset=offset)
     rules = {r.rank: r for r in await service.list_rules(quest_id)}
     return [
         WinnerOut(

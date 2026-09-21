@@ -202,9 +202,15 @@ class QuestService:
         log.info("quest_finalized", quest_id=str(quest_id), winners=len(winners))
         return quest, winners
 
-    async def list_winners(self, quest_id: uuid.UUID) -> list[QuestWinner]:
+    async def list_winners(
+        self, quest_id: uuid.UUID, *, limit: int = 200, offset: int = 0
+    ) -> list[QuestWinner]:
         stmt = (
-            select(QuestWinner).where(QuestWinner.quest_id == quest_id).order_by(QuestWinner.rank)
+            select(QuestWinner)
+            .where(QuestWinner.quest_id == quest_id)
+            .order_by(QuestWinner.rank)
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 

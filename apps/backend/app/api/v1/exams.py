@@ -124,8 +124,10 @@ async def start_attempt(exam_id: uuid.UUID, user: CurrentUser, db: DbSession):
 
 
 @router.get("/attempts", response_model=list[AttemptOut])
-async def my_attempts(user: CurrentUser, db: DbSession):
-    return await ExamService(db).my_attempts(user)
+async def my_attempts(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    return await ExamService(db).my_attempts(user, limit=limit, offset=offset)
 
 
 @router.get("/attempts/{attempt_id}", response_model=AttemptOut)
@@ -190,5 +192,11 @@ async def attempt_result(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
 
 
 @router.get("/exams/{exam_id}/results", response_model=list[AttemptOut])
-async def exam_results(exam_id: uuid.UUID, user: TeacherUser, db: DbSession):
-    return await ExamService(db).exam_results(exam_id, user)
+async def exam_results(
+    exam_id: uuid.UUID,
+    user: TeacherUser,
+    db: DbSession,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
+    return await ExamService(db).exam_results(exam_id, user, limit=limit, offset=offset)
