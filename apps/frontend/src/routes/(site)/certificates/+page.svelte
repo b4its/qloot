@@ -23,7 +23,10 @@
   let error = "";
   let copied = false;
 
-  const verifyUrl = (id: string) => `qloot.id/verify/${id.toLowerCase()}`;
+  const verifyUrl = (id: string) =>
+    typeof location !== "undefined"
+      ? `${location.origin}/verify/${id}`
+      : `/verify/${id}`;
 
   $: user = $auth.user;
 
@@ -174,10 +177,15 @@
       <aside class="space-y-4 h-fit lg:sticky lg:top-28">
         <div class="card">
           <p class="mono-label">Verifikasi</p>
-          <div class="mt-3 flex items-center gap-2 rounded-sm border px-3 py-2">
+          <a
+            class="mt-3 flex items-center gap-2 rounded-sm border px-3 py-2 transition-colors hover:border-primary"
+            href={verifyUrl(active.credential_id)}
+            target="_blank"
+            rel="noopener"
+          >
             <Icon name="link" class="text-secondary" size="12px" />
             <span class="mono truncate text-xs">{verifyUrl(active.credential_id)}</span>
-          </div>
+          </a>
           <button class="btn-secondary mt-3 w-full" on:click={copyLink}>
             <Icon name={copied ? "check" : "copy"} size="12px" />
             {copied ? "Tersalin" : "Salin tautan"}
