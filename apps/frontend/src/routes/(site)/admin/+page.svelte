@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
 
-  onMount(() => {
-    if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
-  });
+  // Redirect once auth resolves (a mount-only check could fire too early and
+  // leave the admin panel visible to a non-admin mid-load).
+  $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
   const links = [
     {

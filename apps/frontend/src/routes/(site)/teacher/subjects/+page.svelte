@@ -6,9 +6,9 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
 
-  onMount(() => {
-    if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
-  });
+  // Redirect once auth resolves; a mount-only check could fire before the
+  // session loaded, briefly exposing teacher-only UI.
+  $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
   let subjects: Course[] = [];
   let loading = true;

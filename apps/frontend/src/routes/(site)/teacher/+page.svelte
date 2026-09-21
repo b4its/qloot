@@ -7,9 +7,9 @@
   import type { TeacherAnalytics } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
 
-  onMount(() => {
-    if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
-  });
+  // Redirect once auth has resolved; a mount-only check missed the case where
+  // auth was still loading, briefly exposing the panel to non-teachers.
+  $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
   let analytics: TeacherAnalytics | null = null;
   let error = "";
