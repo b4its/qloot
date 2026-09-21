@@ -17,6 +17,7 @@ from app.schemas.material import (
     GeneratedQuestionOut,
     GenerateQuestionsRequest,
     MaterialOut,
+    MaterialUpdate,
     SummaryOut,
 )
 from app.services.material_service import MaterialService
@@ -73,6 +74,15 @@ async def get_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession)
     # Enforce the same visibility rule as summarize/ask (owner, admin, or an
     # enrolled student) — previously any authenticated user could read metadata.
     material = await MaterialService(db).get_viewable(material_id, user)
+    return MaterialOut.model_validate(material)
+
+
+@router.patch("/{material_id}", response_model=MaterialOut)
+async def update_material(
+    material_id: uuid.UUID, payload: MaterialUpdate, user: TeacherUser, db: DbSession
+):
+    async with transaction(db):
+        material = await MaterialService(db).update(material_id, user, filename=payload.filename)
     return MaterialOut.model_validate(material)
 
 

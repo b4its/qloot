@@ -22,6 +22,12 @@ class MaterialOut(ORMModel):
     created_at: datetime
 
 
+class MaterialUpdate(BaseModel):
+    """Editable material metadata (the binary itself is immutable)."""
+
+    filename: str = Field(min_length=1, max_length=255)
+
+
 class GenerateQuestionsRequest(BaseModel):
     count: int = Field(default=5, ge=1, le=20)
     language: str = Field(default="id", max_length=8)

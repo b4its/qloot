@@ -94,6 +94,16 @@ class MaterialService:
         if key:
             storage.delete(key)
 
+    async def update(
+        self, material_id: uuid.UUID, user: User, *, filename: str
+    ) -> LearningMaterial:
+        """Rename a material (owner or admin). The PDF binary is immutable."""
+        material = await self.get(material_id)
+        self._authorize(material, user)
+        material.filename = filename
+        await self.session.flush()
+        return material
+
     async def list_for_owner(
         self, user: User, *, limit: int = 100, offset: int = 0
     ) -> list[LearningMaterial]:

@@ -289,3 +289,61 @@ async def test_generate_questions_rejects_foreign_exam(client):
         json={"count": 2, "language": "id", "exam_id": exam_id},
     )
     assert resp.status_code == 403, resp.text
+
+
+async def test_material_rename(client):
+    import io
+
+    from tests.pdf_util import make_pdf
+
+    await _register(client, "crud_mat_rename@ex.com", "teacher")
+    up = await client.post(
+        "/api/v1/materials/upload",
+        files={"file": ("old.pdf", io.BytesIO(make_pdf("Materi biologi sel.")), "application/pdf")},
+    )
+    material_id = up.json()["id"]
+    resp = await client.patch(f"/api/v1/materials/{material_id}", json={"filename": "baru.pdf"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["filename"] == "baru.pdf"
+
+
+async def test_room_delete(client):
+    await _register(client, "crud_room_owner@ex.com", "teacher")
+    room = await client.post(
+        "/api/v1/rooms",
+        json={"name": "Ruang Uji", "is_public": True, "max_participants": 10},
+    )
+    assert room.status_code == 201, room.text
+    room_id = room.json()["id"]
+    dele = await client.delete(f"/api/v1/rooms/{room_id}")
+    assert dele.status_code == 204, dele.text
+    gone = await client.get(f"/api/v1/rooms/{room_id}")
+    assert gone.status_code == 404
+
+
+async def test_task_crud_and_delete_guard(client):
+    await _register(client, "crud_task_owner@ex.com", "teacher")
+    task = await client.post(
+        "/api/v1/tasks",
+        json={"title": "Tugas Harian", "kind": "daily", "reward_amount": 10},
+    )
+    assert task.status_code == 201, task.text
+    task_id = task.json()["id"]
+
+    upd = await client.patch(f"/api/v1/tasks/{task_id}", json={"title": "Tugas Harian (edit)"})
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["title"] == "Tugas Harian (edit)"
+
+    # Complete as a student, then the owner may not delete it any more.
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "crud_task_stu@ex.com", "student")
+    done = await client.post(f"/api/v1/tasks/{task_id}/complete")
+    assert done.status_code == 200, done.text
+
+    await client.post("/api/v1/auth/logout")
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "crud_task_owner@ex.com", "password": "Password123!"},
+    )
+    blocked = await client.delete(f"/api/v1/tasks/{task_id}")
+    assert blocked.status_code == 409, blocked.text

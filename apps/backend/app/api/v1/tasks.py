@@ -75,6 +75,26 @@ async def update_task(task_id: uuid.UUID, payload: TaskUpdate, user: TeacherUser
     return TaskOut.model_validate(task)
 
 
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_task(task_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        task = await db.get(Task, task_id)
+        if task is None:
+            raise NotFoundError("Task not found")
+        if not user.has_role("admin") and task.owner_id != user.id:
+            raise ForbiddenError("You do not own this task")
+        # Refuse once anyone has completed it, so reward history is not orphaned.
+        completed = (
+            await db.execute(
+                select(TaskCompletion.id).where(TaskCompletion.task_id == task_id).limit(1)
+            )
+        ).scalar_one_or_none()
+        if completed is not None:
+            raise ConflictError("Cannot delete a task that has completions")
+        await db.delete(task)
+        await db.flush()
+
+
 @router.post("/{task_id}/complete", response_model=TaskCompletionOut)
 async def complete_task(task_id: uuid.UUID, user: CurrentUser, db: DbSession):
     async with transaction(db):
