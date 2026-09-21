@@ -9,7 +9,13 @@ export function bpToPercent(bp: number | null | undefined, digits = 1): string {
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return iso;
   }
@@ -20,12 +26,16 @@ export function relativeTime(iso: string | null | undefined): string {
   const then = new Date(iso).getTime();
   const diff = Date.now() - then;
   const sec = Math.round(diff / 1000);
-  if (Math.abs(sec) < 60) return `${sec}s ago`;
+  if (Math.abs(sec) < 60) return `${sec} dtk lalu`;
   const min = Math.round(sec / 60);
-  if (Math.abs(min) < 60) return `${min}m ago`;
+  if (Math.abs(min) < 60) return `${min} mnt lalu`;
   const hr = Math.round(min / 60);
-  if (Math.abs(hr) < 24) return `${hr}h ago`;
-  return `${Math.round(hr / 24)}d ago`;
+  if (Math.abs(hr) < 24) return `${hr} jam lalu`;
+  const day = Math.round(hr / 24);
+  if (Math.abs(day) < 30) return `${day} hari lalu`;
+  const month = Math.round(day / 30);
+  if (Math.abs(month) < 12) return `${month} bln lalu`;
+  return `${Math.round(month / 12)} thn lalu`;
 }
 
 export function shortHash(hash: string | null | undefined, size = 6): string {
@@ -36,6 +46,46 @@ export function shortHash(hash: string | null | undefined, size = 6): string {
 export function formatNumber(n: number | null | undefined): string {
   if (n === null || n === undefined) return "0";
   return new Intl.NumberFormat().format(n);
+}
+
+/** Human-readable Indonesian label for an internal status value. */
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Draf",
+  open: "Terbuka",
+  published: "Terbit",
+  finalized: "Final",
+  closed: "Ditutup",
+  completed: "Selesai",
+  active: "Aktif",
+  archived: "Diarsipkan",
+  pending: "Menunggu",
+  confirmed: "Terkonfirmasi",
+  failed: "Gagal",
+  queued: "Dalam antrean",
+  created: "Dibuat",
+  requested: "Diminta",
+  processing: "Diproses",
+  uploaded: "Terunggah",
+  ready: "Siap",
+  not_started: "Belum dimulai",
+  in_progress: "Berjalan",
+  started: "Dimulai",
+  submitted: "Terkumpul",
+  grading: "Dinilai",
+  graded: "Ternilai",
+  grading_failed: "Gagal dinilai",
+  new: "Baru",
+  done: "Selesai",
+  approved: "Disetujui",
+  in_review: "Dalam tinjauan",
+  rejected: "Ditolak",
+  mastered: "Dikuasai",
+};
+
+/** Map an internal English status to its Indonesian display label. */
+export function statusLabel(status: string | null | undefined): string {
+  if (!status) return "—";
+  return STATUS_LABELS[status.toLowerCase()] ?? status;
 }
 
 export function etherscanUrl(txHash: string | null | undefined, chainId = 11155111): string | null {
