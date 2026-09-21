@@ -15,10 +15,19 @@
   let current = 0;
   let secondsLeft = 0;
   let ticker: ReturnType<typeof setInterval> | null = null;
+  let submitting = false;
+  let submitError = "";
+  let finished = false;
   const autosaveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
   const examId = $page.params.examId;
   const attemptId = $page.url.searchParams.get("attempt") ?? "";
+
+  function warnBeforeUnload(e: BeforeUnloadEvent) {
+    if (finished || secondsLeft <= 0) return;
+    e.preventDefault();
+    e.returnValue = "";
+  }
 
   async function load() {
     try {
@@ -33,7 +42,7 @@
       }
       startTimer();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load attempt";
+      error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
     } finally {
       loading = false;
     }
@@ -70,16 +79,25 @@
   }
 
   async function submit() {
+    if (submitting || finished) return;
+    submitting = true;
+    submitError = "";
     if (ticker) clearInterval(ticker);
-    // Flush pending answers.
-    if (exam) {
-      for (const q of exam.questions ?? []) await saveAnswer(q.id);
+    // Flush any pending autosave timers first, then save every answer.
+    for (const qid of Object.keys(autosaveTimers)) {
+      clearTimeout(autosaveTimers[qid]);
     }
     try {
+      if (exam) {
+        for (const q of exam.questions ?? []) await saveAnswer(q.id);
+      }
       await api.post(`/attempts/${attemptId}/submit`);
+      finished = true;
       await goto(`/exams/${examId}/result?attempt=${attemptId}`);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Submit failed";
+      submitError = e instanceof ApiError ? e.message : "Gagal mengirim jawaban";
+    } finally {
+      submitting = false;
     }
   }
 
@@ -89,9 +107,14 @@
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
 
-  onMount(load);
+  onMount(() => {
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    load();
+  });
   onDestroy(() => {
     if (ticker) clearInterval(ticker);
+    for (const qid of Object.keys(autosaveTimers)) clearTimeout(autosaveTimers[qid]);
+    window.removeEventListener("beforeunload", warnBeforeUnload);
   });
 </script>
 
@@ -118,9 +141,19 @@
           <Icon name="stopwatch" size="10px" />
           {mmss(secondsLeft)}
         </span>
-        <button class="btn-primary" on:click={submit}>Submit</button>
+        <button class="btn-primary" on:click={submit} disabled={submitting}>
+          {#if submitting}<Icon name="spinner" spin size="12px" />{/if}
+          {submitting ? "Mengirim…" : "Submit"}
+        </button>
       </div>
     </div>
+
+    {#if submitError}
+      <div class="alert-error mb-4">
+        <span class="flex-1">{submitError}</span>
+        <button class="btn-secondary !py-1 flex-none" on:click={submit}>Coba lagi</button>
+      </div>
+    {/if}
 
     <div class="grid gap-4 lg:grid-cols-[1fr_220px]">
       <div class="space-y-4">

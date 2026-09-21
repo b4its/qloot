@@ -14,21 +14,36 @@
   }[] = [];
   let message = "";
   let error = "";
+  let loading = true;
+  let busy = "";
 
   async function load() {
+    loading = true;
+    error = "";
     try {
       status = await api.get<BlockchainStatus>("/blockchain/status");
-      txs = await api.get<BlockchainTx[]>("/blockchain/transactions");
-      events = await api.get("/blockchain/events");
+      txs = await api.get<BlockchainTx[]>("/blockchain/transactions?limit=100");
+      events = await api.get("/blockchain/events?limit=50");
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load blockchain data";
+      error = e instanceof ApiError ? e.message : "Gagal memuat data blockchain";
+    } finally {
+      loading = false;
     }
   }
 
   async function control(action: "pause" | "unpause") {
-    await api.post(`/admin/blockchain/${action}`);
-    message = `${action} queued for the blockchain worker`;
-    await load();
+    error = "";
+    message = "";
+    busy = action;
+    try {
+      await api.post(`/admin/blockchain/${action}`);
+      message = `${action} diantrekan untuk blockchain worker`;
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengirim perintah";
+    } finally {
+      busy = "";
+    }
   }
 
   onMount(load);

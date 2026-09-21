@@ -24,9 +24,7 @@
   let copied = false;
 
   const verifyUrl = (id: string) =>
-    typeof location !== "undefined"
-      ? `${location.origin}/verify/${id}`
-      : `/verify/${id}`;
+    typeof location !== "undefined" ? `${location.origin}/verify/${id}` : `/verify/${id}`;
 
   $: user = $auth.user;
 

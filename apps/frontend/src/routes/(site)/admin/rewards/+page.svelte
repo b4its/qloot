@@ -16,24 +16,49 @@
   let rewards: RewardRow[] = [];
   let error = "";
   let message = "";
+  let loading = true;
+  let busy = "";
 
   async function load() {
+    loading = true;
+    error = "";
     try {
-      rewards = await api.get<RewardRow[]>("/admin/rewards");
+      rewards = await api.get<RewardRow[]>("/admin/rewards?limit=100");
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load rewards";
+      error = e instanceof ApiError ? e.message : "Gagal memuat hadiah";
+    } finally {
+      loading = false;
     }
   }
 
   async function retry(id: string) {
-    await api.post(`/admin/rewards/${id}/retry`);
-    message = "Retry queued";
-    await load();
+    error = "";
+    message = "";
+    busy = id;
+    try {
+      await api.post(`/admin/rewards/${id}/retry`);
+      message = "Retry diantrekan.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal retry";
+    } finally {
+      busy = "";
+    }
   }
+
   async function cancel(id: string) {
-    await api.post(`/admin/rewards/${id}/cancel`);
-    message = "Reward cancelled";
-    await load();
+    error = "";
+    message = "";
+    busy = id;
+    try {
+      await api.post(`/admin/rewards/${id}/cancel`);
+      message = "Hadiah dibatalkan.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal membatalkan";
+    } finally {
+      busy = "";
+    }
   }
 
   onMount(load);
@@ -56,39 +81,50 @@
   {/if}
 
   <div class="card mt-6 overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-left muted">
-        <tr
-          ><th class="py-1">Key</th><th>User</th><th class="text-right">Amount</th><th>Status</th
-          ><th></th></tr
-        >
-      </thead>
-      <tbody>
-        {#each rewards as r}
-          <tr class="border-t">
-            <td class="py-1 font-mono text-xs">{r.reward_key.slice(0, 10)}…</td>
-            <td class="font-mono text-xs">{r.user_id.slice(0, 8)}…</td>
-            <td class="text-right font-mono">{formatNumber(r.amount)}</td>
-            <td>
-              <span
-                class="badge"
-                class:badge-mint={r.status === "confirmed"}
-                class:badge-amber={r.status === "pending"}
-                class:badge-magenta={r.status === "failed"}>{r.status}</span
-              >
-            </td>
-            <td class="text-right">
-              {#if r.status === "failed"}<button class="btn-ghost" on:click={() => retry(r.id)}
-                  >Retry</button
-                >{/if}
-              {#if r.status === "pending"}<button class="btn-ghost" on:click={() => cancel(r.id)}
-                  >Cancel</button
-                >{/if}
-            </td>
-          </tr>
-        {/each}
-        {#if rewards.length === 0}<tr><td colspan="5" class="py-2 muted">No rewards.</td></tr>{/if}
-      </tbody>
-    </table>
+    {#if loading}
+      <div class="space-y-2">
+        {#each Array(5) as _}<div class="skeleton h-8"></div>{/each}
+      </div>
+    {:else if rewards.length === 0}
+      <p class="py-2 muted">Belum ada hadiah.</p>
+    {:else}
+      <table class="w-full text-sm">
+        <thead class="text-left muted">
+          <tr
+            ><th class="py-1">Key</th><th>User</th><th class="text-right">Amount</th><th>Status</th
+            ><th></th></tr
+          >
+        </thead>
+        <tbody>
+          {#each rewards as r}
+            <tr class="border-t">
+              <td class="py-1 font-mono text-xs">{r.reward_key.slice(0, 10)}…</td>
+              <td class="font-mono text-xs">{r.user_id.slice(0, 8)}…</td>
+              <td class="text-right font-mono">{formatNumber(r.amount)}</td>
+              <td>
+                <span
+                  class="badge"
+                  class:badge-mint={r.status === "confirmed"}
+                  class:badge-amber={r.status === "pending"}
+                  class:badge-magenta={r.status === "failed"}>{r.status}</span
+                >
+              </td>
+              <td class="text-right">
+                {#if r.status === "failed"}<button
+                    class="btn-ghost"
+                    on:click={() => retry(r.id)}
+                    disabled={busy === r.id}>{busy === r.id ? "…" : "Retry"}</button
+                  >{/if}
+                {#if r.status === "pending"}<button
+                    class="btn-ghost"
+                    on:click={() => cancel(r.id)}
+                    disabled={busy === r.id}>{busy === r.id ? "…" : "Cancel"}</button
+                  >{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
   </div>
 </div>

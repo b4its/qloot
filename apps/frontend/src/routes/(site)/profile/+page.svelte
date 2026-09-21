@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api } from "$lib/api/client";
+  import { api, ApiError } from "$lib/api/client";
   import type { SessionInfo } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import { formatDate } from "$lib/utils/format";
@@ -8,15 +8,34 @@
   import WalletChip from "$lib/components/WalletChip.svelte";
 
   let sessions: SessionInfo[] = [];
+  let loading = true;
+  let error = "";
+  let revoking = "";
   $: user = $auth.user;
 
   async function load() {
-    sessions = await api.get<SessionInfo[]>("/auth/sessions");
+    loading = true;
+    error = "";
+    try {
+      sessions = await api.get<SessionInfo[]>("/auth/sessions");
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat sesi";
+    } finally {
+      loading = false;
+    }
   }
 
   async function revoke(id: string) {
-    await api.delete(`/auth/sessions/${id}`);
-    await load();
+    error = "";
+    revoking = id;
+    try {
+      await api.delete(`/auth/sessions/${id}`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mencabut sesi";
+    } finally {
+      revoking = "";
+    }
   }
 
   onMount(load);
@@ -73,20 +92,35 @@
         <h2 class="font-display font-bold">Sesi aktif</h2>
         <Icon name="shield-halved" size="14px" class="text-primary" />
       </div>
-      <ul class="mt-3 divide-y">
-        {#each sessions as s}
-          <li class="flex items-center justify-between gap-4 py-3">
-            <div class="flex items-center gap-3">
-              <Icon name="display" size="14px" class="muted" />
-              <div>
-                <p class="text-sm">{s.user_agent?.slice(0, 48) ?? "Perangkat tidak dikenal"}</p>
-                <p class="text-xs muted">Sejak {formatDate(s.created_at)}</p>
+
+      {#if error}
+        <p class="alert-error mt-3">{error}</p>
+      {/if}
+
+      {#if loading}
+        <div class="mt-3 space-y-2">
+          {#each Array(2) as _}<div class="skeleton h-12"></div>{/each}
+        </div>
+      {:else if sessions.length === 0}
+        <p class="mt-3 text-sm muted">Tidak ada sesi aktif lain.</p>
+      {:else}
+        <ul class="mt-3 divide-y">
+          {#each sessions as s (s.id)}
+            <li class="flex items-center justify-between gap-4 py-3">
+              <div class="flex items-center gap-3">
+                <Icon name="display" size="14px" class="muted" />
+                <div>
+                  <p class="text-sm">{s.user_agent?.slice(0, 48) ?? "Perangkat tidak dikenal"}</p>
+                  <p class="text-xs muted">Sejak {formatDate(s.created_at)}</p>
+                </div>
               </div>
-            </div>
-            <button class="btn-ghost" on:click={() => revoke(s.id)}>Cabut</button>
-          </li>
-        {/each}
-      </ul>
+              <button class="btn-ghost" on:click={() => revoke(s.id)} disabled={revoking === s.id}>
+                {revoking === s.id ? "Mencabut…" : "Cabut"}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     </div>
   {/if}
 </div>

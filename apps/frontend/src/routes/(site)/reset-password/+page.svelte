@@ -62,9 +62,7 @@
         {/if}
 
         {#if done}
-          <p class="alert-ok mt-4">
-            Kata sandi berhasil diperbarui. Mengalihkan ke halaman masuk…
-          </p>
+          <p class="alert-ok mt-4">Kata sandi berhasil diperbarui. Mengalihkan ke halaman masuk…</p>
         {:else}
           <p class="mt-1 text-sm muted">Masukkan kata sandi baru untuk akunmu.</p>
           <form class="mt-5 space-y-4" on:submit={submit}>

@@ -10,6 +10,7 @@
   let loading = true;
   let error = "";
   let starting = false;
+  let managing = "";
   let pastAttempts: Attempt[] = [];
 
   const examId = $page.params.examId;
@@ -24,6 +25,19 @@
       error = e instanceof ApiError ? e.message : "Failed to load exam";
     } finally {
       loading = false;
+    }
+  }
+
+  async function manage(action: "publish" | "close") {
+    error = "";
+    managing = action;
+    try {
+      await api.post(`/exams/${examId}/${action}`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengubah status ujian";
+    } finally {
+      managing = "";
     }
   }
 
@@ -62,11 +76,15 @@
 
     {#if canManage}
       <div class="mt-4 flex gap-2">
-        <button class="btn-primary" on:click={() => api.post(`/exams/${examId}/publish`).then(load)}
-          >Publish</button
+        <button
+          class="btn-primary"
+          on:click={() => manage("publish")}
+          disabled={managing === "publish"}
         >
-        <button class="btn-ghost" on:click={() => api.post(`/exams/${examId}/close`).then(load)}
-          >Close</button
+          {managing === "publish" ? "…" : "Publish"}</button
+        >
+        <button class="btn-ghost" on:click={() => manage("close")} disabled={managing === "close"}>
+          {managing === "close" ? "…" : "Close"}</button
         >
         <a href="/teacher/exams" class="btn-ghost">Edit in Teacher</a>
       </div>

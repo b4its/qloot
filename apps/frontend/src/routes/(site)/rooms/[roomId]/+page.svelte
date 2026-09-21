@@ -15,6 +15,9 @@
   let socket: WebSocket | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectAttempts = 0;
+  let destroyed = false;
+  let busy = "";
 
   const roomId = $page.params.roomId;
   $: canManage = hasRole($auth.user, "teacher");
@@ -32,11 +35,13 @@
   }
 
   function connect() {
+    if (destroyed) return;
     socket?.close();
     socket = new WebSocket(wsUrl(`/api/v1/ws/rooms/${roomId}`));
 
     socket.onopen = () => {
       connected = true;
+      reconnectAttempts = 0;
       pingTimer = setInterval(() => socket?.send(JSON.stringify({ type: "ping" })), 25000);
     };
     socket.onmessage = (ev) => {
@@ -65,27 +70,40 @@
     socket.onclose = () => {
       connected = false;
       if (pingTimer) clearInterval(pingTimer);
-      // Reconnect with a small backoff.
-      reconnectTimer = setTimeout(connect, 3000);
+      if (destroyed) return;
+      // Bounded exponential backoff (1s → 30s), stop after ~8 attempts.
+      reconnectAttempts += 1;
+      if (reconnectAttempts > 8) return;
+      const delay = Math.min(30000, 1000 * 2 ** (reconnectAttempts - 1));
+      reconnectTimer = setTimeout(connect, delay);
     };
     socket.onerror = () => socket?.close();
   }
 
+  async function act(path: string, key: string) {
+    error = "";
+    busy = key;
+    try {
+      await api.post(`/rooms/${roomId}/${path}`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Aksi gagal";
+    } finally {
+      busy = "";
+    }
+  }
+
   async function join() {
-    await api.post(`/rooms/${roomId}/join`);
-    await load();
+    await act("join", "join");
   }
   async function leave() {
-    await api.post(`/rooms/${roomId}/leave`);
-    await load();
+    await act("leave", "leave");
   }
   async function openRoom() {
-    await api.post(`/rooms/${roomId}/open`);
-    await load();
+    await act("open", "open");
   }
   async function closeRoom() {
-    await api.post(`/rooms/${roomId}/close`);
-    await load();
+    await act("close", "close");
   }
 
   onMount(async () => {
@@ -94,6 +112,7 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
     if (pingTimer) clearInterval(pingTimer);
     if (reconnectTimer) clearTimeout(reconnectTimer);
     socket?.close();

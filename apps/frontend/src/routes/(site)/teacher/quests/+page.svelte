@@ -10,18 +10,25 @@
   let newQuest = { title: "", exam_id: "", top_n_winners: 3, ranks: [100, 60, 40] };
   let message = "";
   let error = "";
+  let loading = true;
+  let busy = "";
 
   async function load() {
+    loading = true;
     try {
       quests = await api.get<Quest[]>("/quests");
       exams = await api.get<Exam[]>("/exams");
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load quests";
+      error = e instanceof ApiError ? e.message : "Gagal memuat quest";
+    } finally {
+      loading = false;
     }
   }
 
   async function create() {
     error = "";
+    message = "";
+    busy = "create";
     try {
       const rules = newQuest.ranks.map((amount, i) => ({ rank: i + 1, reward_amount: amount }));
       await api.post<Quest>("/quests", {
@@ -30,19 +37,30 @@
         top_n_winners: newQuest.top_n_winners,
         rules,
       });
-      message = "Quest created";
+      message = "Quest dibuat.";
       newQuest.title = "";
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Create failed";
+      error = e instanceof ApiError ? e.message : "Gagal membuat quest";
+    } finally {
+      busy = "";
     }
   }
 
   async function finalize(q: Quest) {
-    const res = await api.post<{ allocations_created: number }>(`/quests/${q.id}/finalize`);
-    message = `Finalized — ${res.allocations_created} rewards allocated`;
-    winners[q.id] = await api.get<Winner[]>(`/quests/${q.id}/winners`);
-    await load();
+    error = "";
+    message = "";
+    busy = `f-${q.id}`;
+    try {
+      const res = await api.post<{ allocations_created: number }>(`/quests/${q.id}/finalize`);
+      message = `Difinalisasi — ${res.allocations_created} hadiah dialokasikan`;
+      winners[q.id] = await api.get<Winner[]>(`/quests/${q.id}/winners`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal finalisasi quest";
+    } finally {
+      busy = "";
+    }
   }
 
   onMount(load);
@@ -83,39 +101,50 @@
         <span class="text-xs muted">OPC per rank</span>
       </div>
     </div>
-    <button class="btn-primary mt-3" on:click={create} disabled={newQuest.title.length < 2}
-      >Create quest</button
+    <button
+      class="btn-primary mt-3"
+      on:click={create}
+      disabled={newQuest.title.length < 2 || busy === "create"}
+      >{busy === "create" ? "Membuat…" : "Buat quest"}</button
     >
   </div>
 
   <div class="mt-6 space-y-4">
-    {#each quests as q}
-      <div class="card">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 class="font-display text-lg font-bold">{q.title}</h2>
-            <p class="text-sm muted">Top {q.top_n_winners} · {q.status}</p>
+    {#if loading}
+      {#each Array(3) as _}<div class="skeleton h-20"></div>{/each}
+    {:else}
+      {#each quests as q}
+        <div class="card">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="font-display text-lg font-bold">{q.title}</h2>
+              <p class="text-sm muted">Top {q.top_n_winners} · {q.status}</p>
+            </div>
+            <button
+              class="btn-primary"
+              on:click={() => finalize(q)}
+              disabled={q.status === "finalized" || busy === `f-${q.id}`}
+            >
+              {busy === `f-${q.id}`
+                ? "Memproses…"
+                : q.status === "finalized"
+                  ? "Finalized"
+                  : "Finalize winners"}
+            </button>
           </div>
-          <button
-            class="btn-primary"
-            on:click={() => finalize(q)}
-            disabled={q.status === "finalized"}
-          >
-            {q.status === "finalized" ? "Finalized" : "Finalize winners"}
-          </button>
+          {#if winners[q.id]?.length}
+            <ol class="mt-2 space-y-1 text-sm">
+              {#each winners[q.id] as w}
+                <li class="flex justify-between border-b pb-1 last:border-0">
+                  <span>#{w.rank} · <span class="font-mono">{w.user_id.slice(0, 8)}…</span></span>
+                  <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPC</span>
+                </li>
+              {/each}
+            </ol>
+          {/if}
         </div>
-        {#if winners[q.id]?.length}
-          <ol class="mt-2 space-y-1 text-sm">
-            {#each winners[q.id] as w}
-              <li class="flex justify-between border-b pb-1 last:border-0">
-                <span>#{w.rank} · <span class="font-mono">{w.user_id.slice(0, 8)}…</span></span>
-                <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPC</span>
-              </li>
-            {/each}
-          </ol>
-        {/if}
-      </div>
-    {/each}
-    {#if quests.length === 0}<p class="muted">No quests yet.</p>{/if}
+      {/each}
+      {#if quests.length === 0}<p class="muted">Belum ada quest.</p>{/if}
+    {/if}
   </div>
 </div>

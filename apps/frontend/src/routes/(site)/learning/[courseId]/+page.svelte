@@ -10,6 +10,7 @@
   let progress: Record<string, Progress> = {};
   let loading = true;
   let error = "";
+  let busy = "";
 
   const courseId = $page.params.courseId;
 
@@ -23,15 +24,23 @@
         all.filter((p) => p.course_id === courseId).map((p) => [p.lesson_id, p]),
       );
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Failed to load course";
+      error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
       loading = false;
     }
   }
 
   async function markComplete(lesson: Lesson) {
-    await api.post(`/lessons/${lesson.id}/progress`, { progress_percent: 100, completed: true });
-    await load();
+    error = "";
+    busy = lesson.id;
+    try {
+      await api.post(`/lessons/${lesson.id}/progress`, { progress_percent: 100, completed: true });
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menandai selesai";
+    } finally {
+      busy = "";
+    }
   }
 
   onMount(load);
