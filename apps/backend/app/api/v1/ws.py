@@ -11,6 +11,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import hash_session_token
+from app.db.base import utcnow
 from app.db.session import get_sessionmaker
 from app.models.identity import Session as SessionModel
 from app.models.identity import User
@@ -30,7 +31,10 @@ async def _authenticate(token: str | None) -> User | None:
         session = (
             await db.execute(select(SessionModel).where(SessionModel.token_hash == token_hash))
         ).scalar_one_or_none()
-        if session is None or session.revoked_at is not None:
+        # A live socket must honour the same session lifetime as HTTP: reject
+        # revoked *or expired* sessions, otherwise a stale token authenticates
+        # the room stream indefinitely.
+        if session is None or session.revoked_at is not None or session.expires_at <= utcnow():
             return None
         return (
             await db.execute(select(User).where(User.id == session.user_id))
@@ -77,5 +81,11 @@ async def room_ws(websocket: WebSocket, room_id: uuid.UUID) -> None:
         pass
     finally:
         pump_task.cancel()
+        # Await the cancelled task so its exception (if any) is retrieved and
+        # the subscriber is released instead of leaking as a pending task.
+        try:
+            await pump_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001 - best-effort cleanup
+            pass
         await event_bus.publish(channel, {"type": "presence.leave", "user_id": str(user.id)})
         log.info("ws_disconnected", room_id=str(room_id), user_id=str(user.id))
