@@ -108,6 +108,10 @@
       return;
     }
     openComments = new Set([...openComments, p.id]);
+    await loadComments(p);
+  }
+
+  async function loadComments(p: Post) {
     try {
       const detail = await api.get<Post>(`/community/posts/${p.id}`);
       posts = posts.map((x) => (x.id === p.id ? { ...x, comments: detail.comments ?? [] } : x));
@@ -123,8 +127,10 @@
     try {
       await api.post(`/community/posts/${p.id}/comments`, { body: text });
       commentDraft = { ...commentDraft, [p.id]: "" };
-      await toggleComments(p); // refresh
-      await toggleComments(p); // reopen
+      // Ensure the thread stays open and shows the new comment. Calling the
+      // toggle twice (as before) net-closed it, so refresh directly instead.
+      openComments = new Set([...openComments, p.id]);
+      await loadComments(p);
       posts = posts.map((x) => (x.id === p.id ? { ...x, comment_count: x.comment_count + 1 } : x));
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengirim komentar";
