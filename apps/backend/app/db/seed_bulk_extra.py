@@ -689,7 +689,7 @@ async def seed_ops_tables(session: AsyncSession, students, teachers) -> None:
         await session.flush()
 
     if await _count(session, ContractDeployment) < TARGET:
-        names = ["OryphemCoin"]
+        names = ["OryphemToken"]
         for i in range(1, TARGET + 1):
             session.add(
                 ContractDeployment(

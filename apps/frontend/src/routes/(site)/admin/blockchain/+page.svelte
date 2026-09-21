@@ -68,7 +68,7 @@
   <PageHeader
     eyebrow="Admin · Blockchain"
     title="Blockchain"
-    subtitle="Status kontrak OryphemCoin dan kontrol hadiah on-chain."
+    subtitle="Status kontrak OryphemToken dan kontrol hadiah on-chain."
     backHref="/admin"
     backLabel="Admin"
   />

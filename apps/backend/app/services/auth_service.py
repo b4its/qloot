@@ -92,7 +92,7 @@ class AuthService:
             user_id=user.id,
             kind="system",
             title="Welcome to QLoot! 🎉",
-            body="Start learning, join rooms and complete quests to earn OryphemCoin.",
+            body="Start learning, join rooms and complete quests to earn OryphemToken (OPT).",
         )
 
         await self.session.flush()

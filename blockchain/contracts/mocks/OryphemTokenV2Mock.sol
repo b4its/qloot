@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {OryphemCoin} from "../OryphemCoin.sol";
+import {OryphemToken} from "../OryphemToken.sol";
 
 /**
- * @title OryphemCoinV2Mock
+ * @title OryphemTokenV2Mock
  * @notice Test-only upgrade target that demonstrates a future version bump
  *         while preserving all inherited storage. Not for production use.
  *
  * @custom:oz-upgrades-unsafe-allow missing-initializer
  * @custom:oz-upgrades-unsafe-allow constructor
  */
-contract OryphemCoinV2Mock is OryphemCoin {
+contract OryphemTokenV2Mock is OryphemToken {
     /// @notice Simple on-chain version marker for upgrade tests.
     function version() external pure returns (string memory) {
         return "v2";

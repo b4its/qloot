@@ -13,7 +13,7 @@
 <a
   href="/wallet"
   class="wallet-chip group transition-colors hover:border-highlight"
-  title="Saldo OryphemCoin (OPC)"
+  title="Saldo OryphemToken (OPT)"
   aria-label={`Saldo ${$opc.available} OPC, buka dompet`}
 >
   <span class="brand-mark-cool grid h-6 w-6 flex-none place-items-center rounded-sm">

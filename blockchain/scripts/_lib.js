@@ -4,7 +4,7 @@ const path = require("path");
 const { ethers, network } = require("hardhat");
 
 const DEPLOYMENTS_DIR = path.resolve(__dirname, "..", "deployments");
-const CONTRACT_NAME = "OryphemCoin";
+const CONTRACT_NAME = "OryphemToken";
 
 function deploymentFile(networkName) {
   return path.join(DEPLOYMENTS_DIR, `${networkName}.json`);

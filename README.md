@@ -2,7 +2,7 @@
 
 **QLoot** is a gamified, class-based e-learning platform with **AI-assisted exams**,
 **competitive real-time rooms**, **quests & rankings**, and **blockchain rewards**
-through the **OryphemCoin (OPC)** ERC-1155 token.
+through the **OryphemToken (OPT)** ERC-1155 multi-token (OPT · QTC · ORT).
 
 It is a ground-up reimplementation inspired by the domain of
 [SayGenFix](https://github.com/mhaatha/saygenfix) (a Go/AI essay-exam app), rebuilt as
@@ -31,7 +31,7 @@ background workers, and Web3 rewards.
 - [Cara penggunaan](#cara-penggunaan)
 - [Seed data](#seed-data)
 - [Pengujian](#pengujian)
-- [Blockchain & OryphemCoin (OPC)](#blockchain--oryphemcoin-opc)
+- [Blockchain & OryphemToken (OPT)](#blockchain--oryphemtoken-opt)
 - [Struktur repositori](#struktur-repositori)
 - [Keamanan](#keamanan)
 
@@ -46,7 +46,7 @@ QLoot memodelkan sebuah sekolah digital:
   dan **tugas**.
 - **Siswa (student)** terdaftar pada satu kelas dan otomatis melihat pelajaran untuk
   kelasnya. Mereka mengerjakan ujian, mengumpulkan jawaban, dan mengikuti quest untuk
-  memperoleh **OryphemCoin (OPC)**.
+  memperoleh **OryphemToken (OPT)**.
 - **Admin** mengelola pengguna, hadiah, audit log, dan kontrol blockchain.
 
 Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) menghasilkan
@@ -112,7 +112,7 @@ Browser → SvelteKit → FastAPI ─┬─ PostgreSQL
                                ├─ Redis (queue, pub/sub, rate limit)
                                ├─ MinIO / local storage (materials)
                                └─ Workers: ai, blockchain, indexer
-                                        └─ ERC-1155 OryphemCoin (OPC)
+                                        └─ ERC-1155 OryphemToken (OPT · QTC · ORT)
                                            ├─ local: Anvil (chain 31337, dry-run)
                                            └─ Sepolia: proxy OPC (chain 11155111)
 ```
@@ -294,13 +294,22 @@ make ci                # lint + typecheck + backend tests + contract tests
 
 ---
 
-## Blockchain & OryphemCoin (OPC)
+## Blockchain & OryphemToken (OPT)
 
-**OryphemCoin (OPC)** adalah kontrak **ERC-1155 multi-token** upgradeable (UUPS) +
-OpenZeppelin yang menjadi registry status belajar on-chain. Token id `0` = saldo OryphemCoin
-(integer, desimal 0) dengan **batas suplai beredar 100000000000000000000 (1e20)**; token id
-`1_000_000 + badgeId` = token bukti badge. Hanya **hash opaque** yang di-emit
-on-chain — tidak pernah email, nama, jawaban, atau skor.
+**OryphemToken (OPT)** adalah kontrak **ERC-1155 multi-token** upgradeable (UUPS) +
+OpenZeppelin yang menjadi registry aset digital QLoot. Satu kontrak memuat **3 aset** plus
+token bukti badge:
+
+| Token id | Simbol | Nama | Peran | Suplai |
+|---|---|---|---|---|
+| `0` | **OPT** | OryphemToken | Mata uang dasar (reward belajar) | **Tanpa batas** |
+| `1` | **QTC** | QlootChain | Aset premium (sertifikat, enkripsi pesan) | **1e15** |
+| `2` | **ORT** | OryphemIntelligence | Kredit layanan AI (1 request = 1 ORT) | Tanpa batas |
+| `1_000_000 + badgeId` | — | Badge | Token bukti badge | 1 per badge |
+
+**OryphemProxy (ORX)** adalah *router* on-chain yang mengatur konversi OPT ke aset lain:
+**1 ORT = 50 OPT**, **1 QTC = 1000 OPT** (`swapOptFor` / `proxyRates`). Hanya **hash opaque**
+yang di-emit on-chain — tidak pernah email, nama, jawaban, atau skor.
 
 ### Model wallet bersama (custodial) + saldo terfokus
 Semua reward on-chain dicetak ke **satu wallet bersama** (treasury), sementara
@@ -350,7 +359,7 @@ make blockchain-reset                    # hapus manifest lokal + state Anvil (m
 make blockchain-redeploy                 # reset lalu deploy ulang ke lokal
 make blockchain-build                    # kompilasi kontrak
 make blockchain-test                     # 51 uji kontrak
-make blockchain-deploy NETWORK=localhost # deploy proxy OryphemCoin ke Anvil
+make blockchain-deploy NETWORK=localhost # deploy proxy OryphemToken ke Anvil
 
 # --- Inspeksi (lokal atau sepolia) ---
 make blockchain-status NETWORK=localhost        # ringkas: name/symbol, supply, treasury
@@ -360,8 +369,10 @@ make blockchain-balance NETWORK=localhost ADDRESS=0xf39F… TOKEN_ID=0
 make blockchain-events NETWORK=localhost        # dump event terbaru (LOOKBACK_BLOCKS=5000)
 
 # --- Operasi token (contoh lokal; tambahkan CONFIRM_SEPOLIA=yes untuk sepolia) ---
-make blockchain-mint NETWORK=localhost TO=0xf39F… AMOUNT=1000
-make blockchain-transfer NETWORK=localhost TO=0x7099… AMOUNT=250   # [FROM=0x..]
+make blockchain-mint NETWORK=localhost TO=0xf39F… AMOUNT=1000 TOKEN_ID=0   # 0=OPT 1=QTC 2=ORT
+make blockchain-transfer NETWORK=localhost TO=0x7099… AMOUNT=250 TOKEN_ID=0  # [FROM=0x..]
+make blockchain-swap NETWORK=localhost ASSET=2 AMOUNT=10        # ORX: beli 10 ORT (500 OPT)
+make blockchain-ai-request NETWORK=localhost REQUESTS=1        # ORX: 1 request = 1 ORT
 make blockchain-reward NETWORK=localhost TO=0x7099… AMOUNT=100 KEY=1 REASON=quest
 make blockchain-add-xp NETWORK=localhost TO=0x7099… AMOUNT=250
 make blockchain-create-badge NETWORK=localhost BADGE_ID=1 BADGE_URI=ipfs://.. SOULBOUND=true
@@ -424,7 +435,7 @@ make ai-check           # verifikasi gateway terjangkau dari container backend
 ```
 apps/backend       FastAPI + SQLAlchemy async + Alembic + workers
 apps/frontend      SvelteKit + TypeScript + Tailwind
-blockchain         Hardhat + OpenZeppelin ERC-1155 (OryphemCoin)
+blockchain         Hardhat + OpenZeppelin ERC-1155 (OryphemToken)
                    contracts/ · scripts/ · deployments/sepolia.*.json · .openzeppelin/
 infrastructure     proxy (Traefik/Nginx), monitoring (Prometheus/Grafana/Loki)
 docs               architecture, api, blockchain, security, runbook

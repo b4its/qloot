@@ -1,13 +1,20 @@
 {
   "network": "sepolia",
   "chainId": 11155111,
-  "contractName": "OryphemCoin",
-  "standard": "ERC-1155 (UUPS proxy)",
+  "contractName": "OryphemToken",
+  "standard": "ERC-1155 (UUPS proxy) multi-token",
+  "name": "OryphemToken",
+  "symbol": "OPT",
+  "assets": [
+    { "id": 0, "symbol": "OPT", "name": "OryphemToken", "role": "base currency (unlimited)" },
+    { "id": 1, "symbol": "QTC", "name": "QlootChain", "role": "premium chain asset (cap 1e15)" },
+    { "id": 2, "symbol": "ORT", "name": "OryphemIntelligence", "role": "AI credit (1 req = 1 ORT)" }
+  ],
   "address": "0x0000000000000000000000000000000000000000",
   "implementation": "0x0000000000000000000000000000000000000000",
   "treasury": "0x0000000000000000000000000000000000000000",
   "tokenId": 0,
-  "uri": "https://metadata.qloot.example/opc/{id}.json",
+  "uri": "https://metadata.qloot.example/opt/{id}.json",
   "admin": "0x0000000000000000000000000000000000000000",
   "deployer": "0x0000000000000000000000000000000000000000",
   "txHash": "0x0000000000000000000000000000000000000000000000000000000000000000",

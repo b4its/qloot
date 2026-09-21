@@ -43,7 +43,7 @@
       </h1>
       <p class="mt-5 max-w-xl text-ink2">
         Guru membuat pelajaran dan menargetkannya ke kelas tertentu. Siswa langsung melihat
-        pelajaran, materi, ujian, dan quest untuk kelasnya — lengkap dengan reward OryphemCoin.
+        pelajaran, materi, ujian, dan quest untuk kelasnya — lengkap dengan reward OryphemToken.
       </p>
       <div class="mt-7 flex flex-wrap items-center gap-3">
         {#if user}

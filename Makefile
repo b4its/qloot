@@ -24,6 +24,9 @@ AMOUNT ?=
 ADDRESS ?=
 ROLE ?=
 TOKEN_ID ?= 0
+# ORX proxy helpers
+ASSET ?=
+REQUESTS ?=
 # Host-reachable RPC for local networks (see the Blockchain section).
 RPC ?= http://127.0.0.1:8545
 
@@ -402,16 +405,27 @@ blockchain-publish: ## Publish metadata + deployment manifest
 	$(RUN) scripts/publish-metadata.js --network $(NETWORK)
 
 .PHONY: blockchain-mint
-blockchain-mint: _need-sepolia-confirm ## Mint OPC: TO=0x.. AMOUNT=100 [TOKEN_ID=0]
-	$(call _need-var,TO,make blockchain-mint TO=0xabc.. AMOUNT=100)
-	$(call _need-var,AMOUNT,make blockchain-mint TO=0xabc.. AMOUNT=100)
+blockchain-mint: _need-sepolia-confirm ## Mint asset: TO=0x.. AMOUNT=100 [TOKEN_ID=0|1|2]
+	$(call _need-var,TO,make blockchain-mint TO=0xabc.. AMOUNT=100 TOKEN_ID=0)
+	$(call _need-var,AMOUNT,make blockchain-mint TO=0xabc.. AMOUNT=100 TOKEN_ID=0)
 	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/mint.js --network $(NETWORK)
 
 .PHONY: blockchain-transfer
-blockchain-transfer: _need-sepolia-confirm ## Transfer OPC: TO=0x.. AMOUNT=10 [FROM=0x.. TOKEN_ID=0]
-	$(call _need-var,TO,make blockchain-transfer TO=0xabc.. AMOUNT=10)
-	$(call _need-var,AMOUNT,make blockchain-transfer TO=0xabc.. AMOUNT=10)
+blockchain-transfer: _need-sepolia-confirm ## Transfer asset: TO=0x.. AMOUNT=10 [FROM=0x.. TOKEN_ID=0|1|2]
+	$(call _need-var,TO,make blockchain-transfer TO=0xabc.. AMOUNT=10 TOKEN_ID=0)
+	$(call _need-var,AMOUNT,make blockchain-transfer TO=0xabc.. AMOUNT=10 TOKEN_ID=0)
 	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) FROM=$(FROM) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/transfer.js --network $(NETWORK)
+
+.PHONY: blockchain-swap
+blockchain-swap: _need-sepolia-confirm ## ORX: swap OPT -> asset (self): ASSET=1|2 AMOUNT=10
+	$(call _need-var,ASSET,make blockchain-swap ASSET=2 AMOUNT=10)
+	$(call _need-var,AMOUNT,make blockchain-swap ASSET=2 AMOUNT=10)
+	cd blockchain && ASSET=$(ASSET) AMOUNT=$(AMOUNT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/swap.js --network $(NETWORK)
+
+.PHONY: blockchain-ai-request
+blockchain-ai-request: _need-sepolia-confirm ## ORX: pay AI requests with ORT (1 req = 1 ORT): REQUESTS=1
+	$(call _need-var,REQUESTS,make blockchain-ai-request REQUESTS=1)
+	cd blockchain && REQUESTS=$(REQUESTS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/ai-request.js --network $(NETWORK)
 
 .PHONY: blockchain-balance
 blockchain-balance: ## Show balance: ADDRESS=0x.. [TOKEN_ID=0]

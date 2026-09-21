@@ -97,7 +97,7 @@ export const features: Feature[] = [
   {
     icon: "gem",
     title: "Hadiah OPC",
-    desc: "Setiap pencapaian tercatat sebagai OryphemCoin (OPC) — reward digital yang dapat dilacak.",
+    desc: "Setiap pencapaian tercatat sebagai OryphemToken (OPT) — reward digital yang dapat dilacak.",
   },
   {
     icon: "certificate",

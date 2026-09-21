@@ -3,12 +3,12 @@ pragma solidity ^0.8.28;
 
 /**
  * @title IQLootAcademy
- * @notice External interface of the upgraded OryphemCoin contract.
+ * @notice External interface of the OryphemToken contract (ERC-1155 multi-token).
  *
  * The contract evolves the original ERC-1155 reward token into a full
  * on-chain learning-state registry for QLoot: per-user OPC balances, XP and
  * levels, courses and enrollment, badges, achievements and treasury accounting.
- * Token id 0 = the fungible OryphemCoin (OPC); ids >= BADGE_TOKEN_OFFSET = badges.
+ * Ids: 0 = OPT (base), 1 = QTC, 2 = ORT, >= BADGE_TOKEN_OFFSET = badge proof tokens.
  */
 interface IQLootAcademy {
     // ---------------------------- balances / supply ----------------------
@@ -20,7 +20,7 @@ interface IQLootAcademy {
 
     function totalBurned() external view returns (uint256);
 
-    function MAX_OPC_SUPPLY() external view returns (uint256);
+    function maxSupplyOf(uint256 tokenId) external view returns (uint256);
 
     // ---------------------------- XP / level -----------------------------
     function xp(address account) external view returns (uint256);
@@ -87,4 +87,23 @@ interface IQLootAcademy {
     function totalDeposits() external view returns (uint256);
 
     function totalWithdrawals() external view returns (uint256);
+
+    // ---------------------------- OryphemProxy (ORX) ----------------------
+    function OPT_TOKEN_ID() external view returns (uint256);
+
+    function QTC_TOKEN_ID() external view returns (uint256);
+
+    function ORT_TOKEN_ID() external view returns (uint256);
+
+    function ORT_RATE() external view returns (uint256);
+
+    function QTC_RATE() external view returns (uint256);
+
+    function proxyRates() external view returns (uint256 optPerOrt, uint256 optPerQtc);
+
+    function swapOptFor(uint256 assetId, uint256 amount) external returns (uint256 optCost);
+
+    function payAiRequest(uint256 requests) external;
+
+    function totalAiRequests() external view returns (uint256);
 }

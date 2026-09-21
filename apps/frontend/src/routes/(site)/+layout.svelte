@@ -89,7 +89,7 @@
     "PELAJARAN BARU · Matematika 1A · Ditargetkan untuk Kelas 1A (IPA)",
     "SERTIFIKAT DIGITAL · Kredensial dengan ID unik & tautan verifikasi",
     "KOMUNITAS · 12.000+ pelajar aktif · Sesi tanya-jawab setiap Rabu",
-    "OPC · OryphemCoin untuk setiap pencapaian belajar · Dapat dilacak",
+    "OPT · OryphemToken untuk setiap pencapaian belajar · Dapat dilacak",
   ];
 </script>
 

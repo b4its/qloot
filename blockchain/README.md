@@ -1,20 +1,27 @@
-# QLoot Blockchain — OryphemCoin (OPC)
+# QLoot Blockchain — OryphemToken (OPT · QTC · ORT)
 
 ## Contract
 
-`OryphemCoin` (`blockchain/contracts/OryphemCoin.sol`) is a
+`OryphemToken` (`blockchain/contracts/OryphemToken.sol`) is a
 **UUPS-upgradeable ERC-1155 multi-token** that acts as the on-chain
-learning-state and reward registry for QLoot.
+digital-asset and reward registry for QLoot.
 
 ### Token model
 
-| Token id | Meaning |
-|---|---|
-| `0` | OryphemCoin (OPC) balance (integer point unit, decimals 0) |
-| `1_000_000 + badgeId` | Badge proof token (1 unit per awarded badge) |
+| Token id | Symbol | Asset | Supply |
+|---|---|---|---|
+| `0` | **OPT** | OryphemToken (base currency) | unlimited |
+| `1` | **QTC** | QlootChain (certificates, encrypted messages) | capped `1e15` |
+| `2` | **ORT** | OryphemIntelligence (AI credit, 1 request = 1 ORT) | unlimited |
+| `1_000_000 + badgeId` | — | Badge proof token (1 unit per awarded badge) | — |
 
-The coin (token id `0`) has a hard circulating-supply cap of
-`MAX_OPC_SUPPLY` = `100000000000000000000` (1e20).
+### OryphemProxy (ORX) — the router
+
+`swapOptFor(assetId, amount)` converts OPT into ORT/QTC at fixed rates:
+**1 ORT = 50 OPT**, **1 QTC = 1000 OPT** (`proxyRates()`/`ORT_RATE`/`QTC_RATE`).
+`payAiRequest(requests)` burns ORT (1 request = 1 ORT). The QTC cap is enforced on
+every mint; OPT and ORT are uncapped (`maxSupplyOf(id)` returns `type(uint256).max`
+for unlimited assets).
 
 ### Extensions
 
@@ -28,28 +35,34 @@ The coin (token id `0`) has a hard circulating-supply cap of
 |---|---|
 | `DEFAULT_ADMIN_ROLE` | Grant/revoke roles, upgrades |
 | `ADMIN_ROLE` | Config: limits, treasury, courses, badges, levels |
-| `MINTER_ROLE` | Mint/burn OPC, complete withdrawals |
+| `MINTER_ROLE` | Mint/burn OPT/QTC/ORT, complete withdrawals |
 | `REWARDER_ROLE` | Pay rewards, add XP, award badges, unlock achievements |
+| `ROUTER_ROLE` | OryphemProxy (ORX) router operations |
 | `PAUSER_ROLE` | Pause/unpause |
 | `URI_MANAGER_ROLE` | Set the metadata URI |
 
 ### Feature set
 
-- **Balances**: per-user OPC mirror (`opcBalance`), `totalMinted`/`totalBurned`.
+- **Assets**: OPT (id 0, unlimited), QTC (id 1, cap 1e15), ORT (id 2, unlimited);
+  per-user OPT mirror (`opcBalance`), `totalMinted`/`totalBurned`, `maxSupplyOf(id)`.
 - **XP & level**: `addXp` (100 XP per level), `levelFromXp`, admin `setLevel`.
-- **Courses**: `createCourse`/`setCourse`, `enroll`, `completeCourse` (pays OPC +
+- **Courses**: `createCourse`/`setCourse`, `enroll`, `completeCourse` (pays OPT +
   XP + badge, idempotent per user+course), `courseCompletionCount`.
 - **Badges**: `registerBadge` (uri + soulbound), `awardBadge` (idempotent, mints
   a proof token), soulbound badges blocked from transfer.
 - **Achievements**: `unlockAchievement` with per-user counters.
+- **OryphemProxy (ORX)**: `swapOptFor` (OPT↔ORT/QTC at fixed rates), `payAiRequest`
+  (1 request = 1 ORT), `proxyRates`/`maxSupplyOf`, router totals.
 - **Rewards**: idempotent `rewardUser` / `rewardUsers` (uint256 keys, batch ≤ 200).
 - **Treasury**: `depositOPC` / `withdrawOPC` with per-account and global totals.
-- **Safety**: pausable, reentrancy-guarded, per-tx and rolling daily mint caps.
+- **Safety**: pausable, reentrancy-guarded, per-tx and rolling daily mint caps,
+  custom errors (EIP-170 friendly bytecode).
 
 ### Events
 
 `RewardPaid`, `XpAdded`, `LevelSet`, `CourseCreated`, `CourseUpdated`, `Enrolled`,
 `CourseCompleted`, `BadgeRegistered`, `BadgeAwarded`, `AchievementUnlocked`,
+`Swapped`, `AiRequestPaid`, `AssetMinted`,
 `Deposited`, `Withdrawn`, `TreasuryUpdated`, `V2Initialized` — plus the standard
 ERC-1155 `TransferSingle`/`TransferBatch`.
 
@@ -75,7 +88,7 @@ and targets validate their required variables with a usage hint.
 
 ```bash
 make blockchain-build            # compile
-make blockchain-test             # 51 tests
+make blockchain-test             # 60 tests
 
 # Local (Anvil on :8545, chain 31337)
 make blockchain-up                        # start Anvil (docker)
@@ -85,11 +98,13 @@ make blockchain-redeploy                  # reset then deploy fresh locally
 make blockchain-deploy NETWORK=localhost
 make blockchain-status NETWORK=localhost
 make blockchain-show-all NETWORK=localhost
-make blockchain-supply NETWORK=localhost TOKEN_ID=0
+make blockchain-supply NETWORK=localhost TOKEN_ID=0     # 0=OPT 1=QTC 2=ORT
 make blockchain-balance NETWORK=localhost ADDRESS=0x.. TOKEN_ID=0
 make blockchain-events NETWORK=localhost  # LOOKBACK_BLOCKS=5000
-make blockchain-mint NETWORK=localhost TO=0x.. AMOUNT=1000
-make blockchain-transfer NETWORK=localhost TO=0x.. AMOUNT=250
+make blockchain-mint NETWORK=localhost TO=0x.. AMOUNT=1000 TOKEN_ID=0
+make blockchain-transfer NETWORK=localhost TO=0x.. AMOUNT=250 TOKEN_ID=0
+make blockchain-swap NETWORK=localhost ASSET=2 AMOUNT=10     # ORX: OPT -> ORT/QTC
+make blockchain-ai-request NETWORK=localhost REQUESTS=1      # ORX: pay with ORT
 make blockchain-create-badge NETWORK=localhost BADGE_ID=1 BADGE_URI="ipfs://b" SOULBOUND=true
 make blockchain-award-badge NETWORK=localhost TO=0x.. BADGE_ID=1
 make blockchain-create-course NETWORK=localhost COURSE_ID=1001 REWARD=500 BADGE_ID=1
@@ -123,6 +138,7 @@ Never let one EOA hold everything. Recommended production layout:
 | `MINTER_ROLE` | backend signer / operations |
 | `PAUSER_ROLE` | multisig or security operator |
 | `URI_MANAGER_ROLE` | multisig |
+| `ROUTER_ROLE` | backend router signer |
 
 After deployment, transfer roles to the multisig and revoke from the deployer EOA.
 
@@ -141,4 +157,4 @@ documents, AI feedback, question drafts.
 ## Provenance
 
 Includes an upgrade path for the original reward contract. If you use the
-interface `IQLootAcademy`, `OryphemCoin` implements every method.
+interface `IQLootAcademy`, `OryphemToken` implements every method.

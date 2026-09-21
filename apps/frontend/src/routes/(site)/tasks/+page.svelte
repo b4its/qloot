@@ -59,7 +59,7 @@
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <p class="mono-label">Misi Harian</p>
   <h1 class="mt-1 font-display text-4xl font-bold">Tugas</h1>
-  <p class="mt-2 muted">Selesaikan tugas untuk mengumpulkan OryphemCoin (OPC).</p>
+  <p class="mt-2 muted">Selesaikan tugas untuk mengumpulkan OryphemToken (OPT).</p>
 
   {#if message}
     <p class="alert-info mt-4">

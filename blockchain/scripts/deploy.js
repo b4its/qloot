@@ -1,4 +1,4 @@
-// Deploy OryphemCoin (UUPS proxy).
+// Deploy OryphemToken (ERC-1155 multi-token, UUPS proxy).
 //
 // Secret handling: the deployer key is read from BLOCKCHAIN_PRIVATE_KEY via the
 // hardhat network config. It is never accepted as a CLI argument.
@@ -11,16 +11,16 @@
 const { ethers, network, upgrades, run } = require("hardhat");
 const lib = require("./_lib");
 
-const OPC_NAME = process.env.OPC_NAME || "OryphemCoin";
-const OPC_SYMBOL = process.env.OPC_SYMBOL || "OPC";
-const OPC_URI = process.env.OPC_URI || "https://metadata.qloot.example/opc/{id}.json";
+const OPC_NAME = process.env.OPT_NAME || "OryphemToken";
+const OPC_SYMBOL = process.env.OPT_SYMBOL || "OPT";
+const OPC_URI = process.env.OPT_URI || "https://metadata.qloot.example/opt/{id}.json";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
   const net = await ethers.provider.getNetwork();
   const chainId = Number(net.chainId);
 
-  const admin = process.env.OPC_ADMIN_ADDRESS || deployer.address;
+  const admin = process.env.OPT_ADMIN_ADDRESS || deployer.address;
   const treasury = process.env.TREASURY_ADDRESS || deployer.address;
 
   console.log("----------------------------------------");
@@ -47,10 +47,15 @@ async function main() {
 
   const record = {
     contractName: lib.CONTRACT_NAME,
-    standard: "ERC-1155 (UUPS proxy)",
+    standard: "ERC-1155 (UUPS proxy) multi-token",
     name: OPC_NAME,
     symbol: OPC_SYMBOL,
     uri: OPC_URI,
+    assets: [
+      { id: 0, symbol: "OPT", name: "OryphemToken", role: "base currency (unlimited)" },
+      { id: 1, symbol: "QTC", name: "QlootChain", role: "premium chain asset (cap 1e15)" },
+      { id: 2, symbol: "ORT", name: "OryphemIntelligence", role: "AI credit (1 req = 1 ORT)" },
+    ],
     address,
     implementation: implAddress,
     proxyAdmin,
@@ -69,7 +74,7 @@ async function main() {
   lib.writePublicManifest(record, network.name);
 
   const explorer = lib.explorerUrl(chainId, deployTx ? deployTx.hash : null);
-  console.log(`OPC proxy deployed to : ${address}`);
+  console.log(`OryphemToken proxy   : ${address}`);
   console.log(`implementation        : ${implAddress}`);
   console.log(`tx: ${deployTx ? deployTx.hash : "(unknown)"}`);
   if (explorer) console.log(`explorer: ${explorer}`);

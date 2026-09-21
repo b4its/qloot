@@ -1,15 +1,20 @@
-# QLoot Blockchain — OryphemCoin (OPC)
+# QLoot Blockchain — OryphemToken (OPT · QTC · ORT)
 
 See [`blockchain/README.md`](../blockchain/README.md) for the full reference.
 
 ## Contract
 
-`OryphemCoin` (`blockchain/contracts/OryphemCoin.sol`) is a
-**UUPS-upgradeable ERC-1155 multi-token** and the on-chain learning-state registry for QLoot.
+`OryphemToken` (`blockchain/contracts/OryphemToken.sol`) is a
+**UUPS-upgradeable ERC-1155 multi-token** and the on-chain digital-asset registry for QLoot.
 
-- Token id `0` = OryphemCoin (OPC) balance (fungible, integer points, decimals 0).
+- Token id `0` = **OPT** (OryphemToken) balance — base currency, unlimited supply.
+- Token id `1` = **QTC** (QlootChain) — premium asset, capped at `1e15`.
+- Token id `2` = **ORT** (OryphemIntelligence) — AI credit (1 request = 1 ORT).
 - Token id `1_000_000 + badgeId` = badge proof token.
-- Coin supply is capped at `MAX_OPC_SUPPLY` = `100000000000000000000` (1e20).
+
+The **OryphemProxy (ORX)** router governs conversions: `1 ORT = 50 OPT`, `1 QTC = 1000 OPT`.
+
+### Extensions
 
 ### Extensions
 

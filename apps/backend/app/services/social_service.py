@@ -117,7 +117,7 @@ class BadgeService:
             ("first_quest", "First Quest", "Completed your first quest", "🎯", 10),
             ("quiz_master", "Quiz Master", "Completed 5 lessons", "🧠", 25),
             ("top_3", "Podium Finish", "Finished in the top 3 of a quest", "🥉", 50),
-            ("first_reward", "First OPC", "Earned your first OryphemCoin", "💎", 15),
+            ("first_reward", "First OPC", "Earned your first OryphemToken", "💎", 15),
             ("room_regular", "Room Regular", "Joined 5 rooms", "🎪", 20),
             ("perfect_exam", "Perfect Score", "Scored 100% on an exam", "🌟", 40),
             ("learner", "Dedicated Learner", "Completed 10 lessons", "📚", 30),
