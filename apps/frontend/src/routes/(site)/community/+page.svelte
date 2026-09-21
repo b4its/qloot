@@ -1,96 +1,148 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import Icon from "$lib/components/Icon.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
+  import { api, ApiError } from "$lib/api/client";
   import { auth } from "$lib/stores/auth";
   import { relativeTime } from "$lib/utils/format";
 
   interface Post {
-    id: number;
-    author: string;
+    id: string;
+    author_id: string;
+    author_name: string;
     handle: string;
-    at: string;
-    text: string;
-    likes: number;
-    liked: boolean;
-    replies: number;
+    topic: string;
+    body: string;
+    like_count: number;
+    comment_count: number;
+    liked_by_me: boolean;
+    created_at: string;
+    comments?: Comment[];
   }
 
-  const topics = [
-    { name: "Desain & UX", threads: 1284, icon: "pen-ruler" },
-    { name: "Data & AI", threads: 962, icon: "chart-line" },
-    { name: "Web3 & Blockchain", threads: 743, icon: "cube" },
-    { name: "Karier & Portofolio", threads: 588, icon: "briefcase" },
-  ];
+  interface Comment {
+    id: string;
+    author_id: string;
+    author_name: string;
+    body: string;
+    created_at: string;
+  }
 
-  let posts: Post[] = [
-    {
-      id: 1,
-      author: "Alya P.",
-      handle: "0xa1f4",
-      at: new Date(Date.now() - 2 * 3600_000).toISOString(),
-      text: "Tips menyusun studi kasus portofolio: mulai dari masalah, bukan dari visual.",
-      likes: 42,
-      liked: false,
-      replies: 8,
-    },
-    {
-      id: 2,
-      author: "Rangga W.",
-      handle: "0x9c2b",
-      at: new Date(Date.now() - 4 * 3600_000).toISOString(),
-      text: "Sesi minggu ini: membedah model rekomendasi sederhana. Rekaman tersedia di kelas.",
-      likes: 31,
-      liked: false,
-      replies: 5,
-    },
-    {
-      id: 3,
-      author: "Nadia K.",
-      handle: "0x4d18",
-      at: new Date(Date.now() - 6 * 3600_000).toISOString(),
-      text: "Kumpulan dataset publik untuk latihan visualisasi — silakan cek tautan di ruang Data & AI.",
-      likes: 57,
-      liked: false,
-      replies: 12,
-    },
-  ];
+  interface Topic {
+    name: string;
+    posts: number;
+  }
 
-  const leaders = [
-    { rank: 1, name: "Refa Anjani", points: 4820, handle: "0x3f11" },
-    { rank: 2, name: "Yoga Pratama", points: 4410, handle: "0x8d2c" },
-    { rank: 3, name: "Sinta Maharani", points: 4205, handle: "0x6b7a" },
-    { rank: 4, name: "Bima Aditya", points: 3980, handle: "0x2e60" },
-    { rank: 5, name: "Lala Nurhaliza", points: 3760, handle: "0x9f33" },
-  ];
+  const topicIcon: Record<string, string> = {
+    Umum: "comments",
+    "Desain & UX": "pen-ruler",
+    "Data & AI": "chart-line",
+    "Web3 & Blockchain": "cube",
+    "Karier & Portofolio": "briefcase",
+    "Tanya Jawab": "circle-question",
+  };
 
+  let posts: Post[] = [];
+  let topics: Topic[] = [];
+  let stats = { members: 0, posts: 0, comments: 0 };
+  let loading = true;
+  let error = "";
   let draft = "";
-  let activeTopic = "Desain & UX";
+  let posting = false;
+  let activeTopic = "";
+  let openComments = new Set<string>();
+  let commentDraft: Record<string, string> = {};
+  let busy = "";
 
-  function post() {
+  $: user = $auth.user;
+
+  async function load() {
+    loading = true;
+    error = "";
+    try {
+      const qs = activeTopic ? `?topic=${encodeURIComponent(activeTopic)}` : "";
+      [posts, topics, stats] = await Promise.all([
+        api.get<Post[]>(`/community/posts${qs}`),
+        api.get<Topic[]>("/community/topics"),
+        api.get<typeof stats>("/community/stats"),
+      ]);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat komunitas";
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function submitPost() {
     const text = draft.trim();
-    if (text.length < 2) return;
-    posts = [
-      {
-        id: Date.now(),
-        author: $auth.user?.full_name ?? "Kamu",
-        handle: "0x" + ($auth.user?.chain_user_ref?.slice(4, 12) ?? "kamu0"),
-        at: new Date().toISOString(),
-        text,
-        likes: 0,
-        liked: false,
-        replies: 0,
-      },
-      ...posts,
-    ];
-    draft = "";
+    if (text.length < 2 || posting) return;
+    posting = true;
+    try {
+      const created = await api.post<Post>("/community/posts", {
+        body: text,
+        topic: activeTopic || "Umum",
+      });
+      posts = [created, ...posts];
+      draft = "";
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengirim";
+    } finally {
+      posting = false;
+    }
   }
 
-  function toggleLike(p: Post) {
-    p.liked = !p.liked;
-    p.likes += p.liked ? 1 : -1;
-    posts = [...posts];
+  async function toggleLike(p: Post) {
+    if (!user) return;
+    try {
+      const updated = await api.post<Post>(`/community/posts/${p.id}/like`);
+      posts = posts.map((x) => (x.id === p.id ? { ...x, ...updated } : x));
+    } catch {
+      /* ignore */
+    }
   }
+
+  async function toggleComments(p: Post) {
+    if (openComments.has(p.id)) {
+      openComments = new Set([...openComments].filter((id) => id !== p.id));
+      return;
+    }
+    openComments = new Set([...openComments, p.id]);
+    try {
+      const detail = await api.get<Post>(`/community/posts/${p.id}`);
+      posts = posts.map((x) =>
+        x.id === p.id ? { ...x, comments: detail.comments ?? [] } : x,
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function submitComment(p: Post) {
+    const text = (commentDraft[p.id] ?? "").trim();
+    if (text.length < 1) return;
+    busy = p.id;
+    try {
+      await api.post(`/community/posts/${p.id}/comments`, { body: text });
+      commentDraft = { ...commentDraft, [p.id]: "" };
+      await toggleComments(p); // refresh
+      await toggleComments(p); // reopen
+      posts = posts.map((x) =>
+        x.id === p.id ? { ...x, comment_count: x.comment_count + 1 } : x,
+      );
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengirim komentar";
+    } finally {
+      busy = "";
+    }
+  }
+
+  function pickTopic(name: string) {
+    activeTopic = activeTopic === name ? "" : name;
+    load();
+  }
+
+  onMount(load);
 </script>
 
 <svelte:head><title>Komunitas — QLoot</title></svelte:head>
@@ -103,14 +155,18 @@
     <p class="mt-2 max-w-2xl muted">
       Diskusi, sesi tanya-jawab, dan ruang topik untuk semua pelajar QLoot.
     </p>
-    <div class="mt-6 grid max-w-2xl grid-cols-2 gap-6">
+    <div class="mt-6 grid max-w-2xl grid-cols-2 gap-6 sm:grid-cols-3">
       <div>
-        <p class="font-display text-3xl font-bold"><StatCounter value={12840} suffix="+" /></p>
+        <p class="font-display text-3xl font-bold"><StatCounter value={stats.members} /></p>
         <p class="mono-label mt-1">Anggota</p>
       </div>
       <div>
-        <p class="font-display text-3xl font-bold"><StatCounter value={3577} /></p>
-        <p class="mono-label mt-1">Diskusi aktif</p>
+        <p class="font-display text-3xl font-bold"><StatCounter value={stats.posts} /></p>
+        <p class="mono-label mt-1">Diskusi</p>
+      </div>
+      <div>
+        <p class="font-display text-3xl font-bold"><StatCounter value={stats.comments} /></p>
+        <p class="mono-label mt-1">Komentar</p>
       </div>
     </div>
   </div>
@@ -120,18 +176,30 @@
   <!-- feed -->
   <div class="space-y-6">
     <div class="flex flex-wrap gap-2">
+      <button
+        class="btn-pill transition-colors"
+        class:!border-primary={!activeTopic}
+        class:!text-primary={!activeTopic}
+        on:click={() => pickTopic(activeTopic)}
+      >
+        <Icon name="layer-group" size="11px" /> Semua
+      </button>
       {#each topics as t}
         <button
           class="btn-pill transition-colors"
           class:!border-primary={activeTopic === t.name}
           class:!text-primary={activeTopic === t.name}
-          on:click={() => (activeTopic = t.name)}
+          on:click={() => pickTopic(t.name)}
         >
-          <Icon name={t.icon} size="11px" />
-          {t.name} · {t.threads}
+          <Icon name={topicIcon[t.name] ?? "hashtag"} size="11px" />
+          {t.name} · {t.posts}
         </button>
       {/each}
     </div>
+
+    {#if error}
+      <p class="alert-error">{error}</p>
+    {/if}
 
     <div class="card">
       <div class="flex items-center gap-3">
@@ -140,68 +208,114 @@
         </span>
         <input
           class="input"
-          placeholder={`Tulis diskusi di ${activeTopic}…`}
+          placeholder={activeTopic ? `Tulis diskusi di ${activeTopic}…` : "Tulis diskusi…"}
           aria-label="Tulis diskusi"
           bind:value={draft}
-          on:keydown={(e) => e.key === "Enter" && post()}
+          on:keydown={(e) => e.key === "Enter" && submitPost()}
         />
-        <button class="btn-primary" on:click={post} disabled={draft.trim().length < 2}>
-          <Icon name="paper-plane" size="12px" /> Kirim
+        <button
+          class="btn-primary flex-none"
+          on:click={submitPost}
+          disabled={posting || draft.trim().length < 2}
+        >
+          {#if posting}<Icon name="spinner" spin size="12px" />{:else}<Icon
+              name="paper-plane"
+              size="12px"
+            />{/if}
+          Kirim
         </button>
       </div>
     </div>
 
-    {#each posts as f (f.id)}
-      <article class="card">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <WalletChip
-              address={`0x${f.handle.replace("0x", "")}d41a2b3c4d5e6f708192a3b4c5d6e7f8`}
-              label={f.handle}
-              size={30}
-            />
-            <div>
-              <p class="text-sm font-medium">{f.author}</p>
-              <p class="text-xs muted">{relativeTime(f.at)}</p>
+    {#if loading}
+      {#each Array(3) as _}<div class="skeleton h-28"></div>{/each}
+    {:else if posts.length === 0}
+      <div class="card grid place-items-center py-14 text-center">
+        <Icon name="comments" size="26px" class="muted" />
+        <p class="mt-3 font-semibold">Belum ada diskusi</p>
+        <p class="text-sm muted">Jadilah yang pertama memulai percakapan.</p>
+      </div>
+    {:else}
+      {#each posts as f (f.id)}
+        <article class="card">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <WalletChip address={f.handle} label={f.author_name} size={30} />
+              <div>
+                <p class="text-sm font-medium">{f.author_name}</p>
+                <p class="text-xs muted">
+                  {relativeTime(f.created_at)} · <span class="text-secondary">{f.topic}</span>
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        <p class="mt-3 text-sm">{f.text}</p>
-        <div class="mt-3 flex items-center gap-4 border-t pt-3 text-xs muted">
-          <button
-            class="inline-flex items-center gap-1.5 transition-colors hover:text-tertiary"
-            class:text-tertiary={f.liked}
-            on:click={() => toggleLike(f)}
-          >
-            <Icon name="heart" size="12px" />
-            {f.likes}
-          </button>
-          <button class="inline-flex items-center gap-1.5 hover:text-primary">
-            <Icon name="comment" size="12px" />
-            {f.replies}
-          </button>
-          <button class="inline-flex items-center gap-1.5 hover:text-primary">
-            <Icon name="share-nodes" size="12px" /> Bagikan
-          </button>
-        </div>
-      </article>
-    {/each}
+          <p class="mt-3 text-sm">{f.body}</p>
+          <div class="mt-3 flex items-center gap-4 border-t pt-3 text-xs muted">
+            <button
+              class="inline-flex items-center gap-1.5 transition-colors hover:text-tertiary"
+              class:text-tertiary={f.liked_by_me}
+              on:click={() => toggleLike(f)}
+            >
+              <Icon name={f.liked_by_me ? "heart" : "heart"} size="12px" />
+              {f.like_count}
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 hover:text-primary"
+              on:click={() => toggleComments(f)}
+            >
+              <Icon name="comment" size="12px" />
+              {f.comment_count}
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 hover:text-primary"
+              on:click={() =>
+                navigator.clipboard?.writeText(`${location.origin}/community#${f.id}`)}
+            >
+              <Icon name="share-nodes" size="12px" /> Bagikan
+            </button>
+          </div>
+
+          {#if openComments.has(f.id)}
+            <div class="mt-3 space-y-3 border-t pt-3">
+              {#each f.comments ?? [] as c (c.id)}
+                <div class="flex items-start gap-2 text-sm">
+                  <Icon name="user" size="11px" class="mt-1 muted" />
+                  <div>
+                    <p>
+                      <span class="font-medium">{c.author_name}</span>
+                      <span class="text-xs muted"> · {relativeTime(c.created_at)}</span>
+                    </p>
+                    <p class="text-ink2">{c.body}</p>
+                  </div>
+                </div>
+              {/each}
+              {#if (f.comments ?? []).length === 0}
+                <p class="text-xs muted">Belum ada komentar.</p>
+              {/if}
+              <div class="flex items-center gap-2">
+                <input
+                  class="input !py-1.5 text-sm"
+                  placeholder="Tulis komentar…"
+                  bind:value={commentDraft[f.id]}
+                  on:keydown={(e) => e.key === "Enter" && submitComment(f)}
+                />
+                <button
+                  class="btn-secondary flex-none !py-1.5"
+                  on:click={() => submitComment(f)}
+                  disabled={busy === f.id}
+                >
+                  <Icon name="paper-plane" size="11px" />
+                </button>
+              </div>
+            </div>
+          {/if}
+        </article>
+      {/each}
+    {/if}
   </div>
 
-  <!-- leaderboard + rooms -->
+  <!-- topics sidebar -->
   <aside class="space-y-6 h-fit lg:sticky lg:top-28">
-    <div class="card">
-      <p class="mono-label">Papan peringkat</p>
-      <ol class="mt-3 space-y-3">
-        {#each leaders as l}
-          <li class="flex items-center gap-3">
-            <span class="mono w-5 text-sm" class:text-highlight={l.rank <= 3}>{l.rank}</span>
-            <span class="flex-1 text-sm">{l.name}</span>
-            <span class="mono text-xs muted">{l.points.toLocaleString("id-ID")}</span>
-          </li>
-        {/each}
-      </ol>
-    </div>
     <div class="card">
       <p class="mono-label">Ruang topik</p>
       <ul class="mt-3 space-y-2 text-sm">
@@ -209,15 +323,31 @@
           <li>
             <button
               class="flex w-full items-center justify-between hover:text-primary"
-              on:click={() => (activeTopic = t.name)}
+              on:click={() => pickTopic(t.name)}
             >
               <span class="inline-flex items-center gap-2"
-                ><Icon name={t.icon} size="12px" /> {t.name}</span
+                ><Icon name={topicIcon[t.name] ?? "hashtag"} size="12px" /> {t.name}</span
               >
-              <Icon name="chevron-right" size="10px" />
+              <span class="mono text-xs muted">{t.posts}</span>
             </button>
           </li>
         {/each}
+      </ul>
+    </div>
+    <div class="card">
+      <p class="mono-label">Panduan komunitas</p>
+      <ul class="mt-3 space-y-2 text-sm muted">
+        <li class="flex items-start gap-2">
+          <Icon name="circle-check" class="mt-0.5 text-secondary" size="11px" /> Saling menghargai.
+        </li>
+        <li class="flex items-start gap-2">
+          <Icon name="circle-check" class="mt-0.5 text-secondary" size="11px" /> Sertakan sumber bila
+          berbagi materi.
+        </li>
+        <li class="flex items-start gap-2">
+          <Icon name="circle-check" class="mt-0.5 text-secondary" size="11px" /> Satu topik per
+          diskusi.
+        </li>
       </ul>
     </div>
   </aside>
