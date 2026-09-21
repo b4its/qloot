@@ -60,6 +60,12 @@ async def get_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession)
     return MaterialOut.model_validate(material)
 
 
+@router.delete("/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_material(material_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        await MaterialService(db).delete(material_id, user)
+
+
 @router.post("/{material_id}/generate-questions", response_model=dict)
 async def generate_questions(
     material_id: uuid.UUID,

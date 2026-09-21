@@ -84,6 +84,16 @@ class MaterialService:
         await self._authorize_view(material, user)
         return material
 
+    async def delete(self, material_id: uuid.UUID, user: User) -> None:
+        """Delete a material (owner or admin) and its stored object."""
+        material = await self.get(material_id)
+        self._authorize(material, user)
+        key = material.storage_key
+        await self.session.delete(material)
+        await self.session.flush()
+        if key:
+            storage.delete(key)
+
     async def list_for_owner(
         self, user: User, *, limit: int = 100, offset: int = 0
     ) -> list[LearningMaterial]:

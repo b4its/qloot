@@ -71,6 +71,18 @@ class Storage:
             resp.close()
             resp.release_conn()
 
+    def delete(self, key: str) -> None:
+        """Best-effort object removal; a missing object is not an error."""
+        try:
+            if self.use_local:
+                path = Path(settings.storage_local_dir) / key
+                path.unlink(missing_ok=True)
+                return
+            assert self._client is not None
+            self._client.remove_object(settings.minio_bucket, key)
+        except Exception as exc:  # noqa: BLE001 - cleanup must not fail the request
+            log.warning("storage_delete_failed", key=key, error=str(exc))
+
 
 storage = Storage()
 
