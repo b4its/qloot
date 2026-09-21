@@ -1,9 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import { formatNumber, statusLabel } from "$lib/utils/format";
   import type { Reward } from "$lib/types";
+  import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
+  import PageAlerts from "$lib/components/PageAlerts.svelte";
+
+  $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
   const PAGE = 20;
   let rewards: Reward[] = [];
@@ -70,18 +76,15 @@
 <svelte:head><title>Hadiah — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-  <p class="mono-label">Admin · Hadiah</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Hadiah</h1>
-  <p class="mt-2 muted">Pantau, ulangi, dan batalkan alokasi OPC.</p>
+  <PageHeader
+    eyebrow="Admin · Hadiah"
+    title="Hadiah"
+    subtitle="Pantau, ulangi, dan batalkan alokasi OPC."
+    backHref="/admin"
+    backLabel="Admin"
+  />
 
-  {#if message}<p class="alert-ok mt-4">
-      {message}
-    </p>{/if}
-  {#if error}
-    <p class="alert-error mt-4">
-      {error}
-    </p>
-  {/if}
+  <PageAlerts {message} {error} />
 
   <div class="card mt-6 overflow-x-auto">
     {#if loading}

@@ -1,9 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { SubmissionRow, TeacherAnalytics } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
+  import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
+
+  $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
   const PAGE = 20;
   let rows: SubmissionRow[] = [];
@@ -61,7 +65,7 @@
         Jawaban siswa terbaru dari ujianmu, lengkap dengan feedback AI.
       </p>
     </div>
-    <a href="/teacher" class="btn-ghost">← Beranda Guru</a>
+    <a href="/teacher" class="btn-ghost">← Panel Guru</a>
   </div>
 
   {#if error}

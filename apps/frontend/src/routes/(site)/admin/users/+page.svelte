@@ -1,10 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { User } from "$lib/types";
   import { formatDate } from "$lib/utils/format";
+  import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
+  import PageAlerts from "$lib/components/PageAlerts.svelte";
+
+  $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
   const PAGE = 20;
   let users: User[] = [];
@@ -14,16 +20,6 @@
   let busy = "";
   let page = 1;
   let hasMore = false;
-  let showCreate = false;
-  let creating = false;
-  let newUser = {
-    email: "",
-    full_name: "",
-    password: "",
-    role: "student",
-    class_code: "",
-    class_type: "",
-  };
 
   async function load() {
     loading = true;
@@ -61,38 +57,6 @@
     }
   }
 
-  async function createUser() {
-    error = "";
-    message = "";
-    creating = true;
-    try {
-      const payload = {
-        email: newUser.email.trim(),
-        full_name: newUser.full_name.trim(),
-        password: newUser.password,
-        role: newUser.role,
-        class_code: newUser.class_code.trim() || null,
-        class_type: newUser.class_type.trim() || null,
-      };
-      await api.post<User>("/admin/users", payload);
-      message = `Akun ${payload.email} dibuat.`;
-      newUser = {
-        email: "",
-        full_name: "",
-        password: "",
-        role: "student",
-        class_code: "",
-        class_type: "",
-      };
-      showCreate = false;
-      await load();
-    } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal membuat akun";
-    } finally {
-      creating = false;
-    }
-  }
-
   async function deactivate(u: User) {
     if (!confirm(`Nonaktifkan akun "${u.email}"? Pengguna tidak akan bisa masuk.`)) return;
     await toggleActive(u);
@@ -118,61 +82,20 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Pengguna — QLoot</title></svelte:head>
+<svelte:head><title>Pengguna — Admin — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <p class="mono-label">Admin · Pengguna</p>
-      <h1 class="mt-2 font-display text-3xl font-bold">Pengguna</h1>
-      <p class="mt-2 muted">Kelola peran dan akun pengguna platform.</p>
-    </div>
-    <button class="btn-primary" on:click={() => (showCreate = !showCreate)}>
-      {showCreate ? "Tutup" : "＋ Tambah pengguna"}
-    </button>
-  </div>
+  <PageHeader
+    eyebrow="Admin · Pengguna"
+    title="Pengguna"
+    subtitle="Kelola peran dan status akun pengguna platform."
+    backHref="/admin"
+    backLabel="Admin"
+    actionHref="/admin/users/new"
+    actionLabel="Tambah pengguna"
+  />
 
-  {#if message}<p class="alert-ok mt-4">
-      {message}
-    </p>{/if}
-  {#if error}
-    <p class="alert-error mt-4">
-      {error}
-    </p>
-  {/if}
-
-  {#if showCreate}
-    <div class="card mt-6">
-      <h2 class="hud font-display text-lg font-bold">Akun baru</h2>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <input class="input" type="email" placeholder="Email" bind:value={newUser.email} />
-        <input class="input" placeholder="Nama lengkap" bind:value={newUser.full_name} />
-        <input
-          class="input"
-          type="password"
-          placeholder="Kata sandi (min. 8)"
-          bind:value={newUser.password}
-        />
-        <select class="input" bind:value={newUser.role}>
-          <option value="student">Siswa</option>
-          <option value="teacher">Guru</option>
-          <option value="admin">Admin</option>
-        </select>
-        <input class="input" placeholder="Kelas (mis. 1A)" bind:value={newUser.class_code} />
-        <input class="input" placeholder="Tipe kelas (mis. IPA)" bind:value={newUser.class_type} />
-      </div>
-      <button
-        class="btn-primary mt-3"
-        on:click={createUser}
-        disabled={creating ||
-          newUser.email.trim().length < 3 ||
-          newUser.full_name.trim().length < 2 ||
-          newUser.password.length < 8}
-      >
-        {creating ? "Membuat…" : "Buat akun"}
-      </button>
-    </div>
-  {/if}
+  <PageAlerts {message} {error} />
 
   <div class="card mt-6 overflow-x-auto">
     {#if loading}

@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import OpcChip from "$lib/components/OpcChip.svelte";
   import { API_BASE } from "$lib/api/client";
+  import { adminNav, teacherNav } from "$lib/data/role-nav";
 
   const primaryNav = [
     { href: "/courses", label: "Pelajaran" },
@@ -39,6 +40,29 @@
     path.startsWith("/profile") ||
     path.startsWith("/admin") ||
     path.startsWith("/teacher");
+
+  // Per-role sub-nav: inside /teacher or /admin we show that role's own links
+  // instead of the student app nav, so the two areas never mix.
+  $: inTeacherArea = path.startsWith("/teacher");
+  $: inAdminArea = path.startsWith("/admin");
+  $: sectionNav = inTeacherArea
+    ? hasRole(user, "teacher")
+      ? teacherNav
+      : []
+    : inAdminArea
+      ? hasRole(user, "admin")
+        ? adminNav
+        : []
+      : appNav;
+
+  // The most specific nav entry whose href is a prefix of the current path, so
+  // `/teacher/subjects/new` highlights `/teacher/subjects` (not `/teacher`).
+  function isActive(href: string): boolean {
+    if (href === "/teacher" || href === "/admin") {
+      return path === href;
+    }
+    return path === href || path.startsWith(`${href}/`);
+  }
 
   function submitSearch() {
     const q = searchQuery.trim();
@@ -170,15 +194,24 @@
       </div>
     {/if}
 
-    <!-- app sub-nav -->
-    {#if isAppArea}
+    <!-- app / role sub-nav -->
+    {#if isAppArea && sectionNav.length}
       <div class="border-t">
         <div class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-1.5 sm:px-6">
-          {#each appNav as item}
+          {#if inTeacherArea}
+            <span class="mono-label flex flex-none items-center gap-1.5 pr-2"
+              ><Icon name="chalkboard-user" size="11px" /> Guru</span
+            >
+          {:else if inAdminArea}
+            <span class="mono-label flex flex-none items-center gap-1.5 pr-2"
+              ><Icon name="shield-halved" size="11px" /> Admin</span
+            >
+          {/if}
+          {#each sectionNav as item}
             <a
               href={item.href}
               class="flex flex-none items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-primary/10 hover:text-primary"
-              class:nav-active={path.startsWith(item.href)}
+              class:nav-active={isActive(item.href)}
             >
               <Icon name={item.icon} size="12px" />
               {item.label}
@@ -209,10 +242,30 @@
           </a>
         {/each}
         {#if hasRole(user, "teacher")}
-          <a href="/teacher" class="block rounded-sm px-3 py-2 text-sm">Panel Guru</a>
+          <div class="my-2 border-t"></div>
+          <p class="mono-label px-3 py-1">Panel Guru</p>
+          {#each teacherNav as item}
+            <a
+              href={item.href}
+              class="block rounded-sm px-3 py-2 text-sm"
+              on:click={() => (mobileOpen = false)}
+            >
+              <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
+            </a>
+          {/each}
         {/if}
         {#if hasRole(user, "admin")}
-          <a href="/admin" class="block rounded-sm px-3 py-2 text-sm">Admin</a>
+          <div class="my-2 border-t"></div>
+          <p class="mono-label px-3 py-1">Admin</p>
+          {#each adminNav as item}
+            <a
+              href={item.href}
+              class="block rounded-sm px-3 py-2 text-sm"
+              on:click={() => (mobileOpen = false)}
+            >
+              <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
+            </a>
+          {/each}
         {/if}
       </nav>
     {/if}

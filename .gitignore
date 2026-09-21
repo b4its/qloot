@@ -43,8 +43,9 @@ blockchain/deployments/*.json
 blockchain/.openzeppelin/
 infrastructure/proxy/certs/
 
-# Data volumes
-data/
+# Data volumes (root-level runtime storage only — NOT source dirs named "data")
+/data/
+!apps/frontend/src/lib/data/
 
 # Test / e2e
 playwright-report/

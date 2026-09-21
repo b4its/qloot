@@ -6,6 +6,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import type { TeacherAnalytics } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
+  import { teacherNav } from "$lib/data/role-nav";
 
   // Redirect once auth has resolved; a mount-only check missed the case where
   // auth was still loading, briefly exposing the panel to non-teachers.
@@ -14,44 +15,8 @@
   let analytics: TeacherAnalytics | null = null;
   let error = "";
 
-  const links = [
-    {
-      href: "/teacher/subjects",
-      label: "Pelajaran",
-      desc: "Buat pelajaran, pilih kelas & tipe kelas",
-      icon: "chalkboard-user",
-    },
-    {
-      href: "/teacher/materials",
-      label: "Materi",
-      desc: "Unggah PDF dan buat soal dengan AI",
-      icon: "file-arrow-up",
-    },
-    {
-      href: "/teacher/exams",
-      label: "Ujian",
-      desc: "Buat ujian, tinjau soal AI, publikasikan",
-      icon: "file-pen",
-    },
-    {
-      href: "/teacher/quests",
-      label: "Quest",
-      desc: "Atur hadiah dan finalisasi pemenang",
-      icon: "trophy",
-    },
-    {
-      href: "/teacher/submissions",
-      label: "Jawaban",
-      desc: "Jawaban siswa, feedback, dan analitik",
-      icon: "inbox",
-    },
-    {
-      href: "/teacher/rankings",
-      label: "Peringkat",
-      desc: "Periksa papan peringkat",
-      icon: "ranking-star",
-    },
-  ];
+  // The hub shows every teacher section except the "Ringkasan" entry (this page).
+  const links = teacherNav.filter((l) => l.href !== "/teacher");
 
   onMount(async () => {
     try {

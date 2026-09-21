@@ -2,32 +2,14 @@
   import { goto } from "$app/navigation";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
+  import { adminNav } from "$lib/data/role-nav";
 
   // Redirect once auth resolves (a mount-only check could fire too early and
   // leave the admin panel visible to a non-admin mid-load).
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
-  const links = [
-    {
-      href: "/admin/blockchain",
-      label: "Blockchain",
-      desc: "Status, transaksi, pause/unpause",
-      icon: "cube",
-    },
-    {
-      href: "/admin/rewards",
-      label: "Hadiah",
-      desc: "Pantau, ulangi dan batalkan alokasi OPC",
-      icon: "gem",
-    },
-    { href: "/admin/users", label: "Pengguna", desc: "Kelola peran dan akun", icon: "users" },
-    {
-      href: "/admin/audit",
-      label: "Audit Log",
-      desc: "Setiap tindakan istimewa tercatat",
-      icon: "scroll",
-    },
-  ];
+  // The hub shows every admin section except the "Ringkasan" entry (this page).
+  const links = adminNav.filter((l) => l.href !== "/admin");
 </script>
 
 <svelte:head><title>Admin — QLoot</title></svelte:head>

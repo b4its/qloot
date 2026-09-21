@@ -1,8 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import { formatDate } from "$lib/utils/format";
+  import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
+  import PageAlerts from "$lib/components/PageAlerts.svelte";
 
   interface AuditRow {
     id: string;
@@ -13,6 +17,8 @@
     data?: Record<string, unknown> | null;
     created_at: string;
   }
+
+  $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
   const PAGE = 50;
   let logs: AuditRow[] = [];
@@ -49,15 +55,15 @@
 <svelte:head><title>Log Audit — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-  <p class="mono-label">Admin · Audit</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Log Audit</h1>
-  <p class="mt-2 muted">Setiap tindakan istimewa tercatat dan dapat ditelusuri.</p>
+  <PageHeader
+    eyebrow="Admin · Audit"
+    title="Log Audit"
+    subtitle="Setiap tindakan istimewa tercatat dan dapat ditelusuri."
+    backHref="/admin"
+    backLabel="Admin"
+  />
 
-  {#if error}
-    <p class="alert-error mt-4">
-      {error}
-    </p>
-  {/if}
+  <PageAlerts {error} />
 
   <div class="card mt-6 overflow-x-auto">
     {#if loading}

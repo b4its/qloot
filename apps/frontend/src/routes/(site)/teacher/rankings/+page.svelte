@@ -1,10 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { RankingResponse } from "$lib/types";
   import { formatNumber } from "$lib/utils/format";
+  import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+
+  $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
   const PAGE = 25;
   let global: RankingResponse | null = null;
@@ -40,9 +44,14 @@
 <svelte:head><title>Peringkat Guru — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-  <p class="mono-label">Panel Guru · Peringkat</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Peringkat</h1>
-  <p class="mt-2 muted">Papan peringkat global siswa.</p>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mono-label">Panel Guru · Peringkat</p>
+      <h1 class="mt-2 font-display text-3xl font-bold">Peringkat</h1>
+      <p class="mt-2 muted">Papan peringkat global siswa.</p>
+    </div>
+    <a href="/teacher" class="btn-ghost">← Panel Guru</a>
+  </div>
 
   {#if error}
     <p class="alert-error mt-6">{error}</p>
