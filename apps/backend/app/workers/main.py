@@ -16,7 +16,7 @@ from sqlalchemy import select
 from app.ai.provider import close_ai_provider
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
-from app.db.session import session_scope
+from app.db.session import session_factory
 from app.models.exam import GradingJob
 from app.services.grading_service import process_grading_job
 from app.services.material_service import MaterialService
@@ -57,6 +57,9 @@ async def _reap_stuck_jobs(session) -> int:
     )
     stuck = (await session.execute(stmt)).scalars().all()
     for job in stuck:
+        # ``attempts`` was already incremented when the job started running, so
+        # an exhausted job has attempts >= max_attempts; fail it rather than
+        # granting one extra attempt.
         if job.attempts >= job.max_attempts:
             job.status = "failed"
             job.error_code = "timeout"
@@ -72,48 +75,67 @@ async def _reap_stuck_jobs(session) -> int:
 
 
 async def _process_once() -> bool:
-    async with session_scope() as session:
+    """Claim one job, release its lock, then do the work in a fresh transaction."""
+    # --- 1. Short claim + reaper transaction (row lock held only briefly) ---
+    async with session_factory() as session, session.begin():
         await _reap_stuck_jobs(session)
         job = await _claim_job(session)
         if job is None:
             return False
-        if job.kind == "grading":
-            ok = await process_grading_job(session, job.id)
-        elif job.kind == "generation":
+        job_id = job.id
+        kind = job.kind
+        if kind == "grading":
+            job.status = "running"
+            job.started_at = datetime.now(UTC)
+        elif kind == "generation":
             job.status = "running"
             job.started_at = datetime.now(UTC)
             job.attempts += 1
-            await session.flush()
-            try:
-                await MaterialService(session).run_generation(job)
-                job.status = "done"
-                job.finished_at = datetime.now(UTC)
-                job.error_code = None
-                job.error_message = None
-                ok = True
-            except Exception as exc:  # noqa: BLE001
-                job.error_code = "generation_error"
-                job.error_message = str(exc)[:500]
-                if job.attempts >= job.max_attempts:
-                    job.status = "failed"
-                    job.finished_at = datetime.now(UTC)
-                else:
-                    # Backoff so a failing generation does not hot-loop.
-                    from datetime import timedelta
-
-                    job.status = "queued"
-                    job.available_at = datetime.now(UTC) + timedelta(
-                        seconds=min(600, 2**job.attempts)
-                    )
-                ok = False
-            await session.flush()
         else:
             job.status = "failed"
             job.error_code = "unknown_kind"
             job.finished_at = datetime.now(UTC)
             await session.flush()
-            ok = False
-        return ok
+            return False
+        await session.flush()
+
+    # --- 2. Process OUTSIDE the claim transaction (AI call happens here) ----
+    async with session_factory() as session, session.begin():
+        if kind == "grading":
+            # process_grading_job re-checks state and manages attempts/backoff.
+            return await process_grading_job(session, job_id)
+        return await _run_generation(session, job_id)
+
+
+async def _run_generation(session, job_id) -> bool:
+    from sqlalchemy import select as _select
+
+    job = (
+        await session.execute(_select(GradingJob).where(GradingJob.id == job_id))
+    ).scalar_one_or_none()
+    if job is None or job.status in ("done", "failed"):
+        return False
+    try:
+        await MaterialService(session).run_generation(job)
+        job.status = "done"
+        job.finished_at = datetime.now(UTC)
+        job.error_code = None
+        job.error_message = None
+        await session.flush()
+        return True
+    except Exception as exc:  # noqa: BLE001
+        job.error_code = "generation_error"
+        job.error_message = str(exc)[:500]
+        if job.attempts >= job.max_attempts:
+            job.status = "failed"
+            job.finished_at = datetime.now(UTC)
+        else:
+            from datetime import timedelta
+
+            job.status = "queued"
+            job.available_at = datetime.now(UTC) + timedelta(seconds=min(600, 2**job.attempts))
+        await session.flush()
+        return False
 
 
 async def run() -> None:

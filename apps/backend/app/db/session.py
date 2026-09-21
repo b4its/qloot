@@ -98,3 +98,16 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
     sm = get_sessionmaker()
     async with sm() as session, session.begin():
         yield session
+
+
+@asynccontextmanager
+async def session_factory() -> AsyncIterator[AsyncSession]:
+    """Standalone session with **no** implicit transaction.
+
+    For workers that must claim a job (and release its row lock) before doing
+    slow external work such as an AI call, then persist results in a fresh
+    transaction. Callers manage commit/rollback explicitly.
+    """
+    sm = get_sessionmaker()
+    async with sm() as session:
+        yield session
