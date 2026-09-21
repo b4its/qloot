@@ -858,7 +858,45 @@ class CareerService:
 
     # --- assistant ---------------------------------------------------------
     async def assistant_reply(self, user: User, question: str) -> dict:
-        """Rule-based assistant: score every KB entry and return the best match.
+        """Answer a career/study question.
+
+        When a real AI provider is configured (``AI_PROVIDER=openai``/``gemini``)
+        we ask the model first; any failure or a mock provider falls back to the
+        deterministic rule-based knowledge base below, so the assistant always
+        answers offline too.
+        """
+        ai = await self._ai_assistant_reply(user, question)
+        if ai is not None:
+            return ai
+        return await self._kb_assistant_reply(user, question)
+
+    async def _ai_assistant_reply(self, user: User, question: str) -> dict | None:
+        """Try the configured LLM provider; return None to use the KB fallback."""
+        from app.ai.provider import QAContext, get_ai_provider
+        from app.core.config import settings
+
+        if settings.ai_provider == "mock":
+            return None
+        provider = get_ai_provider()
+        context = (
+            f'Panggil dirimu "{settings.assistant_name}" (boleh dipanggil Kulo). '
+            "Bantu pelajar Indonesia soal jurusan, kampus, jalur masuk (SNBP/SNBT), "
+            "dan prospek karier. Jawab ringkas, ramah, dan dalam bahasa pengguna."
+        )
+        try:
+            result = await provider.answer(
+                QAContext(text=context, question=question, language="id")
+            )
+        except Exception as exc:  # provider/network/schema failure → KB fallback
+            log.warning("assistant_ai_failed", error=str(exc))
+            return None
+        answer = (result.answer or "").strip()
+        if not answer:
+            return None
+        return {"answer": answer, "confidence_bp": result.confidence_bp}
+
+    async def _kb_assistant_reply(self, user: User, question: str) -> dict:
+        """Rule-based fallback: score every KB entry and return the best match.
 
         Matching is word-boundary based (so "protes" does not match "tes") and
         scored by how many distinct keywords hit, rather than first-match-wins.
@@ -869,10 +907,11 @@ class CareerService:
 
         kb: list[tuple[tuple[str, ...], str]] = [
             (
-                ("siapa", "qlo", "qloot", "pembuat"),
+                ("siapa", "qlo", "kulo", "qloot", "pembuat"),
                 (
-                    "Saya **QLoot AI Assistant** — asisten simulasi untuk membantu "
-                    "menjelajahi jurusan, kampus, jalur masuk (SNBP/SNBT) dan prospek karir."
+                    "Saya **Asisten Qlo** (boleh dipanggil **Kulo**) — asisten "
+                    "simulasi untuk membantu menjelajahi jurusan, kampus, jalur "
+                    "masuk (SNBP/SNBT) dan prospek karir."
                 ),
             ),
             (
