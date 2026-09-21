@@ -102,6 +102,10 @@ class CertificateService:
         if course is None:
             return None
 
+        # Serialise edition-number assignment with a transaction-scoped advisory
+        # lock: concurrent issuances for *different* users would otherwise read
+        # the same count and mint the same edition number.
+        await self.session.execute(select(func.pg_advisory_xact_lock(0xC0DE_C3_01)))
         edition = (
             int(
                 (
