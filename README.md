@@ -70,6 +70,8 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   blockchain worker → indexer, tautan explorer, dan penarikan (withdrawal).
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
   object-level, cookie CSRF-safe, CORS ketat, rate limiting, redaksi secret di log.
+- **Sertifikat & komunitas (simulasi)** — sertifikat kredensial dengan ID unik dan
+  halaman verifikasi publik; feed komunitas dengan posting, like, dan komentar.
 
 ---
 
@@ -189,14 +191,21 @@ yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
 
 **Sebagai siswa:**
 
-1. Masuk dan buka **Dashboard**.
-2. **Pelajaran Saya** — ikuti pelajaran kelasmu dan selesaikan materi.
+1. Masuk dan buka **Dashboard** — isi nilai rapor langsung dari panel **Nilai akademik**.
+2. **Pelajaran Saya** — ikuti pelajaran kelasmu dan selesaikan materi (materi terakhir
+   yang selesai akan menerbitkan **sertifikat** otomatis).
 3. **Ujian** — kerjakan ujian (timer server, autosave); lihat hasil & feedback AI.
 4. **Ruang** — bergabung ke ruang live (leaderboard & event real-time via WebSocket).
 5. **Quest / Tugas** — selesaikan untuk memperoleh OPC.
-6. **Peringkat / Badge** — pantau posisi dan pencapaian.
-7. **Karier** — isi nilai, tes Big Five, hasilkan rekomendasi jurusan & roadmap.
-8. **Wallet** — lihat saldo, ledger, reward, dan buat permintaan penarikan.
+6. **Peringkat / Badge / Sertifikat** — pantau posisi dan pencapaian; sertifikat dapat
+   diverifikasi publik lewat `/verify/<credential_id>`.
+7. **Komunitas** — diskusi, like, dan komentar antar pelajar.
+8. **Karier** — tes Big Five, rekomendasi jurusan & roadmap, konsultasi BK, asisten AI.
+9. **Wallet** — lihat saldo, ledger, reward, kirim OPC internal, dan buat penarikan.
+
+> **Lupa kata sandi?** Halaman `forgot-password` mengembalikan *reset token* di mode
+> non-produksi (simulasi email), lalu gunakan halaman `reset-password` untuk menetapkan
+> kata sandi baru.
 
 ### Akses API
 
@@ -219,16 +228,23 @@ curl -s -b cookies.txt http://localhost:8000/api/v1/wallet
 
 `make db-seed` menjalankan seeder idempoten yang mengisi platform dengan data simulasi:
 
-- **Akun** — 1 admin, **5 guru**, **50 siswa** yang tersebar di 6 kelas.
-- **Konten** — ~200 baris per tabel: pelajaran, materi, pelajaran/lesson, ujian, soal,
-  ruang, quest, tugas, badge (semua dengan id on-chain), notifikasi, resource, dsb.
-- **Materi PDF** — teks diekstrak dari **PDF edukasi asli dari internet** (catatan kuliah
-  Stanford CS224n); bila jaringan tidak tersedia, seeder membuat PDF lokal sebagai fallback
-  sehingga proses seeding selalu berhasil.
+- **Akun** — 1 admin, **5 guru**, **50 siswa** yang tersebar di 6 kelas
+  (`1A`, `1B`, `2A`, `2D`, `3A`, `3B`).
+- **≥ 200 baris di setiap tabel** — pelajaran, lesson, materi, ujian, soal &
+  opsi, attempt & jawaban, hasil penilaian, sertifikat, ruang & event,
+  quest & pemenang, tugas & penyelesaian, reward & ledger, notifikasi,
+  badge, papan peringkat, roadmap, konsultasi, resource, audit log, tabel
+  blockchain, dsb. (Tabel yang memang dibatasi jumlahnya — `users`,
+  `user_roles`, `wallet_accounts` — mengikuti spesifikasi akun, dan `roles`
+  tetap berisi 3 peran keamanan.)
+- **Materi PDF** — teks diekstrak dari **PDF edukasi asli dari internet**
+  (catatan kuliah Stanford CS224n); bila jaringan tidak tersedia, seeder membuat PDF lokal
+  sebagai fallback sehingga proses seeding selalu berhasil.
 - **Aktivitas** — ujian yang sudah dinilai, quest yang difinalisasi beserta reward OPC,
-  badge, notifikasi, dan data panduan karier.
+  sertifikat, badge, notifikasi, dan data panduan karier.
 
-Seeder aman dijalankan berulang kali (idempotent). Untuk hanya menambah padding bulk:
+Seeder aman dijalankan berulang kali (idempotent — id deterministik, guard unique
+key). Untuk hanya menambah padding bulk:
 
 ```bash
 make db-seed-bulk
