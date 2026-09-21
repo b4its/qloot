@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, status
 from sqlalchemy import func, select
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
 from app.core.errors import ConflictError, NotFoundError
 from app.db.session import transaction
 from app.models.identity import User
@@ -44,7 +44,7 @@ async def get_wallet(user: CurrentUser, db: DbSession):
 
 
 @router.get("/transfer-recipients", response_model=list[dict])
-async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", limit: int = 8):
+async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", limit: LimitParam = 8):
     """Search active users to transfer OPC to (simulated directory)."""
     stmt = select(User).where(User.is_active.is_(True), User.id != user.id)
     term = q.strip()
@@ -59,7 +59,9 @@ async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", lim
 
 
 @router.get("/ledger", response_model=list[LedgerEntryOut])
-async def get_ledger(user: CurrentUser, db: DbSession, limit: int = 100, offset: int = 0):
+async def get_ledger(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     engine = RewardEngine(db)
     account = await engine.get_or_create_account(user.id)
     stmt = (
@@ -73,7 +75,7 @@ async def get_ledger(user: CurrentUser, db: DbSession, limit: int = 100, offset:
 
 
 @router.get("/rewards", response_model=list[RewardOut])
-async def my_rewards(user: CurrentUser, db: DbSession, limit: int = 100):
+async def my_rewards(user: CurrentUser, db: DbSession, limit: LimitParam = 100):
     stmt = (
         select(RewardAllocation)
         .where(RewardAllocation.user_id == user.id)
@@ -114,14 +116,21 @@ async def transfer(payload: TransferRequest, user: CurrentUser, db: DbSession):
         if recipient is None:
             raise NotFoundError("Recipient not found")
         engine = RewardEngine(db)
+        # Lock both wallet rows in a deterministic (user_id) order *before*
+        # debiting/crediting. Otherwise simultaneous A->B and B->A transfers
+        # grab the two row locks in opposite order and Postgres deadlocks them.
+        lo, hi = sorted((user.id, recipient.id), key=str)
+        await engine.get_or_create_account(lo)
+        if hi != lo:
+            await engine.get_or_create_account(hi)
+        account = await engine.get_or_create_account(user.id)
+        if account.cached_balance < payload.amount:
+            raise ConflictError("Insufficient balance")
         # Every transfer needs a unique reference: include a nonce so repeated
         # transfers to the same recipient do not collide on the ledger's
         # (reference_type, reference_id, entry_type) uniqueness.
         nonce = uuid.uuid4().hex[:16]
         ref = tx_idempotency_key("transfer", str(user.id), str(payload.to_user_id), nonce)[:64]
-        account = await engine.get_or_create_account(user.id)
-        if account.cached_balance < payload.amount:
-            raise ConflictError("Insufficient balance")
         from app.models.wallet import WalletLedgerEntry as LE
 
         account.cached_balance -= payload.amount
