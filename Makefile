@@ -124,6 +124,14 @@ logs: ## Tail all logs
 logs-backend: ## Tail backend logs
 	$(COMPOSE_DEV) logs -f --tail=200 $(BACKEND_SVC)
 
+.PHONY: ai-gateway-allow
+ai-gateway-allow: ## Let containers reach a host-run AI gateway (default port 20128)
+	./scripts/qloot-ai-gateway.sh
+
+.PHONY: ai-check
+ai-check: ## Verify the AI gateway is reachable from the backend container
+	$(COMPOSE_DEV) exec $(BACKEND_SVC) python -c "import urllib.request; print('AI gateway HTTP', urllib.request.urlopen('http://host.docker.internal:20128/v1/models', timeout=5).status)"
+
 .PHONY: logs-frontend
 logs-frontend: ## Tail frontend logs
 	$(COMPOSE_DEV) logs -f --tail=200 $(FRONTEND_SVC)
