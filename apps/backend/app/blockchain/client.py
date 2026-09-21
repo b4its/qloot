@@ -10,6 +10,7 @@ The private key is read from settings and never logged.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from dataclasses import dataclass
 from typing import Any
@@ -145,6 +146,10 @@ class ChainClient:
         self._w3: Any = None
         self._contract: Any = None
         self._account: Any = None
+        # Serialises nonce allocation + submission: web3.py's HTTP provider is
+        # sync, and two concurrent submits that both read the "latest" nonce
+        # would sign conflicting transactions (one gets dropped).
+        self._nonce_lock = asyncio.Lock()
         if not self.dry_run:
             self._init_web3()
 
@@ -250,16 +255,22 @@ class ChainClient:
     async def _send(self, fn) -> TxReceipt:
         assert self._w3 is not None and self._account is not None
         try:
-            nonce = self._w3.eth.get_transaction_count(self._account.address)
-            tx = fn.build_transaction(
-                {
-                    "from": self._account.address,
-                    "nonce": nonce,
-                    "chainId": settings.chain_id,
-                }
-            )
-            signed = self._account.sign_transaction(tx)
-            tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
+            # Hold the lock across nonce read -> sign -> send so back-to-back
+            # submissions cannot reuse the same nonce.
+            async with self._nonce_lock:
+                # "pending" counts transactions we already broadcast but that
+                # are not yet mined; "latest" would return a stale nonce and
+                # cause replacements/drops under rapid submission.
+                nonce = self._w3.eth.get_transaction_count(self._account.address, "pending")
+                tx = fn.build_transaction(
+                    {
+                        "from": self._account.address,
+                        "nonce": nonce,
+                        "chainId": settings.chain_id,
+                    }
+                )
+                signed = self._account.sign_transaction(tx)
+                tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
             return TxReceipt(
                 tx_hash=tx_hash.hex(),
                 status=0,
