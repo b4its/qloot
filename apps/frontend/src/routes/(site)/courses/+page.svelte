@@ -10,8 +10,17 @@
   let subjects: Course[] = [];
   let loading = true;
   let error = "";
-  let query = $page.url.searchParams.get("q") ?? "";
+  let query = "";
   let classFilter = "all";
+  // Track the last-seen ?q= param so we only overwrite the box when the URL
+  // itself changes (header search / /paths deep links), not while typing.
+  let lastQ = "";
+
+  $: qParam = $page.url.searchParams.get("q") ?? "";
+  $: if (qParam !== lastQ) {
+    lastQ = qParam;
+    if (qParam) query = qParam;
+  }
 
   $: user = $auth.user;
   $: canManage = hasRole(user, "teacher");

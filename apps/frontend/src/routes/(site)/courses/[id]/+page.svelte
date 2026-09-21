@@ -2,13 +2,14 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { Course, Lesson } from "$lib/types";
+  import type { Course, Lesson, Certificate } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
 
   let course: Course | null = null;
   let lessons: Lesson[] = [];
+  let certificate: Certificate | null = null;
   let loading = true;
   let error = "";
 
@@ -22,6 +23,11 @@
     try {
       course = await api.get<Course>(`/courses/${id}`);
       lessons = await api.get<Lesson[]>(`/courses/${id}/lessons`);
+      // If the student has earned a certificate for this course, show it.
+      if (!$auth.loading && $auth.user && !canManage) {
+        const mine = await api.get<Certificate[]>("/certificates").catch(() => []);
+        certificate = mine.find((c) => c.course_id === id) ?? null;
+      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
@@ -151,17 +157,35 @@
     <div class="mt-8 grid gap-6 lg:grid-cols-2">
       <div class="card">
         <h2 class="font-display text-lg font-bold">Sertifikat digital</h2>
-        <p class="mt-2 text-sm muted">
-          Setelah menyelesaikan seluruh materi, kamu menerima sertifikat dengan ID unik dan tautan
-          verifikasi.
-        </p>
+        {#if certificate}
+          <p class="mt-2 text-sm muted">
+            Selamat! Kamu telah menyelesaikan pelajaran ini dan meraih sertifikat digital dengan ID
+            unik dan tautan verifikasi.
+          </p>
+          <a href="/certificates" class="btn-secondary mt-3"
+            ><Icon name="certificate" size="12px" /> Lihat sertifikat</a
+          >
+        {:else}
+          <p class="mt-2 text-sm muted">
+            Setelah menyelesaikan seluruh materi, kamu menerima sertifikat dengan ID unik dan tautan
+            verifikasi.
+          </p>
+        {/if}
       </div>
-      <CertificateBadge
-        title={course.title}
-        subtitle="Contoh sertifikat kelulusan pelajaran"
-        edition="#0001 / 5000"
-        icon="certificate"
-      />
+      {#if certificate}
+        <CertificateBadge
+          title={certificate.course_title}
+          subtitle={certificate.recipient_name}
+          edition={`#${String(certificate.edition_number).padStart(4, "0")} / ${certificate.edition_total}`}
+          icon="certificate"
+        />
+      {:else}
+        <div class="card grid place-items-center text-center">
+          <Icon name="lock" size="22px" class="muted" />
+          <p class="mt-2 text-sm font-semibold">Sertifikat terkunci</p>
+          <p class="mt-1 text-xs muted">Selesaikan semua materi untuk membukanya.</p>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

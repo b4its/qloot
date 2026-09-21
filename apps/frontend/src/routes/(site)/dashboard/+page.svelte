@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { AcademicDashboard, Personality, UserBadge, Course } from "$lib/types";
+  import type { AcademicDashboard, Personality, UserBadge, Course, Badge } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import ProgressRing from "$lib/components/ProgressRing.svelte";
@@ -13,6 +13,7 @@
   let acad: AcademicDashboard | null = null;
   let personality: Personality | null = null;
   let badges: UserBadge[] = [];
+  let badgeCatalog: Badge[] = [];
   let subjects: Course[] = [];
   let wallet: { available: number; token_id: number } | null = null;
   let loading = true;
@@ -87,13 +88,14 @@
 
   onMount(async () => {
     try {
-      [acad, personality, badges, wallet, subjects, grades] = await Promise.all([
+      [acad, personality, badges, wallet, subjects, grades, badgeCatalog] = await Promise.all([
         api.get<AcademicDashboard>("/career/dashboard").catch(() => null),
         api.get<Personality | null>("/career/personality").catch(() => null),
         api.get<UserBadge[]>("/me/badges").catch(() => []),
         api.get<{ available: number; token_id: number }>("/wallet").catch(() => null),
         api.get<Course[]>("/courses").catch(() => []),
         api.get<Grade[]>("/career/grades").catch(() => []),
+        api.get<Badge[]>("/badges").catch(() => []),
       ]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "";
@@ -179,7 +181,7 @@
         <div class="card">
           <p class="mono-label">Badge diraih</p>
           <p class="mt-2 font-display text-3xl font-bold"><StatCounter value={badges.length} /></p>
-          <p class="text-xs muted">dari {7} tersedia</p>
+          <p class="text-xs muted">dari {badgeCatalog.length || "—"} tersedia</p>
         </div>
       </div>
 

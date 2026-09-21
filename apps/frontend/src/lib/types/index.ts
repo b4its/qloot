@@ -275,6 +275,30 @@ export interface UserBadge {
   meta?: Record<string, unknown> | null;
 }
 
+export interface Certificate {
+  id: string;
+  credential_id: string;
+  verification_hash: string;
+  course_id: string;
+  course_title: string;
+  recipient_name: string;
+  issued_by: string;
+  edition_number: number;
+  edition_total: number;
+  issued_at: string;
+  revoked_at?: string | null;
+}
+
+export interface CertificateVerify {
+  valid: boolean;
+  credential_id: string;
+  course_title?: string | null;
+  recipient_name?: string | null;
+  issued_by?: string | null;
+  issued_at?: string | null;
+  verification_hash?: string | null;
+}
+
 export interface LiveEntry {
   rank: number;
   user_id: string;
