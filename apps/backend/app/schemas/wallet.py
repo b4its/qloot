@@ -52,6 +52,17 @@ class TransferRequest(BaseModel):
     note: str | None = Field(default=None, max_length=255)
 
 
+class WalletAddressUpdate(BaseModel):
+    """Set the caller's personal wallet address.
+
+    ``source`` is provenance only ("manual" paste or "metamask" connect); the
+    address itself is validated/normalised server-side.
+    """
+
+    address: str = Field(min_length=42, max_length=42)
+    source: str = Field(default="manual", pattern="^(manual|metamask)$")
+
+
 class WithdrawalRequestIn(BaseModel):
     amount: int = Field(gt=0)
     destination_address: str = Field(min_length=42, max_length=42)

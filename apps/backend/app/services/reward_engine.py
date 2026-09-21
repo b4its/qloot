@@ -39,7 +39,11 @@ class RewardEngine:
         stmt = select(WalletAccount).where(WalletAccount.user_id == user_id).with_for_update()
         account = (await self.session.execute(stmt)).scalar_one_or_none()
         if account is None:
-            account = WalletAccount(user_id=user_id)
+            from app.core.config import settings
+
+            account = WalletAccount(
+                user_id=user_id, withdrawal_address=(settings.default_wallet_address or None)
+            )
             try:
                 # SAVEPOINT so a concurrent insert only unwinds this attempt,
                 # not the caller's whole unit of work.

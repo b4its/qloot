@@ -17,12 +17,14 @@ from app.schemas.wallet import (
     LedgerEntryOut,
     RewardOut,
     TransferRequest,
+    WalletAddressUpdate,
     WalletOut,
     WithdrawalOut,
     WithdrawalRequestIn,
 )
 from app.services.keys import tx_idempotency_key, withdrawal_key
 from app.services.reward_engine import RewardEngine
+from app.services.wallet_service import effective_wallet_address, set_wallet_address
 
 router = APIRouter()
 
@@ -35,7 +37,9 @@ async def _account_out(db, user: User) -> WalletOut:
         token_id=account.token_id,
         available=account.cached_balance,
         pending=account.cached_pending,
-        withdrawal_address=account.withdrawal_address,
+        # The user's own withdrawal wallet, falling back to the platform default
+        # so a freshly provisioned account already has a usable address.
+        withdrawal_address=effective_wallet_address(account),
         # Surface the shared custodial wallet so the UI can show where the
         # pooled tokens live, alongside the user's own focused balance.
         custodial_address=settings.treasury_address or None,
@@ -46,6 +50,20 @@ async def _account_out(db, user: User) -> WalletOut:
 @router.get("", response_model=WalletOut)
 async def get_wallet(user: CurrentUser, db: DbSession):
     return await _account_out(db, user)
+
+
+@router.patch("/address", response_model=WalletOut)
+async def update_wallet_address(payload: WalletAddressUpdate, user: CurrentUser, db: DbSession):
+    """Change your own personal withdrawal wallet.
+
+    Object-level guard: a user may only change *their* wallet (no admin override
+    — this is a self-service setting). Addresses are EIP-55 checksummed and the
+    change is recorded in the audit log.
+    """
+    async with transaction(db):
+        await set_wallet_address(db, user, payload.address, source=payload.source)
+        result = await _account_out(db, user)
+    return result
 
 
 @router.get("/transfer-recipients", response_model=list[dict])

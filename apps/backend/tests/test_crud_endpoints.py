@@ -6,6 +6,8 @@ from orphaning child records (answers, attempts, finalized rewards).
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -242,6 +244,82 @@ async def test_wallet_exposes_shared_custodial_address(client):
     assert "available" in body and body["available"] == 0
 
 
+async def test_new_account_defaults_to_platform_wallet(client):
+    """A fresh account's personal wallet defaults to the platform address."""
+    from app.core.config import settings
+
+    await _register(client, "wallet_default@ex.com", "student")
+    body = (await client.get("/api/v1/wallet")).json()
+    assert body["withdrawal_address"] == settings.default_wallet_address
+
+
+async def test_user_can_change_own_wallet_address(client):
+    """Any user may change their own personal wallet; the change is persisted."""
+    await _register(client, "wallet_change@ex.com", "student")
+    new_addr = "0x000000000000000000000000000000000000dEaD"
+    r = await client.patch("/api/v1/wallet/address", json={"address": new_addr, "source": "manual"})
+    assert r.status_code == 200, r.text
+    # Stored EIP-55 checksummed.
+    assert r.json()["withdrawal_address"].lower() == new_addr.lower()
+
+    # Persisted across reads.
+    again = (await client.get("/api/v1/wallet")).json()
+    assert again["withdrawal_address"].lower() == new_addr.lower()
+
+
+async def test_wallet_change_accepts_lowercase_and_checksums(client):
+    """A lowercase address is accepted and returned checksummed."""
+    await _register(client, "wallet_case@ex.com", "student")
+    lower = "0x6edca860c066fcda6c434095d5901810dce12b48"
+    r = await client.patch("/api/v1/wallet/address", json={"address": lower, "source": "metamask"})
+    assert r.status_code == 200, r.text
+    assert r.json()["withdrawal_address"] == "0x6EdcA860c066FCdA6c434095d5901810DCE12b48"
+
+
+async def test_wallet_change_rejects_invalid_address(client):
+    await _register(client, "wallet_bad@ex.com", "student")
+    for bad in ["not-an-address", "0x123", "0x" + "z" * 40]:
+        r = await client.patch("/api/v1/wallet/address", json={"address": bad})
+        assert r.status_code == 422, f"{bad} -> {r.status_code}"
+
+
+async def test_wallet_change_requires_auth(client):
+    r = await client.patch(
+        "/api/v1/wallet/address", json={"address": "0x" + "1" * 40, "source": "manual"}
+    )
+    assert r.status_code == 401, r.text
+
+
+async def test_wallet_change_audited(client, engine):
+    """Changing the wallet records an audit log entry owned by the user."""
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.identity import AuditLog
+
+    user = await _register(client, "wallet_audit@ex.com", "student")
+    addr = "0x000000000000000000000000000000000000bEEF"
+    r = await client.patch("/api/v1/wallet/address", json={"address": addr, "source": "metamask"})
+    assert r.status_code == 200, r.text
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        logs = (
+            (
+                await s.execute(
+                    select(AuditLog).where(
+                        AuditLog.action == "wallet.address_change",
+                        AuditLog.actor_id == uuid.UUID(user["id"]),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert len(logs) == 1
+    assert logs[0].data["source"] == "metamask"
+
+
 async def test_student_cannot_approve_own_career_plan(client, engine):
     """Only a counselor (teacher/admin) may approve recommendations."""
     student = await _register(client, "crud_career_stu@ex.com", "student")
@@ -278,7 +356,9 @@ async def test_generate_questions_rejects_foreign_exam(client):
         files={
             "file": (
                 "m.pdf",
-                io.BytesIO(make_pdf("Fisika kuantum membahas partikel dan gelombang secara rinci.")),
+                io.BytesIO(
+                    make_pdf("Fisika kuantum membahas partikel dan gelombang secara rinci.")
+                ),
                 "application/pdf",
             )
         },
@@ -478,9 +558,7 @@ async def test_task_crud_and_delete_guard(client, engine):
 
     sm = async_sessionmaker(engine, expire_on_commit=False)
     async with sm() as s:
-        await s.execute(
-            delete(TransactionOutbox).where(TransactionOutbox.topic == "reward")
-        )
+        await s.execute(delete(TransactionOutbox).where(TransactionOutbox.topic == "reward"))
         await s.execute(delete(RewardAllocation).where(RewardAllocation.task_id == task_id))
         await s.execute(delete(_LE).where(_LE.reference_type == "task"))
         await s.execute(delete(TaskCompletion).where(TaskCompletion.task_id == task_id))

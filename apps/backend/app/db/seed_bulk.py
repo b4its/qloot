@@ -223,10 +223,15 @@ async def _get_or_create_user(
     session.add(user)
     await session.flush()
     session.add(UserRole(user_id=uid, role_id=role.id))
-    # One custodial wallet per user.
+    # One custodial wallet per user; personal wallet defaults to the platform one.
+    from app.core.config import settings
     from app.models.wallet import WalletAccount
 
-    session.add(WalletAccount(user_id=uid, token_id=0))
+    session.add(
+        WalletAccount(
+            user_id=uid, token_id=0, withdrawal_address=settings.default_wallet_address or None
+        )
+    )
     await session.flush()
     return user
 

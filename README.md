@@ -224,7 +224,9 @@ yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
 7. **Komunitas** — diskusi, like, dan komentar antar pelajar.
 8. **Karier** — tes Big Five, rekomendasi jurusan & roadmap, konsultasi BK, asisten AI.
 9. **Wallet** — lihat saldo (wallet bersama + bagianmu), ledger, reward, kirim OPC internal,
-   dan buat penarikan ke wallet pribadi.
+   dan buat penarikan ke wallet pribadi. **Ganti wallet** sendiri kapan saja (tempel alamat atau
+   hubungkan MetaMask); setiap akun otomatis memakai wallet default platform
+   `0x6EdcA860c066FCdA6c434095d5901810DCE12b48` sampai diubah.
 
 **Sebagai admin:** kelola peran pengguna dan aktifkan/nonaktifkan akun (`/admin/users`),
 tinjau hadiah (`/admin/rewards`), pantau blockchain (`/admin/blockchain`), dan audit log

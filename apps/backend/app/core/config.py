@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     blockchain_private_key: str = ""
     etherscan_api_key: str = ""
     treasury_address: str = ""
+    # Default personal wallet address pre-filled for every account; users may
+    # change their own at /wallet (paste an address or connect MetaMask).
+    default_wallet_address: str = "0x6EdcA860c066FCdA6c434095d5901810DCE12b48"
     opc_contract_address: str = ""
     opc_token_id: int = 0
     opc_confirmations: int = 2

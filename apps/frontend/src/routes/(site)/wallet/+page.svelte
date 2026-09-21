@@ -10,6 +10,8 @@
     statusLabel,
   } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
+  import Icon from "$lib/components/Icon.svelte";
+  import { connectWalletAddress, hasInjectedWallet } from "$lib/utils/metamask";
 
   const PAGE = 10;
   let wallet: Wallet | null = null;
@@ -22,6 +24,12 @@
   let withdrawAmount = 0;
   let withdrawAddr = "";
   let withdrawMsg = "";
+
+  // Personal wallet ("wallet saya") editing.
+  let walletAddrDraft = "";
+  let walletSaving = false;
+  let walletMsg = "";
+  let metamaskAvailable = false;
 
   // Independent pagers for the three lists.
   let ledgerPage = 1;
@@ -141,12 +149,50 @@
   async function load() {
     try {
       wallet = await api.get<Wallet>("/wallet");
+      // Seed the editable + withdrawal address from the saved personal wallet.
+      walletAddrDraft = wallet.withdrawal_address ?? "";
+      if (!withdrawAddr) withdrawAddr = wallet.withdrawal_address ?? "";
       status = await api.get<BlockchainStatus>("/blockchain/status");
       await Promise.all([loadLedger(), loadRewards(), loadTxs()]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat dompet";
     } finally {
       loading = false;
+    }
+  }
+
+  async function saveWalletAddress(address: string, source: "manual" | "metamask") {
+    walletMsg = "";
+    error = "";
+    walletSaving = true;
+    try {
+      wallet = await api.patch<Wallet>("/wallet/address", { address, source });
+      walletAddrDraft = wallet.withdrawal_address ?? "";
+      withdrawAddr = wallet.withdrawal_address ?? withdrawAddr;
+      walletMsg =
+        source === "metamask"
+          ? "Wallet dari MetaMask berhasil disimpan."
+          : "Alamat wallet berhasil diperbarui.";
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menyimpan alamat wallet";
+    } finally {
+      walletSaving = false;
+    }
+  }
+
+  function saveManualWallet() {
+    return saveWalletAddress(walletAddrDraft.trim(), "manual");
+  }
+
+  async function connectMetaMask() {
+    walletMsg = "";
+    error = "";
+    try {
+      const address = await connectWalletAddress();
+      walletAddrDraft = address;
+      await saveWalletAddress(address, "metamask");
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Gagal menghubungkan MetaMask";
     }
   }
 
@@ -164,7 +210,10 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    metamaskAvailable = hasInjectedWallet();
+    load();
+  });
 </script>
 
 <svelte:head><title>Dompet — QLoot</title></svelte:head>
@@ -247,6 +296,48 @@
       </div>
     </div>
 
+    <div class="card mt-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="hud font-display text-lg font-bold">Wallet saya</h2>
+        <span class="mono-label">Alamat yang dipakai untuk penarikan</span>
+      </div>
+      <p class="mt-1 text-xs muted">
+        Ini wallet pribadimu — semua penarikan OPC akan dikirim ke alamat ini. Tempel alamatnya
+        langsung, atau hubungkan lewat MetaMask. Semua akun memakai alamat default platform sampai
+        kamu menggantinya.
+      </p>
+
+      <div class="mt-3 flex flex-wrap items-end gap-2">
+        <label class="block min-w-[260px] flex-1">
+          <span class="mono-label">Alamat wallet (0x…)</span>
+          <input
+            class="input mt-1 font-mono"
+            placeholder="0x…"
+            maxlength="42"
+            bind:value={walletAddrDraft}
+          />
+        </label>
+        <button
+          class="btn-primary"
+          on:click={saveManualWallet}
+          disabled={walletSaving || walletAddrDraft.trim().length !== 42}
+        >
+          {walletSaving ? "Menyimpan…" : "Simpan alamat"}
+        </button>
+        <button class="btn-secondary" on:click={connectMetaMask} disabled={walletSaving}>
+          <Icon name="wallet" size="12px" /> Hubungkan MetaMask
+        </button>
+      </div>
+
+      {#if !metamaskAvailable}
+        <p class="mt-2 text-xs muted">
+          <Icon name="circle-info" size="10px" /> MetaMask belum terdeteksi di peramban ini — kamu tetap
+          bisa menempelkan alamat secara manual.
+        </p>
+      {/if}
+      {#if walletMsg}<p class="alert-ok mt-3 text-sm">{walletMsg}</p>{/if}
+    </div>
+
     <div class="mt-4 grid gap-4 lg:grid-cols-2">
       <div class="card">
         <h2 class="hud font-display text-lg font-bold">Tarik ke dompet pribadi</h2>
@@ -258,12 +349,24 @@
             placeholder="Jumlah (OPC)"
             bind:value={withdrawAmount}
           />
-          <input
-            class="input font-mono"
-            placeholder="0x…"
-            bind:value={withdrawAddr}
-            maxlength="42"
-          />
+          <label class="block">
+            <span class="mono-label">Kirim ke wallet</span>
+            <input
+              class="input mt-1 font-mono"
+              placeholder="0x…"
+              bind:value={withdrawAddr}
+              maxlength="42"
+            />
+          </label>
+          {#if wallet}
+            <button
+              class="btn-ghost !py-1 text-xs"
+              on:click={() => (withdrawAddr = wallet?.withdrawal_address ?? "")}
+              disabled={withdrawAddr === wallet.withdrawal_address}
+            >
+              <Icon name="wallet" size="11px" /> Pakai wallet saya
+            </button>
+          {/if}
           <button
             class="btn-primary"
             on:click={withdraw}

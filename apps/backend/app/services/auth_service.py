@@ -75,7 +75,15 @@ class AuthService:
         await self.users.assign_role(user, role)
 
         # Every user gets a custodial wallet account (double-entry ledger).
-        self.session.add(WalletAccount(user_id=user.id, token_id=settings.opc_token_id))
+        # The personal withdrawal wallet defaults to the platform address and
+        # can be changed by the user at /wallet.
+        self.session.add(
+            WalletAccount(
+                user_id=user.id,
+                token_id=settings.opc_token_id,
+                withdrawal_address=settings.default_wallet_address or None,
+            )
+        )
 
         # Welcome notification.
         from app.services.social_service import NotificationService
