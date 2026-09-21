@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import structlog
-from fastapi import Depends, Request
+from fastapi import Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,10 @@ from app.models.identity import Session as SessionModel
 from app.models.identity import User
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+# Bounded pagination so a client cannot request an unbounded (or negative) page.
+LimitParam = Annotated[int, Query(ge=1, le=200)]
+OffsetParam = Annotated[int, Query(ge=0, le=1_000_000)]
 
 
 def _extract_session_token(request: Request) -> str | None:

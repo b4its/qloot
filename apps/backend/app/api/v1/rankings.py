@@ -12,7 +12,7 @@ import uuid
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
-from app.api.deps import AdminUser, CurrentUser, DbSession, OptionalUser
+from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OptionalUser
 from app.models.exam import ExamAttempt
 from app.models.identity import User
 from app.models.quest import QuestWinner
@@ -48,7 +48,7 @@ def _best_per_exam_subquery(*, room_exam_ids=None):
 
 
 @router.get("/global")
-async def global_ranking(db: DbSession, user: CurrentUser, limit: int = 50):
+async def global_ranking(db: DbSession, user: CurrentUser, limit: LimitParam = 50):
     """Global leaderboard over each user's best-per-exam totals.
 
     Only active users who have at least one graded attempt are ranked, so the
@@ -100,7 +100,9 @@ async def global_ranking(db: DbSession, user: CurrentUser, limit: int = 50):
 
 
 @router.get("/rooms/{room_id}")
-async def room_ranking(room_id: uuid.UUID, db: DbSession, user: CurrentUser, limit: int = 50):
+async def room_ranking(
+    room_id: uuid.UUID, db: DbSession, user: CurrentUser, limit: LimitParam = 50
+):
     from app.models.exam import Exam
     from app.models.room import RoomMember
 
@@ -222,7 +224,7 @@ async def my_ranking(db: DbSession, user: CurrentUser):
 
 
 @router.get("/leaderboards")
-async def list_materialized(db: DbSession, user: OptionalUser, limit: int = 20):
+async def list_materialized(db: DbSession, user: OptionalUser, limit: LimitParam = 20):
     """List materialized leaderboard snapshots (if any have been built)."""
     from app.models.ranking import Leaderboard
 
