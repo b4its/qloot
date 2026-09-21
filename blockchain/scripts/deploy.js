@@ -1,11 +1,14 @@
-// Deploy OryphemCoin1155 (v2, UUPS) behind a proxy.
+// Deploy OryphemCoin (UUPS proxy).
 //
 // Secret handling: the deployer key is read from BLOCKCHAIN_PRIVATE_KEY via the
 // hardhat network config. It is never accepted as a CLI argument.
 //
 //   NETWORK=localhost make blockchain-deploy
 //   NETWORK=sepolia CONFIRM_SEPOLIA=yes make blockchain-deploy
-const { ethers, network, upgrades } = require("hardhat");
+//
+// After a successful deploy on a public network the implementation and the
+// proxy are verified on Etherscan automatically (set AUTO_VERIFY=false to skip).
+const { ethers, network, upgrades, run } = require("hardhat");
 const lib = require("./_lib");
 
 const OPC_NAME = process.env.OPC_NAME || "OryphemCoin";
@@ -72,6 +75,23 @@ async function main() {
   if (explorer) console.log(`explorer: ${explorer}`);
   console.log(`manifest: deployments/${network.name}.json`);
   console.log(`public  : deployments/${network.name}.public.json`);
+
+  // Auto-verify on public networks (Etherscan API v2). Skip on local chains
+  // and when AUTO_VERIFY=false.
+  const isLocal = ["hardhat", "localhost", "anvil"].includes(network.name);
+  const shouldVerify = !isLocal && process.env.AUTO_VERIFY !== "false";
+  if (shouldVerify) {
+    console.log("");
+    console.log("Verifying on Etherscan ...");
+    const failures = await lib.verifyDeployment(record);
+    if (failures) {
+      console.warn(
+        `Verification incomplete (${failures} failure(s)). ` +
+          `Re-run: NETWORK=${network.name} CONFIRM_SEPOLIA=yes make blockchain-verify`
+      );
+    }
+  }
+
   console.log("");
   console.log("REMINDER: move DEFAULT_ADMIN_ROLE / ADMIN_ROLE / PAUSER_ROLE to a");
   console.log("multisig and grant MINTER/REWARDER to a dedicated backend signer.");

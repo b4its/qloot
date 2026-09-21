@@ -18,7 +18,7 @@ const ADMIN = role("ADMIN_ROLE");
 const DEFAULT_ADMIN = ZERO_HASH;
 
 /**
- * Deploys OryphemCoin1155 behind a UUPS proxy via hardhat-upgrades and wires
+ * Deploys OryphemCoin behind a UUPS proxy via hardhat-upgrades and wires
  * up the common roles used across the suite.
  */
 async function deployFixture() {
@@ -36,7 +36,7 @@ async function deployFixture() {
     treasury,
   ] = await ethers.getSigners();
 
-  const Factory = await ethers.getContractFactory("OryphemCoin1155");
+  const Factory = await ethers.getContractFactory("OryphemCoin");
   const opc = await upgrades.deployProxy(
     Factory,
     [
@@ -71,7 +71,7 @@ async function deployFixture() {
   };
 }
 
-describe("OryphemCoin1155 v2 — QLoot Academy", function () {
+describe("OryphemCoin v2 — QLoot Academy", function () {
   let opc, admin, minter, rewarder, pauser, uriManager, alice, bob, carol, attacker, treasury;
 
   beforeEach(async function () {
@@ -123,6 +123,51 @@ describe("OryphemCoin1155 v2 — QLoot Academy", function () {
       expect(await opc.balanceOf(treasury.address, OPC)).to.equal(100n);
       expect(await opc["totalSupply(uint256)"](OPC)).to.equal(100n);
       expect(await opc.totalMinted()).to.equal(100n);
+    });
+
+    it("exposes the coin max supply constant (1e20)", async function () {
+      expect(await opc.MAX_OPC_SUPPLY()).to.equal(100_000_000_000_000_000_000n);
+    });
+
+    it("caps the circulating OPC supply at MAX_OPC_SUPPLY", async function () {
+      const cap = await opc.MAX_OPC_SUPPLY();
+      // Raise the per-tx/daily limits so the cap itself is the binding limit.
+      await opc.connect(admin).setLimits(cap, cap);
+
+      await opc.connect(minter).mint(treasury.address, OPC, cap, "0x");
+      expect(await opc["totalSupply(uint256)"](OPC)).to.equal(cap);
+
+      // Move to a new day so the rolling daily cap resets, isolating the
+      // supply cap as the reason for the next failure.
+      await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]);
+      await ethers.provider.send("evm_mine", []);
+
+      await expect(opc.connect(minter).mint(treasury.address, OPC, 1n, "0x")).to.be.revertedWith(
+        "OPC: max supply exceeded"
+      );
+    });
+
+    it("burning frees supply capacity again", async function () {
+      const cap = await opc.MAX_OPC_SUPPLY();
+      await opc.connect(admin).setLimits(cap, cap);
+      // Mint to the admin so it can burn its own coins.
+      await opc.connect(minter).mint(admin.address, OPC, cap, "0x");
+
+      await opc.connect(admin).burn(admin.address, OPC, 1_000n);
+      expect(await opc["totalSupply(uint256)"](OPC)).to.equal(cap - 1_000n);
+
+      // Reset the daily window, then the burned amount can be minted again.
+      await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]);
+      await ethers.provider.send("evm_mine", []);
+      await opc.connect(minter).mint(admin.address, OPC, 1_000n, "0x");
+      expect(await opc["totalSupply(uint256)"](OPC)).to.equal(cap);
+    });
+
+    it("does not cap badge (non-coin) ids", async function () {
+      await opc.connect(admin).registerBadge(7, "ipfs://badge/7", false);
+      // Badge ids are outside the coin cap; minting 1 unit is unaffected.
+      await opc.connect(minter).mint(alice.address, BADGE_OFFSET + 7n, 1n, "0x");
+      expect(await opc.balanceOf(alice.address, BADGE_OFFSET + 7n)).to.equal(1n);
     });
 
     it("enforces maxMintPerTx", async function () {
@@ -466,7 +511,7 @@ describe("OryphemCoin1155 v2 — QLoot Academy", function () {
       await opc.connect(rewarder).addXp(alice.address, 500n);
       await opc.connect(minter).mint(alice.address, OPC, 250n, "0x");
 
-      const V2 = await ethers.getContractFactory("OryphemCoin1155V2Mock", admin);
+      const V2 = await ethers.getContractFactory("OryphemCoinV2Mock", admin);
       const upgraded = await upgrades.upgradeProxy(await opc.getAddress(), V2, {
         kind: "uups",
         call: { fn: "initializeV2", args: [admin.address, treasury.address] },
@@ -481,7 +526,7 @@ describe("OryphemCoin1155 v2 — QLoot Academy", function () {
     });
 
     it("non-admin cannot authorise an upgrade", async function () {
-      const V2 = await ethers.getContractFactory("OryphemCoin1155V2Mock", attacker);
+      const V2 = await ethers.getContractFactory("OryphemCoinV2Mock", attacker);
       await expect(
         upgrades.upgradeProxy(await opc.getAddress(), V2, { kind: "uups" })
       ).to.be.revertedWithCustomError(

@@ -4,11 +4,12 @@ See [`blockchain/README.md`](../blockchain/README.md) for the full reference.
 
 ## Contract
 
-`OryphemCoin1155` (`blockchain/contracts/OryphemCoin1155.sol`) is a
-**UUPS-upgradeable ERC-1155** and the on-chain learning-state registry for QLoot.
+`OryphemCoin` (`blockchain/contracts/OryphemCoin.sol`) is a
+**UUPS-upgradeable ERC-1155 multi-token** and the on-chain learning-state registry for QLoot.
 
-- Token id `0` = OPC balance (integer points, decimals 0).
+- Token id `0` = OryphemCoin (OPC) balance (fungible, integer points, decimals 0).
 - Token id `1_000_000 + badgeId` = badge proof token.
+- Coin supply is capped at `MAX_OPC_SUPPLY` = `100000000000000000000` (1e20).
 
 ### Extensions
 

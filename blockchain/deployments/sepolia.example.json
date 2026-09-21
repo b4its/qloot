@@ -1,7 +1,7 @@
 {
   "network": "sepolia",
   "chainId": 11155111,
-  "contractName": "OryphemCoin1155",
+  "contractName": "OryphemCoin",
   "standard": "ERC-1155 (UUPS proxy)",
   "address": "0x0000000000000000000000000000000000000000",
   "implementation": "0x0000000000000000000000000000000000000000",

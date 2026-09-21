@@ -3,11 +3,12 @@ pragma solidity ^0.8.28;
 
 /**
  * @title IQLootAcademy
- * @notice External interface of the upgraded OryphemCoin1155 (v2) contract.
+ * @notice External interface of the upgraded OryphemCoin contract.
  *
- * The v2 contract evolves the original ERC-1155 reward token into a full
+ * The contract evolves the original ERC-1155 reward token into a full
  * on-chain learning-state registry for QLoot: per-user OPC balances, XP and
  * levels, courses and enrollment, badges, achievements and treasury accounting.
+ * Token id 0 = the fungible OryphemCoin (OPC); ids >= BADGE_TOKEN_OFFSET = badges.
  */
 interface IQLootAcademy {
     // ---------------------------- balances / supply ----------------------
@@ -15,9 +16,11 @@ interface IQLootAcademy {
 
     function totalSupply(uint256 id) external view returns (uint256);
 
-    function totalMinted(uint256 tokenId) external view returns (uint256);
+    function totalMinted() external view returns (uint256);
 
-    function totalBurned(uint256 tokenId) external view returns (uint256);
+    function totalBurned() external view returns (uint256);
+
+    function MAX_OPC_SUPPLY() external view returns (uint256);
 
     // ---------------------------- XP / level -----------------------------
     function xp(address account) external view returns (uint256);
@@ -40,14 +43,6 @@ interface IQLootAcademy {
         bool active
     ) external;
 
-    function courseReward(uint256 courseId) external view returns (uint256);
-
-    function courseActive(uint256 courseId) external view returns (bool);
-
-    function enrolled(address account, uint256 courseId) external view returns (bool);
-
-    function completed(address account, uint256 courseId) external view returns (bool);
-
     function enroll(uint256 courseId) external;
 
     function completeCourse(uint256 courseId) external returns (uint256 reward);
@@ -62,10 +57,6 @@ interface IQLootAcademy {
     function userBadgeCount(address account) external view returns (uint256);
 
     function registerBadge(uint8 badgeId, string calldata uri, bool soulbound) external;
-
-    function badgeUri(uint8 badgeId) external view returns (string memory);
-
-    function badgeSoulbound(uint8 badgeId) external view returns (bool);
 
     // ---------------------------- rewards ---------------------------------
     function rewardUser(

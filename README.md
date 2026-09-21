@@ -296,9 +296,10 @@ make ci                # lint + typecheck + backend tests + contract tests
 
 ## Blockchain & OryphemCoin (OPC)
 
-**OryphemCoin (OPC)** adalah kontrak ERC-1155 upgradeable (UUPS) + OpenZeppelin yang
-menjadi registry status belajar on-chain. Token id `0` = saldo OPC (integer, desimal 0);
-token id `1_000_000 + badgeId` = token bukti badge. Hanya **hash opaque** yang di-emit
+**OryphemCoin (OPC)** adalah kontrak **ERC-1155 multi-token** upgradeable (UUPS) +
+OpenZeppelin yang menjadi registry status belajar on-chain. Token id `0` = saldo OryphemCoin
+(integer, desimal 0) dengan **batas suplai beredar 100000000000000000000 (1e20)**; token id
+`1_000_000 + badgeId` = token bukti badge. Hanya **hash opaque** yang di-emit
 on-chain — tidak pernah email, nama, jawaban, atau skor.
 
 ### Model wallet bersama (custodial) + saldo terfokus

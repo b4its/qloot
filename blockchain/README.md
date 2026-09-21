@@ -2,16 +2,19 @@
 
 ## Contract
 
-`OryphemCoin1155` (`blockchain/contracts/OryphemCoin1155.sol`) is a
-**UUPS-upgradeable ERC-1155** that acts as the on-chain learning-state and
-reward registry for QLoot.
+`OryphemCoin` (`blockchain/contracts/OryphemCoin.sol`) is a
+**UUPS-upgradeable ERC-1155 multi-token** that acts as the on-chain
+learning-state and reward registry for QLoot.
 
 ### Token model
 
 | Token id | Meaning |
 |---|---|
-| `0` | OPC balance (integer point unit, decimals 0) |
+| `0` | OryphemCoin (OPC) balance (integer point unit, decimals 0) |
 | `1_000_000 + badgeId` | Badge proof token (1 unit per awarded badge) |
+
+The coin (token id `0`) has a hard circulating-supply cap of
+`MAX_OPC_SUPPLY` = `100000000000000000000` (1e20).
 
 ### Extensions
 
@@ -115,5 +118,5 @@ documents, AI feedback, question drafts.
 
 ## Provenance
 
-Includes an upgrade path for the original `OryphemCoin1155` reward contract. If
-you use the interface `IQLootAcademy`, the v2 contract implements every method.
+Includes an upgrade path for the original reward contract. If you use the
+interface `IQLootAcademy`, `OryphemCoin` implements every method.

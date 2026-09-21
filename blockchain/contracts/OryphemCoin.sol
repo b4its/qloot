@@ -11,9 +11,11 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {ReentrancyGuardTransientLocal} from "./utils/ReentrancyGuardTransientLocal.sol";
 
 /**
- * @title OryphemCoin1155 (v2) — QLoot Academy
+ * @title OryphemCoin (ORC/OPC) — QLoot Academy
  * @notice Upgrade target of the original OPC reward token, turning it into a
- *         full on-chain learning-state registry.
+ *         full on-chain learning-state registry. ERC-1155 multi-token:
+ *         token id 0 = the fungible OryphemCoin (OPC) balance, token ids
+ *         >= BADGE_TOKEN_OFFSET = badge proof tokens.
  *
  * Feature groups:
  *  - ERC-1155 multi-token with per-user balances (fungible, token id 0 = OPC).
@@ -24,10 +26,11 @@ import {ReentrancyGuardTransientLocal} from "./utils/ReentrancyGuardTransientLoc
  *  - Treasury accounting: deposits/withdrawals and a mints-minus-burns counter.
  *  - Idempotent rewards (`rewardUser` / `rewardUsers`) keyed on a uint256 key.
  *  - Burn/mint/pause when active, gas-safe batch cap, reentrancy guard.
+ *  - Global circulating supply cap for the coin id (MAX_OPC_SUPPLY).
  *
  * Upgrade safety:
  *  - The original contract's storage layout is preserved verbatim in
- *    {OryphemCoin1155LegacyBase}. New state is appended only.
+ *    {OryphemCoinLegacyBase}. New state is appended only.
  *  - `initializeV2` initialises the new modules and is idempotent.
  *
  * Security:
@@ -35,7 +38,7 @@ import {ReentrancyGuardTransientLocal} from "./utils/ReentrancyGuardTransientLoc
  *  - `nonReentrantLocal` guards all external-value-moving functions.
  *  - Only registered badges are recognized; soulbound badges cannot transfer.
  */
-contract OryphemCoin1155 is
+contract OryphemCoin is
     Initializable,
     ERC1155Upgradeable,
     ERC1155SupplyUpgradeable,
@@ -62,6 +65,11 @@ contract OryphemCoin1155 is
     uint256 public constant MAX_BATCH = 200;
     /// @notice XP required per level (Level 1 needs LEVEL_XP_STEP XP, etc.).
     uint256 public constant LEVEL_XP_STEP = 100;
+    /// @notice Hard cap on the *circulating* supply of the coin (token id 0):
+    ///         100_000_000_000_000_000_000 = 1e20 (100 OryphemCoin at 18-dec
+    ///         conventions). A `constant` uses no storage slot, so it is safe to
+    ///         introduce on an upgraded proxy.
+    uint256 public constant MAX_OPC_SUPPLY = 100_000_000_000_000_000_000;
 
     // =====================================================================
     // Legacy storage (original v1 layout — DO NOT REORDER)
@@ -168,7 +176,6 @@ contract OryphemCoin1155 is
     event Deposited(address indexed account, uint256 amount);
     event Withdrawn(address indexed account, uint256 amount);
     event V2Initialized(address treasury, address admin);
-
     // =====================================================================
     // Modifiers
     // =====================================================================
@@ -645,6 +652,12 @@ contract OryphemCoin1155 is
         }
         if (opcAmount > 0) {
             if (from == address(0)) {
+                // Enforce the circulating supply cap for the coin (id 0). Burns
+                // lower `totalSupply(0)`, so capacity is restored on burn.
+                require(
+                    totalSupply(OPC_TOKEN_ID) + opcAmount <= MAX_OPC_SUPPLY,
+                    "OPC: max supply exceeded"
+                );
                 totalMinted += opcAmount;
                 if (to != address(0)) opcBalance[to] += opcAmount;
             } else if (to == address(0)) {

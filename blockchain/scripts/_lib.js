@@ -4,7 +4,7 @@ const path = require("path");
 const { ethers, network } = require("hardhat");
 
 const DEPLOYMENTS_DIR = path.resolve(__dirname, "..", "deployments");
-const CONTRACT_NAME = "OryphemCoin1155";
+const CONTRACT_NAME = "OryphemCoin";
 
 function deploymentFile(networkName) {
   return path.join(DEPLOYMENTS_DIR, `${networkName}.json`);
@@ -80,6 +80,40 @@ function explorerUrl(chainId, txHash) {
   return null;
 }
 
+/**
+ * Verify the implementation and the proxy of a UUPS deployment on Etherscan.
+ *
+ * A UUPS proxy has no constructor and its logic lives in the *implementation*,
+ * so the implementation is verified first (no constructor args), then the proxy
+ * (hardhat-verify links it to the implementation). "Already verified" is treated
+ * as success. Returns the number of unexpected failures.
+ */
+async function verifyDeployment(dep) {
+  const { run, network } = require("hardhat");
+  const targets = [
+    { label: "implementation", address: dep.implementation, args: [] },
+    { label: "proxy", address: dep.address, args: [] },
+  ].filter((t) => t.address);
+
+  let failures = 0;
+  for (const t of targets) {
+    console.log(`Verifying ${t.label} ${t.address} on ${network.name} ...`);
+    try {
+      await run("verify:verify", { address: t.address, constructorArguments: t.args });
+      console.log(`  ${t.label}: verification submitted.`);
+    } catch (err) {
+      const msg = String(err.message).toLowerCase();
+      if (msg.includes("already verified")) {
+        console.log(`  ${t.label}: already verified.`);
+      } else {
+        failures += 1;
+        console.error(`  ${t.label}: FAILED — ${err.message}`);
+      }
+    }
+  }
+  return failures;
+}
+
 module.exports = {
   DEPLOYMENTS_DIR,
   CONTRACT_NAME,
@@ -92,4 +126,5 @@ module.exports = {
   getDeployedContract,
   toBytes32,
   explorerUrl,
+  verifyDeployment,
 };

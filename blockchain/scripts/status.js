@@ -17,6 +17,7 @@ async function main() {
   console.log(`uri            : ${await opc.getFunction("uri").staticCall(0)}`);
   console.log(`treasury       : ${dep.treasury}`);
   console.log(`totalSupply(0) : ${await opc["totalSupply(uint256)"](0)}`);
+  console.log(`maxSupply(0)   : ${await opc.MAX_OPC_SUPPLY()}`);
   console.log(`treasuryBal(0) : ${await opc.balanceOf(dep.treasury, 0)}`);
   console.log(`paused         : ${await opc.paused()}`);
   console.log(`maxMintPerTx   : ${await opc.maxMintPerTx()}`);

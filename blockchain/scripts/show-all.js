@@ -20,6 +20,7 @@ async function main() {
   console.log(`paused         : ${await opc.paused()}`);
   console.log("----------------------------------------");
   console.log(`totalSupply(0) : ${await opc["totalSupply(uint256)"](0)}`);
+  console.log(`maxSupply(0)   : ${await opc.MAX_OPC_SUPPLY()}`);
   console.log(`treasuryBal(0) : ${await opc.balanceOf(dep.treasury, 0)}`);
   console.log(`totalMinted    : ${await opc.totalMinted()}`);
   console.log(`totalBurned    : ${await opc.totalBurned()}`);
