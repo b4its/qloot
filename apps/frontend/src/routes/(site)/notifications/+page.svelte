@@ -5,10 +5,14 @@
   import { notifications } from "$lib/stores/notifications";
   import { relativeTime } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 20;
   let items: Notification[] = [];
   let loading = true;
   let error = "";
+  let page = 1;
+  let hasMore = false;
 
   const iconFor: Record<string, { name: string; klass: string }> = {
     reward: { name: "gem", klass: "text-highlight" },
@@ -22,12 +26,22 @@
     loading = true;
     error = "";
     try {
-      items = await api.get<Notification[]>("/notifications");
+      items = await api.get<Notification[]>(
+        `/notifications?limit=${PAGE}&offset=${(page - 1) * PAGE}`,
+      );
+      hasMore = items.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat notifikasi";
     } finally {
       loading = false;
     }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
   }
 
   async function markAll() {
@@ -113,5 +127,14 @@
         </li>
       {/each}
     </ul>
+    <Pagination
+      {page}
+      pageSize={PAGE}
+      {hasMore}
+      {loading}
+      label="notifikasi"
+      onPrev={() => go(-1)}
+      onNext={() => go(1)}
+    />
   {/if}
 </div>

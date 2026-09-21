@@ -4,17 +4,24 @@
   import type { Exam } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
   import { formatDate } from "$lib/utils/format";
 
+  const PAGE_SIZE = 10;
   let exams: Exam[] = [];
   let loading = true;
   let error = "";
+  let currentPage = 1;
   $: canManage = hasRole($auth.user, "teacher");
+  $: totalPages = Math.max(1, Math.ceil(exams.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: pagedExams = paginate(exams, currentPage, PAGE_SIZE);
 
   async function load() {
     try {
-      exams = await api.get<Exam[]>("/exams");
+      exams = await api.get<Exam[]>("/exams?limit=200");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
     } finally {
@@ -55,7 +62,7 @@
     </div>
   {:else}
     <div class="mt-6 grid gap-5 sm:grid-cols-2">
-      {#each exams as exam, i}
+      {#each pagedExams as exam, i}
         <a href={`/exams/${exam.id}`} use:reveal={{ delay: i * 40 }} class="card lift block">
           <div class="flex items-center justify-between">
             <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
@@ -86,5 +93,14 @@
         </a>
       {/each}
     </div>
+    <Pagination
+      page={currentPage}
+      pageSize={PAGE_SIZE}
+      total={exams.length}
+      {loading}
+      label="ujian"
+      onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+      onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+    />
   {/if}
 </div>

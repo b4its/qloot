@@ -4,6 +4,8 @@
   import { reveal } from "$lib/actions/reveal";
   import { api, ApiError } from "$lib/api/client";
   import type { Course } from "$lib/types";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
 
   interface Subject {
     name: string;
@@ -11,13 +13,18 @@
     count: number;
   }
 
+  const PAGE_SIZE = 12;
   let subjects: Subject[] = [];
   let loading = true;
   let error = "";
+  let currentPage = 1;
+  $: totalPages = Math.max(1, Math.ceil(subjects.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: paged = paginate(subjects, currentPage, PAGE_SIZE);
 
   onMount(async () => {
     try {
-      const courses = await api.get<Course[]>("/courses");
+      const courses = await api.get<Course[]>("/courses?limit=200");
       // Group real courses by subject, collecting the classes they target.
       const seen = new Map<string, Subject>();
       for (const c of courses) {
@@ -62,7 +69,7 @@
       </div>
     {:else}
       <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {#each subjects as s, i}
+        {#each paged as s, i}
           <a
             href={`/courses?q=${encodeURIComponent(s.name)}`}
             use:reveal={{ delay: i * 50 }}
@@ -83,6 +90,15 @@
           </a>
         {/each}
       </div>
+      <Pagination
+        page={currentPage}
+        pageSize={PAGE_SIZE}
+        total={subjects.length}
+        {loading}
+        label="mata pelajaran"
+        onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+        onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+      />
     {/if}
   </div>
 </div>

@@ -18,6 +18,9 @@
   let busy = "";
   let page = 1;
   let hasMore = false;
+  // Inline edit state (id of the quest being edited + its draft fields).
+  let editId = "";
+  let editDraft = { title: "", top_n_winners: 3 };
 
   async function load() {
     loading = true;
@@ -93,6 +96,51 @@
     }
   }
 
+  function startEdit(q: Quest) {
+    editId = q.id;
+    editDraft = { title: q.title, top_n_winners: q.top_n_winners };
+    error = "";
+    message = "";
+  }
+
+  function cancelEdit() {
+    editId = "";
+  }
+
+  async function saveEdit(q: Quest) {
+    error = "";
+    message = "";
+    busy = `e-${q.id}`;
+    try {
+      await api.patch<Quest>(`/quests/${q.id}`, {
+        title: editDraft.title,
+        top_n_winners: editDraft.top_n_winners,
+      });
+      message = "Quest diperbarui.";
+      editId = "";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui quest";
+    } finally {
+      busy = "";
+    }
+  }
+
+  async function publish(q: Quest) {
+    error = "";
+    message = "";
+    busy = `p-${q.id}`;
+    try {
+      await api.post<Quest>(`/quests/${q.id}/publish`);
+      message = "Quest diterbitkan.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menerbitkan quest";
+    } finally {
+      busy = "";
+    }
+  }
+
   onMount(load);
 </script>
 
@@ -151,6 +199,24 @@
               <p class="text-sm muted">Top {q.top_n_winners} · {statusLabel(q.status)}</p>
             </div>
             <div class="flex items-center gap-2">
+              {#if q.status === "draft" && editId !== q.id}
+                <button
+                  class="btn-secondary"
+                  on:click={() => publish(q)}
+                  disabled={busy === `p-${q.id}`}
+                >
+                  {busy === `p-${q.id}` ? "Menerbitkan…" : "Terbitkan"}
+                </button>
+              {/if}
+              {#if q.status !== "finalized"}
+                <button
+                  class="btn-ghost"
+                  on:click={() => (editId === q.id ? cancelEdit() : startEdit(q))}
+                  disabled={busy === `e-${q.id}`}
+                >
+                  {editId === q.id ? "Batal" : "Ubah"}
+                </button>
+              {/if}
               <button
                 class="btn-primary"
                 on:click={() => finalize(q)}
@@ -172,6 +238,28 @@
               </button>
             </div>
           </div>
+          {#if editId === q.id}
+            <div class="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2">
+              <input class="input" placeholder="Judul" bind:value={editDraft.title} />
+              <input
+                class="input"
+                type="number"
+                min="1"
+                max="50"
+                bind:value={editDraft.top_n_winners}
+              />
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button
+                class="btn-primary"
+                on:click={() => saveEdit(q)}
+                disabled={editDraft.title.length < 2 || busy === `e-${q.id}`}
+              >
+                {busy === `e-${q.id}` ? "Menyimpan…" : "Simpan perubahan"}
+              </button>
+              <button class="btn-ghost" on:click={cancelEdit}>Batal</button>
+            </div>
+          {/if}
           {#if winners[q.id]?.length}
             <ol class="mt-2 space-y-1 text-sm">
               {#each winners[q.id] as w}

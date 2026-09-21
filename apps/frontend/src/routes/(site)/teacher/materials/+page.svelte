@@ -20,6 +20,9 @@
   let selected: Material | null = null;
   let page = 1;
   let hasMore = false;
+  // Inline rename state (id of the material being renamed + its draft name).
+  let renameId = "";
+  let renameDraft = "";
 
   // AI study assistant state (per selected material).
   let summary: SummaryResult | null = null;
@@ -45,6 +48,34 @@
     if (next < 1 || (delta > 0 && !hasMore)) return;
     page = next;
     loadMaterials();
+  }
+
+  function startRename(m: Material) {
+    renameId = m.id;
+    renameDraft = m.filename;
+    error = "";
+    message = "";
+  }
+
+  function cancelRename() {
+    renameId = "";
+    renameDraft = "";
+  }
+
+  async function saveRename(m: Material) {
+    const name = renameDraft.trim();
+    if (name.length < 1) return;
+    error = "";
+    message = "";
+    try {
+      const updated = await api.patch<Material>(`/materials/${m.id}`, { filename: name });
+      materials = materials.map((x) => (x.id === m.id ? { ...x, ...updated } : x));
+      if (selected?.id === m.id) selected = { ...selected, filename: updated.filename };
+      message = "Nama materi diperbarui.";
+      cancelRename();
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : "Gagal mengganti nama materi";
+    }
   }
 
   async function removeMaterial(m: Material) {
@@ -191,38 +222,53 @@
             class="flex flex-wrap items-center justify-between gap-2 border-t pt-2"
             class:row-me={selected?.id === m.id}
           >
-            <span class="min-w-0">
-              <span class="truncate font-medium">{m.filename}</span>
-              <span class="block text-xs muted">
-                {formatDate(m.created_at)} · {m.status}
+            {#if renameId === m.id}
+              <span class="flex min-w-0 flex-1 items-center gap-2">
+                <input
+                  class="input !py-1"
+                  bind:value={renameDraft}
+                  on:keydown={(e) => e.key === "Enter" && saveRename(m)}
+                />
+                <button class="btn-primary flex-none !py-1" on:click={() => saveRename(m)}>
+                  Simpan
+                </button>
+                <button class="btn-ghost flex-none !py-1" on:click={cancelRename}>Batal</button>
               </span>
-            </span>
-            <span class="flex items-center gap-2">
-              <input
-                class="input w-16 !py-1"
-                type="number"
-                min="1"
-                max="20"
-                bind:value={counts[m.id]}
-                placeholder="3"
-              />
-              <button class="btn-ghost" on:click={() => generate(m)}>Buat soal</button>
-              <button
-                class="btn-ghost"
-                on:click={() => {
-                  selected = m;
-                  resetAssistant();
-                }}
-                disabled={selected?.id === m.id}>Asisten</button
-              >
-              <button
-                class="btn-icon !text-tertiary hover:!border-tertiary"
-                on:click={() => removeMaterial(m)}
-                aria-label="Hapus materi"
-              >
-                <Icon name="trash" size="12px" />
-              </button>
-            </span>
+            {:else}
+              <span class="min-w-0">
+                <span class="truncate font-medium">{m.filename}</span>
+                <span class="block text-xs muted">
+                  {formatDate(m.created_at)} · {m.status}
+                </span>
+              </span>
+              <span class="flex items-center gap-2">
+                <input
+                  class="input w-16 !py-1"
+                  type="number"
+                  min="1"
+                  max="20"
+                  bind:value={counts[m.id]}
+                  placeholder="3"
+                />
+                <button class="btn-ghost" on:click={() => generate(m)}>Buat soal</button>
+                <button class="btn-ghost" on:click={() => startRename(m)}>Ubah nama</button>
+                <button
+                  class="btn-ghost"
+                  on:click={() => {
+                    selected = m;
+                    resetAssistant();
+                  }}
+                  disabled={selected?.id === m.id}>Asisten</button
+                >
+                <button
+                  class="btn-icon !text-tertiary hover:!border-tertiary"
+                  on:click={() => removeMaterial(m)}
+                  aria-label="Hapus materi"
+                >
+                  <Icon name="trash" size="12px" />
+                </button>
+              </span>
+            {/if}
           </li>
         {/each}
       </ul>

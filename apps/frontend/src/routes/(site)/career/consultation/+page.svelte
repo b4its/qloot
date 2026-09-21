@@ -3,13 +3,20 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Consultation, Counselor } from "$lib/types";
   import { formatDate, statusLabel } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
 
+  const PAGE_SIZE = 10;
   let consultations: Consultation[] = [];
   let counselors: Counselor[] = [];
   let loading = true;
   let error = "";
   let form = { counselor: "", topic: "", notes: "" };
   let busy = false;
+  let currentPage = 1;
+  $: totalPages = Math.max(1, Math.ceil(consultations.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: pagedConsultations = paginate(consultations, currentPage, PAGE_SIZE);
 
   const statusBadge: Record<string, string> = {
     pending: "badge-amber",
@@ -20,7 +27,7 @@
   async function load() {
     loading = true;
     try {
-      consultations = await api.get<Consultation[]>("/career/consultations");
+      consultations = await api.get<Consultation[]>("/career/consultations?limit=200");
       counselors = await api.get<Counselor[]>("/career/counselors");
       if (counselors.length) form.counselor = counselors[0].name;
     } catch (e) {
@@ -84,7 +91,7 @@
         <p class="mt-2 muted">Belum ada sesi. Pesan sesi di panel kanan.</p>
       {:else}
         <ul class="mt-3 divide-y">
-          {#each consultations as c}
+          {#each pagedConsultations as c}
             <li class="flex flex-wrap items-center justify-between gap-3 py-3">
               <div>
                 <p class="font-medium">{c.topic}</p>
@@ -104,6 +111,14 @@
             </li>
           {/each}
         </ul>
+        <Pagination
+          page={currentPage}
+          pageSize={PAGE_SIZE}
+          total={consultations.length}
+          label="sesi"
+          onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+          onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+        />
       {/if}
     </div>
 

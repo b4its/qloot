@@ -4,12 +4,19 @@
   import { api, ApiError } from "$lib/api/client";
   import { auth } from "$lib/stores/auth";
   import type { Certificate } from "$lib/types";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
 
+  const LIST_PAGE_SIZE = 8;
   let certs: Certificate[] = [];
   let active: Certificate | null = null;
   let loading = true;
   let error = "";
   let copied = false;
+  let listPage = 1;
+  $: listTotalPages = Math.max(1, Math.ceil(certs.length / LIST_PAGE_SIZE));
+  $: if (listPage > listTotalPages) listPage = 1;
+  $: pagedCerts = paginate(certs, listPage, LIST_PAGE_SIZE);
 
   const verifyUrl = (id: string) =>
     typeof location !== "undefined" ? `${location.origin}/verify/${id}` : `/verify/${id}`;
@@ -76,7 +83,7 @@
 
   onMount(async () => {
     try {
-      certs = await api.get<Certificate[]>("/certificates");
+      certs = await api.get<Certificate[]>("/certificates?limit=200");
       active = certs[0] ?? null;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat sertifikat";
@@ -198,7 +205,7 @@
           <div class="card">
             <p class="mono-label mb-3">Sertifikat lain ({certs.length})</p>
             <ul class="space-y-2">
-              {#each certs as c}
+              {#each pagedCerts as c}
                 <li>
                   <button
                     class="flex w-full items-center justify-between gap-2 rounded-sm border px-3 py-2 text-left text-sm transition-colors"
@@ -211,6 +218,14 @@
                 </li>
               {/each}
             </ul>
+            <Pagination
+              page={listPage}
+              pageSize={LIST_PAGE_SIZE}
+              total={certs.length}
+              label="sertifikat"
+              onPrev={() => (listPage = Math.max(1, listPage - 1))}
+              onNext={() => (listPage = Math.min(listTotalPages, listPage + 1))}
+            />
           </div>
         {/if}
       </aside>

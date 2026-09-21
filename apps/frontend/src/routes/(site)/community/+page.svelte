@@ -6,6 +6,7 @@
   import { api, ApiError } from "$lib/api/client";
   import { auth } from "$lib/stores/auth";
   import { relativeTime } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
 
   interface Post {
     id: string;
@@ -43,6 +44,7 @@
     "Tanya Jawab": "circle-question",
   };
 
+  const PAGE = 15;
   let posts: Post[] = [];
   let topics: Topic[] = [];
   let stats = { members: 0, posts: 0, comments: 0 };
@@ -54,6 +56,8 @@
   let openComments = new Set<string>();
   let commentDraft: Record<string, string> = {};
   let busy = "";
+  let page = 1;
+  let hasMore = false;
 
   $: user = $auth.user;
 
@@ -61,17 +65,31 @@
     loading = true;
     error = "";
     try {
-      const qs = activeTopic ? `?topic=${encodeURIComponent(activeTopic)}` : "";
+      const params = new URLSearchParams({
+        limit: String(PAGE),
+        offset: String((page - 1) * PAGE),
+      });
+      if (activeTopic) params.set("topic", activeTopic);
       [posts, topics, stats] = await Promise.all([
-        api.get<Post[]>(`/community/posts${qs}`),
+        api.get<Post[]>(`/community/posts?${params.toString()}`),
         api.get<Topic[]>("/community/topics"),
         api.get<typeof stats>("/community/stats"),
       ]);
+      hasMore = posts.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat komunitas";
     } finally {
       loading = false;
     }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    // Close any open comment threads when the page changes.
+    openComments = new Set();
+    load();
   }
 
   async function submitPost() {
@@ -83,7 +101,10 @@
         body: text,
         topic: activeTopic || "Umum",
       });
-      posts = [created, ...posts];
+      // Newest-first feed: jump to page 1 so the new post is visible.
+      page = 1;
+      posts = [created, ...posts.slice(0, PAGE - 1)];
+      hasMore = posts.length === PAGE;
       draft = "";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengirim";
@@ -142,12 +163,16 @@
   function pickTopic(name: string) {
     // Re-clicking the active topic clears the filter (back to "Semua").
     activeTopic = activeTopic === name ? "" : name;
+    page = 1;
+    openComments = new Set();
     load();
   }
 
   function clearTopic() {
     if (!activeTopic) return;
     activeTopic = "";
+    page = 1;
+    openComments = new Set();
     load();
   }
 
@@ -320,6 +345,15 @@
           {/if}
         </article>
       {/each}
+      <Pagination
+        {page}
+        pageSize={PAGE}
+        {hasMore}
+        {loading}
+        label="diskusi"
+        onPrev={() => go(-1)}
+        onNext={() => go(1)}
+      />
     {/if}
   </div>
 

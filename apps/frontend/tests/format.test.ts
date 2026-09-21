@@ -6,6 +6,7 @@ import {
   etherscanUrl,
   statusLabel,
   relativeTime,
+  paginate,
 } from "../src/lib/utils/format";
 
 describe("format utils", () => {
@@ -50,5 +51,16 @@ describe("format utils", () => {
     expect(relativeTime(ago(5 * 60 * 60 * 1000))).toContain("jam lalu");
     expect(relativeTime(ago(5 * 24 * 60 * 60 * 1000))).toContain("hari lalu");
     expect(relativeTime(null)).toBe("—");
+  });
+
+  it("paginates an in-memory list into 1-indexed pages", () => {
+    const items = [1, 2, 3, 4, 5, 6, 7];
+    expect(paginate(items, 1, 3)).toEqual([1, 2, 3]);
+    expect(paginate(items, 2, 3)).toEqual([4, 5, 6]);
+    expect(paginate(items, 3, 3)).toEqual([7]);
+    // Out-of-range pages yield an empty slice rather than throwing.
+    expect(paginate(items, 4, 3)).toEqual([]);
+    expect(paginate(items, 0, 3)).toEqual([1, 2, 3]);
+    expect(paginate([], 1, 10)).toEqual([]);
   });
 });

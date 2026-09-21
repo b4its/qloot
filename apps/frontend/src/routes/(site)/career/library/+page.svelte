@@ -3,14 +3,21 @@
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { ResourceItem, Recommendation } from "$lib/types";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
 
+  const PAGE_SIZE = 12;
   let items: ResourceItem[] = [];
   let category = "course";
   let loading = true;
   let error = "";
+  let currentPage = 1;
   // The student's top recommended major (from their analysis), if any.
   let topMajor: string | null = null;
   let recommendForMajor = false;
+  $: totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: pagedItems = paginate(items, currentPage, PAGE_SIZE);
 
   const tabs = [
     { key: "course", label: "Kursus", icon: "graduation-cap" },
@@ -21,7 +28,7 @@
   async function load() {
     loading = true;
     try {
-      const qs = new URLSearchParams({ category });
+      const qs = new URLSearchParams({ category, limit: "200" });
       if (recommendForMajor && topMajor) qs.set("major", topMajor);
       items = await api.get<ResourceItem[]>(`/career/resources?${qs.toString()}`);
     } catch (e) {
@@ -33,11 +40,13 @@
 
   async function pick(key: string) {
     category = key;
+    currentPage = 1;
     await load();
   }
 
   async function toggleMajor() {
     recommendForMajor = !recommendForMajor;
+    currentPage = 1;
     await load();
   }
 
@@ -111,7 +120,7 @@
     </div>
   {:else}
     <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {#each items as item}
+      {#each pagedItems as item}
         <div class="card lift">
           <div class="flex items-center justify-between">
             <span class="tile h-10 w-10" aria-hidden="true"
@@ -137,5 +146,14 @@
         </div>
       {/each}
     </div>
+    <Pagination
+      page={currentPage}
+      pageSize={PAGE_SIZE}
+      total={items.length}
+      {loading}
+      label="sumber daya"
+      onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+      onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+    />
   {/if}
 </div>

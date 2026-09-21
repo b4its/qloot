@@ -4,20 +4,37 @@
   import type { RankingResponse } from "$lib/types";
   import { formatNumber } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 25;
   let global: RankingResponse | null = null;
   let loading = true;
   let error = "";
+  let page = 1;
+  let hasMore = false;
 
-  onMount(async () => {
+  async function load() {
+    loading = true;
     try {
-      global = await api.get<RankingResponse>("/rankings/global?limit=100");
+      global = await api.get<RankingResponse>(
+        `/rankings/global?limit=${PAGE}&offset=${(page - 1) * PAGE}`,
+      );
+      hasMore = global.entries.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
     } finally {
       loading = false;
     }
-  });
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
+  }
+
+  onMount(load);
 </script>
 
 <svelte:head><title>Peringkat Guru — QLoot</title></svelte:head>
@@ -57,6 +74,15 @@
         </tbody>
       </table>
     </div>
+    <Pagination
+      {page}
+      pageSize={PAGE}
+      {hasMore}
+      {loading}
+      label="siswa"
+      onPrev={() => go(-1)}
+      onNext={() => go(1)}
+    />
   {:else}
     <div class="card mt-6 grid place-items-center py-14 text-center">
       <Icon name="ranking-star" size="26px" class="muted" />

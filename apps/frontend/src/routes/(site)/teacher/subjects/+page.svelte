@@ -39,6 +39,16 @@
   let editingLesson: string | null = null;
   let editLesson = { title: "", content_md: "" };
 
+  // Inline course (subject) edit state.
+  let editingCourse: string | null = null;
+  let editCourse = {
+    title: "",
+    subject: "",
+    class_code: "",
+    class_type: "",
+    description: "",
+  };
+
   const classTypes = ["IPA", "IPS", "Bahasa", "Umum"];
 
   async function load() {
@@ -187,6 +197,49 @@
     }
   }
 
+  function startEditCourse(s: Course) {
+    editingCourse = s.id;
+    editCourse = {
+      title: s.title,
+      subject: s.subject ?? "",
+      class_code: s.class_code ?? "",
+      class_type: s.class_type ?? "",
+      description: s.description ?? "",
+    };
+    error = "";
+    message = "";
+  }
+
+  function cancelEditCourse() {
+    editingCourse = null;
+  }
+
+  async function saveCourse(s: Course) {
+    if (editCourse.title.trim().length < 2) {
+      error = "Nama pelajaran minimal 2 karakter.";
+      return;
+    }
+    busy = true;
+    error = "";
+    message = "";
+    try {
+      await api.patch<Course>(`/courses/${s.id}`, {
+        title: editCourse.title.trim(),
+        subject: editCourse.subject.trim() || null,
+        class_code: editCourse.class_code.trim(),
+        class_type: editCourse.class_type || null,
+        description: editCourse.description.trim() || null,
+      });
+      message = "Pelajaran diperbarui.";
+      editingCourse = null;
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui pelajaran";
+    } finally {
+      busy = false;
+    }
+  }
+
   $: classes = [...new Set(subjects.map((s) => s.class_code).filter(Boolean))] as string[];
 
   onMount(load);
@@ -314,6 +367,9 @@
                 <button class="btn-ghost" on:click={() => openLessons(s)}>
                   <Icon name="list" size="12px" /> Materi
                 </button>
+                <button class="btn-ghost" on:click={() => startEditCourse(s)}>
+                  <Icon name="pen" size="12px" /> Ubah
+                </button>
                 <button class="btn-secondary" on:click={() => togglePublish(s)}>
                   <Icon name={s.is_published ? "eye-slash" : "upload"} size="12px" />
                   {s.is_published ? "Sembunyikan" : "Terbitkan"}
@@ -327,6 +383,42 @@
                 </button>
               </div>
             </div>
+
+            {#if editingCourse === s.id}
+              <div class="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 lg:grid-cols-3">
+                <label class="block">
+                  <span class="mono-label">Nama pelajaran</span>
+                  <input class="input mt-1" bind:value={editCourse.title} />
+                </label>
+                <label class="block">
+                  <span class="mono-label">Mata pelajaran</span>
+                  <input class="input mt-1" bind:value={editCourse.subject} />
+                </label>
+                <label class="block">
+                  <span class="mono-label">Kelas</span>
+                  <input class="input mt-1" bind:value={editCourse.class_code} />
+                </label>
+                <label class="block">
+                  <span class="mono-label">Tipe kelas</span>
+                  <select class="input mt-1" bind:value={editCourse.class_type}>
+                    <option value="">—</option>
+                    {#each classTypes as t}<option value={t}>{t}</option>{/each}
+                  </select>
+                </label>
+                <label class="block sm:col-span-2">
+                  <span class="mono-label">Deskripsi</span>
+                  <input class="input mt-1" bind:value={editCourse.description} />
+                </label>
+                <div class="flex items-end gap-2">
+                  <button
+                    class="btn-primary"
+                    on:click={() => saveCourse(s)}
+                    disabled={busy || editCourse.title.trim().length < 2}>Simpan</button
+                  >
+                  <button class="btn-ghost" on:click={cancelEditCourse}>Batal</button>
+                </div>
+              </div>
+            {/if}
 
             {#if lessonsFor === s.id}
               <div class="mt-4 border-t pt-4">

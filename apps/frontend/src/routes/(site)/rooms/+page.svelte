@@ -4,7 +4,10 @@
   import type { Room } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import { statusLabel } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
 
+  const PAGE_SIZE = 12;
   let rooms: Room[] = [];
   let loading = true;
   let error = "";
@@ -12,14 +15,18 @@
   let joinError = "";
   let joinLoading = false;
   let showCreate = false;
+  let currentPage = 1;
   let newRoom = { name: "", max_participants: 100, is_public: true };
 
   $: canManage = hasRole($auth.user, "teacher");
+  $: totalPages = Math.max(1, Math.ceil(rooms.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: pagedRooms = paginate(rooms, currentPage, PAGE_SIZE);
 
   async function load() {
     loading = true;
     try {
-      rooms = await api.get<Room[]>("/rooms");
+      rooms = await api.get<Room[]>("/rooms?limit=200");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ruang";
     } finally {
@@ -116,7 +123,7 @@
     <div class="card mt-6 text-center"><p class="muted">Belum ada ruang tersedia.</p></div>
   {:else}
     <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {#each rooms as room}
+      {#each pagedRooms as room}
         <a href={`/rooms/${room.id}`} class="card lift block hover:border-primary">
           <div class="flex items-center justify-between">
             <h2 class="font-display text-lg font-bold">{room.name}</h2>
@@ -130,5 +137,14 @@
         </a>
       {/each}
     </div>
+    <Pagination
+      page={currentPage}
+      pageSize={PAGE_SIZE}
+      total={rooms.length}
+      {loading}
+      label="ruang"
+      onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+      onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+    />
   {/if}
 </div>

@@ -17,7 +17,7 @@ from app.db.session import transaction
 from app.models.identity import AuditLog, Role, User, UserRole
 from app.models.quest import Quest
 from app.models.wallet import RewardAllocation, TransactionOutbox
-from app.schemas.auth import UserOut
+from app.schemas.auth import AdminUserCreate, UserOut
 
 router = APIRouter()
 
@@ -59,6 +59,44 @@ async def list_users(
         )
         for u in users
     ]
+
+
+@router.post("/users", response_model=UserOut, status_code=201)
+async def create_user(payload: AdminUserCreate, admin: AdminUser, db: DbSession):
+    """Create an account (any role). Reuses the auth service so wallet,
+    roles and welcome notification are set up exactly like self-registration."""
+    from app.services.auth_service import AuthService
+
+    async with transaction(db):
+        user, _token = await AuthService(db).register(
+            email=payload.email,
+            full_name=payload.full_name,
+            password=payload.password,
+            role=payload.role,
+            class_code=payload.class_code,
+            class_type=payload.class_type,
+        )
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="user.create",
+                entity_type="user",
+                entity_id=str(user.id),
+                data={"role": payload.role},
+            )
+        )
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        chain_user_ref=user.chain_user_ref,
+        avatar_url=user.avatar_url,
+        created_at=user.created_at,
+        roles=sorted(user.role_names),
+        class_code=user.class_code,
+        class_type=user.class_type,
+    )
 
 
 @router.patch("/users/{user_id}/role", response_model=UserOut)

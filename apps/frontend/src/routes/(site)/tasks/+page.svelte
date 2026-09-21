@@ -4,14 +4,21 @@
   import type { Task } from "$lib/types";
   import { formatDate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
 
+  const PAGE_SIZE = 10;
   let tasks: Task[] = [];
   let loading = true;
   let error = "";
   let completed: Record<string, boolean> = {};
   let message = "";
   let busy = "";
+  let currentPage = 1;
+  $: totalPages = Math.max(1, Math.ceil(tasks.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: pagedTasks = paginate(tasks, currentPage, PAGE_SIZE);
 
   const kindIcon: Record<string, string> = {
     daily: "calendar-day",
@@ -22,7 +29,7 @@
 
   async function load() {
     try {
-      tasks = await api.get<Task[]>("/tasks");
+      tasks = await api.get<Task[]>("/tasks?limit=200");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat tugas";
     } finally {
@@ -76,7 +83,7 @@
     </div>
   {:else}
     <div class="mt-6 space-y-3">
-      {#each tasks as t, i}
+      {#each pagedTasks as t, i}
         <div
           use:reveal={{ delay: i * 40 }}
           class="card flex flex-wrap items-center justify-between gap-4"
@@ -111,5 +118,14 @@
         </div>
       {/each}
     </div>
+    <Pagination
+      page={currentPage}
+      pageSize={PAGE_SIZE}
+      total={tasks.length}
+      {loading}
+      label="tugas"
+      onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+      onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+    />
   {/if}
 </div>

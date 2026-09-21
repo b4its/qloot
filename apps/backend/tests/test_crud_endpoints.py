@@ -307,7 +307,126 @@ async def test_material_rename(client):
     assert resp.json()["filename"] == "baru.pdf"
 
 
-async def test_room_delete(client):
+async def test_admin_create_user(client, engine):
+    """An admin can create an account of any role via /admin/users."""
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.identity import Role, UserRole
+
+    # Bootstrap: register a teacher, then promote them to admin in the DB.
+    r = await _register(client, "crud_admin_create@ex.com", "teacher")
+    admin_id = r["id"]
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        admin_role = (await s.execute(select(Role).where(Role.name == "admin"))).scalar_one()
+        for ur in (
+            (await s.execute(select(UserRole).where(UserRole.user_id == admin_id))).scalars().all()
+        ):
+            await s.delete(ur)
+        await s.flush()
+        s.add(UserRole(user_id=admin_id, role_id=admin_role.id))
+        await s.commit()
+
+    await client.post("/api/v1/auth/logout")
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "crud_admin_create@ex.com", "password": "Password123!"},
+    )
+    assert login.status_code == 200, login.text
+
+    created = await client.post(
+        "/api/v1/admin/users",
+        json={
+            "email": "crud_new_teacher@ex.com",
+            "full_name": "New Teacher",
+            "password": "Password123!",
+            "role": "teacher",
+        },
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["email"] == "crud_new_teacher@ex.com"
+    assert "teacher" in body["roles"]
+
+    # Duplicate email is rejected.
+    dup = await client.post(
+        "/api/v1/admin/users",
+        json={
+            "email": "crud_new_teacher@ex.com",
+            "full_name": "Dup",
+            "password": "Password123!",
+            "role": "student",
+        },
+    )
+    assert dup.status_code == 409, dup.text
+
+    # The new account can actually sign in.
+    await client.post("/api/v1/auth/logout")
+    relogin = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "crud_new_teacher@ex.com", "password": "Password123!"},
+    )
+    assert relogin.status_code == 200, relogin.text
+
+
+async def test_create_user_requires_admin(client):
+    """A non-admin teacher cannot call the create-user endpoint."""
+    await _register(client, "crud_not_admin@ex.com", "teacher")
+    resp = await client.post(
+        "/api/v1/admin/users",
+        json={
+            "email": "crud_should_fail@ex.com",
+            "full_name": "Nope",
+            "password": "Password123!",
+            "role": "student",
+        },
+    )
+    assert resp.status_code == 403, resp.text
+
+
+async def test_course_and_lesson_pagination(client):
+    """List endpoints accept limit/offset and cap the page window."""
+    await _register(client, "crud_page_teacher@ex.com", "teacher")
+    course_ids = []
+    for i in range(5):
+        c = await client.post(
+            "/api/v1/courses",
+            json={"title": f"Page Course {i}", "class_code": "2A", "class_type": "IPA"},
+        )
+        assert c.status_code == 201, c.text
+        course_ids.append(c.json()["id"])
+
+    course_id = course_ids[0]
+    for i in range(4):
+        lesson = await client.post(
+            f"/api/v1/courses/{course_id}/lessons",
+            json={"title": f"Lesson {i}", "content_md": "x", "position": i},
+        )
+        assert lesson.status_code == 201, lesson.text
+
+    # Paginated lessons: first window.
+    first = await client.get(f"/api/v1/courses/{course_id}/lessons?limit=2&offset=0")
+    assert first.status_code == 200, first.text
+    assert len(first.json()) == 2
+    assert first.json()[0]["title"] == "Lesson 0"
+
+    # Second window continues where the first stopped.
+    second = await client.get(f"/api/v1/courses/{course_id}/lessons?limit=2&offset=2")
+    assert second.status_code == 200, second.text
+    assert len(second.json()) == 2
+    assert second.json()[0]["title"] == "Lesson 2"
+
+    # /me/subjects is paginated too.
+    mine = await client.get("/api/v1/me/subjects?limit=1&offset=0")
+    assert mine.status_code == 200, mine.text
+    assert len(mine.json()) == 1
+
+    # Over-max limit is rejected by the bounded LimitParam.
+    too_big = await client.get(f"/api/v1/courses/{course_id}/lessons?limit=500")
+    assert too_big.status_code == 422, too_big.text
+
     await _register(client, "crud_room_owner@ex.com", "teacher")
     room = await client.post(
         "/api/v1/rooms",
@@ -321,7 +440,7 @@ async def test_room_delete(client):
     assert gone.status_code == 404
 
 
-async def test_task_crud_and_delete_guard(client):
+async def test_task_crud_and_delete_guard(client, engine):
     await _register(client, "crud_task_owner@ex.com", "teacher")
     task = await client.post(
         "/api/v1/tasks",
@@ -347,3 +466,23 @@ async def test_task_crud_and_delete_guard(client):
     )
     blocked = await client.delete(f"/api/v1/tasks/{task_id}")
     assert blocked.status_code == 409, blocked.text
+
+    # Clean up: the completion created a reward outbox/ledger row that other
+    # tests (e.g. quests ledger) count globally in the shared test DB.
+    from sqlalchemy import delete
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.quest import Task, TaskCompletion
+    from app.models.wallet import RewardAllocation, TransactionOutbox
+    from app.models.wallet import WalletLedgerEntry as _LE
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        await s.execute(
+            delete(TransactionOutbox).where(TransactionOutbox.topic == "reward")
+        )
+        await s.execute(delete(RewardAllocation).where(RewardAllocation.task_id == task_id))
+        await s.execute(delete(_LE).where(_LE.reference_type == "task"))
+        await s.execute(delete(TaskCompletion).where(TaskCompletion.task_id == task_id))
+        await s.execute(delete(Task).where(Task.id == task_id))
+        await s.commit()

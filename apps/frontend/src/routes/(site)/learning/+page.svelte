@@ -4,12 +4,16 @@
   import type { Course, Progress } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
 
+  const PAGE_SIZE = 9;
   let courses: Course[] = [];
   let progress: Progress[] = [];
   let loading = true;
   let error = "";
+  let currentPage = 1;
   // Guard so the auth-triggered reload runs at most once per resolved user —
   // otherwise a user with zero courses re-triggers load() forever (load() sets
   // loading=false while courses stays empty).
@@ -17,6 +21,9 @@
 
   $: canManage = hasRole($auth.user, "teacher");
   $: user = $auth.user;
+  $: totalPages = Math.max(1, Math.ceil(courses.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: pagedCourses = paginate(courses, currentPage, PAGE_SIZE);
 
   // Completed lessons per course, for the "continue / done" indicator.
   $: doneByCourse = progress.reduce<Record<string, number>>((acc, p) => {
@@ -35,10 +42,10 @@
     loading = true;
     error = "";
     try {
-      courses = await api.get<Course[]>("/courses");
+      courses = await api.get<Course[]>("/courses?limit=200");
       // Learning progress is only meaningful for signed-in students.
       if (user && !canManage) {
-        progress = await api.get<Progress[]>("/me/learning-progress");
+        progress = await api.get<Progress[]>("/me/learning-progress?limit=200");
       }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
@@ -96,7 +103,7 @@
     </div>
   {:else}
     <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {#each courses as course, i}
+      {#each pagedCourses as course, i}
         {@const status = courseStatus(course)}
         {@const done = doneByCourse[course.id] ?? 0}
         {@const total = course.lesson_count ?? 0}
@@ -139,5 +146,14 @@
         </div>
       {/each}
     </div>
+    <Pagination
+      page={currentPage}
+      pageSize={PAGE_SIZE}
+      total={courses.length}
+      {loading}
+      label="pelajaran"
+      onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+      onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+    />
   {/if}
 </div>

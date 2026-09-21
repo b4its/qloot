@@ -39,10 +39,12 @@ async def list_courses(
 
 
 @router.get("/me/subjects", response_model=list[CourseOut])
-async def my_subjects(user: CurrentUser, db: DbSession):
+async def my_subjects(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     """Convenience alias: the subjects the current user can access."""
     service = CourseService(db)
-    courses = await service.list_for_user(user)
+    courses = await service.list_for_user(user, limit=limit, offset=offset)
     return await service.out_payload(courses)
 
 
@@ -79,10 +81,16 @@ async def delete_course(course_id: uuid.UUID, user: TeacherUser, db: DbSession):
 
 
 @router.get("/courses/{course_id}/lessons", response_model=list[LessonOut])
-async def list_lessons(course_id: uuid.UUID, user: CurrentUser, db: DbSession):
+async def list_lessons(
+    course_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
     service = CourseService(db)
     await service.get_accessible(course_id, user)
-    return await service.list_lessons(course_id)
+    return await service.list_lessons(course_id, limit=limit, offset=offset)
 
 
 @router.post(
@@ -136,5 +144,7 @@ async def set_progress(
 
 
 @router.get("/me/learning-progress", response_model=list[ProgressOut])
-async def my_progress(user: CurrentUser, db: DbSession):
-    return await CourseService(db).my_progress(user)
+async def my_progress(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    return await CourseService(db).my_progress(user, limit=limit, offset=offset)

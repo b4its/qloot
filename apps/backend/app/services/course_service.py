@@ -282,8 +282,16 @@ class CourseService:
                 await badges.award(user=user, code="learner")
         return progress
 
-    async def my_progress(self, user: User) -> list[LessonProgress]:
-        stmt = select(LessonProgress).where(LessonProgress.user_id == user.id)
+    async def my_progress(
+        self, user: User, *, limit: int = 100, offset: int = 0
+    ) -> list[LessonProgress]:
+        stmt = (
+            select(LessonProgress)
+            .where(LessonProgress.user_id == user.id)
+            .order_by(LessonProgress.id)
+            .limit(limit)
+            .offset(offset)
+        )
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def my_subjects(self, user: User) -> list[Course]:

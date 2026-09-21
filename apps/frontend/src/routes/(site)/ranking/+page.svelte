@@ -6,12 +6,20 @@
   import { formatNumber } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 25;
   let global: RankingResponse | null = null;
   let me: RankingMe | null = null;
   let levels: LevelLeaderboard | null = null;
   let loading = true;
   let error = "";
+  let rankPage = 1;
+  let rankHasMore = false;
+  let rankLoading = false;
+  let levelPage = 1;
+  let levelHasMore = false;
+  let levelLoading = false;
 
   const medal: Record<number, string> = { 1: "medal", 2: "medal", 3: "medal" };
   const medalColor: Record<number, string> = {
@@ -20,13 +28,54 @@
     3: "text-tertiary",
   };
 
+  async function loadRanking() {
+    rankLoading = true;
+    try {
+      const res = await api.get<RankingResponse>(
+        `/rankings/global?limit=${PAGE}&offset=${(rankPage - 1) * PAGE}`,
+      );
+      global = res;
+      rankHasMore = res.entries.length === PAGE;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
+    } finally {
+      rankLoading = false;
+    }
+  }
+
+  function goRank(delta: number) {
+    const next = rankPage + delta;
+    if (next < 1 || (delta > 0 && !rankHasMore)) return;
+    rankPage = next;
+    loadRanking();
+  }
+
+  async function loadLevels() {
+    levelLoading = true;
+    try {
+      const res = await api.get<LevelLeaderboard>(
+        `/gamification/levels?limit=${PAGE}&offset=${(levelPage - 1) * PAGE}`,
+      );
+      levels = res;
+      levelHasMore = res.entries.length === PAGE;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
+    } finally {
+      levelLoading = false;
+    }
+  }
+
+  function goLevel(delta: number) {
+    const next = levelPage + delta;
+    if (next < 1 || (delta > 0 && !levelHasMore)) return;
+    levelPage = next;
+    loadLevels();
+  }
+
   onMount(async () => {
     try {
-      [global, me, levels] = await Promise.all([
-        api.get<RankingResponse>("/rankings/global"),
-        api.get<RankingMe>("/rankings/me"),
-        api.get<LevelLeaderboard>("/gamification/levels"),
-      ]);
+      me = await api.get<RankingMe>("/rankings/me");
+      await Promise.all([loadRanking(), loadLevels()]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
     } finally {
@@ -75,7 +124,9 @@
           {/if}
           <div>
             <p class="mono-label">OPC diperoleh</p>
-            <p class="font-display text-2xl font-bold text-highlight">{formatNumber(me.opc_balance)}</p>
+            <p class="font-display text-2xl font-bold text-highlight">
+              {formatNumber(me.opc_balance)}
+            </p>
           </div>
         </div>
       </div>
@@ -85,7 +136,10 @@
             <span class="muted">Progres ke level {me.level + 1}</span>
             <span class="mono">{(me.level_progress * 100).toFixed(0)}%</span>
           </div>
-          <div class="mt-2 h-2 w-full overflow-hidden rounded-full" style="background: rgb(var(--line))">
+          <div
+            class="mt-2 h-2 w-full overflow-hidden rounded-full"
+            style="background: rgb(var(--line))"
+          >
             <div
               class="h-full rounded-full bg-primary transition-all"
               style={`width: ${Math.min(100, Math.max(0, me.level_progress * 100))}%`}
@@ -135,6 +189,15 @@
         </tbody>
       </table>
     </div>
+    <Pagination
+      page={rankPage}
+      pageSize={PAGE}
+      hasMore={rankHasMore}
+      loading={rankLoading}
+      label="peringkat"
+      onPrev={() => goRank(-1)}
+      onNext={() => goRank(1)}
+    />
   {:else}
     <div class="card mt-6 grid place-items-center py-14 text-center">
       <Icon name="ranking-star" size="26px" class="muted" />
@@ -179,5 +242,14 @@
         </tbody>
       </table>
     </div>
+    <Pagination
+      page={levelPage}
+      pageSize={PAGE}
+      hasMore={levelHasMore}
+      loading={levelLoading}
+      label="peringkat level"
+      onPrev={() => goLevel(-1)}
+      onNext={() => goLevel(1)}
+    />
   {/if}
 </div>

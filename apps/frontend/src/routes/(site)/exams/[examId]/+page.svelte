@@ -6,13 +6,20 @@
   import type { Exam, Attempt } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import { statusLabel } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
 
+  const PAGE_SIZE = 10;
   let exam: Exam | null = null;
   let loading = true;
   let error = "";
   let starting = false;
   let managing = "";
   let pastAttempts: Attempt[] = [];
+  let attemptPage = 1;
+  $: totalPages = Math.max(1, Math.ceil(pastAttempts.length / PAGE_SIZE));
+  $: if (attemptPage > totalPages) attemptPage = 1;
+  $: pagedAttempts = paginate(pastAttempts, attemptPage, PAGE_SIZE);
 
   const examId = $page.params.examId;
   $: canManage = hasRole($auth.user, "teacher");
@@ -20,7 +27,7 @@
   async function load() {
     try {
       exam = await api.get<Exam>(`/exams/${examId}`);
-      const attempts = await api.get<Attempt[]>("/attempts");
+      const attempts = await api.get<Attempt[]>("/attempts?limit=200");
       pastAttempts = attempts.filter((a) => a.exam_id === examId);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
@@ -109,7 +116,7 @@
       <div class="card mt-4">
         <h2 class="hud font-display text-lg font-bold">Pengerjaanmu</h2>
         <ul class="mt-2 space-y-2 text-sm">
-          {#each pastAttempts as a}
+          {#each pagedAttempts as a}
             <li class="flex items-center justify-between border-b pb-2 last:border-0">
               <span>Percobaan #{a.attempt_number} · {statusLabel(a.status)}</span>
               <span>
@@ -123,6 +130,14 @@
             </li>
           {/each}
         </ul>
+        <Pagination
+          page={attemptPage}
+          pageSize={PAGE_SIZE}
+          total={pastAttempts.length}
+          label="pengerjaan"
+          onPrev={() => (attemptPage = Math.max(1, attemptPage - 1))}
+          onNext={() => (attemptPage = Math.min(totalPages, attemptPage + 1))}
+        />
       </div>
     {/if}
   {/if}

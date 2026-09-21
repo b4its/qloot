@@ -4,6 +4,7 @@
   import type { User } from "$lib/types";
   import { formatDate } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
+  import Icon from "$lib/components/Icon.svelte";
 
   const PAGE = 20;
   let users: User[] = [];
@@ -13,6 +14,16 @@
   let busy = "";
   let page = 1;
   let hasMore = false;
+  let showCreate = false;
+  let creating = false;
+  let newUser = {
+    email: "",
+    full_name: "",
+    password: "",
+    role: "student",
+    class_code: "",
+    class_type: "",
+  };
 
   async function load() {
     loading = true;
@@ -50,6 +61,43 @@
     }
   }
 
+  async function createUser() {
+    error = "";
+    message = "";
+    creating = true;
+    try {
+      const payload = {
+        email: newUser.email.trim(),
+        full_name: newUser.full_name.trim(),
+        password: newUser.password,
+        role: newUser.role,
+        class_code: newUser.class_code.trim() || null,
+        class_type: newUser.class_type.trim() || null,
+      };
+      await api.post<User>("/admin/users", payload);
+      message = `Akun ${payload.email} dibuat.`;
+      newUser = {
+        email: "",
+        full_name: "",
+        password: "",
+        role: "student",
+        class_code: "",
+        class_type: "",
+      };
+      showCreate = false;
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal membuat akun";
+    } finally {
+      creating = false;
+    }
+  }
+
+  async function deactivate(u: User) {
+    if (!confirm(`Nonaktifkan akun "${u.email}"? Pengguna tidak akan bisa masuk.`)) return;
+    await toggleActive(u);
+  }
+
   async function setRole(u: User, role: string) {
     error = "";
     message = "";
@@ -73,9 +121,16 @@
 <svelte:head><title>Pengguna — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-  <p class="mono-label">Admin · Pengguna</p>
-  <h1 class="mt-2 font-display text-3xl font-bold">Pengguna</h1>
-  <p class="mt-2 muted">Kelola peran dan akun pengguna platform.</p>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mono-label">Admin · Pengguna</p>
+      <h1 class="mt-2 font-display text-3xl font-bold">Pengguna</h1>
+      <p class="mt-2 muted">Kelola peran dan akun pengguna platform.</p>
+    </div>
+    <button class="btn-primary" on:click={() => (showCreate = !showCreate)}>
+      {showCreate ? "Tutup" : "＋ Tambah pengguna"}
+    </button>
+  </div>
 
   {#if message}<p class="alert-ok mt-4">
       {message}
@@ -84,6 +139,39 @@
     <p class="alert-error mt-4">
       {error}
     </p>
+  {/if}
+
+  {#if showCreate}
+    <div class="card mt-6">
+      <h2 class="hud font-display text-lg font-bold">Akun baru</h2>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <input class="input" type="email" placeholder="Email" bind:value={newUser.email} />
+        <input class="input" placeholder="Nama lengkap" bind:value={newUser.full_name} />
+        <input
+          class="input"
+          type="password"
+          placeholder="Kata sandi (min. 8)"
+          bind:value={newUser.password}
+        />
+        <select class="input" bind:value={newUser.role}>
+          <option value="student">Siswa</option>
+          <option value="teacher">Guru</option>
+          <option value="admin">Admin</option>
+        </select>
+        <input class="input" placeholder="Kelas (mis. 1A)" bind:value={newUser.class_code} />
+        <input class="input" placeholder="Tipe kelas (mis. IPA)" bind:value={newUser.class_type} />
+      </div>
+      <button
+        class="btn-primary mt-3"
+        on:click={createUser}
+        disabled={creating ||
+          newUser.email.trim().length < 3 ||
+          newUser.full_name.trim().length < 2 ||
+          newUser.password.length < 8}
+      >
+        {creating ? "Membuat…" : "Buat akun"}
+      </button>
+    </div>
   {/if}
 
   <div class="card mt-6 overflow-x-auto">
@@ -138,6 +226,16 @@
                   >
                     {u.is_active ? "Nonaktifkan" : "Aktifkan"}
                   </button>
+                  {#if u.is_active}
+                    <button
+                      class="btn-icon !text-tertiary hover:!border-tertiary"
+                      on:click={() => deactivate(u)}
+                      disabled={busy === u.id}
+                      aria-label="Hapus pengguna"
+                    >
+                      <Icon name="trash" size="12px" />
+                    </button>
+                  {/if}
                 </div>
               </td>
             </tr>

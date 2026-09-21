@@ -3,7 +3,9 @@
   import { api, ApiError } from "$lib/api/client";
   import type { BlockchainStatus, BlockchainTx } from "$lib/types";
   import { formatDate, shortHash, etherscanUrl, statusLabel } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 25;
   let status: BlockchainStatus | null = null;
   let txs: BlockchainTx[] = [];
   let events: {
@@ -16,14 +18,65 @@
   let error = "";
   let loading = true;
   let busy = "";
+  let txPage = 1;
+  let txHasMore = false;
+  let txLoading = false;
+  let eventPage = 1;
+  let eventHasMore = false;
+  let eventLoading = false;
+
+  async function loadStatus() {
+    status = await api.get<BlockchainStatus>("/blockchain/status");
+  }
+
+  async function loadTxs() {
+    txLoading = true;
+    try {
+      txs = await api.get<BlockchainTx[]>(
+        `/blockchain/transactions?limit=${PAGE}&offset=${(txPage - 1) * PAGE}`,
+      );
+      txHasMore = txs.length === PAGE;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat transaksi";
+    } finally {
+      txLoading = false;
+    }
+  }
+
+  function goTxs(delta: number) {
+    const next = txPage + delta;
+    if (next < 1 || (delta > 0 && !txHasMore)) return;
+    txPage = next;
+    loadTxs();
+  }
+
+  async function loadEvents() {
+    eventLoading = true;
+    try {
+      events = await api.get<typeof events>(
+        `/blockchain/events?limit=${PAGE}&offset=${(eventPage - 1) * PAGE}`,
+      );
+      eventHasMore = events.length === PAGE;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat event";
+    } finally {
+      eventLoading = false;
+    }
+  }
+
+  function goEvents(delta: number) {
+    const next = eventPage + delta;
+    if (next < 1 || (delta > 0 && !eventHasMore)) return;
+    eventPage = next;
+    loadEvents();
+  }
 
   async function load() {
     loading = true;
     error = "";
     try {
-      status = await api.get<BlockchainStatus>("/blockchain/status");
-      txs = await api.get<BlockchainTx[]>("/blockchain/transactions?limit=100");
-      events = await api.get("/blockchain/events?limit=50");
+      await loadStatus();
+      await Promise.all([loadTxs(), loadEvents()]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat data blockchain";
     } finally {
@@ -141,15 +194,33 @@
         </tbody>
       </table>
     </div>
+    <Pagination
+      page={txPage}
+      pageSize={PAGE}
+      hasMore={txHasMore}
+      loading={txLoading}
+      label="transaksi"
+      onPrev={() => goTxs(-1)}
+      onNext={() => goTxs(1)}
+    />
   </div>
 
   <div class="card mt-4">
     <h2 class="hud font-display text-lg font-bold">Event terkini</h2>
     <ul class="mt-2 space-y-1 text-xs font-mono">
-      {#each events.slice(0, 15) as e}
+      {#each events as e}
         <li class="muted">[{e.block_number}] {e.name} · {shortHash(e.transaction_hash)}</li>
       {/each}
       {#if events.length === 0}<li class="muted">Belum ada event terindeks.</li>{/if}
     </ul>
+    <Pagination
+      page={eventPage}
+      pageSize={PAGE}
+      hasMore={eventHasMore}
+      loading={eventLoading}
+      label="event"
+      onPrev={() => goEvents(-1)}
+      onNext={() => goEvents(1)}
+    />
   </div>
 </div>

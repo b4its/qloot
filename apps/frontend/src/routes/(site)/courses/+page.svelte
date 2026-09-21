@@ -5,13 +5,17 @@
   import type { Course } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
 
+  const PAGE_SIZE = 12;
   let subjects: Course[] = [];
   let loading = true;
   let error = "";
   let query = "";
   let classFilter = "all";
+  let currentPage = 1;
   // Track the last-seen ?q= param so we only overwrite the box when the URL
   // itself changes (header search / /paths deep links), not while typing.
   let lastQ = "";
@@ -36,11 +40,15 @@
     const matchesClass = classFilter === "all" || s.class_code === classFilter;
     return matchesQuery && matchesClass;
   });
+  // Reset to the first page whenever the filter set changes.
+  $: totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  $: if (currentPage > totalPages) currentPage = 1;
+  $: paged = paginate(filtered, currentPage, PAGE_SIZE);
 
   async function load() {
     loading = true;
     try {
-      subjects = await api.get<Course[]>("/courses");
+      subjects = await api.get<Course[]>("/courses?limit=200");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
@@ -117,7 +125,7 @@
       </div>
     {:else}
       <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {#each filtered as s, i}
+        {#each paged as s, i}
           <a
             href={`/courses/${s.id}`}
             use:reveal={{ delay: i * 40 }}
@@ -144,6 +152,15 @@
           </a>
         {/each}
       </div>
+      <Pagination
+        page={currentPage}
+        pageSize={PAGE_SIZE}
+        total={filtered.length}
+        {loading}
+        label="pelajaran"
+        onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+        onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+      />
     {/if}
   </div>
 </div>

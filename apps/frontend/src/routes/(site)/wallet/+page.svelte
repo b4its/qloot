@@ -9,7 +9,9 @@
     etherscanUrl,
     statusLabel,
   } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 10;
   let wallet: Wallet | null = null;
   let ledger: LedgerEntry[] = [];
   let rewards: Reward[] = [];
@@ -20,6 +22,17 @@
   let withdrawAmount = 0;
   let withdrawAddr = "";
   let withdrawMsg = "";
+
+  // Independent pagers for the three lists.
+  let ledgerPage = 1;
+  let ledgerHasMore = false;
+  let ledgerLoading = false;
+  let rewardsPage = 1;
+  let rewardsHasMore = false;
+  let rewardsLoading = false;
+  let txPage = 1;
+  let txHasMore = false;
+  let txLoading = false;
 
   // Internal transfer state.
   let recipients: { user_id: string; full_name: string; email: string }[] = [];
@@ -62,13 +75,74 @@
     }
   }
 
+  async function loadLedger() {
+    ledgerLoading = true;
+    try {
+      ledger = await api.get<LedgerEntry[]>(
+        `/wallet/ledger?limit=${PAGE}&offset=${(ledgerPage - 1) * PAGE}`,
+      );
+      ledgerHasMore = ledger.length === PAGE;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat buku besar";
+    } finally {
+      ledgerLoading = false;
+    }
+  }
+
+  function goLedger(delta: number) {
+    const next = ledgerPage + delta;
+    if (next < 1 || (delta > 0 && !ledgerHasMore)) return;
+    ledgerPage = next;
+    loadLedger();
+  }
+
+  async function loadRewards() {
+    rewardsLoading = true;
+    try {
+      rewards = await api.get<Reward[]>(
+        `/wallet/rewards?limit=${PAGE}&offset=${(rewardsPage - 1) * PAGE}`,
+      );
+      rewardsHasMore = rewards.length === PAGE;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat hadiah";
+    } finally {
+      rewardsLoading = false;
+    }
+  }
+
+  function goRewards(delta: number) {
+    const next = rewardsPage + delta;
+    if (next < 1 || (delta > 0 && !rewardsHasMore)) return;
+    rewardsPage = next;
+    loadRewards();
+  }
+
+  async function loadTxs() {
+    txLoading = true;
+    try {
+      txs = await api.get<BlockchainTx[]>(
+        `/blockchain/transactions?limit=${PAGE}&offset=${(txPage - 1) * PAGE}`,
+      );
+      txHasMore = txs.length === PAGE;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat transaksi";
+    } finally {
+      txLoading = false;
+    }
+  }
+
+  function goTxs(delta: number) {
+    const next = txPage + delta;
+    if (next < 1 || (delta > 0 && !txHasMore)) return;
+    txPage = next;
+    loadTxs();
+  }
+
   async function load() {
     try {
       wallet = await api.get<Wallet>("/wallet");
-      ledger = await api.get<LedgerEntry[]>("/wallet/ledger");
-      rewards = await api.get<Reward[]>("/wallet/rewards");
       status = await api.get<BlockchainStatus>("/blockchain/status");
-      txs = await api.get<BlockchainTx[]>("/blockchain/transactions");
+      await Promise.all([loadLedger(), loadRewards(), loadTxs()]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat dompet";
     } finally {
@@ -268,7 +342,7 @@
       <div class="card">
         <h2 class="hud font-display text-lg font-bold">Hadiah terbaru</h2>
         <ul class="mt-2 space-y-2 text-sm">
-          {#each rewards.slice(0, 6) as r}
+          {#each rewards as r}
             <li class="flex items-center justify-between border-b pb-1 last:border-0">
               <span>{r.reward_type}{r.rank ? ` #${r.rank}` : ""}</span>
               <span class="flex items-center gap-2">
@@ -283,6 +357,15 @@
           {/each}
           {#if rewards.length === 0}<li class="muted">Belum ada hadiah.</li>{/if}
         </ul>
+        <Pagination
+          page={rewardsPage}
+          pageSize={PAGE}
+          hasMore={rewardsHasMore}
+          loading={rewardsLoading}
+          label="hadiah"
+          onPrev={() => goRewards(-1)}
+          onNext={() => goRewards(1)}
+        />
       </div>
     </div>
 
@@ -298,7 +381,7 @@
             >
           </thead>
           <tbody>
-            {#each ledger.slice(0, 12) as entry}
+            {#each ledger as entry}
               <tr class="border-t">
                 <td class="py-1 text-xs muted">{formatDate(entry.created_at)}</td>
                 <td>
@@ -317,12 +400,21 @@
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={ledgerPage}
+        pageSize={PAGE}
+        hasMore={ledgerHasMore}
+        loading={ledgerLoading}
+        label="entri buku besar"
+        onPrev={() => goLedger(-1)}
+        onNext={() => goLedger(1)}
+      />
     </div>
 
     <div class="card mt-4">
       <h2 class="hud font-display text-lg font-bold">Transaksi on-chain</h2>
       <ul class="mt-2 space-y-2 text-sm">
-        {#each txs.slice(0, 10) as tx}
+        {#each txs as tx}
           {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, status?.chain_id)}
           <li class="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-0">
             <span>
@@ -347,6 +439,15 @@
         {/each}
         {#if txs.length === 0}<li class="muted">Belum ada transaksi.</li>{/if}
       </ul>
+      <Pagination
+        page={txPage}
+        pageSize={PAGE}
+        hasMore={txHasMore}
+        loading={txLoading}
+        label="transaksi"
+        onPrev={() => goTxs(-1)}
+        onNext={() => goTxs(1)}
+      />
     </div>
   {/if}
 </div>

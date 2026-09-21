@@ -1,6 +1,14 @@
 /** Basis-point helpers. Scores are stored as integer basis points (10000 = 100%). */
 export const BP_SCALE = 10_000;
 
+/** Slice an in-memory list into a single page (1-indexed). For lists that are
+ * fetched in full and/or filtered client-side, where offset math on the server
+ * cannot be applied to the filtered set. Pair with `<Pagination {total} />`. */
+export function paginate<T>(items: T[], page: number, pageSize: number): T[] {
+  const start = Math.max(0, (page - 1) * pageSize);
+  return items.slice(start, start + pageSize);
+}
+
 export function bpToPercent(bp: number | null | undefined, digits = 1): string {
   if (bp === null || bp === undefined) return "—";
   return `${(bp / 100).toFixed(digits)}%`;
