@@ -239,6 +239,48 @@ export interface RankingResponse {
   entries: RankingEntry[];
 }
 
+export interface RankingMe {
+  user_id: string;
+  total_score_bp: number;
+  opc_balance: number;
+  rank?: number;
+  xp?: number;
+  level?: number;
+  level_progress?: number;
+}
+
+export interface XpBreakdown {
+  exams: number;
+  quests: number;
+  tasks: number;
+  badges: number;
+}
+
+export interface GamificationProfile {
+  user_id: string;
+  xp: number;
+  level: number;
+  xp_into_level: number;
+  xp_for_next_level: number;
+  progress: number;
+  breakdown: XpBreakdown;
+  quest_wins: number;
+  tasks_completed: number;
+}
+
+export interface LevelEntry {
+  rank: number;
+  user_id: string;
+  display_name?: string | null;
+  xp: number;
+  level: number;
+}
+
+export interface LevelLeaderboard {
+  scope: string;
+  entries: LevelEntry[];
+}
+
 export interface Material {
   id: string;
   owner_id: string;

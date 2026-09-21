@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { RankingResponse } from "$lib/types";
+  import type { LevelLeaderboard, RankingMe, RankingResponse } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import { formatNumber } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
 
   let global: RankingResponse | null = null;
-  let me: { total_score_bp: number; opc_balance: number; rank?: number } | null = null;
+  let me: RankingMe | null = null;
+  let levels: LevelLeaderboard | null = null;
   let loading = true;
   let error = "";
 
@@ -21,9 +22,10 @@
 
   onMount(async () => {
     try {
-      [global, me] = await Promise.all([
+      [global, me, levels] = await Promise.all([
         api.get<RankingResponse>("/rankings/global"),
-        api.get<{ total_score_bp: number; opc_balance: number; rank?: number }>("/rankings/me"),
+        api.get<RankingMe>("/rankings/me"),
+        api.get<LevelLeaderboard>("/gamification/levels"),
       ]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
@@ -44,23 +46,53 @@
   {/if}
 
   {#if me}
-    <div class="mt-6 card flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-4">
-        <span class="tile h-12 w-12">
-          <Icon name="user-astronaut" size="20px" />
-        </span>
-        <div>
-          <p class="mono-label">Peringkatmu</p>
-          <p class="font-display text-2xl font-bold">
-            #{me.rank ?? "—"} ·
-            <span class="text-primary">{(me.total_score_bp / 100).toFixed(0)}%</span>
-          </p>
+    <div class="mt-6 card space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <span class="tile h-12 w-12">
+            <Icon name="user-astronaut" size="20px" />
+          </span>
+          <div>
+            <p class="mono-label">Peringkatmu</p>
+            <p class="font-display text-2xl font-bold">
+              #{me.rank ?? "—"} ·
+              <span class="text-primary">{(me.total_score_bp / 100).toFixed(0)}%</span>
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-6 text-right">
+          {#if me.level != null}
+            <div>
+              <p class="mono-label">Level</p>
+              <p class="font-display text-2xl font-bold text-primary">{me.level}</p>
+            </div>
+          {/if}
+          {#if me.xp != null}
+            <div>
+              <p class="mono-label">XP</p>
+              <p class="font-display text-2xl font-bold">{formatNumber(me.xp)}</p>
+            </div>
+          {/if}
+          <div>
+            <p class="mono-label">OPC diperoleh</p>
+            <p class="font-display text-2xl font-bold text-highlight">{formatNumber(me.opc_balance)}</p>
+          </div>
         </div>
       </div>
-      <div class="text-right">
-        <p class="mono-label">OPC diperoleh</p>
-        <p class="font-display text-2xl font-bold text-highlight">{formatNumber(me.opc_balance)}</p>
-      </div>
+      {#if me.level != null && me.level_progress != null}
+        <div>
+          <div class="flex items-center justify-between text-xs">
+            <span class="muted">Progres ke level {me.level + 1}</span>
+            <span class="mono">{(me.level_progress * 100).toFixed(0)}%</span>
+          </div>
+          <div class="mt-2 h-2 w-full overflow-hidden rounded-full" style="background: rgb(var(--line))">
+            <div
+              class="h-full rounded-full bg-primary transition-all"
+              style={`width: ${Math.min(100, Math.max(0, me.level_progress * 100))}%`}
+            ></div>
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -107,6 +139,45 @@
     <div class="card mt-6 grid place-items-center py-14 text-center">
       <Icon name="ranking-star" size="26px" class="muted" />
       <p class="mt-3 font-semibold">Belum ada data peringkat</p>
+    </div>
+  {/if}
+
+  {#if levels && levels.entries.length}
+    <p class="mono-label mt-10">Peringkat Level (XP)</p>
+    <h2 class="mt-2 font-display text-2xl font-bold">Papan XP global</h2>
+    <div class="mt-4 card overflow-x-auto !p-0">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b text-left">
+            <th class="px-5 py-3 font-medium">#</th>
+            <th class="px-5 py-3 font-medium">Pengguna</th>
+            <th class="px-5 py-3 text-right font-medium">Level</th>
+            <th class="px-5 py-3 text-right font-medium">XP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each levels.entries as e (e.user_id)}
+            <tr class="border-b last:border-0">
+              <td class="px-5 py-3">
+                {#if e.rank <= 3}
+                  <Icon name="medal" size="16px" class={medalColor[e.rank]} />
+                {:else}
+                  <span class="mono">{e.rank}</span>
+                {/if}
+              </td>
+              <td class="px-5 py-3">
+                {#if e.display_name}
+                  <span class="font-medium">{e.display_name}</span>
+                {:else}
+                  <span class="font-mono text-xs">{e.user_id.slice(0, 8)}…</span>
+                {/if}
+              </td>
+              <td class="px-5 py-3 text-right font-display font-bold text-primary">{e.level}</td>
+              <td class="px-5 py-3 text-right font-mono">{formatNumber(e.xp)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
   {/if}
 </div>

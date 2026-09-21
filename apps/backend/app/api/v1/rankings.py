@@ -207,11 +207,18 @@ async def my_ranking(db: DbSession, user: CurrentUser):
             .where(User.is_active.is_(True), totals.c.score > int(total or 0))
         )
     ).scalar_one()
+    # Level/XP enrich the personal card.
+    from app.services.gamification_service import GamificationService
+
+    xp = await GamificationService(db).xp_for_user(user.id)
     return {
         "user_id": str(user.id),
         "total_score_bp": int(total or 0),
         "opc_balance": int(account.cached_balance if account else 0),
         "rank": int(higher) + 1,
+        "xp": xp["xp"],
+        "level": xp["level"],
+        "level_progress": xp["progress"],
     }
 
 

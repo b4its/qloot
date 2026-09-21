@@ -14,6 +14,7 @@ from app.api.v1 import (
     community,
     courses,
     exams,
+    gamification,
     health,
     materials,
     metrics,
@@ -36,6 +37,7 @@ api_router.include_router(teacher.router, tags=["teacher"])
 api_router.include_router(career.router)
 api_router.include_router(certificates.router)
 api_router.include_router(community.router)
+api_router.include_router(gamification.router)
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(courses.router, tags=["learning"])
 api_router.include_router(materials.router, prefix="/materials", tags=["materials"])

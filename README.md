@@ -61,7 +61,10 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   skor kemiripan.
 - **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
   pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
-  quest, notifikasi, dan badge dengan id on-chain.
+  quest, notifikasi, dan badge dengan id on-chain. **XP & level (simulasi deterministik)**:
+  XP dihitung dari aktivitas nyata (skor ujian terbaik, kemenangan quest, tugas, badge) —
+  tidak pernah disimpan sehingga tak bisa drift — lalu dipetakan ke level dengan progres
+  menuju level berikutnya di papan peringkat.
 - **Panduan karier (simulasi)** — dashboard akademik (nilai, tren, radar minat, insight AI),
   tes kepribadian Big Five, rekomendasi jurusan AI dengan persetujuan guru BK
   (human-in-the-loop), roadmap milestone, ruang konsultasi BK, perpustakaan sumber, dan
