@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { Exam, Attempt } from "$lib/types";
+  import type { Exam, Question, Attempt } from "$lib/types";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 20;
   let exams: Exam[] = [];
   let results: Record<string, Attempt[]> = {};
   let newExam = { title: "", duration_minutes: 60, passing_score_bp: 6000 };
@@ -12,11 +14,20 @@
   let loading = true;
   let busy = "";
   let showResults: string | null = null;
+  let page = 1;
+  let hasMore = false;
 
   // Inline question authoring (replaces window.prompt).
   let addingFor: string | null = null;
   let qPrompt = "";
   let qAnswer = "";
+
+  // Question manager (view/edit/delete a question).
+  let questionsFor: string | null = null;
+  let questions: Question[] = [];
+  let questionsLoading = false;
+  let editingQ: string | null = null;
+  let editQ = { prompt: "", correct_answer: "" };
 
   // Inline exam editing.
   let editingId: string | null = null;
@@ -25,12 +36,20 @@
   async function load() {
     loading = true;
     try {
-      exams = await api.get<Exam[]>("/exams");
+      exams = await api.get<Exam[]>(`/exams?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
+      hasMore = exams.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
     } finally {
       loading = false;
     }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
   }
 
   async function create() {
@@ -132,6 +151,86 @@
     }
   }
 
+  async function removeExam(exam: Exam) {
+    if (!confirm(`Hapus ujian "${exam.title}"?`)) return;
+    error = "";
+    busy = `d-${exam.id}`;
+    try {
+      await api.delete(`/exams/${exam.id}`);
+      message = "Ujian dihapus.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus ujian";
+    } finally {
+      busy = "";
+    }
+  }
+
+  async function toggleQuestions(exam: Exam) {
+    if (questionsFor === exam.id) {
+      questionsFor = null;
+      return;
+    }
+    questionsFor = exam.id;
+    editingQ = null;
+    questionsLoading = true;
+    error = "";
+    try {
+      const detail = await api.get<Exam>(`/exams/${exam.id}`);
+      questions = detail.questions ?? [];
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat soal";
+    } finally {
+      questionsLoading = false;
+    }
+  }
+
+  function startEditQ(q: Question) {
+    editingQ = q.id;
+    editQ = { prompt: q.prompt, correct_answer: q.correct_answer ?? "" };
+  }
+
+  async function saveQ() {
+    if (!editingQ) return;
+    if (editQ.prompt.trim().length < 5) {
+      error = "Soal minimal 5 karakter.";
+      return;
+    }
+    busy = "q-edit";
+    error = "";
+    try {
+      await api.patch(`/questions/${editingQ}`, {
+        prompt: editQ.prompt.trim(),
+        correct_answer: editQ.correct_answer.trim() || null,
+      });
+      if (questionsFor) {
+        const detail = await api.get<Exam>(`/exams/${questionsFor}`);
+        questions = detail.questions ?? [];
+      }
+      editingQ = null;
+      message = "Soal diperbarui.";
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui soal";
+    } finally {
+      busy = "";
+    }
+  }
+
+  async function removeQ(q: Question) {
+    if (!confirm("Hapus soal ini?")) return;
+    busy = `qd-${q.id}`;
+    error = "";
+    try {
+      await api.delete(`/questions/${q.id}`);
+      questions = questions.filter((x) => x.id !== q.id);
+      message = "Soal dihapus.";
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus soal";
+    } finally {
+      busy = "";
+    }
+  }
+
   onMount(load);
 </script>
 
@@ -229,6 +328,7 @@
               </div>
               <div class="flex flex-wrap gap-2">
                 <button class="btn-ghost" on:click={() => startAdd(exam)}>＋ Soal</button>
+                <button class="btn-ghost" on:click={() => toggleQuestions(exam)}>Soal</button>
                 <button class="btn-ghost" on:click={() => startEdit(exam)}>Sunting</button>
                 <button class="btn-ghost" on:click={() => viewResults(exam)}>Hasil</button>
                 <button
@@ -238,7 +338,77 @@
                 >
                   {exam.is_active ? "Tutup" : "Terbitkan"}
                 </button>
+                <button
+                  class="btn-icon !text-tertiary hover:!border-tertiary"
+                  on:click={() => removeExam(exam)}
+                  disabled={busy === `d-${exam.id}`}
+                  aria-label="Hapus ujian"
+                >
+                  <Icon name="trash" size="12px" />
+                </button>
               </div>
+            </div>
+          {/if}
+
+          {#if questionsFor === exam.id}
+            <div class="mt-3 border-t pt-3">
+              <h3 class="mono-label">Daftar soal</h3>
+              {#if questionsLoading}
+                <div class="mt-2 space-y-2">
+                  {#each Array(2) as _}<div class="skeleton h-8"></div>{/each}
+                </div>
+              {:else if questions.length === 0}
+                <p class="mt-2 text-sm muted">Belum ada soal.</p>
+              {:else}
+                <ol class="mt-2 space-y-2 text-sm">
+                  {#each questions as q, i}
+                    {#if editingQ === q.id}
+                      <li class="border-b pb-2 last:border-0">
+                        <input class="input" bind:value={editQ.prompt} />
+                        <textarea
+                          class="input mt-2 min-h-[60px]"
+                          placeholder="Kunci jawaban"
+                          bind:value={editQ.correct_answer}
+                        ></textarea>
+                        <div class="mt-2 flex gap-2">
+                          <button
+                            class="btn-primary !py-1.5"
+                            on:click={saveQ}
+                            disabled={busy === "q-edit"}>Simpan</button
+                          >
+                          <button class="btn-ghost !py-1.5" on:click={() => (editingQ = null)}
+                            >Batal</button
+                          >
+                        </div>
+                      </li>
+                    {:else}
+                      <li
+                        class="flex items-start justify-between gap-2 border-b pb-1 last:border-0"
+                      >
+                        <span
+                          >{i + 1}. {q.prompt}
+                          {#if q.correct_answer}<span class="block text-xs muted"
+                              >Kunci: {q.correct_answer}</span
+                            >{/if}</span
+                        >
+                        <span class="flex flex-none gap-1">
+                          <button
+                            class="btn-icon"
+                            on:click={() => startEditQ(q)}
+                            aria-label="Sunting soal"><Icon name="pen" size="11px" /></button
+                          >
+                          <button
+                            class="btn-icon !text-tertiary hover:!border-tertiary"
+                            on:click={() => removeQ(q)}
+                            disabled={busy === `qd-${q.id}`}
+                            aria-label="Hapus soal"><Icon name="trash" size="11px" /></button
+                          >
+                        </span>
+                      </li>
+                    {/if}
+                  {/each}
+                </ol>
+              {/if}
             </div>
           {/if}
 
@@ -284,5 +454,15 @@
         </div>
       {/each}
     </div>
+
+    <Pagination
+      {page}
+      pageSize={PAGE}
+      {hasMore}
+      {loading}
+      label="ujian"
+      onPrev={() => go(-1)}
+      onNext={() => go(1)}
+    />
   {/if}
 </div>
