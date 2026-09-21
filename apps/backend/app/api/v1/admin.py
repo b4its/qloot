@@ -26,6 +26,10 @@ class RoleUpdate(BaseModel):
     role: str = Field(pattern="^(student|teacher|admin)$")
 
 
+class ActiveUpdate(BaseModel):
+    is_active: bool
+
+
 class AuditLogOut(BaseModel):
     id: uuid.UUID
     actor_id: uuid.UUID | None
@@ -79,6 +83,42 @@ async def set_user_role(user_id: uuid.UUID, payload: RoleUpdate, admin: AdminUse
                 entity_type="user",
                 entity_id=str(user.id),
                 data={"new_role": payload.role},
+            )
+        )
+        await db.flush()
+        await db.refresh(user)
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        chain_user_ref=user.chain_user_ref,
+        avatar_url=user.avatar_url,
+        created_at=user.created_at,
+        roles=sorted(user.role_names),
+    )
+
+
+@router.patch("/users/{user_id}/active", response_model=UserOut)
+async def set_user_active(
+    user_id: uuid.UUID, payload: ActiveUpdate, admin: AdminUser, db: DbSession
+):
+    """Activate/deactivate a user. Deactivation is the safe 'remove' — it keeps
+    the ledger/audit history intact while blocking sign-in and API access."""
+    async with transaction(db):
+        user = await db.get(User, user_id)
+        if user is None:
+            raise NotFoundError("User not found")
+        if user.id == admin.id and not payload.is_active:
+            raise ValidationError("You cannot deactivate your own account")
+        user.is_active = payload.is_active
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="user.activate" if payload.is_active else "user.deactivate",
+                entity_type="user",
+                entity_id=str(user.id),
+                data={"is_active": payload.is_active},
             )
         )
         await db.flush()
