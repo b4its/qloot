@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Request, Response, status
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
 from app.core.config import settings
 from app.core.errors import AuthError
 from app.db.session import transaction
@@ -144,8 +144,10 @@ async def me(user: CurrentUser) -> UserOut:
 
 
 @router.get("/sessions", response_model=list[SessionOut])
-async def list_sessions(user: CurrentUser, db: DbSession) -> list[SessionOut]:
-    sessions = await AuthService(db).list_sessions(user.id)
+async def list_sessions(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+) -> list[SessionOut]:
+    sessions = await AuthService(db).list_sessions(user.id, limit=limit, offset=offset)
     return [SessionOut.model_validate(s) for s in sessions]
 
 

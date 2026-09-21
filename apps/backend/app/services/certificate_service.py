@@ -72,11 +72,15 @@ class CertificateService:
         ).scalar_one()
         return int(done) >= int(total)
 
-    async def list_for_user(self, user_id: uuid.UUID) -> list[Certificate]:
+    async def list_for_user(
+        self, user_id: uuid.UUID, *, limit: int = 100, offset: int = 0
+    ) -> list[Certificate]:
         stmt = (
             select(Certificate)
             .where(Certificate.user_id == user_id, Certificate.revoked_at.is_(None))
             .order_by(Certificate.issued_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 

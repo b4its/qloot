@@ -95,12 +95,16 @@ class SessionRepository:
         stmt = select(SessionModel).where(SessionModel.token_hash == token_hash)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
-    async def list_for_user(self, user_id: uuid.UUID) -> list[SessionModel]:
+    async def list_for_user(
+        self, user_id: uuid.UUID, *, limit: int = 100, offset: int = 0
+    ) -> list[SessionModel]:
         stmt = (
             select(SessionModel)
             .where(SessionModel.user_id == user_id)
             .where(SessionModel.revoked_at.is_(None))
             .order_by(SessionModel.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 

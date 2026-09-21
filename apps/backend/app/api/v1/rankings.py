@@ -246,12 +246,7 @@ async def list_materialized(
     """List materialized leaderboard snapshots (if any have been built)."""
     from app.models.ranking import Leaderboard
 
-    stmt = (
-        select(Leaderboard)
-        .order_by(Leaderboard.updated_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+    stmt = select(Leaderboard).order_by(Leaderboard.updated_at.desc()).limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     return [
         {

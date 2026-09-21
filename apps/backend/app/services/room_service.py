@@ -67,6 +67,12 @@ class RoomService:
         await self.session.flush()
         return room
 
+    async def delete(self, room_id: uuid.UUID, user: User) -> None:
+        """Delete a room (owner or admin); cascades members/events."""
+        room = await self._owned(room_id, user)
+        await self.session.delete(room)
+        await self.session.flush()
+
     async def open(self, room_id: uuid.UUID, user: User) -> Room:
         room = await self._owned(room_id, user)
         room.status = "open"
@@ -133,8 +139,10 @@ class RoomService:
             await self._emit(room_id, "left", {"user_id": str(user.id)})
             await self.session.flush()
 
-    async def participants(self, room_id: uuid.UUID) -> list[RoomMember]:
-        stmt = select(RoomMember).where(RoomMember.room_id == room_id)
+    async def participants(
+        self, room_id: uuid.UUID, *, limit: int = 200, offset: int = 0
+    ) -> list[RoomMember]:
+        stmt = select(RoomMember).where(RoomMember.room_id == room_id).limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def live_leaderboard(self, room_id: uuid.UUID) -> list[dict]:

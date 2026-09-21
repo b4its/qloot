@@ -269,12 +269,16 @@ class BadgeService:
         log.info("badge_awarded", user_id=str(user.id), code=code)
         return ub
 
-    async def list_for_user(self, user_id: uuid.UUID) -> list[tuple[UserBadge, Badge]]:
+    async def list_for_user(
+        self, user_id: uuid.UUID, *, limit: int = 200, offset: int = 0
+    ) -> list[tuple[UserBadge, Badge]]:
         stmt = (
             select(UserBadge, Badge)
             .join(Badge, Badge.id == UserBadge.badge_id)
             .where(UserBadge.user_id == user_id)
             .order_by(UserBadge.awarded_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         rows = (await self.session.execute(stmt)).all()
         return [(row[0], row[1]) for row in rows]

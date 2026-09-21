@@ -148,8 +148,10 @@ class AuthService:
     async def logout_all(self, user_id: uuid.UUID) -> None:
         await self.sessions.revoke_all_for_user(user_id)
 
-    async def list_sessions(self, user_id: uuid.UUID) -> list[SessionModel]:
-        return await self.sessions.list_for_user(user_id)
+    async def list_sessions(
+        self, user_id: uuid.UUID, *, limit: int = 100, offset: int = 0
+    ) -> list[SessionModel]:
+        return await self.sessions.list_for_user(user_id, limit=limit, offset=offset)
 
     async def revoke_session(self, user_id: uuid.UUID, session_id: uuid.UUID) -> None:
         session = await self.session.get(SessionModel, session_id)

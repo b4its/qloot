@@ -81,8 +81,10 @@ async def badge_catalog(user: CurrentUser, db: DbSession):
 
 
 @router.get("/me/badges", response_model=list[UserBadgeOut])
-async def my_badges(user: CurrentUser, db: DbSession):
-    rows = await BadgeService(db).list_for_user(user.id)
+async def my_badges(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 200, offset: OffsetParam = 0
+):
+    rows = await BadgeService(db).list_for_user(user.id, limit=limit, offset=offset)
     return [
         UserBadgeOut(badge=BadgeOut.model_validate(badge), awarded_at=ub.awarded_at, meta=ub.meta)
         for ub, badge in rows

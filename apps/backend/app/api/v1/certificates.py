@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, DbSession, OptionalUser
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, OptionalUser
 from app.db.session import transaction
 from app.schemas.certificate import CertificateOut, CertificateVerifyOut
 from app.services.certificate_service import CertificateService
@@ -13,10 +13,14 @@ router = APIRouter(prefix="/certificates", tags=["certificates"])
 
 
 @router.get("", response_model=list[CertificateOut])
-async def my_certificates(user: CurrentUser, db: DbSession):
+async def my_certificates(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
     """List the caller's certificates, issuing any newly-earned ones first."""
     async with transaction(db):
-        certs = await CertificateService(db).sync_for_user(user)
+        # Ensure newly-earned certificates exist, then page the listing.
+        await CertificateService(db).sync_for_user(user)
+        certs = await CertificateService(db).list_for_user(user.id, limit=limit, offset=offset)
     return [CertificateService.out(c) for c in certs]
 
 

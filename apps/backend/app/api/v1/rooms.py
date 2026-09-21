@@ -51,6 +51,12 @@ async def update_room(room_id: uuid.UUID, payload: RoomUpdate, user: TeacherUser
         return await RoomService(db).update(room_id, user, **payload.model_dump(exclude_unset=True))
 
 
+@router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        await RoomService(db).delete(room_id, user)
+
+
 @router.post("/{room_id}/join", response_model=RoomMemberOut)
 async def join_room(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
     async with transaction(db):
@@ -104,8 +110,14 @@ async def close_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
 
 
 @router.get("/{room_id}/participants", response_model=list[RoomMemberOut])
-async def participants(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return await RoomService(db).participants(room_id)
+async def participants(
+    room_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
+    return await RoomService(db).participants(room_id, limit=limit, offset=offset)
 
 
 @router.post("/invitations/accept", response_model=RoomMemberOut)

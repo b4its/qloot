@@ -318,11 +318,15 @@ class CareerService:
         self.session = session
 
     # --- grades ------------------------------------------------------------
-    async def list_grades(self, user_id: uuid.UUID) -> list[AcademicGrade]:
+    async def list_grades(
+        self, user_id: uuid.UUID, *, limit: int = 1000, offset: int = 0
+    ) -> list[AcademicGrade]:
         stmt = (
             select(AcademicGrade)
             .where(AcademicGrade.user_id == user_id)
             .order_by(AcademicGrade.subject)
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
@@ -631,11 +635,15 @@ class CareerService:
         log.info("career_recommendations_generated", user_id=str(user.id), n=len(results))
         return results
 
-    async def list_recommendations(self, user_id: uuid.UUID) -> list[CareerRecommendation]:
+    async def list_recommendations(
+        self, user_id: uuid.UUID, *, limit: int = 1000, offset: int = 0
+    ) -> list[CareerRecommendation]:
         stmt = (
             select(CareerRecommendation)
             .where(CareerRecommendation.user_id == user_id)
             .order_by(CareerRecommendation.rank)
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
@@ -680,11 +688,15 @@ class CareerService:
         return len(recs)
 
     # --- roadmap -----------------------------------------------------------
-    async def list_milestones(self, user_id: uuid.UUID) -> list[RoadmapMilestone]:
+    async def list_milestones(
+        self, user_id: uuid.UUID, *, limit: int = 1000, offset: int = 0
+    ) -> list[RoadmapMilestone]:
         stmt = (
             select(RoadmapMilestone)
             .where(RoadmapMilestone.user_id == user_id)
             .order_by(RoadmapMilestone.position)
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
@@ -777,11 +789,15 @@ class CareerService:
         return m
 
     # --- consultations -----------------------------------------------------
-    async def list_consultations(self, user_id: uuid.UUID) -> list[Consultation]:
+    async def list_consultations(
+        self, user_id: uuid.UUID, *, limit: int = 1000, offset: int = 0
+    ) -> list[Consultation]:
         stmt = (
             select(Consultation)
             .where(Consultation.user_id == user_id)
             .order_by(Consultation.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
@@ -854,7 +870,12 @@ class CareerService:
         await self.session.flush()
 
     async def list_resources(
-        self, category: str | None = None, major: str | None = None
+        self,
+        category: str | None = None,
+        major: str | None = None,
+        *,
+        limit: int = 200,
+        offset: int = 0,
     ) -> list[ResourceItem]:
         stmt = select(ResourceItem).order_by(ResourceItem.category, ResourceItem.title)
         if category:
@@ -870,7 +891,8 @@ class CareerService:
                 return (0 if tagged else 1, item.title)
 
             items.sort(key=_rank)
-        return items
+        # Page the (sorted) result so the major-relevant ordering is preserved.
+        return items[offset : offset + limit]
 
     # --- assistant ---------------------------------------------------------
     async def assistant_reply(self, user: User, question: str) -> dict:

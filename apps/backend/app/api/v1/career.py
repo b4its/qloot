@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, DbSession, TeacherUser
+from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.db.session import transaction
 from app.schemas.career import (
     ChatIn,
@@ -36,8 +36,10 @@ async def dashboard(user: CurrentUser, db: DbSession):
 
 
 @router.get("/grades", response_model=list[GradeOut])
-async def list_grades(user: CurrentUser, db: DbSession):
-    return await CareerService(db).list_grades(user.id)
+async def list_grades(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    return await CareerService(db).list_grades(user.id, limit=limit, offset=offset)
 
 
 @router.post("/grades", response_model=GradeOut)
@@ -62,8 +64,10 @@ async def submit_personality(payload: PersonalityIn, user: CurrentUser, db: DbSe
 
 # --- recommendations + roadmap --------------------------------------------
 @router.get("/recommendations", response_model=list[RecommendationOut])
-async def list_recommendations(user: CurrentUser, db: DbSession):
-    return await CareerService(db).list_recommendations(user.id)
+async def list_recommendations(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    return await CareerService(db).list_recommendations(user.id, limit=limit, offset=offset)
 
 
 @router.post("/recommendations/generate", response_model=list[RecommendationOut])
@@ -96,8 +100,10 @@ async def approve_recommendations(
 
 
 @router.get("/roadmap", response_model=list[MilestoneOut])
-async def roadmap(user: CurrentUser, db: DbSession):
-    return await CareerService(db).list_milestones(user.id)
+async def roadmap(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    return await CareerService(db).list_milestones(user.id, limit=limit, offset=offset)
 
 
 @router.patch("/roadmap/{milestone_id}", response_model=MilestoneOut)
@@ -112,8 +118,10 @@ async def update_milestone(
 
 # --- consultations ---------------------------------------------------------
 @router.get("/consultations", response_model=list[ConsultationOut])
-async def list_consultations(user: CurrentUser, db: DbSession):
-    return await CareerService(db).list_consultations(user.id)
+async def list_consultations(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    return await CareerService(db).list_consultations(user.id, limit=limit, offset=offset)
 
 
 @router.get("/counselors", response_model=list[dict])
@@ -142,11 +150,13 @@ async def resources(
     db: DbSession,
     category: str | None = None,
     major: str | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
 ):
     async with transaction(db):
         service = CareerService(db)
         await service.ensure_resources()
-        return await service.list_resources(category, major)
+        return await service.list_resources(category, major, limit=limit, offset=offset)
 
 
 # --- assistant -------------------------------------------------------------
