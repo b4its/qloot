@@ -24,6 +24,8 @@ AMOUNT ?=
 ADDRESS ?=
 ROLE ?=
 TOKEN_ID ?= 0
+# Host-reachable RPC for local networks (see the Blockchain section).
+RPC ?= http://127.0.0.1:8545
 
 COMPOSE_DEV = $(COMPOSE) -f $(COMPOSE_FILE)
 COMPOSE_PROD = $(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_PROD_FILE)
@@ -303,22 +305,46 @@ db-restore: ## Restore database from FILE=backup.sql
 
 # ----------------------------------------------------------------------------
 # Blockchain (Hardhat)
+#
+# All targets run Hardhat on the HOST, so the RPC for local networks must be a
+# host-reachable URL. `.env` ships `http://anvil:8545` (correct *inside* the
+# docker toolbox container) which does not resolve on the host, so we force
+# `LOCALHOST_RPC_URL=http://127.0.0.1:8545` for local `NETWORK` values. Override
+# with RPC=http://host:port when your node is elsewhere.
+#
+# The `_need-*` guards fail fast with a usage hint instead of a JS stack trace.
 # ----------------------------------------------------------------------------
+HARDHAT := npx hardhat
+# `run` wrapper that injects the host RPC for local networks.
+LOCAL_NETWORKS := localhost anvil hardhat
+RUN = cd blockchain && $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run
+
+.PHONY: _need-sepolia-confirm
+_need-sepolia-confirm:
+	@if [ "$(NETWORK)" = "sepolia" ] && [ "$(CONFIRM_SEPOLIA)" != "yes" ]; then \
+		printf "$(RED)Refusing to touch Sepolia. Re-run with CONFIRM_SEPOLIA=yes$(RESET)\n"; \
+		printf "  e.g. make $(MAKECMDGOALS) NETWORK=sepolia CONFIRM_SEPOLIA=yes\n"; exit 1; fi
+
+# _need-var: fail early when a required VAR is empty. Usage: $(call _need-var,TO,make blockchain-transfer TO=0x.. AMOUNT=10)
+_need-var = @if [ -z "$($(1))" ]; then \
+		printf "$(RED)Missing required variable: $(1)$(RESET)\n"; \
+		printf "  usage: $(2)\n"; exit 1; fi
+
 .PHONY: blockchain-install
 blockchain-install: ## Install contract deps
 	cd blockchain && npm install --no-fund --no-audit
 
 .PHONY: blockchain-build
 blockchain-build: ## Compile contracts
-	cd blockchain && npx hardhat compile
+	cd blockchain && $(HARDHAT) compile
 
 .PHONY: blockchain-test
 blockchain-test: ## Run contract tests
-	cd blockchain && npx hardhat test
+	cd blockchain && $(HARDHAT) test
 
 .PHONY: blockchain-coverage
 blockchain-coverage: ## Contract coverage
-	cd blockchain && npx hardhat coverage
+	cd blockchain && $(HARDHAT) coverage
 
 .PHONY: blockchain-format
 blockchain-format: ## Format solidity + js
@@ -329,13 +355,18 @@ blockchain-lint: ## Solhint
 	cd blockchain && npx solhint "contracts/**/*.sol" || true
 
 .PHONY: blockchain-up
-blockchain-up: ## Start local Anvil chain
+blockchain-up: ## Start local Anvil chain (docker)
+	@# A previously-created anvil container can reference a docker network that
+	@# was since recreated (e.g. after `docker network prune` / stack teardown),
+	@# which makes `up` fail with "network ... not found". Remove any stale
+	@# container first, then (re)create it on the current network.
+	-@$(COMPOSE_DEV) --profile local-chain rm -f -s anvil >/dev/null 2>&1 || true
 	$(COMPOSE_DEV) --profile local-chain up -d anvil
-	@echo ">> anvil rpc http://localhost:8545 (chain 31337)"
+	@echo ">> anvil rpc $(RPC) (chain 31337)"
 
 .PHONY: blockchain-down
-blockchain-down: ## Stop local Anvil
-	$(COMPOSE_DEV) --profile local-chain stop anvil
+blockchain-down: ## Stop (+remove) local Anvil
+	-$(COMPOSE_DEV) --profile local-chain down --remove-orphans
 
 .PHONY: blockchain-restart
 blockchain-restart: ## Restart Anvil
@@ -345,98 +376,126 @@ blockchain-restart: ## Restart Anvil
 blockchain-logs: ## Tail Anvil logs
 	$(COMPOSE_DEV) logs -f --tail=100 anvil
 
-.PHONY: _require-sepolia
-_require-sepolia:
-	@if [ "$(NETWORK)" = "sepolia" ] && [ "$(CONFIRM_SEPOLIA)" != "yes" ]; then \
-		echo "$(RED)Refusing: set CONFIRM_SEPOLIA=yes to act on Sepolia$(RESET)"; exit 1; fi
-
 .PHONY: blockchain-deploy
-blockchain-deploy: _require-sepolia ## Deploy OryphemCoin: NETWORK=localhost|sepolia
-	cd blockchain && npx hardhat run scripts/deploy.js --network $(NETWORK)
+blockchain-deploy: _need-sepolia-confirm ## Deploy OryphemCoin: [NETWORK=localhost|sepolia]
+	$(RUN) scripts/deploy.js --network $(NETWORK)
+
+.PHONY: blockchain-redeploy
+blockchain-redeploy: blockchain-reset ## Fresh local redeploy (wipe stale manifests + Anvil state)
+	$(MAKE) blockchain-deploy NETWORK=$(NETWORK)
+
+.PHONY: blockchain-reset
+blockchain-reset: ## Wipe local deployment manifests + Anvil state (local network only)
+	@if [ "$(NETWORK)" = "sepolia" ]; then \
+		printf "$(RED)blockchain-reset only works for local networks$(RESET)\n"; exit 1; fi
+	rm -f blockchain/deployments/$(NETWORK).json blockchain/deployments/$(NETWORK).public.json
+	$(MAKE) blockchain-down
+	$(MAKE) blockchain-up
+	@echo ">> local chain reset; run 'make blockchain-deploy NETWORK=$(NETWORK)'"
 
 .PHONY: blockchain-verify
-blockchain-verify: _require-sepolia ## Verify source on Etherscan: NETWORK=sepolia
-	cd blockchain && npx hardhat run scripts/verify.js --network $(NETWORK)
+blockchain-verify: _need-sepolia-confirm ## Verify source on Etherscan: NETWORK=sepolia
+	$(RUN) scripts/verify.js --network $(NETWORK)
 
 .PHONY: blockchain-publish
 blockchain-publish: ## Publish metadata + deployment manifest
-	cd blockchain && npx hardhat run scripts/publish-metadata.js --network $(NETWORK)
+	$(RUN) scripts/publish-metadata.js --network $(NETWORK)
 
 .PHONY: blockchain-mint
-blockchain-mint: _require-sepolia ## Mint OPC: TO=0x.. AMOUNT=100 [TOKEN_ID=0]
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) npx hardhat run scripts/mint.js --network $(NETWORK)
+blockchain-mint: _need-sepolia-confirm ## Mint OPC: TO=0x.. AMOUNT=100 [TOKEN_ID=0]
+	$(call _need-var,TO,make blockchain-mint TO=0xabc.. AMOUNT=100)
+	$(call _need-var,AMOUNT,make blockchain-mint TO=0xabc.. AMOUNT=100)
+	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/mint.js --network $(NETWORK)
 
 .PHONY: blockchain-transfer
-blockchain-transfer: _require-sepolia ## Transfer OPC: TO=0x.. AMOUNT=10
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) npx hardhat run scripts/transfer.js --network $(NETWORK)
+blockchain-transfer: _need-sepolia-confirm ## Transfer OPC: TO=0x.. AMOUNT=10 [FROM=0x.. TOKEN_ID=0]
+	$(call _need-var,TO,make blockchain-transfer TO=0xabc.. AMOUNT=10)
+	$(call _need-var,AMOUNT,make blockchain-transfer TO=0xabc.. AMOUNT=10)
+	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) TOKEN_ID=$(TOKEN_ID) FROM=$(FROM) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/transfer.js --network $(NETWORK)
 
 .PHONY: blockchain-balance
-blockchain-balance: ## Show balance: ADDRESS=0x..
-	cd blockchain && ADDRESS=$(ADDRESS) TOKEN_ID=$(TOKEN_ID) npx hardhat run scripts/balance.js --network $(NETWORK)
+blockchain-balance: ## Show balance: ADDRESS=0x.. [TOKEN_ID=0]
+	$(call _need-var,ADDRESS,make blockchain-balance ADDRESS=0xabc.. TOKEN_ID=0)
+	cd blockchain && ADDRESS=$(ADDRESS) TOKEN_ID=$(TOKEN_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/balance.js --network $(NETWORK)
 
 .PHONY: blockchain-supply
-blockchain-supply: ## Show total supply of token id
-	cd blockchain && TOKEN_ID=$(TOKEN_ID) npx hardhat run scripts/supply.js --network $(NETWORK)
+blockchain-supply: ## Show total supply of a token id [TOKEN_ID=0]
+	cd blockchain && TOKEN_ID=$(TOKEN_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/supply.js --network $(NETWORK)
 
 .PHONY: blockchain-events
-blockchain-events: ## Dump recent contract events
-	cd blockchain && npx hardhat run scripts/events.js --network $(NETWORK)
+blockchain-events: ## Dump recent contract events [LOOKBACK_BLOCKS=5000]
+	$(RUN) scripts/events.js --network $(NETWORK)
 
 .PHONY: blockchain-status
 blockchain-status: ## Show network + contract + treasury summary
-	cd blockchain && npx hardhat run scripts/status.js --network $(NETWORK)
+	$(RUN) scripts/status.js --network $(NETWORK)
 
 .PHONY: blockchain-show-all
 blockchain-show-all: ## Print full on-chain summary (network, supply, balances, roles)
-	cd blockchain && npx hardhat run scripts/show-all.js --network $(NETWORK)
+	$(RUN) scripts/show-all.js --network $(NETWORK)
 
 .PHONY: blockchain-pause
-blockchain-pause: _require-sepolia ## Pause token transfers
-	cd blockchain && npx hardhat run scripts/pause.js --network $(NETWORK)
+blockchain-pause: _need-sepolia-confirm ## Pause token transfers
+	$(RUN) scripts/pause.js --network $(NETWORK)
 
 .PHONY: blockchain-unpause
-blockchain-unpause: _require-sepolia ## Unpause token transfers
-	cd blockchain && npx hardhat run scripts/unpause.js --network $(NETWORK)
+blockchain-unpause: _need-sepolia-confirm ## Unpause token transfers
+	$(RUN) scripts/unpause.js --network $(NETWORK)
 
 .PHONY: blockchain-grant-role
-blockchain-grant-role: _require-sepolia ## Grant role: ROLE=MINTER_ROLE ADDRESS=0x..
-	cd blockchain && ROLE=$(ROLE) ADDRESS=$(ADDRESS) npx hardhat run scripts/grant-role.js --network $(NETWORK)
+blockchain-grant-role: _need-sepolia-confirm ## Grant role: ROLE=MINTER_ROLE ADDRESS=0x..
+	$(call _need-var,ROLE,make blockchain-grant-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	$(call _need-var,ADDRESS,make blockchain-grant-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	cd blockchain && ROLE=$(ROLE) ADDRESS=$(ADDRESS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/grant-role.js --network $(NETWORK)
 
 .PHONY: blockchain-revoke-role
-blockchain-revoke-role: _require-sepolia ## Revoke role: ROLE=MINTER_ROLE ADDRESS=0x..
-	cd blockchain && ROLE=$(ROLE) ADDRESS=$(ADDRESS) npx hardhat run scripts/revoke-role.js --network $(NETWORK)
+blockchain-revoke-role: _need-sepolia-confirm ## Revoke role: ROLE=MINTER_ROLE ADDRESS=0x..
+	$(call _need-var,ROLE,make blockchain-revoke-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	$(call _need-var,ADDRESS,make blockchain-revoke-role ROLE=MINTER_ROLE ADDRESS=0xabc..)
+	cd blockchain && ROLE=$(ROLE) ADDRESS=$(ADDRESS) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/revoke-role.js --network $(NETWORK)
 
 .PHONY: blockchain-upgrade
-blockchain-upgrade: _require-sepolia ## Upgrade the OPC proxy to the latest implementation
-	cd blockchain && npx hardhat run scripts/upgrade.js --network $(NETWORK)
+blockchain-upgrade: _need-sepolia-confirm ## Upgrade the OPC proxy to the latest implementation
+	$(RUN) scripts/upgrade.js --network $(NETWORK)
 
 .PHONY: blockchain-create-badge
-blockchain-create-badge: _require-sepolia ## Register a badge: BADGE_ID=1 BADGE_URI=ipfs://.. SOULBOUND=true
-	cd blockchain && BADGE_ID=$(BADGE_ID) BADGE_URI="$(BADGE_URI)" SOULBOUND=$(SOULBOUND) npx hardhat run scripts/create-badge.js --network $(NETWORK)
+blockchain-create-badge: _need-sepolia-confirm ## Register a badge: BADGE_ID=1 [BADGE_URI=ipfs://.. SOULBOUND=true]
+	$(call _need-var,BADGE_ID,make blockchain-create-badge BADGE_ID=1 BADGE_URI=ipfs://.. SOULBOUND=true)
+	cd blockchain && BADGE_ID=$(BADGE_ID) BADGE_URI="$(BADGE_URI)" SOULBOUND=$(SOULBOUND) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/create-badge.js --network $(NETWORK)
 
 .PHONY: blockchain-award-badge
-blockchain-award-badge: _require-sepolia ## Award a badge: TO=0x.. BADGE_ID=1
-	cd blockchain && TO=$(TO) BADGE_ID=$(BADGE_ID) npx hardhat run scripts/award-badge.js --network $(NETWORK)
+blockchain-award-badge: _need-sepolia-confirm ## Award a badge: TO=0x.. BADGE_ID=1
+	$(call _need-var,TO,make blockchain-award-badge TO=0xabc.. BADGE_ID=1)
+	$(call _need-var,BADGE_ID,make blockchain-award-badge TO=0xabc.. BADGE_ID=1)
+	cd blockchain && TO=$(TO) BADGE_ID=$(BADGE_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/award-badge.js --network $(NETWORK)
 
 .PHONY: blockchain-create-course
-blockchain-create-course: _require-sepolia ## Create a course: COURSE_ID=1001 REWARD=500 BADGE_ID=1 ACTIVE=true
-	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) npx hardhat run scripts/create-course.js --network $(NETWORK)
+blockchain-create-course: _need-sepolia-confirm ## Create a course: COURSE_ID=1001 [REWARD=500 BADGE_ID=1 ACTIVE=true]
+	$(call _need-var,COURSE_ID,make blockchain-create-course COURSE_ID=1001 REWARD=500 BADGE_ID=1 ACTIVE=true)
+	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/create-course.js --network $(NETWORK)
 
 .PHONY: blockchain-set-course
-blockchain-set-course: _require-sepolia ## Update a course: COURSE_ID=1001 REWARD=750 BADGE_ID=1 ACTIVE=true
-	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) npx hardhat run scripts/set-course.js --network $(NETWORK)
+blockchain-set-course: _need-sepolia-confirm ## Update a course: COURSE_ID=1001 [REWARD=750 BADGE_ID=1 ACTIVE=true]
+	$(call _need-var,COURSE_ID,make blockchain-set-course COURSE_ID=1001 REWARD=750 BADGE_ID=1 ACTIVE=true)
+	cd blockchain && COURSE_ID=$(COURSE_ID) REWARD=$(REWARD) BADGE_ID=$(BADGE_ID) ACTIVE=$(ACTIVE) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/set-course.js --network $(NETWORK)
 
 .PHONY: blockchain-add-xp
-blockchain-add-xp: _require-sepolia ## Grant XP: TO=0x.. AMOUNT=250
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) npx hardhat run scripts/add-xp.js --network $(NETWORK)
+blockchain-add-xp: _need-sepolia-confirm ## Grant XP: TO=0x.. AMOUNT=250
+	$(call _need-var,TO,make blockchain-add-xp TO=0xabc.. AMOUNT=250)
+	$(call _need-var,AMOUNT,make blockchain-add-xp TO=0xabc.. AMOUNT=250)
+	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/add-xp.js --network $(NETWORK)
 
 .PHONY: blockchain-reward
-blockchain-reward: _require-sepolia ## Pay an idempotent reward: TO=0x.. AMOUNT=100 REASON=quest KEY=1
-	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) REASON=$(REASON) KEY=$(KEY) npx hardhat run scripts/reward-user.js --network $(NETWORK)
+blockchain-reward: _need-sepolia-confirm ## Pay an idempotent reward: TO=0x.. AMOUNT=100 KEY=1 [REASON=quest]
+	$(call _need-var,TO,make blockchain-reward TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
+	$(call _need-var,AMOUNT,make blockchain-reward TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
+	$(call _need-var,KEY,make blockchain-reward TO=0xabc.. AMOUNT=100 KEY=1 REASON=quest)
+	cd blockchain && TO=$(TO) AMOUNT=$(AMOUNT) REASON=$(REASON) KEY=$(KEY) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/reward-user.js --network $(NETWORK)
 
 .PHONY: blockchain-course-state
 blockchain-course-state: ## Show a user's OPC/XP/badges/course state: ADDRESS=0x.. [COURSE_ID=1001]
-	cd blockchain && ADDRESS=$(ADDRESS) COURSE_ID=$(COURSE_ID) npx hardhat run scripts/course-state.js --network $(NETWORK)
+	$(call _need-var,ADDRESS,make blockchain-course-state ADDRESS=0xabc.. COURSE_ID=1001)
+	cd blockchain && ADDRESS=$(ADDRESS) COURSE_ID=$(COURSE_ID) $(if $(filter $(NETWORK),$(LOCAL_NETWORKS)),LOCALHOST_RPC_URL=$(RPC),) $(HARDHAT) run scripts/course-state.js --network $(NETWORK)
 
 # ----------------------------------------------------------------------------
 # Production / observability

@@ -69,26 +69,48 @@ NETWORK=sepolia CONFIRM_SEPOLIA=yes make blockchain-upgrade
 
 ## Commands
 
+All targets run Hardhat on the host. For local networks the Makefile forces
+`LOCALHOST_RPC_URL=http://127.0.0.1:8545` (override with `RPC=http://host:port`),
+and targets validate their required variables with a usage hint.
+
 ```bash
 make blockchain-build            # compile
-make blockchain-test             # 47 tests
+make blockchain-test             # 51 tests
 
-# Local (Anvil on :8545)
-make blockchain-up NETWORK=localhost
+# Local (Anvil on :8545, chain 31337)
+make blockchain-up                        # start Anvil (docker)
+make blockchain-down                      # stop + remove Anvil & its network
+make blockchain-reset                     # wipe local manifests + Anvil state
+make blockchain-redeploy                  # reset then deploy fresh locally
 make blockchain-deploy NETWORK=localhost
+make blockchain-status NETWORK=localhost
 make blockchain-show-all NETWORK=localhost
+make blockchain-supply NETWORK=localhost TOKEN_ID=0
+make blockchain-balance NETWORK=localhost ADDRESS=0x.. TOKEN_ID=0
+make blockchain-events NETWORK=localhost  # LOOKBACK_BLOCKS=5000
+make blockchain-mint NETWORK=localhost TO=0x.. AMOUNT=1000
+make blockchain-transfer NETWORK=localhost TO=0x.. AMOUNT=250
 make blockchain-create-badge NETWORK=localhost BADGE_ID=1 BADGE_URI="ipfs://b" SOULBOUND=true
+make blockchain-award-badge NETWORK=localhost TO=0x.. BADGE_ID=1
 make blockchain-create-course NETWORK=localhost COURSE_ID=1001 REWARD=500 BADGE_ID=1
+make blockchain-set-course NETWORK=localhost COURSE_ID=1001 REWARD=750 BADGE_ID=1
 make blockchain-add-xp NETWORK=localhost TO=0x.. AMOUNT=250
 make blockchain-reward NETWORK=localhost TO=0x.. AMOUNT=100 REASON=quest KEY=1
 make blockchain-course-state NETWORK=localhost ADDRESS=0x.. COURSE_ID=1001
+make blockchain-pause NETWORK=localhost
+make blockchain-unpause NETWORK=localhost
 
 # Sepolia (guarded with CONFIRM_SEPOLIA=yes)
 make blockchain-deploy NETWORK=sepolia CONFIRM_SEPOLIA=yes
-make blockchain-verify NETWORK=sepolia
+# deploy.js auto-verifies implementation + proxy (AUTO_VERIFY=false to skip)
+make blockchain-verify NETWORK=sepolia CONFIRM_SEPOLIA=yes
 make blockchain-publish NETWORK=sepolia
 make blockchain-upgrade NETWORK=sepolia CONFIRM_SEPOLIA=yes
 ```
+
+> If `make blockchain-up` previously failed with `network … not found`, the stale
+> container is now removed automatically; `blockchain-down` also deletes the
+> network (`down --remove-orphans`) so the error does not recur.
 
 ## Roles & key management
 

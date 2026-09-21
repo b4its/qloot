@@ -337,27 +337,67 @@ BLOCKCHAIN_DRY_RUN=true                    # ubah ke false untuk submit on-chain
 
 ### Perintah
 
-```bash
-# --- Lokal (Anvil, chain 31337) ---
-make blockchain-up                       # Anvil di :8545
-make blockchain-build                    # kompilasi
-make blockchain-test                     # 47 uji kontrak
-make blockchain-deploy NETWORK=localhost
-make blockchain-show-all NETWORK=localhost
+Semua target menjalankan Hardhat di **host**. Untuk jaringan lokal, Makefile otomatis
+memakai `LOCALHOST_RPC_URL=http://127.0.0.1:8545` (override dengan `RPC=http://host:port`).
+Target yang butuh parameter akan **berhenti dengan pesan usage** jika variabel belum diisi
+(tidak lagi berupa stack trace).
 
-# --- Sepolia (dijaga: butuh konfirmasi eksplisit) ---
+```bash
+# --- Siklus lokal (Anvil, chain 31337) ---
+make blockchain-up                       # jalankan Anvil di :8545 (docker)
+make blockchain-down                     # hentikan + hapus Anvil & network
+make blockchain-reset                    # hapus manifest lokal + state Anvil (mulai bersih)
+make blockchain-redeploy                 # reset lalu deploy ulang ke lokal
+make blockchain-build                    # kompilasi kontrak
+make blockchain-test                     # 51 uji kontrak
+make blockchain-deploy NETWORK=localhost # deploy proxy OryphemCoin ke Anvil
+
+# --- Inspeksi (lokal atau sepolia) ---
+make blockchain-status NETWORK=localhost        # ringkas: name/symbol, supply, treasury
+make blockchain-show-all NETWORK=localhost      # ringkas lengkap (supply, saldo, roles)
+make blockchain-supply NETWORK=localhost TOKEN_ID=0
+make blockchain-balance NETWORK=localhost ADDRESS=0xf39F… TOKEN_ID=0
+make blockchain-events NETWORK=localhost        # dump event terbaru (LOOKBACK_BLOCKS=5000)
+
+# --- Operasi token (contoh lokal; tambahkan CONFIRM_SEPOLIA=yes untuk sepolia) ---
+make blockchain-mint NETWORK=localhost TO=0xf39F… AMOUNT=1000
+make blockchain-transfer NETWORK=localhost TO=0x7099… AMOUNT=250   # [FROM=0x..]
+make blockchain-reward NETWORK=localhost TO=0x7099… AMOUNT=100 KEY=1 REASON=quest
+make blockchain-add-xp NETWORK=localhost TO=0x7099… AMOUNT=250
+make blockchain-create-badge NETWORK=localhost BADGE_ID=1 BADGE_URI=ipfs://.. SOULBOUND=true
+make blockchain-award-badge NETWORK=localhost TO=0x7099… BADGE_ID=1
+make blockchain-create-course NETWORK=localhost COURSE_ID=1001 REWARD=500 BADGE_ID=1 ACTIVE=true
+make blockchain-set-course NETWORK=localhost COURSE_ID=1001 REWARD=750 BADGE_ID=1 ACTIVE=true
+make blockchain-course-state NETWORK=localhost ADDRESS=0x7099… COURSE_ID=1001
+make blockchain-pause NETWORK=localhost          # pause transfer
+make blockchain-unpause NETWORK=localhost        # lanjutkan transfer
+make blockchain-grant-role NETWORK=localhost ROLE=MINTER_ROLE ADDRESS=0x3C44…
+make blockchain-revoke-role NETWORK=localhost ROLE=MINTER_ROLE ADDRESS=0x3C44…
+make blockchain-upgrade NETWORK=localhost        # upgrade proxy ke implementation terbaru
+
+# --- Sepolia (dijaga: butuh CONFIRM_SEPOLIA=yes) ---
 make blockchain-deploy NETWORK=sepolia CONFIRM_SEPOLIA=yes
-make blockchain-verify NETWORK=sepolia   # verifikasi impl + link proxy (Etherscan API v2)
+# deploy.js otomatis memverifikasi implementation + proxy (AUTO_VERIFY=false untuk melewatkan)
+make blockchain-verify NETWORK=sepolia CONFIRM_SEPOLIA=yes   # verifikasi ulang bila perlu
 make blockchain-publish NETWORK=sepolia
 make blockchain-mint NETWORK=sepolia CONFIRM_SEPOLIA=yes TO=0x… AMOUNT=100
 ```
 
+> **Reset vs down.** `blockchain-down` menghentikan Anvil dan menghapus network-nya
+> (`down --remove-orphans`) sehingga `docker network` yang tertinggal tidak lagi
+> menyebabkan error `network … not found` saat `blockchain-up` berikutnya.
+> `blockchain-reset` menambahkan penghapusan state dan `deployments/<net>.json`
+> (manifest lama menunjuk alamat kontrak yang tidak ada lagi di chain baru).
+
 > Verifikasi memakai **Etherscan API v2** (satu API key universal). `verify.js`
 > memverifikasi *implementation* lalu meng-*link* proxy UUPS ke implementation-nya.
+> Karena `deploy.js` kini memanggil verifikasi otomatis, `blockchain-verify` hanya
+> diperlukan bila verifikasi pertama gagal (mis. event `Upgraded` belum terindeks).
 
 > **Keamanan produksi.** Deployer saat ini memegang `DEFAULT_ADMIN`/`MINTER`/`REWARDER`.
 > Sebelum produksi, pindahkan role admin ke multisig dan berikan `MINTER`/`REWARDER` ke
 > signer backend terdedikasi (lihat reminder di output `deploy.js`).
+
 
 ---
 
