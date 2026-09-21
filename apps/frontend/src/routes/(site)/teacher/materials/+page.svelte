@@ -1,19 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { Material, Question } from "$lib/types";
+  import type { Material, Question, SummaryResult, AskResult } from "$lib/types";
   import { formatDate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
-
-  interface Summary {
-    summary: string;
-    key_points: string[];
-  }
-  interface Answer {
-    answer: string;
-    confidence_bp: number;
-  }
 
   const PAGE = 20;
   let file: File | null = null;
@@ -23,17 +14,19 @@
   let message = "";
   let error = "";
   let generated: Question[] = [];
-  let count = 3;
+  // Per-material question count (a single shared value made every row edit the
+  // same number and generate the wrong count).
+  let counts: Record<string, number> = {};
   let selected: Material | null = null;
   let page = 1;
   let hasMore = false;
 
   // AI study assistant state (per selected material).
-  let summary: Summary | null = null;
+  let summary: SummaryResult | null = null;
   let summaryLoading = false;
   let question = "";
   let asking = false;
-  let asks: { q: string; a: Answer }[] = [];
+  let asks: { q: string; a: AskResult }[] = [];
 
   async function loadMaterials() {
     loading = true;
@@ -102,7 +95,7 @@
     resetAssistant();
     try {
       generated = await api.post<Question[]>(`/materials/${m.id}/generate-questions-sync`, {
-        count,
+        count: counts[m.id] ?? 3,
         language: "id",
       });
       message = `Membuat ${generated.length} draf soal — tinjau sebelum dipublikasikan.`;
@@ -125,7 +118,7 @@
     summaryLoading = true;
     summary = null;
     try {
-      summary = await api.get<Summary>(`/materials/${selected.id}/summary`);
+      summary = await api.get<SummaryResult>(`/materials/${selected.id}/summary`);
     } catch (err) {
       error = err instanceof ApiError ? err.message : "Gagal merangkum materi";
     } finally {
@@ -138,7 +131,7 @@
     const q = question.trim();
     asking = true;
     try {
-      const a = await api.post<Answer>(`/materials/${selected.id}/ask`, { question: q });
+      const a = await api.post<AskResult>(`/materials/${selected.id}/ask`, { question: q });
       asks = [{ q, a }, ...asks];
       question = "";
     } catch (err) {
@@ -205,7 +198,14 @@
               </span>
             </span>
             <span class="flex items-center gap-2">
-              <input class="input w-16 !py-1" type="number" min="1" max="20" bind:value={count} />
+              <input
+                class="input w-16 !py-1"
+                type="number"
+                min="1"
+                max="20"
+                bind:value={counts[m.id]}
+                placeholder="3"
+              />
               <button class="btn-ghost" on:click={() => generate(m)}>Buat soal</button>
               <button
                 class="btn-ghost"

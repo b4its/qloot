@@ -10,6 +10,10 @@
   let progress: Progress[] = [];
   let loading = true;
   let error = "";
+  // Guard so the auth-triggered reload runs at most once per resolved user —
+  // otherwise a user with zero courses re-triggers load() forever (load() sets
+  // loading=false while courses stays empty).
+  let loadedForUser = false;
 
   $: canManage = hasRole($auth.user, "teacher");
   $: user = $auth.user;
@@ -44,8 +48,11 @@
   }
 
   onMount(load);
-  // Reload once the auth store resolves the current user.
-  $: if (user && loading === false && courses.length === 0) load();
+  // Reload once the auth store resolves the current user (at most once).
+  $: if (user && !loadedForUser) {
+    loadedForUser = true;
+    load();
+  }
 </script>
 
 <svelte:head><title>Pembelajaran — QLoot</title></svelte:head>
