@@ -4,7 +4,10 @@
   import type { Quest, Exam, Winner } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
   import { statusLabel } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
+  import Icon from "$lib/components/Icon.svelte";
 
+  const PAGE = 20;
   let quests: Quest[] = [];
   let exams: Exam[] = [];
   let winners: Record<string, Winner[]> = {};
@@ -13,17 +16,27 @@
   let error = "";
   let loading = true;
   let busy = "";
+  let page = 1;
+  let hasMore = false;
 
   async function load() {
     loading = true;
     try {
-      quests = await api.get<Quest[]>("/quests");
-      exams = await api.get<Exam[]>("/exams");
+      quests = await api.get<Quest[]>(`/quests?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
+      hasMore = quests.length === PAGE;
+      exams = await api.get<Exam[]>("/exams?limit=200");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat quest";
     } finally {
       loading = false;
     }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
   }
 
   async function create() {
@@ -59,6 +72,22 @@
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal finalisasi quest";
+    } finally {
+      busy = "";
+    }
+  }
+
+  async function remove(q: Quest) {
+    if (!confirm(`Hapus quest "${q.title}"?`)) return;
+    error = "";
+    message = "";
+    busy = `d-${q.id}`;
+    try {
+      await api.delete(`/quests/${q.id}`);
+      message = "Quest dihapus.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus quest";
     } finally {
       busy = "";
     }
@@ -121,17 +150,27 @@
               <h2 class="font-display text-lg font-bold">{q.title}</h2>
               <p class="text-sm muted">Top {q.top_n_winners} · {statusLabel(q.status)}</p>
             </div>
-            <button
-              class="btn-primary"
-              on:click={() => finalize(q)}
-              disabled={q.status === "finalized" || busy === `f-${q.id}`}
-            >
-              {busy === `f-${q.id}`
-                ? "Memproses…"
-                : q.status === "finalized"
-                  ? "Final"
-                  : "Finalisasi pemenang"}
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                class="btn-primary"
+                on:click={() => finalize(q)}
+                disabled={q.status === "finalized" || busy === `f-${q.id}`}
+              >
+                {busy === `f-${q.id}`
+                  ? "Memproses…"
+                  : q.status === "finalized"
+                    ? "Final"
+                    : "Finalisasi pemenang"}
+              </button>
+              <button
+                class="btn-icon !text-tertiary hover:!border-tertiary"
+                on:click={() => remove(q)}
+                disabled={q.status === "finalized" || busy === `d-${q.id}`}
+                aria-label="Hapus quest"
+              >
+                <Icon name="trash" size="12px" />
+              </button>
+            </div>
           </div>
           {#if winners[q.id]?.length}
             <ol class="mt-2 space-y-1 text-sm">
@@ -148,4 +187,14 @@
       {#if quests.length === 0}<p class="muted">Belum ada quest.</p>{/if}
     {/if}
   </div>
+
+  <Pagination
+    {page}
+    pageSize={PAGE}
+    {hasMore}
+    {loading}
+    label="quest"
+    onPrev={() => go(-1)}
+    onNext={() => go(1)}
+  />
 </div>

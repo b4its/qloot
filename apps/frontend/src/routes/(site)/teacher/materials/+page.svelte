@@ -4,6 +4,7 @@
   import type { Material, Question } from "$lib/types";
   import { formatDate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import Pagination from "$lib/components/Pagination.svelte";
 
   interface Summary {
     summary: string;
@@ -14,6 +15,7 @@
     confidence_bp: number;
   }
 
+  const PAGE = 20;
   let file: File | null = null;
   let uploading = false;
   let loading = true;
@@ -23,6 +25,8 @@
   let generated: Question[] = [];
   let count = 3;
   let selected: Material | null = null;
+  let page = 1;
+  let hasMore = false;
 
   // AI study assistant state (per selected material).
   let summary: Summary | null = null;
@@ -34,11 +38,33 @@
   async function loadMaterials() {
     loading = true;
     try {
-      materials = await api.get<Material[]>("/materials");
+      materials = await api.get<Material[]>(`/materials?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
+      hasMore = materials.length === PAGE;
     } catch (err) {
       error = err instanceof ApiError ? err.message : "Gagal memuat materi";
     } finally {
       loading = false;
+    }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    loadMaterials();
+  }
+
+  async function removeMaterial(m: Material) {
+    if (!confirm(`Hapus materi "${m.filename}"?`)) return;
+    error = "";
+    message = "";
+    try {
+      await api.delete(`/materials/${m.id}`);
+      if (selected?.id === m.id) selected = null;
+      message = "Materi dihapus.";
+      await loadMaterials();
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : "Gagal menghapus materi";
     }
   }
 
@@ -189,11 +215,27 @@
                 }}
                 disabled={selected?.id === m.id}>Asisten</button
               >
+              <button
+                class="btn-icon !text-tertiary hover:!border-tertiary"
+                on:click={() => removeMaterial(m)}
+                aria-label="Hapus materi"
+              >
+                <Icon name="trash" size="12px" />
+              </button>
             </span>
           </li>
         {/each}
       </ul>
     {/if}
+    <Pagination
+      {page}
+      pageSize={PAGE}
+      {hasMore}
+      {loading}
+      label="materi"
+      onPrev={() => go(-1)}
+      onNext={() => go(1)}
+    />
   </div>
 
   {#if selected}
