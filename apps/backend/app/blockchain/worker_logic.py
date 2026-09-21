@@ -205,6 +205,10 @@ async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
         .where(BlockchainTransaction.status.in_(("submitted", "pending")))
         .order_by(BlockchainTransaction.created_at)
         .limit(limit)
+        # SKIP LOCKED so two indexer replicas never process the same tx: without
+        # it, both could pass the event existence check and collide on the
+        # (transaction_hash, log_index) unique constraint, aborting the batch.
+        .with_for_update(skip_locked=True)
     )
     rows = (await session.execute(stmt)).scalars().all()
     updated = 0
