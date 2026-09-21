@@ -16,6 +16,11 @@ class WalletOut(BaseModel):
     available: int
     pending: int
     withdrawal_address: str | None
+    # The single shared custodial wallet that holds all pooled OPC on-chain.
+    # A user's own balance (``available``) is their focused share of it, tracked
+    # per-user in the double-entry ledger.
+    custodial_address: str | None = None
+    network: str | None = None
 
 
 class LedgerEntryOut(ORMModel):

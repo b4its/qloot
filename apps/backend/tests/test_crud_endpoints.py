@@ -225,3 +225,18 @@ async def test_admin_can_deactivate_and_reactivate_user(client, engine):
     on = await client.patch(f"/api/v1/admin/users/{target_id}/active", json={"is_active": True})
     assert on.status_code == 200, on.text
     assert on.json()["is_active"] is True
+
+
+async def test_wallet_exposes_shared_custodial_address(client):
+    """The wallet response must surface the shared custodial wallet address."""
+    from app.core.config import settings
+
+    await _register(client, "wallet_custodial@ex.com", "student")
+    r = await client.get("/api/v1/wallet")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # The shared (treasury) wallet is exposed so the UI can show where pooled
+    # tokens live, while ``available`` is the user's own focused share.
+    assert "custodial_address" in body
+    assert body["custodial_address"] == (settings.treasury_address or None)
+    assert "available" in body and body["available"] == 0

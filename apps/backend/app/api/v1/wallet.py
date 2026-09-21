@@ -8,6 +8,7 @@ from fastapi import APIRouter, status
 from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
+from app.core.config import settings
 from app.core.errors import ConflictError, NotFoundError
 from app.db.session import transaction
 from app.models.identity import User
@@ -35,6 +36,10 @@ async def _account_out(db, user: User) -> WalletOut:
         available=account.cached_balance,
         pending=account.cached_pending,
         withdrawal_address=account.withdrawal_address,
+        # Surface the shared custodial wallet so the UI can show where the
+        # pooled tokens live, alongside the user's own focused balance.
+        custodial_address=settings.treasury_address or None,
+        network=settings.blockchain_network,
     )
 
 
