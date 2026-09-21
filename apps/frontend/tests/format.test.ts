@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { bpToPercent, shortHash, formatNumber, etherscanUrl } from "../src/lib/utils/format";
+import {
+  bpToPercent,
+  shortHash,
+  formatNumber,
+  etherscanUrl,
+  statusLabel,
+  relativeTime,
+} from "../src/lib/utils/format";
 
 describe("format utils", () => {
   it("converts basis points to percent", () => {
@@ -24,5 +31,24 @@ describe("format utils", () => {
     expect(etherscanUrl(hash, 11155111)).toContain("sepolia.etherscan.io");
     expect(etherscanUrl(hash, 31337)).toBeNull();
     expect(etherscanUrl(null, 11155111)).toBeNull();
+  });
+
+  it("maps internal statuses to Indonesian labels", () => {
+    expect(statusLabel("open")).toBe("Terbuka");
+    expect(statusLabel("finalized")).toBe("Final");
+    expect(statusLabel("in_review")).toBe("Dalam tinjauan");
+    // Case-insensitive and falls back to the raw value for unknown statuses.
+    expect(statusLabel("PENDING")).toBe("Menunggu");
+    expect(statusLabel("custom_state")).toBe("custom_state");
+    expect(statusLabel(null)).toBe("—");
+  });
+
+  it("renders relative time in Indonesian", () => {
+    const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+    expect(relativeTime(ago(5 * 1000))).toContain("dtk lalu");
+    expect(relativeTime(ago(5 * 60 * 1000))).toContain("mnt lalu");
+    expect(relativeTime(ago(5 * 60 * 60 * 1000))).toContain("jam lalu");
+    expect(relativeTime(ago(5 * 24 * 60 * 60 * 1000))).toContain("hari lalu");
+    expect(relativeTime(null)).toBe("—");
   });
 });
