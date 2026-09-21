@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from app.api.deps import CurrentUser, DbSession, TeacherUser
 from app.core.errors import ForbiddenError, NotFoundError
 from app.db.session import transaction
-from app.models.exam import ExamAttempt, GradingJob, Question
+from app.models.exam import Exam, ExamAttempt, GradingJob, Question
 from app.schemas.material import AIJobOut, GradedItemOut, GradeRequest
 from app.services.grading_service import GradingService
 
@@ -64,8 +64,14 @@ async def grade_attempt(payload: GradeRequest, user: CurrentUser, db: DbSession)
         attempt = await db.get(ExamAttempt, payload.attempt_id)
         if attempt is None:
             raise NotFoundError("Attempt not found")
-        if attempt.user_id != user.id and not user.has_role("teacher", "admin"):
-            raise ForbiddenError("You cannot grade this attempt")
+        if attempt.user_id != user.id:
+            # A teacher may only grade attempts on exams they own (or an admin).
+            if not user.has_role("admin") and not user.has_role("teacher"):
+                raise ForbiddenError("You cannot grade this attempt")
+            if not user.has_role("admin"):
+                exam = await db.get(Exam, attempt.exam_id)
+                if exam is None or exam.owner_id != user.id:
+                    raise ForbiddenError("You do not own this exam")
         await GradingService(db).grade_attempt(attempt)
 
     from sqlalchemy import select

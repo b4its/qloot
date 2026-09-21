@@ -7,6 +7,8 @@ import uuid
 from fastapi import APIRouter, File, Form, UploadFile, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
+from app.core.config import settings
+from app.core.errors import ValidationError
 from app.db.session import transaction
 from app.models.exam import Question
 from app.schemas.material import (
@@ -30,7 +32,21 @@ async def upload_material(
     course_id: uuid.UUID | None = Form(default=None),
     lesson_id: uuid.UUID | None = Form(default=None),
 ):
-    content = await file.read()
+    # Bound the read so an oversized upload is rejected *before* it is fully
+    # buffered/parsed in memory (the size guard inside the service runs too late
+    # for that). Read in chunks and abort as soon as the cap is exceeded.
+    max_bytes = settings.ai_max_upload_bytes
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValidationError(f"File exceeds the {max_bytes} byte limit")
+        chunks.append(chunk)
+    content = b"".join(chunks)
     async with transaction(db):
         material = await MaterialService(db).upload(
             user,

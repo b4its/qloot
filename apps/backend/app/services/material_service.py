@@ -120,6 +120,16 @@ class MaterialService:
     ) -> GradingJob:
         material = await self.get(material_id)
         self._authorize(material, user)
+        # If questions will be attached to an exam, the caller must own it —
+        # otherwise a teacher could inject AI questions into someone else's exam.
+        if exam_id is not None:
+            from app.models.exam import Exam
+
+            exam = await self.session.get(Exam, exam_id)
+            if exam is None:
+                raise NotFoundError("Exam not found")
+            if not user.has_role("admin") and exam.owner_id != user.id:
+                raise ForbiddenError("You do not own this exam")
         job = GradingJob(
             owner_id=user.id,
             material_id=material.id,
