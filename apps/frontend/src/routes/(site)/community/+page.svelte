@@ -140,7 +140,14 @@
   }
 
   function pickTopic(name: string) {
+    // Re-clicking the active topic clears the filter (back to "Semua").
     activeTopic = activeTopic === name ? "" : name;
+    load();
+  }
+
+  function clearTopic() {
+    if (!activeTopic) return;
+    activeTopic = "";
     load();
   }
 
@@ -182,7 +189,7 @@
         class="btn-pill transition-colors"
         class:!border-primary={!activeTopic}
         class:!text-primary={!activeTopic}
-        on:click={() => pickTopic(activeTopic)}
+        on:click={clearTopic}
       >
         <Icon name="layer-group" size="11px" /> Semua
       </button>
