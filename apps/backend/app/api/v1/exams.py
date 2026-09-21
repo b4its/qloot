@@ -43,9 +43,13 @@ async def get_exam(exam_id: uuid.UUID, user: CurrentUser, db: DbSession):
     service = ExamService(db)
     exam = await service.get(exam_id)
     questions = await service.list_questions(exam_id)
-    detail = ExamDetailOut.model_validate(exam)
-    detail.questions = [QuestionOut.model_validate(q) for q in questions]
-    return detail
+    # Validate the base fields first: validating ExamDetailOut directly would
+    # read the lazy ``questions`` relationship and raise MissingGreenlet.
+    base = ExamOut.model_validate(exam)
+    return ExamDetailOut(
+        **base.model_dump(),
+        questions=[QuestionOut.model_validate(q) for q in questions],
+    )
 
 
 @router.patch("/exams/{exam_id}", response_model=ExamOut)

@@ -44,9 +44,13 @@ async def get_quest(quest_id: uuid.UUID, user: CurrentUser, db: DbSession):
     service = QuestService(db)
     quest = await service.get(quest_id)
     rules = await service.list_rules(quest_id)
-    detail = QuestDetailOut.model_validate(quest)
-    detail.rules = [QuestRuleOut.model_validate(r) for r in rules]
-    return detail
+    # Validate the base fields first: validating QuestDetailOut directly would
+    # read the lazy ``rules`` relationship and raise MissingGreenlet.
+    base = QuestOut.model_validate(quest)
+    return QuestDetailOut(
+        **base.model_dump(),
+        rules=[QuestRuleOut.model_validate(r) for r in rules],
+    )
 
 
 @router.patch("/{quest_id}", response_model=QuestOut)

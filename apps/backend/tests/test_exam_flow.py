@@ -87,6 +87,70 @@ async def test_full_exam_flow(client):
     assert body["attempt"]["score_bp"] is not None
 
 
+async def test_get_exam_detail_in_fresh_session(client):
+    """GET /exams/{id} after questions exist must not lazy-load on serialize.
+
+    The frontend exam page loads this endpoint directly; a MissingGreenlet on
+    the ``questions`` relationship used to surface as "Failed to load exam".
+    """
+    await _register(client, "detail@ex.com", "teacher")
+    exam = await client.post("/api/v1/exams", json={"title": "Detail Exam"})
+    exam_id = exam.json()["id"]
+    q = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={"prompt": "Apa itu gaya?", "correct_answer": "interaksi"},
+    )
+    assert q.status_code == 201, q.text
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+
+    # A separate request = separate DB session, so the questions relationship
+    # is not already populated in the identity map.
+    detail = await client.get(f"/api/v1/exams/{exam_id}")
+    assert detail.status_code == 200, detail.text
+    body = detail.json()
+    assert body["id"] == exam_id
+    assert body["title"] == "Detail Exam"
+    assert len(body["questions"]) == 1
+    assert body["questions"][0]["prompt"] == "Apa itu gaya?"
+
+    # Listing exams must also serialize cleanly (no relationship access).
+    listed = await client.get("/api/v1/exams")
+    assert listed.status_code == 200, listed.text
+    assert any(e["id"] == exam_id for e in listed.json())
+
+
+async def test_get_quest_detail_in_fresh_session(client):
+    """GET /quests/{id} must not lazy-load its rules relationship on serialize."""
+    await _register(client, "quest_detail@ex.com", "teacher")
+    created = await client.post(
+        "/api/v1/quests",
+        json={
+            "title": "Quest Detail",
+            "kind": "exam",
+            "rules": [
+                {"rank": 1, "reward_amount": 300},
+                {"rank": 2, "reward_amount": 150},
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    quest_id = created.json()["id"]
+
+    # A separate request = separate DB session; the rules relationship is not
+    # pre-populated, so validating QuestDetailOut would lazy-load without this fix.
+    detail = await client.get(f"/api/v1/quests/{quest_id}")
+    assert detail.status_code == 200, detail.text
+    body = detail.json()
+    assert body["id"] == quest_id
+    assert len(body["rules"]) == 2
+    assert {r["rank"] for r in body["rules"]} == {1, 2}
+
+    # Listing quests must also serialize cleanly.
+    listed = await client.get("/api/v1/quests")
+    assert listed.status_code == 200, listed.text
+    assert any(q["id"] == quest_id for q in listed.json())
+
+
 async def test_student_cannot_read_other_students_attempt(client):
     await _register(client, "t2@ex.com", "teacher")
     exam = await client.post("/api/v1/exams", json={"title": "E2"})
