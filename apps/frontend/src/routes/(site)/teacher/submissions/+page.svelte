@@ -3,23 +3,50 @@
   import { api, ApiError } from "$lib/api/client";
   import type { SubmissionRow, TeacherAnalytics } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
 
+  const PAGE = 20;
   let rows: SubmissionRow[] = [];
   let analytics: TeacherAnalytics | null = null;
   let loading = true;
   let error = "";
+  let page = 1;
+  let hasMore = false;
 
-  onMount(async () => {
+  async function load() {
+    loading = true;
+    error = "";
     try {
-      [rows, analytics] = await Promise.all([
-        api.get<SubmissionRow[]>("/teacher/submissions"),
-        api.get<TeacherAnalytics>("/teacher/analytics"),
-      ]);
+      const offset = (page - 1) * PAGE;
+      rows = await api.get<SubmissionRow[]>(`/teacher/submissions?limit=${PAGE}&offset=${offset}`);
+      // Fewer than a full page means this is the last page.
+      hasMore = rows.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pengumpulan";
     } finally {
       loading = false;
     }
+  }
+
+  async function loadAnalytics() {
+    try {
+      analytics = await api.get<TeacherAnalytics>("/teacher/analytics");
+    } catch {
+      analytics = null;
+    }
+  }
+
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1) return;
+    if (delta > 0 && !hasMore) return;
+    page = next;
+    load();
+  }
+
+  onMount(() => {
+    load();
+    loadAnalytics();
   });
 </script>
 
@@ -104,5 +131,14 @@
         </tbody>
       </table>
     </div>
+    <Pagination
+      {page}
+      pageSize={PAGE}
+      {hasMore}
+      {loading}
+      label="pengumpulan"
+      onPrev={() => go(-1)}
+      onNext={() => go(1)}
+    />
   {/if}
 </div>

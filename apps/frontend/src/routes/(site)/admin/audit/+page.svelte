@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
   import { formatDate } from "$lib/utils/format";
+  import Pagination from "$lib/components/Pagination.svelte";
 
   interface AuditRow {
     id: string;
@@ -17,27 +18,32 @@
   let logs: AuditRow[] = [];
   let error = "";
   let loading = true;
-  let loadingMore = false;
-  let reachedEnd = false;
+  let page = 1;
+  let hasMore = false;
 
-  async function loadMore() {
-    loadingMore = true;
+  async function load() {
+    loading = true;
     error = "";
     try {
-      const batch = await api.get<AuditRow[]>(
-        `/admin/audit-logs?limit=${PAGE}&offset=${logs.length}`,
+      logs = await api.get<AuditRow[]>(
+        `/admin/audit-logs?limit=${PAGE}&offset=${(page - 1) * PAGE}`,
       );
-      logs = [...logs, ...batch];
-      if (batch.length < PAGE) reachedEnd = true;
+      hasMore = logs.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat audit log";
     } finally {
       loading = false;
-      loadingMore = false;
     }
   }
 
-  onMount(loadMore);
+  function go(delta: number) {
+    const next = page + delta;
+    if (next < 1 || (delta > 0 && !hasMore)) return;
+    page = next;
+    load();
+  }
+
+  onMount(load);
 </script>
 
 <svelte:head><title>Log Audit — QLoot</title></svelte:head>
@@ -82,11 +88,13 @@
     {/if}
   </div>
 
-  {#if !loading && !reachedEnd}
-    <div class="mt-4 flex justify-center">
-      <button class="btn-secondary" on:click={loadMore} disabled={loadingMore}>
-        {loadingMore ? "Memuat…" : "Muat lebih banyak"}
-      </button>
-    </div>
-  {/if}
+  <Pagination
+    {page}
+    pageSize={PAGE}
+    {hasMore}
+    {loading}
+    label="catatan"
+    onPrev={() => go(-1)}
+    onNext={() => go(1)}
+  />
 </div>
