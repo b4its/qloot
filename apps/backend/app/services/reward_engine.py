@@ -13,6 +13,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError
@@ -39,8 +40,21 @@ class RewardEngine:
         account = (await self.session.execute(stmt)).scalar_one_or_none()
         if account is None:
             account = WalletAccount(user_id=user_id)
-            self.session.add(account)
-            await self.session.flush()
+            try:
+                # SAVEPOINT so a concurrent insert only unwinds this attempt,
+                # not the caller's whole unit of work.
+                async with self.session.begin_nested():
+                    self.session.add(account)
+                    await self.session.flush()
+            except IntegrityError:
+                # Another request created the row first: fetch and lock it.
+                account = (
+                    await self.session.execute(
+                        select(WalletAccount)
+                        .where(WalletAccount.user_id == user_id)
+                        .with_for_update()
+                    )
+                ).scalar_one()
         return account
 
     async def credit(
