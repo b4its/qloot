@@ -42,7 +42,7 @@ async def create_room(payload: RoomCreate, user: TeacherUser, db: DbSession):
 
 @router.get("/{room_id}", response_model=RoomOut)
 async def get_room(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return await RoomService(db).get(room_id)
+    return await RoomService(db).get_visible(room_id, user)
 
 
 @router.patch("/{room_id}", response_model=RoomOut)
@@ -117,7 +117,21 @@ async def participants(
     limit: LimitParam = 200,
     offset: OffsetParam = 0,
 ):
-    return await RoomService(db).participants(room_id, limit=limit, offset=offset)
+    service = RoomService(db)
+    await service.get_visible(room_id, user)
+    rows = await service.participants(room_id, limit=limit, offset=offset)
+    return [
+        RoomMemberOut(
+            id=m.id,
+            room_id=m.room_id,
+            user_id=m.user_id,
+            role=m.role,
+            is_present=m.is_present,
+            joined_at=m.joined_at,
+            display_name=name,
+        )
+        for m, name in rows
+    ]
 
 
 @router.post("/invitations/accept", response_model=RoomMemberOut)
@@ -129,7 +143,9 @@ async def accept_invite(payload: AcceptInvite, user: CurrentUser, db: DbSession)
 
 @router.get("/{room_id}/live", response_model=list[LiveEntry])
 async def live_leaderboard(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    rows = await RoomService(db).live_leaderboard(room_id)
+    service = RoomService(db)
+    await service.get_visible(room_id, user)
+    rows = await service.live_leaderboard(room_id)
     return [LiveEntry(**r) for r in rows]
 
 
@@ -141,7 +157,9 @@ async def room_events(
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
 ):
-    return await RoomService(db).recent_events(room_id, limit=limit, offset=offset)
+    service = RoomService(db)
+    await service.get_visible(room_id, user)
+    return await service.recent_events(room_id, limit=limit, offset=offset)
 
 
 @router.post("/{room_id}/invite", response_model=InviteOut)

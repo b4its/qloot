@@ -57,6 +57,19 @@ async def room_ws(websocket: WebSocket, room_id: uuid.UUID) -> None:
         if room is None:
             await websocket.close(code=4404)
             return
+        # Enforce the same read visibility as the HTTP endpoints: a private room
+        # is only streamable by its owner, members or an admin. Close with 4403
+        # (forbidden) so a non-member cannot subscribe to a hidden room's events.
+        from app.services.room_service import RoomService
+
+        if not (
+            user.has_role("admin")
+            or room.owner_id == user.id
+            or room.is_public
+            or await RoomService(db).is_member(room_id, user.id)
+        ):
+            await websocket.close(code=4403)
+            return
 
     await websocket.accept()
     channel = room_channel(str(room_id))

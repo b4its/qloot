@@ -13,6 +13,7 @@ from app.schemas.career import (
     ChatOut,
     ConsultationIn,
     ConsultationOut,
+    CounselorOut,
     DashboardOut,
     GradeIn,
     GradeOut,
@@ -124,9 +125,9 @@ async def list_consultations(
     return await CareerService(db).list_consultations(user.id, limit=limit, offset=offset)
 
 
-@router.get("/counselors", response_model=list[dict])
+@router.get("/counselors", response_model=list[CounselorOut])
 async def counselors(user: CurrentUser, db: DbSession):
-    return CareerService(db).counselors()
+    return [CounselorOut(**c) for c in CareerService(db).counselors()]
 
 
 @router.post("/consultations", response_model=ConsultationOut)

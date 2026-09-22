@@ -51,6 +51,7 @@ class UserOut(ORMModel):
     chain_user_ref: str
     avatar_url: str | None = None
     created_at: datetime
+    last_login_at: datetime | None = None
     roles: list[str] = Field(default_factory=list)
     class_code: str | None = None
     class_type: str | None = None

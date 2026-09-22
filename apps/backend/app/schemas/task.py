@@ -12,9 +12,9 @@ from app.schemas.common import ORMModel
 
 class TaskCreate(BaseModel):
     title: str = Field(min_length=2, max_length=255)
-    description: str | None = None
-    kind: str = "daily"
-    reward_amount: int = Field(default=0, ge=0)
+    description: str | None = Field(default=None, max_length=5000)
+    kind: str = Field(default="daily", pattern="^(daily|weekly|learning|exam)$")
+    reward_amount: int = Field(default=0, ge=0, le=1_000_000)
     course_id: uuid.UUID | None = None
     quest_id: uuid.UUID | None = None
     starts_at: datetime | None = None
@@ -23,9 +23,11 @@ class TaskCreate(BaseModel):
 
 class TaskUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
-    description: str | None = None
-    reward_amount: int | None = Field(default=None, ge=0)
+    description: str | None = Field(default=None, max_length=5000)
+    kind: str | None = Field(default=None, pattern="^(daily|weekly|learning|exam)$")
+    reward_amount: int | None = Field(default=None, ge=0, le=1_000_000)
     is_active: bool | None = None
+    starts_at: datetime | None = None
     ends_at: datetime | None = None
 
 

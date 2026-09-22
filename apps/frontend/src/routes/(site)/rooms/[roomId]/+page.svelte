@@ -2,12 +2,12 @@
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
   import { api, wsUrl, ApiError } from "$lib/api/client";
-  import type { Room, RankingResponse } from "$lib/types";
+  import type { Room, RoomMember, RankingResponse } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import { statusLabel } from "$lib/utils/format";
 
   let room: Room | null = null;
-  let participants: { user_id: string; is_present: boolean; role: string }[] = [];
+  let participants: RoomMember[] = [];
   let ranking: RankingResponse | null = null;
   let loading = true;
   let error = "";
@@ -22,11 +22,17 @@
 
   const roomId = $page.params.roomId;
   $: canManage = hasRole($auth.user, "teacher");
+  $: myId = $auth.user?.id ?? "";
+
+  /** Prefer a human name; fall back to a short id when the name is absent. */
+  function who(name: string | null | undefined, id: string): string {
+    return name && name.trim() ? name : `${id.slice(0, 8)}…`;
+  }
 
   async function load() {
     try {
       room = await api.get<Room>(`/rooms/${roomId}`);
-      participants = await api.get(`/rooms/${roomId}/participants`);
+      participants = await api.get<RoomMember[]>(`/rooms/${roomId}/participants`);
       ranking = await api.get<RankingResponse>(`/rankings/rooms/${roomId}`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ruang";
@@ -167,7 +173,7 @@
               {#each ranking.entries as e}
                 <tr class="border-t">
                   <td class="py-1 font-mono">{e.rank}</td>
-                  <td class="font-mono">{e.user_id.slice(0, 8)}…</td>
+                  <td>{who(e.display_name, e.user_id)}</td>
                   <td class="text-right">{(e.score_bp / 100).toFixed(1)}%</td>
                 </tr>
               {/each}
@@ -183,7 +189,10 @@
         <ul class="mt-2 space-y-1 text-sm">
           {#each participants as p}
             <li class="flex items-center justify-between">
-              <span class="font-mono">{p.user_id.slice(0, 8)}…</span>
+              <span>
+                {who(p.display_name, p.user_id)}
+                {#if p.user_id === myId}<span class="mono text-xs muted">(kamu)</span>{/if}
+              </span>
               <span
                 class="badge"
                 class:badge-mint={p.is_present}

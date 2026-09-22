@@ -86,7 +86,14 @@
                 : ""}
             </span>
           {/if}
-          <span class="badge badge-mint"><Icon name="circle-check" size="10px" /> Aktif</span>
+          <span
+            class="badge"
+            class:badge-mint={user.is_active}
+            class:badge-neutral={!user.is_active}
+          >
+            <Icon name={user.is_active ? "circle-check" : "circle-xmark"} size="10px" />
+            {user.is_active ? "Aktif" : "Nonaktif"}
+          </span>
         </div>
       </div>
     </div>
@@ -110,10 +117,15 @@
             <div class="flex items-center justify-between text-xs">
               <span class="muted">Menuju level {profile.level + 1}</span>
               <span class="mono"
-                >{formatNumber(profile.xp_into_level)} / {formatNumber(profile.xp_for_next_level)}</span
+                >{formatNumber(profile.xp_into_level)} / {formatNumber(
+                  profile.xp_for_next_level,
+                )}</span
               >
             </div>
-            <div class="mt-2 h-2 w-full overflow-hidden rounded-full" style="background: rgb(var(--line))">
+            <div
+              class="mt-2 h-2 w-full overflow-hidden rounded-full"
+              style="background: rgb(var(--line))"
+            >
               <div
                 class="h-full rounded-full bg-primary transition-all"
                 style={`width: ${Math.min(100, Math.max(0, profile.progress * 100))}%`}

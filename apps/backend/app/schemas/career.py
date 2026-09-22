@@ -98,6 +98,14 @@ class ConsultationOut(ORMModel):
     created_at: datetime
 
 
+class CounselorOut(BaseModel):
+    """A school guidance counsellor (BK) that students can book."""
+
+    name: str
+    role: str
+    focus: str
+
+
 class ResourceOut(ORMModel):
     code: str
     category: str

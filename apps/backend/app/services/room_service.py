@@ -43,6 +43,30 @@ class RoomService:
             raise NotFoundError("Room not found")
         return room
 
+    async def is_member(self, room_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+        row = (
+            await self.session.execute(
+                select(RoomMember.id).where(
+                    RoomMember.room_id == room_id, RoomMember.user_id == user_id
+                )
+            )
+        ).scalar_one_or_none()
+        return row is not None
+
+    async def get_visible(self, room_id: uuid.UUID, user: User) -> Room:
+        """Return a room the caller is allowed to read, else raise 404.
+
+        Admins see anything, the owner sees their own room, members see rooms
+        they belong to, and everyone else may read only **public** rooms. A
+        hidden room 404s (never 403) so its existence is not leaked.
+        """
+        room = await self.get(room_id)
+        if user.has_role("admin") or room.owner_id == user.id or room.is_public:
+            return room
+        if await self.is_member(room_id, user.id):
+            return room
+        raise NotFoundError("Room not found")
+
     async def get_by_code(self, code: str) -> Room:
         room = (
             await self.session.execute(select(Room).where(Room.code == code.upper()))
@@ -141,9 +165,17 @@ class RoomService:
 
     async def participants(
         self, room_id: uuid.UUID, *, limit: int = 200, offset: int = 0
-    ) -> list[RoomMember]:
-        stmt = select(RoomMember).where(RoomMember.room_id == room_id).limit(limit).offset(offset)
-        return list((await self.session.execute(stmt)).scalars().all())
+    ) -> list[tuple[RoomMember, str | None]]:
+        """Room members joined with their display name (never N+1)."""
+        stmt = (
+            select(RoomMember, User.full_name)
+            .join(User, User.id == RoomMember.user_id)
+            .where(RoomMember.room_id == room_id)
+            .order_by(RoomMember.joined_at)
+            .limit(limit)
+            .offset(offset)
+        )
+        return [(m, name) for m, name in (await self.session.execute(stmt)).all()]
 
     async def live_leaderboard(self, room_id: uuid.UUID) -> list[dict]:
         """Ranking of room members by best exam score in this room.
@@ -179,9 +211,11 @@ class RoomService:
         stmt = (
             _select(
                 RoomMember.user_id,
+                User.full_name,
                 RoomMember.is_present,
                 func.coalesce(totals.c.score, 0).label("score"),
             )
+            .join(User, User.id == RoomMember.user_id)
             .outerjoin(totals, totals.c.user_id == RoomMember.user_id)
             .where(RoomMember.room_id == room_id)
             .order_by(func.coalesce(totals.c.score, 0).desc(), RoomMember.user_id.asc())
@@ -191,6 +225,7 @@ class RoomService:
             {
                 "rank": i + 1,
                 "user_id": r.user_id,
+                "display_name": r.full_name,
                 "score_bp": int(r.score or 0),
                 "is_present": r.is_present,
             }

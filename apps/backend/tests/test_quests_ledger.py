@@ -267,7 +267,17 @@ async def test_transaction_rollback_leaves_no_partial_state(engine):
     async with sm() as s:
         from sqlalchemy import func, select
 
-        n = (await s.execute(select(func.count()).select_from(RewardAllocation))).scalar_one()
+        # Scope the check to *this* operation's reference: the failed credit must
+        # not leave an allocation behind. (The DB is shared across the suite, so
+        # a global count would also see allocations legitimately created by other
+        # tests.)
+        n = (
+            await s.execute(
+                select(func.count())
+                .select_from(RewardAllocation)
+                .where(RewardAllocation.reward_key == "rb")
+            )
+        ).scalar_one()
         # No allocation rows from the failed op.
         assert n == 0
 

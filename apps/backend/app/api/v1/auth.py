@@ -34,6 +34,7 @@ def _user_out(user) -> UserOut:
         chain_user_ref=user.chain_user_ref,
         avatar_url=user.avatar_url,
         created_at=user.created_at,
+        last_login_at=user.last_login_at,
         roles=sorted(user.role_names),
         class_code=user.class_code,
         class_type=user.class_type,

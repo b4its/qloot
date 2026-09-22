@@ -66,6 +66,7 @@ async def list_users(
             chain_user_ref=u.chain_user_ref,
             avatar_url=u.avatar_url,
             created_at=u.created_at,
+            last_login_at=u.last_login_at,
             roles=sorted(u.role_names),
         )
         for u in users

@@ -87,38 +87,51 @@ async def _seed_fixtures(session, n_students: int = 6, n_quests: int = 3):
     session.add(exam)
     await session.flush()
 
-    students = [await _student(session, f"bulk_s{i}_{uuid.uuid4().hex[:6]}@ex.com") for i in range(n_students)]
+    students = [
+        await _student(session, f"bulk_s{i}_{uuid.uuid4().hex[:6]}@ex.com")
+        for i in range(n_students)
+    ]
     for i, s in enumerate(students):
         await _attempt(session, exam, s, i)
-    for i in range(n_quests):
-        await _quest_with_rule(session, teacher, i)
+    quests = [await _quest_with_rule(session, teacher, i) for i in range(n_quests)]
     await session.flush()
-    return students
+    # Return the created fixtures (not just the students) so callers can scope
+    # their assertions to *this* run — the test DB is shared across the suite.
+    return students, exam, quests
 
 
 async def test_seed_quest_outcomes_is_idempotent(session):
-    students = await _seed_fixtures(session)
+    students, _exam, quests = await _seed_fixtures(session)
+    quest_ids = [q.id for q in quests]
 
     await seed_quest_outcomes(session, students)
-    first = (await session.execute(select(QuestWinner))).scalars().all()
+    first = (
+        (await session.execute(select(QuestWinner).where(QuestWinner.quest_id.in_(quest_ids))))
+        .scalars()
+        .all()
+    )
 
     # A second pass must not raise uq_quest_winners_quest_rank / _user.
     await seed_quest_outcomes(session, students)
-    second = (await session.execute(select(QuestWinner))).scalars().all()
+    second = (
+        (await session.execute(select(QuestWinner).where(QuestWinner.quest_id.in_(quest_ids))))
+        .scalars()
+        .all()
+    )
 
     assert len(second) == len(first)
     assert len(first) >= 1
-    # Both uniqueness invariants hold across the whole table.
+    # Both uniqueness invariants hold across these quests' winners.
     assert len({(w.quest_id, w.user_id) for w in second}) == len(second)
     assert len({(w.quest_id, w.rank) for w in second}) == len(second)
 
 
 async def test_seed_quest_outcomes_respects_preexisting_winners(session):
-    students = await _seed_fixtures(session)
-    quest = (await session.execute(select(Quest))).scalars().first()
-    assert quest is not None
-    attempt = (await session.execute(select(ExamAttempt))).scalars().first()
-    assert attempt is not None
+    students, exam, quests = await _seed_fixtures(session)
+    quest = quests[0]
+    attempt = (
+        await session.execute(select(ExamAttempt).where(ExamAttempt.exam_id == exam.id).limit(1))
+    ).scalar_one()
 
     # Pre-existing winner occupying (quest, rank=1).
     session.add(
@@ -139,7 +152,12 @@ async def test_seed_quest_outcomes_respects_preexisting_winners(session):
     # Must skip the taken (quest, rank=1) instead of colliding with it.
     await seed_quest_outcomes(session, students)
 
-    winners = (await session.execute(select(QuestWinner))).scalars().all()
+    quest_ids = [q.id for q in quests]
+    winners = (
+        (await session.execute(select(QuestWinner).where(QuestWinner.quest_id.in_(quest_ids))))
+        .scalars()
+        .all()
+    )
     ranks_for_quest = [w.rank for w in winners if w.quest_id == quest.id]
     assert ranks_for_quest.count(1) == 1
     assert len({(w.quest_id, w.rank) for w in winners}) == len(winners)

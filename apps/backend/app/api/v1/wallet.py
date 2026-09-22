@@ -19,6 +19,7 @@ from app.schemas.wallet import (
     LedgerEntryOut,
     RewardOut,
     SwapRequestIn,
+    TransferRecipientOut,
     TransferRequest,
     WalletAddressUpdate,
     WalletAssetsOut,
@@ -182,7 +183,7 @@ async def update_wallet_address(payload: WalletAddressUpdate, user: CurrentUser,
     return result
 
 
-@router.get("/transfer-recipients", response_model=list[dict])
+@router.get("/transfer-recipients", response_model=list[TransferRecipientOut])
 async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", limit: LimitParam = 8):
     """Search active users to transfer OPT to (simulated directory)."""
     stmt = select(User).where(User.is_active.is_(True), User.id != user.id)
@@ -194,7 +195,7 @@ async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", lim
         )
     stmt = stmt.order_by(User.full_name).limit(limit)
     rows = (await db.execute(stmt)).scalars().all()
-    return [{"user_id": str(u.id), "full_name": u.full_name, "email": u.email} for u in rows]
+    return [TransferRecipientOut(user_id=u.id, full_name=u.full_name, email=u.email) for u in rows]
 
 
 @router.get("/ledger", response_model=list[LedgerEntryOut])

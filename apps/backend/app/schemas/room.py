@@ -44,6 +44,9 @@ class RoomMemberOut(ORMModel):
     role: str
     is_present: bool
     joined_at: datetime
+    # The member's display name — joins RoomMember -> User so the UI never has
+    # to render a bare UUID.
+    display_name: str | None = None
 
 
 class JoinByCode(BaseModel):
@@ -53,6 +56,7 @@ class JoinByCode(BaseModel):
 class LiveEntry(BaseModel):
     rank: int
     user_id: uuid.UUID
+    display_name: str | None = None
     score_bp: int
     is_present: bool
 

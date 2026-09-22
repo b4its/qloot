@@ -164,8 +164,9 @@ async def quest_ranking(
     offset: OffsetParam = 0,
 ):
     stmt = (
-        select(QuestWinner, User.full_name)
+        select(QuestWinner, User.full_name, RewardAllocation.amount, RewardAllocation.status)
         .join(User, User.id == QuestWinner.user_id)
+        .outerjoin(RewardAllocation, RewardAllocation.reward_key == QuestWinner.reward_key)
         .where(QuestWinner.quest_id == quest_id)
         .order_by(QuestWinner.rank)
         .limit(limit)
@@ -180,12 +181,14 @@ async def quest_ranking(
                 "user_id": str(w.user_id),
                 "rank": w.rank,
                 "score_bp": int(w.score_bp or 0),
-                "opc_earned": 0,
+                # The real reward for this winner (0 until the allocation exists,
+                # i.e. before finalize, or if it was cancelled).
+                "opc_earned": (int(amount or 0) if status in ("pending", "confirmed") else 0),
                 "display_name": name,
                 "duration_seconds": w.duration_seconds,
                 "submitted_at": w.submitted_at.isoformat() if w.submitted_at else None,
             }
-            for w, name in rows
+            for w, name, amount, status in rows
         ],
     }
 

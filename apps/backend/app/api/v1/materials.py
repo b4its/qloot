@@ -16,6 +16,7 @@ from app.schemas.material import (
     AskRequest,
     GeneratedQuestionOut,
     GenerateQuestionsRequest,
+    GenerationJobOut,
     MaterialOut,
     MaterialUpdate,
     SummaryOut,
@@ -92,7 +93,7 @@ async def delete_material(material_id: uuid.UUID, user: TeacherUser, db: DbSessi
         await MaterialService(db).delete(material_id, user)
 
 
-@router.post("/{material_id}/generate-questions", response_model=dict)
+@router.post("/{material_id}/generate-questions", response_model=GenerationJobOut)
 async def generate_questions(
     material_id: uuid.UUID,
     payload: GenerateQuestionsRequest,
@@ -108,7 +109,7 @@ async def generate_questions(
             language=payload.language,
             exam_id=payload.exam_id,
         )
-    return {"job_id": str(job.id), "status": job.status}
+    return GenerationJobOut(job_id=job.id, status=job.status)
 
 
 @router.post("/{material_id}/generate-questions-sync", response_model=list[GeneratedQuestionOut])

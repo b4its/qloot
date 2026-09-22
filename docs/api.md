@@ -67,9 +67,13 @@ POST   /rooms/join-by-code
 POST   /rooms/{room_id}/leave
 POST   /rooms/{room_id}/open         (owner)
 POST   /rooms/{room_id}/close        (owner)
-GET    /rooms/{room_id}/participants
-WS     /ws/rooms/{room_id}
+GET    /rooms/{room_id}/participants     # members + display_name (visibility-guarded)
+WS     /ws/rooms/{room_id}                # private rooms: owner/members/admin only
 ```
+
+Private rooms (`is_public=false`) are only readable by their owner, members and
+admins — everyone else gets `404` (existence is never leaked). Participant and
+live-leaderboard rows include a `display_name` so the UI never shows a bare UUID.
 
 ## Exams
 

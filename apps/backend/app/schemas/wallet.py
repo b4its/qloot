@@ -50,6 +50,14 @@ class TransferRequest(BaseModel):
     note: str | None = Field(default=None, max_length=255)
 
 
+class TransferRecipientOut(BaseModel):
+    """A candidate recipient for an internal OPT transfer (directory entry)."""
+
+    user_id: uuid.UUID
+    full_name: str
+    email: str
+
+
 class WalletAddressUpdate(BaseModel):
     """Set the caller's personal wallet address.
 
@@ -97,9 +105,19 @@ class WithdrawalRequestIn(BaseModel):
     @field_validator("destination_address")
     @classmethod
     def _check_addr(cls, v: str) -> str:
-        if not v.startswith("0x") or len(v) != 42:
-            raise ValueError("Invalid EVM address")
-        return v.lower()
+        # Use the same canonical validator as PATCH /wallet/address so a
+        # malformed (non-hex) 42-char string can never be persisted as a
+        # withdrawal destination. Returns the EIP-55 checksummed address.
+        # ``validate_wallet_address`` raises the app's ``ValidationError`` (not a
+        # pydantic ``ValueError``), so re-raise as ``ValueError`` for pydantic to
+        # turn into a clean 422 instead of a 500.
+        from app.core.errors import ValidationError as QLValidationError
+        from app.services.wallet_service import validate_wallet_address
+
+        try:
+            return validate_wallet_address(v)
+        except QLValidationError as exc:
+            raise ValueError(str(exc.message)) from exc
 
 
 class WithdrawalOut(ORMModel):

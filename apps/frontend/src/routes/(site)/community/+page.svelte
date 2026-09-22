@@ -58,6 +58,8 @@
   let busy = "";
   let page = 1;
   let hasMore = false;
+  /** Post id whose share link was just copied (shows a transient "Tersalin"). */
+  let copiedId = "";
 
   $: user = $auth.user;
 
@@ -138,6 +140,32 @@
       posts = posts.map((x) => (x.id === p.id ? { ...x, comments: detail.comments ?? [] } : x));
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat komentar";
+    }
+  }
+
+  /** Copy a deep link to a post (matches the rendered `id="post-<id>"` anchor). */
+  async function sharePost(id: string) {
+    const url = `${location.origin}/community#post-${id}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Fallback for browsers without the async Clipboard API.
+        const el = document.createElement("textarea");
+        el.value = url;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      copiedId = id;
+      setTimeout(() => {
+        if (copiedId === id) copiedId = "";
+      }, 2000);
+    } catch {
+      error = "Gagal menyalin tautan";
     }
   }
 
@@ -271,7 +299,7 @@
       </div>
     {:else}
       {#each posts as f (f.id)}
-        <article class="card">
+        <article class="card scroll-mt-24" id={`post-${f.id}`}>
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
               <WalletChip address={f.handle} label={f.author_name} size={30} />
@@ -288,9 +316,10 @@
             <button
               class="inline-flex items-center gap-1.5 transition-colors hover:text-tertiary"
               class:text-tertiary={f.liked_by_me}
+              aria-pressed={f.liked_by_me}
               on:click={() => toggleLike(f)}
             >
-              <Icon name={f.liked_by_me ? "heart" : "heart"} size="12px" />
+              <Icon name="heart" set={f.liked_by_me ? "solid" : "regular"} size="12px" />
               {f.like_count}
             </button>
             <button
@@ -302,10 +331,10 @@
             </button>
             <button
               class="inline-flex items-center gap-1.5 hover:text-primary"
-              on:click={() =>
-                navigator.clipboard?.writeText(`${location.origin}/community#${f.id}`)}
+              on:click={() => sharePost(f.id)}
             >
-              <Icon name="share-nodes" size="12px" /> Bagikan
+              <Icon name="share-nodes" size="12px" />
+              {copiedId === f.id ? "Tersalin!" : "Bagikan"}
             </button>
           </div>
 

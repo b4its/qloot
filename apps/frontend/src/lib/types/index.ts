@@ -386,8 +386,19 @@ export interface CertificateVerify {
 export interface LiveEntry {
   rank: number;
   user_id: string;
+  display_name?: string | null;
   score_bp: number;
   is_present: boolean;
+}
+
+export interface RoomMember {
+  id: string;
+  room_id: string;
+  user_id: string;
+  role: string;
+  is_present: boolean;
+  joined_at: string;
+  display_name?: string | null;
 }
 
 export interface RoomEvent {

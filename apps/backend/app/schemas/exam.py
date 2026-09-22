@@ -44,10 +44,10 @@ def _validate_mc_options(options: list[OptionIn]) -> list[OptionIn]:
 
 
 class QuestionCreate(BaseModel):
-    prompt: str = Field(min_length=5)
-    correct_answer: str | None = None
+    prompt: str = Field(min_length=5, max_length=10_000)
+    correct_answer: str | None = Field(default=None, max_length=10_000)
     max_score_bp: int = Field(default=10_000, ge=0, le=10_000)
-    position: int = 0
+    position: int = Field(default=0, ge=0)
     qtype: str = Field(default="essay", pattern="^(essay|multiple_choice)$")
     options: list[OptionIn] = Field(default_factory=list)
 
@@ -59,10 +59,10 @@ class QuestionCreate(BaseModel):
 
 
 class QuestionUpdate(BaseModel):
-    prompt: str | None = Field(default=None, min_length=5)
-    correct_answer: str | None = None
+    prompt: str | None = Field(default=None, min_length=5, max_length=10_000)
+    correct_answer: str | None = Field(default=None, max_length=10_000)
     max_score_bp: int | None = Field(default=None, ge=0, le=10_000)
-    position: int | None = None
+    position: int | None = Field(default=None, ge=0)
     review_status: str | None = Field(default=None, pattern="^(pending|approved|rejected)$")
     # When provided for a multiple_choice question, replaces all options.
     options: list[OptionIn] | None = None
@@ -92,16 +92,16 @@ class ExamCreate(BaseModel):
     duration_minutes: int = Field(default=60, ge=1, le=600)
     room_id: uuid.UUID | None = None
     course_id: uuid.UUID | None = None
-    year: int | None = None
+    year: int | None = Field(default=None, ge=1900, le=2100)
     passing_score_bp: int = Field(default=6000, ge=0, le=10_000)
-    instructions: str | None = None
+    instructions: str | None = Field(default=None, max_length=20_000)
 
 
 class ExamUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
     duration_minutes: int | None = Field(default=None, ge=1, le=600)
     passing_score_bp: int | None = Field(default=None, ge=0, le=10_000)
-    instructions: str | None = None
+    instructions: str | None = Field(default=None, max_length=20_000)
     is_active: bool | None = None
 
 

@@ -45,6 +45,13 @@ class AIJobOut(ORMModel):
     finished_at: datetime | None = None
 
 
+class GenerationJobOut(BaseModel):
+    """Reference to an enqueued AI generation job."""
+
+    job_id: uuid.UUID
+    status: str
+
+
 class GeneratedQuestionOut(BaseModel):
     id: uuid.UUID
     prompt: str

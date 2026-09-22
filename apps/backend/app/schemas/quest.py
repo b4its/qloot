@@ -18,10 +18,10 @@ class QuestRuleIn(BaseModel):
 
 class QuestCreate(BaseModel):
     title: str = Field(min_length=2, max_length=255)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=5000)
     room_id: uuid.UUID | None = None
     exam_id: uuid.UUID | None = None
-    kind: str = "exam"
+    kind: str = Field(default="exam", pattern="^(exam|quiz|task)$")
     top_n_winners: int = Field(default=3, ge=1, le=50)
     opens_at: datetime | None = None
     closes_at: datetime | None = None
@@ -30,8 +30,9 @@ class QuestCreate(BaseModel):
 
 class QuestUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=5000)
     top_n_winners: int | None = Field(default=None, ge=1, le=50)
+    opens_at: datetime | None = None
     closes_at: datetime | None = None
 
 

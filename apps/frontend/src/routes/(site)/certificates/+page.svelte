@@ -41,24 +41,75 @@
 
   function download() {
     if (!active) return;
-    const text = [
-      "QLoot Academy — Sertifikat Kelulusan",
-      "====================================",
-      `Pelajaran : ${active.course_title}`,
-      `Penerima  : ${active.recipient_name}`,
-      `Diterbitkan oleh: ${active.issued_by}`,
-      `Tanggal   : ${new Date(active.issued_at).toLocaleDateString("id-ID")}`,
-      `ID Kredensial: ${active.credential_id}`,
-      `Edisi     : #${String(active.edition_number).padStart(4, "0")} / ${active.edition_total}`,
-      `Verifikasi: ${verifyUrl(active.credential_id)}`,
-    ].join("\n");
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    // A self-contained, printable HTML certificate (open it and use the
+    // browser's "Save as PDF"). Lighter than bundling a PDF library and it
+    // renders the real credential, not a plain-text dump.
+    const issued = new Date(active.issued_at).toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+    const escape = (s: string) =>
+      s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+    const edition = `#${String(active.edition_number).padStart(4, "0")} / ${active.edition_total}`;
+    const html = `<!doctype html>
+<html lang="id"><head><meta charset="utf-8" />
+<title>Sertifikat ${escape(active.course_title)} — QLoot</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, 'Times New Roman', serif; color: #1a1a2e;
+    background: #f4f4f8; display: grid; place-items: center; min-height: 100vh; }
+  .sheet { width: 297mm; height: 210mm; padding: 22mm; background: #fff;
+    border: 6px solid #1a1a2e; position: relative; }
+  .frame { border: 2px solid #b8a23a; height: 100%; padding: 14mm; text-align: center;
+    display: flex; flex-direction: column; justify-content: center; }
+  .brand { font-family: ui-monospace, monospace; letter-spacing: .35em; font-size: 13px;
+    text-transform: uppercase; color: #b8a23a; }
+  h1 { font-size: 40px; margin: 12mm 0 4mm; font-weight: 700; }
+  .who { font-size: 26px; font-style: italic; margin: 4mm 0; }
+  .line { width: 55%; margin: 6mm auto; border-top: 1px solid #ccc; }
+  .meta { font-size: 13px; color: #555; line-height: 1.9; font-family: ui-monospace, monospace; }
+  .seal { margin-top: 8mm; font-size: 12px; color: #888; }
+</style></head>
+<body><div class="sheet"><div class="frame">
+  <div class="brand">QLoot Academy</div>
+  <h1>Sertifikat Kelulusan</h1>
+  <p>Diberikan kepada</p>
+  <div class="who">${escape(active.recipient_name)}</div>
+  <p>atas penyelesaian pelajaran</p>
+  <h2 style="font-size:22px;margin:3mm 0">${escape(active.course_title)}</h2>
+  <div class="line"></div>
+  <div class="meta">
+    Diterbitkan oleh: ${escape(active.issued_by)}<br />
+    Tanggal: ${issued}<br />
+    ID Kredensial: ${escape(active.credential_id)} · Edisi ${edition}
+  </div>
+  <div class="seal">Verifikasi: ${escape(verifyUrl(active.credential_id))}</div>
+</div></div></body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${active.credential_id}.txt`;
+    a.download = `sertifikat-${active.credential_id}.html`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /** LinkedIn "add certification" flow, pre-filled with this credential. */
+  function linkedinUrl(): string {
+    if (!active) return "https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME";
+    const issued = new Date(active.issued_at);
+    const p = new URLSearchParams({
+      startTask: "CERTIFICATION_NAME",
+      name: active.course_title,
+      organizationName: "QLoot Academy",
+      issueYear: String(issued.getFullYear()),
+      issueMonth: String(issued.getMonth() + 1),
+      certUrl: verifyUrl(active.credential_id),
+      certId: active.credential_id,
+    });
+    return `https://www.linkedin.com/profile/add?${p.toString()}`;
   }
 
   async function share() {
@@ -191,12 +242,7 @@
           <button class="btn-secondary w-full" on:click={share}>
             <Icon name="share-nodes" size="12px" /> Bagikan
           </button>
-          <a
-            class="btn-ghost w-full"
-            href="https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME"
-            target="_blank"
-            rel="noopener"
-          >
+          <a class="btn-ghost w-full" href={linkedinUrl()} target="_blank" rel="noopener">
             <Icon name="linkedin" set="brands" size="12px" /> Tambah ke LinkedIn
           </a>
         </div>
