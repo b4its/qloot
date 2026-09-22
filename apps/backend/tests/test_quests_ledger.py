@@ -225,11 +225,17 @@ async def test_reward_outbox_created_transactionally(session):
     quest = await _make_quest(session, owner)
     engine = RewardEngine(session)
     await engine.allocate_quest_reward(quest=quest, user=student, rank=1, amount=100, score_bp=9000)
+    # Scope to *this* quest's outbox row: the test DB is shared across the suite,
+    # so a global count would also see rewards created by other tests.
+    from app.services.keys import tx_idempotency_key
+
+    rkey = reward_key(quest.id, student.id, 1, quest.reward_version)
     count = (
         await session.execute(
             select(func.count())
             .select_from(TransactionOutbox)
             .where(TransactionOutbox.topic == "reward")
+            .where(TransactionOutbox.idempotency_key == tx_idempotency_key("reward", rkey))
         )
     ).scalar_one()
     assert count == 1

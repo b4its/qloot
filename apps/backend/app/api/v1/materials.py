@@ -80,6 +80,28 @@ async def get_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession)
     return MaterialOut.model_validate(material)
 
 
+@router.get("/{material_id}/download")
+async def download_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    """Stream the stored material file back to an authorised viewer.
+
+    Uploaded materials were previously write-only (no read path); this lets a
+    teacher/student actually retrieve the PDF.
+    """
+    from urllib.parse import quote
+
+    from fastapi import Response
+
+    data, filename, content_type = await MaterialService(db).download(material_id, user)
+    return Response(
+        content=data,
+        media_type=content_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+            "Content-Length": str(len(data)),
+        },
+    )
+
+
 @router.patch("/{material_id}", response_model=MaterialOut)
 async def update_material(
     material_id: uuid.UUID, payload: MaterialUpdate, user: TeacherUser, db: DbSession

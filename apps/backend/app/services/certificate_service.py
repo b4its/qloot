@@ -195,6 +195,39 @@ class CertificateService:
             await self.issue_for_course(user, cid)
         return await self.list_for_user(user.id)
 
+    async def revoke(self, credential_id: str, *, reason: str | None = None) -> Certificate | None:
+        """Revoke a certificate by credential id (idempotent).
+
+        The verify path already reports ``valid=False`` for a revoked credential
+        and the listing filters them out; this is the missing mutation side.
+        Returns the certificate (or None if the id is unknown).
+        """
+        cert = await self.get_by_credential(credential_id)
+        if cert is None:
+            return None
+        if cert.revoked_at is not None:
+            return cert
+        cert.revoked_at = datetime.now(UTC)
+        if reason:
+            cert.revoked_reason = reason
+        await self.session.flush()
+        log.info("certificate_revoked", credential_id=credential_id)
+        await self._notify_revoked(cert)
+        return cert
+
+    async def _notify_revoked(self, cert: Certificate) -> None:
+        from app.services.social_service import NotificationService
+
+        try:
+            await NotificationService(self.session).notify(
+                user_id=cert.user_id,
+                kind="system",
+                title="Sertifikat dicabut",
+                body=f"Sertifikat untuk {cert.course_title} telah dicabut.",
+            )
+        except Exception as exc:  # noqa: BLE001 - never block revoke on notify
+            log.warning("certificate_revoke_notify_failed", error=str(exc))
+
     @staticmethod
     def out(cert: Certificate) -> dict:
         return {
@@ -209,4 +242,5 @@ class CertificateService:
             "edition_total": cert.edition_total,
             "issued_at": cert.issued_at,
             "revoked_at": cert.revoked_at,
+            "revoked_reason": cert.revoked_reason,
         }

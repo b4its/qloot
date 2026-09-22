@@ -7,6 +7,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
+  import { opt } from "$lib/stores/opt";
 
   const PAGE_SIZE = 10;
   let tasks: Task[] = [];
@@ -44,6 +45,8 @@
       await api.post(`/tasks/${t.id}/complete`);
       completed = { ...completed, [t.id]: true };
       message = `Tugas selesai! +${t.reward_amount} OPT ditambahkan ke dompetmu.`;
+      // The reward changes the OPT balance — refresh the header chip.
+      opt.refresh();
     } catch (e) {
       message = e instanceof ApiError ? e.message : "Tidak dapat menyelesaikan tugas";
     } finally {

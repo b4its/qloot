@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, OptionalUser
+from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam, OptionalUser
 from app.db.session import transaction
-from app.schemas.certificate import CertificateOut, CertificateVerifyOut
+from app.schemas.certificate import CertificateOut, CertificateVerifyOut, RevokeRequest
 from app.services.certificate_service import CertificateService
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
@@ -64,3 +64,15 @@ async def sync(user: CurrentUser, db: DbSession):
     async with transaction(db):
         certs = await CertificateService(db).sync_for_user(user)
     return [CertificateService.out(c) for c in certs]
+
+
+@router.post("/{credential_id}/revoke", response_model=CertificateOut)
+async def revoke(credential_id: str, payload: RevokeRequest, admin: AdminUser, db: DbSession):
+    """Revoke a certificate (admin only). Idempotent."""
+    from app.core.errors import NotFoundError
+
+    async with transaction(db):
+        cert = await CertificateService(db).revoke(credential_id, reason=payload.reason)
+    if cert is None:
+        raise NotFoundError("Certificate not found")
+    return CertificateService.out(cert)

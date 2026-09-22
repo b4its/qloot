@@ -84,6 +84,16 @@ class MaterialService:
         await self._authorize_view(material, user)
         return material
 
+    async def download(self, material_id: uuid.UUID, user: User) -> tuple[bytes, str, str]:
+        """Return (bytes, filename, content_type) for an accessible material.
+
+        Reuses the same view authorization as GET /materials/{id} (owner, admin
+        or an enrolled course member), so uploaded PDFs are actually retrievable.
+        """
+        material = await self.get_viewable(material_id, user)
+        data = storage.get(material.storage_key)
+        return data, material.filename, material.content_type
+
     async def delete(self, material_id: uuid.UUID, user: User) -> None:
         """Delete a material (owner or admin) and its stored object."""
         material = await self.get(material_id)

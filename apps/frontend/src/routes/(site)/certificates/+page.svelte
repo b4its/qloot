@@ -13,6 +13,7 @@
   let loading = true;
   let error = "";
   let copied = false;
+  let revoking = false;
   let listPage = 1;
   $: listTotalPages = Math.max(1, Math.ceil(certs.length / LIST_PAGE_SIZE));
   $: if (listPage > listTotalPages) listPage = 1;
@@ -26,6 +27,25 @@
   function pick(c: Certificate) {
     active = c;
     copied = false;
+  }
+
+  /** Admin-only: revoke the active credential (idempotent server-side). */
+  async function revokeActive() {
+    if (!active || revoking) return;
+    const reason = window.prompt("Alasan pencabutan (opsional):") ?? "";
+    revoking = true;
+    error = "";
+    try {
+      const updated = await api.post<Certificate>(`/certificates/${active.credential_id}/revoke`, {
+        reason: reason.trim() || null,
+      });
+      active = updated;
+      certs = certs.map((c) => (c.id === updated.id ? updated : c));
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mencabut sertifikat";
+    } finally {
+      revoking = false;
+    }
   }
 
   async function copyLink() {
@@ -245,6 +265,21 @@
           <a class="btn-ghost w-full" href={linkedinUrl()} target="_blank" rel="noopener">
             <Icon name="linkedin" set="brands" size="12px" /> Tambah ke LinkedIn
           </a>
+          {#if user?.roles?.includes("admin") && !active.revoked_at}
+            <button
+              class="btn-ghost w-full !text-tertiary hover:!border-tertiary"
+              on:click={revokeActive}
+              disabled={revoking}
+            >
+              <Icon name="ban" size="12px" />
+              {revoking ? "Mencabut…" : "Cabut sertifikat"}
+            </button>
+          {/if}
+          {#if active.revoked_at}
+            <p class="text-xs text-tertiary">
+              Dicabut{active.revoked_reason ? `: ${active.revoked_reason}` : "."}
+            </p>
+          {/if}
         </div>
 
         {#if certs.length > 1}

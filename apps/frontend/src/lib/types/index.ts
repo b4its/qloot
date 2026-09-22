@@ -374,6 +374,7 @@ export interface Certificate {
   edition_total: number;
   issued_at: string;
   revoked_at?: string | null;
+  revoked_reason?: string | null;
 }
 
 export interface CertificateVerify {

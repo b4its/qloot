@@ -42,6 +42,10 @@
       error = "Judul quest minimal 2 karakter.";
       return;
     }
+    if (!(form.top_n_winners >= 1 && form.top_n_winners <= 50)) {
+      error = "Jumlah pemenang harus antara 1 dan 50.";
+      return;
+    }
     error = "";
     message = "";
     busy = "save";

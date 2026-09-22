@@ -144,6 +144,33 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
                     reward_amount=amount,
                 )
             )
+        # Notify participants who did NOT win (kind "quest") on the first finalize
+        # so the "quest" notification kind the contract declares is produced.
+        if not already_finalized:
+            winner_ids = {w.user_id for w in winners}
+            from sqlalchemy import select
+
+            from app.models.quest import QuestAttempt
+
+            participant_ids = (
+                set(
+                    (
+                        await db.execute(
+                            select(QuestAttempt.user_id).where(QuestAttempt.quest_id == quest_id)
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                - winner_ids
+            )
+            await notifications.notify_many(
+                user_ids=list(participant_ids),
+                kind="quest",
+                title=f"Quest '{quest.title}' selesai",
+                body="Terima kasih sudah berpartisipasi — cek papan peringkat untuk hasilnya.",
+                data={"quest_id": str(quest_id)},
+            )
     # Announce finalization on the room's live channel (the room page listens on
     # ``room:{room_id}``) so participants see it — a bespoke ``quest:{id}``
     # channel has no subscriber and the event would be lost.

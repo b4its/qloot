@@ -25,6 +25,14 @@
   async function create() {
     error = "";
     message = "";
+    if (form.title.trim().length < 2) {
+      error = "Judul pelajaran minimal 2 karakter.";
+      return;
+    }
+    if (form.class_code.trim().length < 1) {
+      error = "Kelas wajib diisi (mis. 1A).";
+      return;
+    }
     busy = true;
     try {
       const payload = {

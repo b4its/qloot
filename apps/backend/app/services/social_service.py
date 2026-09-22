@@ -15,6 +15,22 @@ from app.models.social import Badge, Notification, UserBadge
 
 log = get_logger("social")
 
+# Earnable XP-milestone badges: (xp_threshold, code, name, description, icon, points).
+# Every entry is reachable — BadgeService.sync_xp_milestones awards the ones a
+# user has crossed. Keeping the catalog == the awardable set means the badge
+# page never shows permanently-locked filler.
+XP_MILESTONES: list[tuple[int, str, str, str, str, int]] = [
+    (500, "xp_500", "Rising Star", "Raih 500 XP", "⭐", 10),
+    (2_000, "xp_2000", "Achiever", "Raih 2.000 XP", "🌟", 20),
+    (5_000, "xp_5000", "High Achiever", "Raih 5.000 XP", "💠", 30),
+    (10_000, "xp_10000", "Scholar", "Raih 10.000 XP", "🎓", 50),
+    (25_000, "xp_25000", "Master Scholar", "Raih 25.000 XP", "🏆", 80),
+]
+
+
+def _milestone_badge_row(code: str, name: str, desc: str, icon: str, points: int) -> dict:
+    return {"code": code, "name": name, "description": desc, "icon": icon, "points": points}
+
 
 class NotificationService:
     def __init__(self, session: AsyncSession):
@@ -120,6 +136,12 @@ class BadgeService:
             ("room_regular", "Room Regular", "Joined 5 rooms", "🎪", 20),
             ("perfect_exam", "Perfect Score", "Scored 100% on an exam", "🌟", 40),
             ("learner", "Dedicated Learner", "Completed 5 lessons", "📚", 30),
+            # XP-milestone badges (awarded by sync_xp_milestones) — included so
+            # every catalogued badge is reachable.
+            *[
+                (code, name, desc, icon, points)
+                for _, code, name, desc, icon, points in XP_MILESTONES
+            ],
         ]
         rows = [
             {
@@ -183,6 +205,21 @@ class BadgeService:
             )
         log.info("badge_awarded", user_id=str(user.id), code=code)
         return ub
+
+    async def sync_xp_milestones(self, *, user: User, xp: int) -> int:
+        """Award every XP-milestone badge the user has crossed (idempotent).
+
+        Returns the number of newly-awarded badges. Called from the gamification
+        endpoint so levels/badges stay in step without a background job.
+        """
+        await self.ensure_catalog()
+        awarded = 0
+        for threshold, code, _name, _desc, _icon, _points in XP_MILESTONES:
+            if xp < threshold:
+                continue
+            if await self.award(user=user, code=code, meta={"xp": xp}) is not None:
+                awarded += 1
+        return awarded
 
     async def list_for_user(
         self, user_id: uuid.UUID, *, limit: int = 200, offset: int = 0

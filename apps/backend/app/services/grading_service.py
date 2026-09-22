@@ -141,6 +141,27 @@ class GradingService:
         attempt.status = "graded"
         await self.session.flush()
         await self._maybe_award_badges(attempt)
+        await self._notify_graded(attempt, exam)
+
+    async def _notify_graded(self, attempt: ExamAttempt, exam: Exam | None) -> None:
+        """Tell the student their exam was graded (best-effort)."""
+        if attempt.user_id is None:
+            return
+        from app.services.social_service import NotificationService
+
+        title = exam.title if exam is not None else "Ujian"
+        pct = round((attempt.score_bp or 0) / 100)
+        status = "lulus" if attempt.passed else "belum lulus"
+        try:
+            await NotificationService(self.session).notify(
+                user_id=attempt.user_id,
+                kind="reward",
+                title=f"Nilai ujian keluar: {pct}%",
+                body=f"{title} — {status}.",
+                data={"exam_id": str(attempt.exam_id), "attempt_id": str(attempt.id)},
+            )
+        except Exception as exc:  # noqa: BLE001 - never block grading on notify
+            log.warning("grading_notify_failed", error=str(exc))
 
     async def _maybe_award_badges(self, attempt: ExamAttempt) -> None:
         """Flawless attempts earn the 'perfect exam' badge; MC aces get one too."""

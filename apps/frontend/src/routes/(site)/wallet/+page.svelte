@@ -18,6 +18,7 @@
   } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import { opt } from "$lib/stores/opt";
   import { connectWalletAddress, hasInjectedWallet } from "$lib/utils/metamask";
 
   const PAGE = 10;
@@ -179,6 +180,8 @@
       status = await api.get<BlockchainStatus>("/blockchain/status");
       assets = await api.get<WalletAssets>("/wallet/assets");
       await Promise.all([loadLedger(), loadRewards(), loadTxs()]);
+      // Keep the header OPT chip in step after swaps/transfers/withdrawals.
+      opt.refresh();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat dompet";
     } finally {

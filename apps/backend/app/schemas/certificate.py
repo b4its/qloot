@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CertificateOut(BaseModel):
@@ -20,6 +20,11 @@ class CertificateOut(BaseModel):
     edition_total: int
     issued_at: datetime
     revoked_at: datetime | None = None
+    revoked_reason: str | None = None
+
+
+class RevokeRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=255)
 
 
 class CertificateVerifyOut(BaseModel):

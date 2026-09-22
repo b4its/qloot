@@ -103,6 +103,7 @@ class RoomService:
         room.opens_at = room.opens_at or datetime.now(UTC)
         await self._emit(room.id, "opened", {"by": str(user.id)})
         await self.session.flush()
+        await self._notify_members(room, "Ruang dibuka", f"Ruang '{room.name}' sudah dibuka.")
         return room
 
     async def close(self, room_id: uuid.UUID, user: User) -> Room:
@@ -258,7 +259,45 @@ class RoomService:
         self.session.add(inv)
         await self._emit(room.id, "invited", {"email": email})
         await self.session.flush()
+        # If the invited email belongs to a registered user, notify them
+        # (kind "room") with the invite code.
+        if email:
+            from app.services.social_service import NotificationService
+
+            invitee = (
+                await self.session.execute(select(User).where(User.email == email.lower()))
+            ).scalar_one_or_none()
+            if invitee is not None:
+                await NotificationService(self.session).notify(
+                    user_id=invitee.id,
+                    kind="room",
+                    title=f"Undangan ke '{room.name}'",
+                    body="Kamu diundang ke ruang. Gunakan kode undangan untuk bergabung.",
+                    data={"room_id": str(room.id), "code": inv.code},
+                )
         return inv
+
+    async def _notify_members(self, room: Room, title: str, body: str) -> None:
+        """Best-effort notification to every member of a room (kind 'room')."""
+        from app.services.social_service import NotificationService
+
+        member_ids = list(
+            (
+                await self.session.execute(
+                    select(RoomMember.user_id).where(RoomMember.room_id == room.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if member_ids:
+            await NotificationService(self.session).notify_many(
+                user_ids=member_ids,
+                kind="room",
+                title=title,
+                body=body,
+                data={"room_id": str(room.id)},
+            )
 
     async def accept_invite(self, code: str, user: User) -> RoomMember:
         inv = (

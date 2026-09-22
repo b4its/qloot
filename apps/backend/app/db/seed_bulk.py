@@ -812,33 +812,22 @@ async def seed_ledger(session: AsyncSession, students) -> None:
 
 
 async def seed_badges(session: AsyncSession) -> None:
-    """Pad the badge catalog to ~200 achievements.
+    """Seed the *earnable* XP-milestone badges.
 
-    The curated 7 gameplay badges stay; we add themed milestone badges so the
-    catalog (and the on-chain id space) is rich without breaking existing ones.
+    These are exactly the badges the gamification milestone check awards (see
+    ``BadgeService.sync_xp_milestones``), so every catalogued badge can actually
+    be earned. (Previously this padded the catalog with 200 unreachable
+    ``achv-***`` rows that flooded the badge page with permanently-locked cards.)
     """
     from app.models.social import Badge
+    from app.services.social_service import XP_MILESTONES, _milestone_badge_row
 
-    if await _count(session, Badge) >= TARGET:
-        return
     existing = {c for (c,) in (await session.execute(select(Badge.code))).all()}
-    themes = ["XP", "Streak", "Quiz", "Course", "Quest", "Room", "Badge", "Leaderboard"]
-    icons = ["🥇", "🥈", "🥉", "🎖️", "🏆", "⭐", "🌟", "💠", "🔥", "🧭", "🚀", "📘"]
     made = 0
-    for i in range(1, TARGET + 1):
-        code = f"achv-{i:03d}"
+    for _xp, code, name, desc, icon, points in XP_MILESTONES:
         if code in existing:
             continue
-        theme = themes[i % len(themes)]
-        session.add(
-            Badge(
-                code=code,
-                name=f"{theme} Milestone {i:03d}",
-                description=f"Raih tonggak {theme} tingkat {i}.",
-                icon=icons[i % len(icons)],
-                points=5 * ((i % 20) + 1),
-            )
-        )
+        session.add(Badge(**_milestone_badge_row(code, name, desc, icon, points)))
         made += 1
     await session.flush()
     log.info("bulk_badges_ready", added=made)

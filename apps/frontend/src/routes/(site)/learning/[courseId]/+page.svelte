@@ -19,7 +19,7 @@
     try {
       course = await api.get<Course>(`/courses/${courseId}`);
       lessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`);
-      const all = await api.get<Progress[]>("/me/learning-progress");
+      const all = await api.get<Progress[]>("/me/learning-progress?limit=200");
       progress = Object.fromEntries(
         all.filter((p) => p.course_id === courseId).map((p) => [p.lesson_id, p]),
       );

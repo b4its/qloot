@@ -17,7 +17,16 @@ router = APIRouter(prefix="/gamification", tags=["gamification"])
 @router.get("/me")
 async def my_gamification(user: CurrentUser, db: DbSession):
     """The caller's XP breakdown, level, and progress toward the next level."""
-    return await GamificationService(db).xp_for_user(user.id)
+    service = GamificationService(db)
+    result = await service.xp_for_user(user.id)
+    # Award any XP-milestone badges the user has crossed (keeps the badge page
+    # free of permanently-locked filler; idempotent).
+    from app.db.session import transaction
+    from app.services.social_service import BadgeService
+
+    async with transaction(db):
+        await BadgeService(db).sync_xp_milestones(user=user, xp=int(result["xp"]))
+    return result
 
 
 @router.get("/levels")

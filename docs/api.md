@@ -52,6 +52,7 @@ it). `PATCH /courses/{id}` honours an explicit `null` to clear a field.
 ```
 POST /materials/upload
 GET  /materials/{material_id}
+GET  /materials/{material_id}/download                  (streams the stored PDF)
 POST /materials/{material_id}/generate-questions        (async job)
 POST /materials/{material_id}/generate-questions-sync   (dev)
 GET  /materials/{material_id}/questions                 (teacher: draft AI questions)
@@ -194,6 +195,24 @@ POST /admin/notifications            (admin broadcast)
 GET  /badges
 GET  /me/badges
 ```
+
+Every catalogued badge is earnable: the 7 curated gameplay badges plus XP
+milestones (`xp_500` … `xp_25000`) awarded automatically by
+`GET /gamification/me`.
+
+## Certificates
+
+```
+GET  /certificates
+POST /certificates/sync
+GET  /certificates/verify/{credential_id}          (public; name is masked)
+POST /certificates/{credential_id}/revoke          (admin)
+```
+
+Issuance is automatic when a student completes every published lesson of a
+course; the learner is notified. Verify is public and masks the recipient
+surname ("Budi Santoso" → "Budi S."); a revoked credential reports
+`valid=false` and drops out of the owner's listing.
 
 ## Community (social feed)
 

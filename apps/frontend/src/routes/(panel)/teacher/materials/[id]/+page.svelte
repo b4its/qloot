@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { api, ApiError } from "$lib/api/client";
+  import { api, ApiError, API_BASE } from "$lib/api/client";
   import type {
     Material,
     Question,
@@ -84,6 +84,10 @@
   async function generate() {
     error = "";
     message = "";
+    if (!(count >= 1 && count <= 20)) {
+      error = "Jumlah soal harus antara 1 dan 20.";
+      return;
+    }
     generated = [];
     job = null;
     stopPolling();
@@ -263,6 +267,14 @@
       <button class="btn-primary mt-3" on:click={saveRename} disabled={busy === "rename"}>
         {busy === "rename" ? "Menyimpan…" : "Simpan nama"}
       </button>
+      <a
+        class="btn-ghost mt-3 ml-2"
+        href={`${API_BASE}/api/v1/materials/${materialId}/download`}
+        target="_blank"
+        rel="noopener"
+      >
+        <Icon name="download" size="11px" /> Unduh PDF
+      </a>
     </div>
 
     <div class="card mt-4">
