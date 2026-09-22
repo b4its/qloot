@@ -62,7 +62,7 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
 - **AI (mock / Gemini / OpenAI-compatible)** — pembuatan soal dari PDF, penilaian esai,
   ringkasan materi, dan tanya-jawab berbasis materi; struktur output tervalidasi, retry,
   dan provider mock deterministik untuk pengembangan offline. Asisten belajar/karier
-  bernama **“Asisten Qlo”** (boleh dipanggil *Kulo*) dengan persona dari `ASSISTANT_NAME`.
+  bernama **“Asisten Qlo”** dengan persona dari `ASSISTANT_NAME`.
 - **Ujian** — timer otoritatif di server, autosave, submit idempoten, umpan-balik AI,
   skor kemiripan. Guru dapat membuat soal **pilihan ganda** (multiple choice) maupun esai;
   **pilihan ganda dinilai otomatis & instan** (tanpa AI) saat dikumpulkan — cocok untuk kuis

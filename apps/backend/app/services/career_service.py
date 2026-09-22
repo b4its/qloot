@@ -971,9 +971,11 @@ class CareerService:
             return None
         provider = get_ai_provider()
         context = (
-            f'Panggil dirimu "{settings.assistant_name}" (boleh dipanggil Kulo). '
-            "Bantu pelajar Indonesia soal jurusan, kampus, jalur masuk (SNBP/SNBT), "
-            "dan prospek karier. Jawab ringkas, ramah, dan dalam bahasa pengguna."
+            f'Nama kamu adalah "{settings.assistant_name}". '
+            "Kamu adalah asisten bimbingan belajar & karier untuk pelajar Indonesia: "
+            "bantu soal jurusan, kampus, jalur masuk (SNBP/SNBT), dan prospek karier. "
+            "Jawab ringkas, ramah, dan dalam bahasa pengguna. Jangan menyebut nama lain "
+            "selain namamu."
         )
         try:
             result = await provider.answer(
@@ -994,16 +996,18 @@ class CareerService:
         scored by how many distinct keywords hit, rather than first-match-wins.
         The personalisation branch reads the user's own data.
         """
+        from app.core.config import settings
+
         q = (question or "").lower()
         words = set(re.findall(r"\w+", q))
 
         kb: list[tuple[tuple[str, ...], str]] = [
             (
-                ("siapa", "qlo", "kulo", "qloot", "pembuat"),
+                ("siapa", "qlo", "qloot", "pembuat", "nama"),
                 (
-                    "Saya **Asisten Qlo** (boleh dipanggil **Kulo**) — asisten "
-                    "simulasi untuk membantu menjelajahi jurusan, kampus, jalur "
-                    "masuk (SNBP/SNBT) dan prospek karir."
+                    f"Saya **{settings.assistant_name}** — asisten bimbingan belajar & "
+                    "karier untuk membantu menjelajahi jurusan, kampus, jalur masuk "
+                    "(SNBP/SNBT) dan prospek karir."
                 ),
             ),
             (

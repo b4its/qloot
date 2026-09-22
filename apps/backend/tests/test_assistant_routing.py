@@ -68,3 +68,14 @@ async def test_assistant_skips_ai_for_mock_provider(session, monkeypatch):
 
     assert fake.calls == 0
     assert "Asisten Qlo" in reply["answer"]
+    # The old "Kulo" alias must no longer be advertised.
+    assert "Kulo" not in reply["answer"]
+
+
+@pytest.mark.asyncio
+async def test_assistant_kb_uses_configured_name(session, monkeypatch):
+    monkeypatch.setattr(settings, "ai_provider", "mock")
+    monkeypatch.setattr(settings, "assistant_name", "Asisten Qlo")
+    reply = await CareerService(session).assistant_reply(_User(), "siapa kamu?")
+    assert "Asisten Qlo" in reply["answer"]
+    assert "Kulo" not in reply["answer"]

@@ -13,7 +13,7 @@
   let messages: Msg[] = [
     {
       role: "bot",
-      text: "Hai! Saya **Asisten Qlo** (boleh dipanggil **Kulo**). Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
+      text: "Hai! Saya **Asisten Qlo**. Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
     },
   ];
   let input = "";
@@ -70,8 +70,7 @@
       <p class="mono-label">Panduan Karier · Asisten</p>
       <h1 class="mt-2 font-display text-3xl font-bold">Asisten Qlo</h1>
       <p class="mt-1 text-sm muted">
-        Pemandu berbasis aturan (simulasi) untuk pertanyaan belajar & karier — bisa dipanggil
-        <span class="font-medium">Kulo</span>.
+        Asisten bimbingan belajar & karier untuk pertanyaan jurusan, kampus, dan prospek karier.
       </p>
     </div>
     <a href="/career" class="btn-ghost">← Career home</a>
