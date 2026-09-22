@@ -7,7 +7,9 @@ import uuid
 from fastapi import APIRouter, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
+from app.core.errors import ForbiddenError, NotFoundError
 from app.db.session import transaction
+from app.models.exam import Exam
 from app.models.identity import User
 from app.schemas.quest import (
     FinalizeResult,
@@ -38,13 +40,23 @@ async def create_quest(payload: QuestCreate, user: TeacherUser, db: DbSession):
     data = payload.model_dump()
     rules = data.pop("rules")
     async with transaction(db):
+        # A quest may only reference an exam the caller owns (or any, for an
+        # admin) — otherwise a teacher could finalize rewards against someone
+        # else's exam.
+        exam_id = data.get("exam_id")
+        if exam_id is not None and not user.has_role("admin"):
+            exam = await db.get(Exam, exam_id)
+            if exam is None:
+                raise NotFoundError("Exam not found")
+            if exam.owner_id != user.id:
+                raise ForbiddenError("You do not own this exam")
         return await QuestService(db).create(user, rules, **data)
 
 
 @router.get("/{quest_id}", response_model=QuestDetailOut)
 async def get_quest(quest_id: uuid.UUID, user: CurrentUser, db: DbSession):
     service = QuestService(db)
-    quest = await service.get(quest_id)
+    quest = await service.get_visible(quest_id, user)
     rules = await service.list_rules(quest_id)
     # Validate the base fields first: validating QuestDetailOut directly would
     # read the lazy ``rules`` relationship and raise MissingGreenlet.
@@ -145,6 +157,8 @@ async def list_winners(
     offset: OffsetParam = 0,
 ):
     service = QuestService(db)
+    # A quest's winners are only readable where the quest itself is visible.
+    await service.get_visible(quest_id, user)
     winners = await service.list_winners(quest_id, limit=limit, offset=offset)
     rules = {r.rank: r for r in await service.list_rules(quest_id)}
     return [

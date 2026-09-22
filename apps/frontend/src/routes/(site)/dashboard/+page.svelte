@@ -54,18 +54,40 @@
 
   async function addGrade() {
     gradeMsg = "";
+    const value = Number(gradeValue);
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      gradeMsg = "Nilai harus antara 0 dan 100.";
+      return;
+    }
     gradeBusy = true;
     try {
       await api.post("/career/grades", {
         subject: gradeSubject,
-        grade: Number(gradeValue),
+        grade: value,
         term: gradeTerm,
       });
       grades = await api.get<GradeRow[]>("/career/grades");
       await reloadAcademic();
-      gradeMsg = `${gradeSubject}: ${gradeValue}`;
+      gradeMsg = `${gradeSubject}: ${value}`;
     } catch (e) {
       gradeMsg = e instanceof ApiError ? e.message : "Gagal menyimpan nilai";
+    } finally {
+      gradeBusy = false;
+    }
+  }
+
+  async function deleteGrade(g: GradeRow) {
+    if (!g.id) return;
+    if (!confirm(`Hapus nilai ${g.subject} (${g.term})?`)) return;
+    gradeMsg = "";
+    gradeBusy = true;
+    try {
+      await api.delete(`/career/grades/${g.id}`);
+      grades = await api.get<GradeRow[]>("/career/grades");
+      await reloadAcademic();
+      gradeMsg = `${g.subject} dihapus.`;
+    } catch (e) {
+      gradeMsg = e instanceof ApiError ? e.message : "Gagal menghapus nilai";
     } finally {
       gradeBusy = false;
     }
@@ -274,6 +296,16 @@
               <span class="badge badge-neutral">
                 {g.subject} · {g.grade}
                 <span class="muted">({g.term})</span>
+                {#if g.id}
+                  <button
+                    class="ml-1 hover:text-tertiary"
+                    on:click={() => deleteGrade(g)}
+                    disabled={gradeBusy}
+                    aria-label={`Hapus nilai ${g.subject}`}
+                  >
+                    <Icon name="xmark" size="9px" />
+                  </button>
+                {/if}
               </span>
             {/each}
           </div>

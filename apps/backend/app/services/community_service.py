@@ -123,6 +123,18 @@ class CommunityService:
             raise ForbiddenError("You can only delete your own posts")
         await self.session.delete(post)
 
+    async def delete_comment(self, user: User, comment_id: uuid.UUID) -> None:
+        """Delete a comment (author or admin) and decrement the post's count."""
+        comment = await self.session.get(CommunityComment, comment_id)
+        if comment is None:
+            raise NotFoundError("Comment not found")
+        if not user.has_role("admin") and comment.author_id != user.id:
+            raise ForbiddenError("You can only delete your own comments")
+        post = await self.session.get(CommunityPost, comment.post_id)
+        if post is not None:
+            post.comment_count = max(0, (post.comment_count or 0) - 1)
+        await self.session.delete(comment)
+
     async def stats(self) -> dict:
         members = int(
             (

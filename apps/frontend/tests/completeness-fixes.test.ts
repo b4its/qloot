@@ -45,6 +45,7 @@ import RoomPage from "$routes-site/rooms/[roomId]/+page.svelte";
 import CommunityPage from "$routes-site/community/+page.svelte";
 import CertificatesPage from "$routes-site/certificates/+page.svelte";
 import ProfilePage from "$routes-site/profile/+page.svelte";
+import { api } from "$lib/api/client";
 import { auth } from "../src/lib/stores/auth";
 
 const student = {
@@ -193,6 +194,62 @@ describe("certificates download produces a real document", () => {
     const link = (await screen.findByRole("link", { name: /linkedin/i })) as HTMLAnchorElement;
     expect(link.getAttribute("href")).toContain("certId=cred-1");
     expect(link.getAttribute("href")).toContain("name=Fisika");
+  });
+});
+
+describe("community comment deletion", () => {
+  const postWithComment = {
+    id: "p2",
+    author_name: "Andi",
+    handle: "0xabc",
+    body: "Post dengan komentar",
+    topic: "Umum",
+    like_count: 0,
+    comment_count: 1,
+    liked_by_me: false,
+    created_at: "2026-01-01T00:00:00Z",
+    comments: [],
+  };
+  beforeEach(() => {
+    cleanup();
+    get.mockReset();
+    auth.setUser(student);
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/community/posts?")) return Promise.resolve([postWithComment]);
+      if (path === "/community/topics") return Promise.resolve([{ topic: "Umum", count: 1 }]);
+      if (path === "/community/stats")
+        return Promise.resolve({ members: 1, posts: 1, comments: 1 });
+      if (path === "/community/posts/p2")
+        return Promise.resolve({
+          ...postWithComment,
+          comments: [
+            {
+              id: "cmt1",
+              author_id: student.id,
+              author_name: "Test User",
+              body: "Komentarku",
+              created_at: "2026-01-01T00:00:00Z",
+            },
+          ],
+        });
+      return Promise.resolve([]);
+    });
+  });
+  afterEach(() => auth.setUser(null));
+
+  it("shows a delete button for the user's own comment and calls the API", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    (api.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    render(CommunityPage);
+    // Open the comment thread (click the comment-count button).
+    await waitFor(() => expect(screen.getByText("Post dengan komentar")).toBeTruthy());
+    const commentBtn = screen.getByText("1").closest("button");
+    await fireEvent.click(commentBtn!);
+    await waitFor(() => expect(screen.getByText("Komentarku")).toBeTruthy());
+    const del = screen.getByRole("button", { name: /hapus komentar/i });
+    await fireEvent.click(del);
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith("/community/comments/cmt1"));
+    vi.restoreAllMocks();
   });
 });
 

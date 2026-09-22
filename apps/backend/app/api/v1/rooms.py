@@ -142,10 +142,16 @@ async def accept_invite(payload: AcceptInvite, user: CurrentUser, db: DbSession)
 
 
 @router.get("/{room_id}/live", response_model=list[LiveEntry])
-async def live_leaderboard(room_id: uuid.UUID, user: CurrentUser, db: DbSession):
+async def live_leaderboard(
+    room_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
     service = RoomService(db)
     await service.get_visible(room_id, user)
-    rows = await service.live_leaderboard(room_id)
+    rows = await service.live_leaderboard(room_id, limit=limit, offset=offset)
     return [LiveEntry(**r) for r in rows]
 
 

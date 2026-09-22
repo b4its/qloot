@@ -48,6 +48,14 @@
   async function create() {
     error = "";
     message = "";
+    if (newTask.title.trim().length < 2) {
+      error = "Judul tugas minimal 2 karakter.";
+      return;
+    }
+    if (Number(newTask.reward_amount) < 0) {
+      error = "Hadiah tidak boleh negatif.";
+      return;
+    }
     busy = "create";
     try {
       await api.post<Task>("/tasks", {
@@ -80,6 +88,10 @@
   async function saveEdit(t: Task) {
     if (editDraft.title.trim().length < 2) {
       error = "Judul tugas minimal 2 karakter.";
+      return;
+    }
+    if (Number(editDraft.reward_amount) < 0) {
+      error = "Hadiah tidak boleh negatif.";
       return;
     }
     error = "";

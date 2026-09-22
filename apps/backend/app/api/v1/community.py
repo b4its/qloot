@@ -94,6 +94,14 @@ async def topics(user: CurrentUser, db: DbSession):
     return await CommunityService(db).topics()
 
 
+@router.delete("/comments/{comment_id}", response_model=Message)
+async def delete_comment(comment_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    """Delete your own comment (or any, as an admin)."""
+    async with transaction(db):
+        await CommunityService(db).delete_comment(user, comment_id)
+    return Message(message="Comment deleted")
+
+
 @router.get("/stats", response_model=CommunityStatsOut)
 async def stats(user: CurrentUser, db: DbSession):
     return await CommunityService(db).stats()

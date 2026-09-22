@@ -51,6 +51,24 @@ class QuestService:
             raise NotFoundError("Quest not found")
         return quest
 
+    async def get_visible(self, quest_id: uuid.UUID, user: User) -> Quest:
+        """Return a quest the caller is allowed to read, else raise 404.
+
+        Mirrors ``list_all`` visibility: admins see anything, a teacher sees
+        their own quests, and everyone else sees only open/finalized quests. A
+        hidden quest 404s (never 403) so drafts are not enumerable by id.
+        """
+        quest = await self.get(quest_id)
+        if user.has_role("admin"):
+            return quest
+        if user.has_role("teacher"):
+            if quest.owner_id == user.id:
+                return quest
+            raise NotFoundError("Quest not found")
+        if quest.status in ("open", "finalized"):
+            return quest
+        raise NotFoundError("Quest not found")
+
     async def list_all(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Quest]:
         stmt = select(Quest).order_by(Quest.created_at.desc()).limit(limit).offset(offset)
         if not user.has_role("teacher", "admin"):

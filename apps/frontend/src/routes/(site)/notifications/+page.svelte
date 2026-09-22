@@ -13,6 +13,8 @@
   let error = "";
   let page = 1;
   let hasMore = false;
+  let markingAll = false;
+  let markingId = "";
 
   const iconFor: Record<string, { name: string; klass: string }> = {
     reward: { name: "gem", klass: "text-highlight" },
@@ -45,19 +47,24 @@
   }
 
   async function markAll() {
+    if (markingAll) return;
     error = "";
+    markingAll = true;
     try {
       await api.post("/notifications/read-all");
       notifications.clear();
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menandai semua dibaca";
+    } finally {
+      markingAll = false;
     }
   }
 
   async function markOne(n: Notification) {
-    if (n.read_at) return;
+    if (n.read_at || markingId === n.id) return;
     error = "";
+    markingId = n.id;
     try {
       await api.post(`/notifications/${n.id}/read`);
       const readAt = new Date().toISOString();
@@ -66,6 +73,8 @@
       await notifications.refresh();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menandai notifikasi";
+    } finally {
+      markingId = "";
     }
   }
 
@@ -80,8 +89,9 @@
       <p class="mono-label">Aktivitas</p>
       <h1 class="mt-2 font-display text-3xl font-bold">Notifikasi</h1>
     </div>
-    <button class="btn-ghost" on:click={markAll}>
-      <Icon name="check-double" size="12px" /> Tandai semua dibaca
+    <button class="btn-ghost" on:click={markAll} disabled={markingAll}>
+      <Icon name="check-double" size="12px" />
+      {markingAll ? "Menandai…" : "Tandai semua dibaca"}
     </button>
   </div>
 
@@ -108,6 +118,7 @@
             type="button"
             class="flex w-full items-start gap-3 p-5 text-left"
             class:opacity-60={n.read_at}
+            disabled={markingId === n.id}
             on:click={() => markOne(n)}
           >
             <span class="tile-neutral h-9 w-9">

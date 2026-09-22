@@ -169,11 +169,15 @@
     <p class="mt-1 font-mono text-sm muted">Kode ruang: {room.code}</p>
 
     <div class="mt-4 flex flex-wrap gap-2">
-      <button class="btn-ghost" on:click={join}>Gabung</button>
-      <button class="btn-ghost" on:click={leave}>Keluar</button>
+      <button class="btn-ghost" on:click={join} disabled={busy === "join"}>Gabung</button>
+      <button class="btn-ghost" on:click={leave} disabled={busy === "leave"}>Keluar</button>
       {#if canManage}
-        <button class="btn-primary" on:click={openRoom}>Buka ruang</button>
-        <button class="btn-ghost" on:click={closeRoom}>Tutup ruang</button>
+        <button class="btn-primary" on:click={openRoom} disabled={busy === "open"}>
+          Buka ruang
+        </button>
+        <button class="btn-ghost" on:click={closeRoom} disabled={busy === "close"}>
+          Tutup ruang
+        </button>
       {/if}
     </div>
 

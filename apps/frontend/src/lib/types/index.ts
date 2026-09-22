@@ -515,6 +515,7 @@ export interface ExamResultsReview {
 
 // --- Career guidance (simulated) ------------------------------------------
 export interface GradeRow {
+  id?: string | null;
   subject: string;
   grade: number;
   term: string;

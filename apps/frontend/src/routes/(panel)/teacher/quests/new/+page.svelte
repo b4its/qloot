@@ -27,6 +27,18 @@
   async function create() {
     error = "";
     message = "";
+    if (form.title.trim().length < 2) {
+      error = "Judul quest minimal 2 karakter.";
+      return;
+    }
+    if (!(form.top_n_winners >= 1 && form.top_n_winners <= 50)) {
+      error = "Jumlah pemenang harus antara 1 dan 50.";
+      return;
+    }
+    if (form.ranks.some((r) => r < 0)) {
+      error = "Hadiah tidak boleh negatif.";
+      return;
+    }
     busy = true;
     try {
       const rules = form.ranks.map((amount, i) => ({ rank: i + 1, reward_amount: amount }));

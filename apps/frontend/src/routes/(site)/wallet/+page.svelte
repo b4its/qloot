@@ -69,6 +69,8 @@
   let transferAmount = 0;
   let transferNote = "";
   let transferMsg = "";
+  let transferBusy = false;
+  let withdrawBusy = false;
 
   async function searchRecipients() {
     recipientBusy = true;
@@ -85,7 +87,8 @@
 
   async function transfer() {
     transferMsg = "";
-    if (!transferTarget || transferAmount <= 0) return;
+    if (!transferTarget || transferAmount <= 0 || transferBusy) return;
+    transferBusy = true;
     try {
       await api.post("/wallet/transfers", {
         to_user_id: transferTarget.user_id,
@@ -99,6 +102,8 @@
       await load();
     } catch (e) {
       transferMsg = e instanceof ApiError ? e.message : "Transfer gagal";
+    } finally {
+      transferBusy = false;
     }
   }
 
@@ -218,6 +223,8 @@
 
   async function withdraw() {
     withdrawMsg = "";
+    if (withdrawBusy) return;
+    withdrawBusy = true;
     try {
       await api.post("/wallet/withdrawals", {
         amount: Number(withdrawAmount),
@@ -227,6 +234,8 @@
       await load();
     } catch (e) {
       withdrawMsg = e instanceof ApiError ? e.message : "Penarikan gagal";
+    } finally {
+      withdrawBusy = false;
     }
   }
 
@@ -257,7 +266,9 @@
     aiMsg = "";
     aiBusy = true;
     try {
-      assets = await api.post<WalletAssets>("/wallet/ai-requests", { requests: Number(aiRequests) });
+      assets = await api.post<WalletAssets>("/wallet/ai-requests", {
+        requests: Number(aiRequests),
+      });
       aiMsg = `${aiRequests} request AI dibayar dengan ORT.`;
     } catch (e) {
       aiMsg = e instanceof ApiError ? e.message : "Gagal membayar request AI";
@@ -282,8 +293,8 @@
   <p class="mono-label">Web3</p>
   <h1 class="mt-2 font-display text-4xl font-bold">Dompet</h1>
   <p class="mt-1 muted">
-    Saldo aset digital kustodialmu. Semua reward on-chain masuk ke satu wallet bersama; bagianmu terfokus
-    pada akunmu dan dilacak dalam ledger double-entry.
+    Saldo aset digital kustodialmu. Semua reward on-chain masuk ke satu wallet bersama; bagianmu
+    terfokus pada akunmu dan dilacak dalam ledger double-entry.
   </p>
 
   {#if error}
@@ -368,7 +379,9 @@
             {swapBusy ? "Memproses…" : `Tukar ${formatNumber(swapCost())} OPT`}
           </button>
         </div>
-        <p class="mt-2 text-xs muted">Butuh {formatNumber(swapCost())} OPT · tersedia {formatNumber(assetBalance("OPT"))} OPT.</p>
+        <p class="mt-2 text-xs muted">
+          Butuh {formatNumber(swapCost())} OPT · tersedia {formatNumber(assetBalance("OPT"))} OPT.
+        </p>
         {#if swapMsg}<p class="mt-2 text-sm">{swapMsg}</p>{/if}
       </div>
 
@@ -490,7 +503,8 @@
           <button
             class="btn-primary"
             on:click={withdraw}
-            disabled={withdrawAmount <= 0 || withdrawAddr.length !== 42}>Minta penarikan</button
+            disabled={withdrawBusy || withdrawAmount <= 0 || withdrawAddr.length !== 42}
+            >{withdrawBusy ? "Memproses…" : "Minta penarikan"}</button
           >
           {#if withdrawMsg}<p class="text-sm muted">{withdrawMsg}</p>{/if}
         </div>
@@ -554,7 +568,8 @@
           <button
             class="btn-primary"
             on:click={transfer}
-            disabled={!transferTarget || transferAmount <= 0}>Kirim</button
+            disabled={transferBusy || !transferTarget || transferAmount <= 0}
+            >{transferBusy ? "Mengirim…" : "Kirim"}</button
           >
           {#if transferMsg}<p class="text-sm muted">{transferMsg}</p>{/if}
         </div>

@@ -24,6 +24,7 @@
 
   async function load() {
     loading = true;
+    error = "";
     try {
       subjects = await api.get<Course[]>(`/courses?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
       hasMore = subjects.length === PAGE;

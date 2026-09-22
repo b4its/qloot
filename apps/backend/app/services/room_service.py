@@ -177,7 +177,9 @@ class RoomService:
         )
         return [(m, name) for m, name in (await self.session.execute(stmt)).all()]
 
-    async def live_leaderboard(self, room_id: uuid.UUID) -> list[dict]:
+    async def live_leaderboard(
+        self, room_id: uuid.UUID, *, limit: int = 200, offset: int = 0
+    ) -> list[dict]:
         """Ranking of room members by best exam score in this room.
 
         Includes every member (each row carries ``is_present`` so the UI can
@@ -219,6 +221,8 @@ class RoomService:
             .outerjoin(totals, totals.c.user_id == RoomMember.user_id)
             .where(RoomMember.room_id == room_id)
             .order_by(func.coalesce(totals.c.score, 0).desc(), RoomMember.user_id.asc())
+            .limit(limit)
+            .offset(offset)
         )
         rows = (await self.session.execute(stmt)).all()
         return [

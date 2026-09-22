@@ -51,6 +51,14 @@ async def upsert_grade(payload: GradeIn, user: CurrentUser, db: DbSession):
         )
 
 
+@router.delete("/grades/{grade_id}", response_model=Message)
+async def delete_grade(grade_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    """Remove one of your own academic grades."""
+    async with transaction(db):
+        await CareerService(db).delete_grade(user.id, grade_id)
+    return Message(message="Grade deleted")
+
+
 # --- personality -----------------------------------------------------------
 @router.get("/personality", response_model=PersonalityOut | None)
 async def get_personality(user: CurrentUser, db: DbSession):

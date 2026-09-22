@@ -348,6 +348,20 @@ class CareerService:
         await self.session.flush()
         return existing
 
+    async def delete_grade(self, user_id: uuid.UUID, grade_id: uuid.UUID) -> None:
+        """Remove one of the caller's academic grades."""
+        grade = (
+            await self.session.execute(
+                select(AcademicGrade).where(
+                    AcademicGrade.id == grade_id, AcademicGrade.user_id == user_id
+                )
+            )
+        ).scalar_one_or_none()
+        if grade is None:
+            raise NotFoundError("Grade not found")
+        await self.session.delete(grade)
+        await self.session.flush()
+
     async def dashboard(self, user: User) -> dict:
         grades = await self.list_grades(user.id)
         if not grades:

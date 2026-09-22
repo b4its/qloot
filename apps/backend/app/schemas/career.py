@@ -17,6 +17,7 @@ class GradeIn(BaseModel):
 
 
 class GradeOut(ORMModel):
+    id: uuid.UUID | None = None
     subject: str
     grade: int
     term: str

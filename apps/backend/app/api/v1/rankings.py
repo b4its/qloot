@@ -112,6 +112,11 @@ async def room_ranking(
 ):
     from app.models.exam import Exam
     from app.models.room import RoomMember
+    from app.services.room_service import RoomService
+
+    # A room's leaderboard inherits the room's read visibility: a private room's
+    # roster/scores must not leak to non-members (404, like the room endpoints).
+    await RoomService(db).get_visible(room_id, user)
 
     # Only count attempts for exams that belong to this room, otherwise scores
     # from unrelated exams would leak into the room leaderboard.
@@ -163,6 +168,11 @@ async def quest_ranking(
     limit: LimitParam = 200,
     offset: OffsetParam = 0,
 ):
+    from app.services.quest_service import QuestService
+
+    # The quest leaderboard inherits the quest's read visibility (draft quests
+    # are not enumerable by id).
+    await QuestService(db).get_visible(quest_id, user)
     stmt = (
         select(QuestWinner, User.full_name, RewardAllocation.amount, RewardAllocation.status)
         .join(User, User.id == QuestWinner.user_id)

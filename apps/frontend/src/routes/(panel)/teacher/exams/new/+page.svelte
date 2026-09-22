@@ -17,6 +17,18 @@
   async function create() {
     error = "";
     message = "";
+    if (form.title.trim().length < 2) {
+      error = "Judul ujian minimal 2 karakter.";
+      return;
+    }
+    if (!(form.duration_minutes >= 1 && form.duration_minutes <= 600)) {
+      error = "Durasi harus antara 1 dan 600 menit.";
+      return;
+    }
+    if (!(form.passing_score_bp >= 0 && form.passing_score_bp <= 10000)) {
+      error = "Passing score harus antara 0 dan 10000 bp.";
+      return;
+    }
     busy = true;
     try {
       const exam = await api.post<Exam>("/exams", form);

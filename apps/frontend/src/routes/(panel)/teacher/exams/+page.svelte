@@ -8,7 +8,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
-  import { examCategory, type ExamCategory } from "$lib/utils/format";
+  import { examCategory, paginate, type ExamCategory } from "$lib/utils/format";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -23,7 +23,6 @@
   let message = "";
   let busy = "";
   let page = 1;
-  let hasMore = false;
 
   $: counts = {
     all: exams.length,
@@ -31,7 +30,12 @@
     essay: exams.filter((e) => examCategory(e) === "essay").length,
     mixed: exams.filter((e) => examCategory(e) === "mixed").length,
   };
-  $: visibleExams = filter === "all" ? exams : exams.filter((e) => examCategory(e) === filter);
+  // Filter over the *whole* set (not just the current page) so tab counts and
+  // category filtering are accurate, then paginate the filtered list.
+  $: filteredExams = filter === "all" ? exams : exams.filter((e) => examCategory(e) === filter);
+  $: totalPages = Math.max(1, Math.ceil(filteredExams.length / PAGE));
+  $: if (page > totalPages) page = 1;
+  $: visibleExams = paginate(filteredExams, page, PAGE);
 
   const CATEGORY_BADGE: Record<ExamCategory, string> = {
     multiple_choice: "PG",
@@ -42,13 +46,13 @@
 
   function selectFilter(f: Filter) {
     filter = f;
+    page = 1;
   }
 
   async function load() {
     loading = true;
     try {
-      exams = await api.get<Exam[]>(`/exams?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
-      hasMore = exams.length === PAGE;
+      exams = await api.get<Exam[]>("/exams?limit=200");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
     } finally {
@@ -57,10 +61,7 @@
   }
 
   function go(delta: number) {
-    const next = page + delta;
-    if (next < 1 || (delta > 0 && !hasMore)) return;
-    page = next;
-    load();
+    page = Math.min(totalPages, Math.max(1, page + delta));
   }
 
   async function togglePublish(exam: Exam) {
@@ -251,7 +252,7 @@
   <Pagination
     {page}
     pageSize={PAGE}
-    {hasMore}
+    total={filteredExams.length}
     {loading}
     label="ujian"
     onPrev={() => go(-1)}

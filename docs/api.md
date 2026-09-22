@@ -179,6 +179,21 @@ GET  /badges
 GET  /me/badges
 ```
 
+## Community (social feed)
+
+```
+GET    /community/posts                 (?topic=&limit=&offset=)
+POST   /community/posts
+GET    /community/posts/{post_id}
+DELETE /community/posts/{post_id}       (author/admin)
+POST   /community/posts/{post_id}/like
+GET    /community/posts/{post_id}/comments
+POST   /community/posts/{post_id}/comments
+DELETE /community/comments/{comment_id} (author/admin)
+GET    /community/topics
+GET    /community/stats
+```
+
 ## Teacher
 
 ```
@@ -192,6 +207,7 @@ GET  /teacher/analytics
 GET   /career/dashboard
 GET   /career/grades
 POST  /career/grades
+DELETE /career/grades/{grade_id}      # remove one of your own grades
 
 GET   /career/personality
 POST  /career/personality
@@ -268,3 +284,6 @@ teacher can see exactly which questions each student got right or wrong.
 - Errors: `{ "error": { "code", "message", "detail" } }`.
 - Every response carries `X-Request-ID`.
 - Object-level authorization: owners (or admins) only, never by id alone.
+- Read visibility mirrors the list endpoints: a draft quest, a private room and
+  their dependent views (winners, rankings, participants, live, events) `404`
+  for users who are not the owner/member/admin — existence is never leaked.

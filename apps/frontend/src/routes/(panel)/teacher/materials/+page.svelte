@@ -24,6 +24,7 @@
 
   async function load() {
     loading = true;
+    error = "";
     try {
       materials = await api.get<Material[]>(`/materials?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
       hasMore = materials.length === PAGE;

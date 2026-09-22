@@ -14,6 +14,7 @@
   let error = "";
   let page = 1;
   let hasMore = false;
+  let busy = "";
   $: canManage = hasRole($auth.user, "teacher");
 
   async function load() {
@@ -42,21 +43,29 @@
   }
 
   async function finalize(q: Quest) {
+    if (busy) return;
     error = "";
+    busy = `f-${q.id}`;
     try {
       await api.post(`/quests/${q.id}/finalize`);
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal finalisasi quest";
+    } finally {
+      busy = "";
     }
   }
   async function publish(q: Quest) {
+    if (busy) return;
     error = "";
+    busy = `p-${q.id}`;
     try {
       await api.post(`/quests/${q.id}/publish`);
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mempublikasikan quest";
+    } finally {
+      busy = "";
     }
   }
 
@@ -131,11 +140,17 @@
 
           {#if canManage}
             <div class="mt-3 flex gap-2">
-              {#if q.status !== "open"}<button class="btn-ghost" on:click={() => publish(q)}
-                  >Publikasikan</button
+              {#if q.status !== "open"}<button
+                  class="btn-ghost"
+                  on:click={() => publish(q)}
+                  disabled={busy === `p-${q.id}`}
+                  >{busy === `p-${q.id}` ? "…" : "Publikasikan"}</button
                 >{/if}
-              {#if q.status !== "finalized"}<button class="btn-primary" on:click={() => finalize(q)}
-                  >Finalisasi pemenang</button
+              {#if q.status !== "finalized"}<button
+                  class="btn-primary"
+                  on:click={() => finalize(q)}
+                  disabled={busy === `f-${q.id}`}
+                  >{busy === `f-${q.id}` ? "Memproses…" : "Finalisasi pemenang"}</button
                 >{/if}
             </div>
           {/if}

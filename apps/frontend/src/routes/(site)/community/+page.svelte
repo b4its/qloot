@@ -116,12 +116,15 @@
   }
 
   async function toggleLike(p: Post) {
-    if (!user) return;
+    if (!user || busy === `like-${p.id}`) return;
+    busy = `like-${p.id}`;
     try {
       const updated = await api.post<Post>(`/community/posts/${p.id}/like`);
       posts = posts.map((x) => (x.id === p.id ? { ...x, ...updated } : x));
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menyukai kiriman";
+    } finally {
+      busy = "";
     }
   }
 
@@ -183,6 +186,23 @@
       posts = posts.map((x) => (x.id === p.id ? { ...x, comment_count: x.comment_count + 1 } : x));
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengirim komentar";
+    } finally {
+      busy = "";
+    }
+  }
+
+  /** Delete your own comment (or any, as an admin). */
+  async function deleteComment(p: Post, c: Comment) {
+    if (!confirm("Hapus komentar ini?")) return;
+    busy = `cd-${c.id}`;
+    try {
+      await api.delete(`/community/comments/${c.id}`);
+      posts = posts.map((x) =>
+        x.id === p.id ? { ...x, comment_count: Math.max(0, x.comment_count - 1) } : x,
+      );
+      await loadComments(p);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus komentar";
     } finally {
       busy = "";
     }
@@ -343,13 +363,23 @@
               {#each f.comments ?? [] as c (c.id)}
                 <div class="flex items-start gap-2 text-sm">
                   <Icon name="user" size="11px" class="mt-1 muted" />
-                  <div>
+                  <div class="flex-1">
                     <p>
                       <span class="font-medium">{c.author_name}</span>
                       <span class="text-xs muted"> · {relativeTime(c.created_at)}</span>
                     </p>
                     <p class="text-ink2">{c.body}</p>
                   </div>
+                  {#if user && (c.author_id === user.id || user.roles?.includes("admin"))}
+                    <button
+                      class="btn-icon flex-none !text-tertiary hover:!border-tertiary"
+                      on:click={() => deleteComment(f, c)}
+                      disabled={busy === `cd-${c.id}`}
+                      aria-label="Hapus komentar"
+                    >
+                      <Icon name="trash" size="10px" />
+                    </button>
+                  {/if}
                 </div>
               {/each}
               {#if (f.comments ?? []).length === 0}

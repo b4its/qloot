@@ -15,6 +15,7 @@
   let joinError = "";
   let joinLoading = false;
   let showCreate = false;
+  let createBusy = false;
   let currentPage = 1;
   let newRoom = { name: "", max_participants: 100, is_public: true };
 
@@ -25,6 +26,7 @@
 
   async function load() {
     loading = true;
+    error = "";
     try {
       rooms = await api.get<Room[]>("/rooms?limit=200");
     } catch (e) {
@@ -50,12 +52,24 @@
   }
 
   async function createRoom() {
+    error = "";
+    if (newRoom.name.trim().length < 2) {
+      error = "Nama ruang minimal 2 karakter.";
+      return;
+    }
+    if (!(newRoom.max_participants >= 2 && newRoom.max_participants <= 1000)) {
+      error = "Kapasitas harus antara 2 dan 1000 peserta.";
+      return;
+    }
+    createBusy = true;
     try {
       const room = await api.post<Room>("/rooms", newRoom);
       showCreate = false;
       window.location.href = `/rooms/${room.id}`;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membuat ruang";
+    } finally {
+      createBusy = false;
     }
   }
 
@@ -105,8 +119,10 @@
       <label class="mt-3 flex items-center gap-2 text-sm">
         <input type="checkbox" bind:checked={newRoom.is_public} /> Ruang publik
       </label>
-      <button class="btn-primary mt-4" on:click={createRoom} disabled={newRoom.name.length < 2}
-        >Buat</button
+      <button
+        class="btn-primary mt-4"
+        on:click={createRoom}
+        disabled={createBusy || newRoom.name.length < 2}>{createBusy ? "Membuat…" : "Buat"}</button
       >
     </div>
   {/if}

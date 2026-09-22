@@ -22,7 +22,7 @@
     try {
       analytics = await api.get<TeacherAnalytics>("/teacher/analytics");
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "";
+      error = e instanceof ApiError ? e.message : "Gagal memuat analitik";
     }
   });
 </script>
