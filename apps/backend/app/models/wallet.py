@@ -47,6 +47,31 @@ class WalletAccount(Base, TimestampMixin):
     is_frozen: Mapped[bool] = mapped_column(default=False, nullable=False)
 
 
+class WalletAssetBalance(Base, TimestampMixin):
+    """Per-user balance of a non-OPT QLoot asset (QTC / ORT).
+
+    OPT (the base currency) is tracked by ``WalletAccount.cached_balance`` and
+    the double-entry ledger. QTC/ORT are secondary assets obtained by swapping
+    OPT through the OryphemProxy (ORX); their balances are cached here.
+    """
+
+    __tablename__ = "wallet_asset_balances"
+    __table_args__ = (UniqueConstraint("user_id", "asset", name="uq_wallet_asset_user_asset"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Asset key: "QTC" or "ORT".
+    asset: Mapped[str] = mapped_column(String(8), nullable=False)
+    cached_balance: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+
+
 class WalletLedgerEntry(Base):
     """Append-only double-entry rows. Never UPDATE; only INSERT."""
 

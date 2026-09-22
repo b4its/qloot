@@ -131,17 +131,19 @@ After deployment, transfer roles to the multisig and revoke from the deployer EO
 
 ## What is (and isn't) on-chain
 
-**On-chain**: token balances, XP/levels, course enrollment/completion counts,
-badges and achievements, reward events, treasury deposits/withdrawals,
-pause/role changes, tx status, gas.
+**On-chain**: asset balances (OPT/QTC/ORT), mint/burn/reward events, ORX swaps
+and AI-request burns, per-asset supply + caps, pause state, tx status, gas.
 
 **Off-chain**: passwords, sessions, emails, names, exam answers, learning
-documents, AI feedback, question drafts.
+documents, AI feedback, question drafts, and the gamification layer (XP, levels,
+badges, courses, rankings).
 
-> "Everything is on Etherscan" is scoped: all **asset, XP and reward activity**
-> is on-chain, while **learning content and personal data** stays off-chain.
+> "Everything is on Etherscan" is scoped: all **asset and reward activity** is
+> on-chain, while **learning content and personal data** stays off-chain.
 
 ## Provenance
 
-Includes an upgrade path for the original reward contract. If you use the
-interface `IQLootAcademy`, `OryphemToken` implements every method.
+`OryphemToken` (OPT) is the base currency; `QlootChain` (QTC) and
+`OryphemIntelligence` (ORT) are the secondary assets; `OryphemProxy` (ORX) routes
+conversions between them. The external interfaces live in
+`contracts/interfaces/IOryphemAssets.sol` (`IOryphemAsset` + `IOryphemProxy`).

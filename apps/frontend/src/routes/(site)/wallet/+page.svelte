@@ -1,7 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { Wallet, LedgerEntry, Reward, BlockchainStatus, BlockchainTx } from "$lib/types";
+  import type {
+    Wallet,
+    WalletAssets,
+    LedgerEntry,
+    Reward,
+    BlockchainStatus,
+    BlockchainTx,
+  } from "$lib/types";
   import {
     formatDate,
     formatNumber,
@@ -15,6 +22,7 @@
 
   const PAGE = 10;
   let wallet: Wallet | null = null;
+  let assets: WalletAssets | null = null;
   let ledger: LedgerEntry[] = [];
   let rewards: Reward[] = [];
   let status: BlockchainStatus | null = null;
@@ -24,6 +32,17 @@
   let withdrawAmount = 0;
   let withdrawAddr = "";
   let withdrawMsg = "";
+
+  // ORX swap (OPT -> QTC/ORT) state.
+  const ORX_RATES: Record<string, number> = { ORT: 50, QTC: 1000 };
+  let swapAsset = "ORT";
+  let swapAmount = 0;
+  let swapBusy = false;
+  let swapMsg = "";
+  // AI request (ORT spend) state.
+  let aiRequests = 1;
+  let aiBusy = false;
+  let aiMsg = "";
 
   // Personal wallet ("wallet saya") editing.
   let walletAddrDraft = "";
@@ -153,6 +172,7 @@
       walletAddrDraft = wallet.withdrawal_address ?? "";
       if (!withdrawAddr) withdrawAddr = wallet.withdrawal_address ?? "";
       status = await api.get<BlockchainStatus>("/blockchain/status");
+      assets = await api.get<WalletAssets>("/wallet/assets");
       await Promise.all([loadLedger(), loadRewards(), loadTxs()]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat dompet";
@@ -210,6 +230,46 @@
     }
   }
 
+  function swapCost(): number {
+    return (ORX_RATES[swapAsset] ?? 0) * Number(swapAmount || 0);
+  }
+
+  async function swap() {
+    swapMsg = "";
+    swapBusy = true;
+    try {
+      assets = await api.post<WalletAssets>("/wallet/swap", {
+        asset: swapAsset,
+        amount: Number(swapAmount),
+      });
+      wallet = await api.get<Wallet>("/wallet");
+      swapMsg = `Berhasil menukar ${formatNumber(swapCost())} OPT menjadi ${swapAmount} ${swapAsset}.`;
+      swapAmount = 0;
+      await Promise.all([loadLedger(), loadRewards(), loadTxs()]);
+    } catch (e) {
+      swapMsg = e instanceof ApiError ? e.message : "Penukaran gagal";
+    } finally {
+      swapBusy = false;
+    }
+  }
+
+  async function payAi() {
+    aiMsg = "";
+    aiBusy = true;
+    try {
+      assets = await api.post<WalletAssets>("/wallet/ai-requests", { requests: Number(aiRequests) });
+      aiMsg = `${aiRequests} request AI dibayar dengan ORT.`;
+    } catch (e) {
+      aiMsg = e instanceof ApiError ? e.message : "Gagal membayar request AI";
+    } finally {
+      aiBusy = false;
+    }
+  }
+
+  function assetBalance(asset: string): number {
+    return assets?.assets.find((a) => a.asset === asset)?.balance ?? 0;
+  }
+
   onMount(() => {
     metamaskAvailable = hasInjectedWallet();
     load();
@@ -261,7 +321,7 @@
       <div class="card">
         <div class="mono-label">Aset digital QLoot</div>
         <p class="mt-1 text-xs muted">
-          Saldo di dompet ini adalah OPT. Aset lain diperoleh lewat
+          Tiga aset ERC-1155. Tukar OPT menjadi aset lain lewat
           <span class="text-primary">OryphemProxy (ORX)</span>: 1 ORT = 50 OPT, 1 QTC = 1000 OPT.
         </p>
         <div class="mt-3 grid gap-3 text-sm sm:grid-cols-3">
@@ -269,18 +329,67 @@
             <span class="badge badge-indigo">OPT</span>
             <p class="mt-1 font-medium">OryphemToken</p>
             <p class="text-xs muted">Mata uang dasar · tanpa batas</p>
+            <p class="mt-1 font-mono text-highlight">{formatNumber(assetBalance("OPT"))}</p>
           </div>
           <div>
             <span class="badge badge-indigo">QTC</span>
             <p class="mt-1 font-medium">QlootChain</p>
             <p class="text-xs muted">Sertifikat &amp; pesan terenkripsi · cap 1e15</p>
+            <p class="mt-1 font-mono text-highlight">{formatNumber(assetBalance("QTC"))}</p>
           </div>
           <div>
             <span class="badge badge-indigo">ORT</span>
             <p class="mt-1 font-medium">OryphemIntelligence</p>
             <p class="text-xs muted">Kredit AI (1 request = 1 ORT)</p>
+            <p class="mt-1 font-mono text-highlight">{formatNumber(assetBalance("ORT"))}</p>
           </div>
         </div>
+      </div>
+
+      <div class="card">
+        <h2 class="hud font-display text-lg font-bold">Tukar OPT lewat ORX</h2>
+        <div class="mt-3 grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <label class="block">
+            <span class="mono-label">Aset tujuan</span>
+            <select class="input mt-1" bind:value={swapAsset}>
+              <option value="ORT">ORT · 50 OPT / unit</option>
+              <option value="QTC">QTC · 1000 OPT / unit</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="mono-label">Jumlah ({swapAsset})</span>
+            <input class="input mt-1" type="number" min="1" bind:value={swapAmount} />
+          </label>
+          <button
+            class="btn-primary"
+            on:click={swap}
+            disabled={swapBusy || swapAmount <= 0 || swapCost() > assetBalance("OPT")}
+          >
+            {swapBusy ? "Memproses…" : `Tukar ${formatNumber(swapCost())} OPT`}
+          </button>
+        </div>
+        <p class="mt-2 text-xs muted">Butuh {formatNumber(swapCost())} OPT · tersedia {formatNumber(assetBalance("OPT"))} OPT.</p>
+        {#if swapMsg}<p class="mt-2 text-sm">{swapMsg}</p>{/if}
+      </div>
+
+      <div class="card">
+        <h2 class="hud font-display text-lg font-bold">Bayar layanan AI (ORT)</h2>
+        <p class="mt-1 text-xs muted">1 request = 1 ORT. ORT dibakar lewat OryphemProxy.</p>
+        <div class="mt-3 flex items-end gap-3">
+          <label class="block w-32">
+            <span class="mono-label">Request</span>
+            <input class="input mt-1" type="number" min="1" bind:value={aiRequests} />
+          </label>
+          <button
+            class="btn-secondary"
+            on:click={payAi}
+            disabled={aiBusy || aiRequests <= 0 || aiRequests > assetBalance("ORT")}
+          >
+            {aiBusy ? "Memproses…" : "Bayar dengan ORT"}
+          </button>
+        </div>
+        <p class="mt-2 text-xs muted">ORT tersedia: {formatNumber(assetBalance("ORT"))}.</p>
+        {#if aiMsg}<p class="mt-2 text-sm">{aiMsg}</p>{/if}
       </div>
     </div>
 

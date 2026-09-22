@@ -33,9 +33,18 @@ async def admin_status(admin: AdminUser):
 
 @router.get("/contract")
 async def contract(db: DbSession, admin: AdminUser):
+    """Configured QLoot contracts + any recorded deployments.
+
+    The authoritative asset/router addresses come from configuration
+    (`client.admin_status()["assets"]`); the `deployments` section is an
+    optional on-record log (e.g. imported from a deployment manifest).
+    """
     stmt = select(ContractDeployment).where(ContractDeployment.is_active.is_(True))
     deployments = (await db.execute(stmt)).scalars().all()
+    client_status = get_chain_client().admin_status()
     return {
+        "assets": client_status.get("assets", {}),
+        "treasury": client_status.get("treasury_address"),
         "deployments": [
             {
                 "network": d.network,
@@ -47,7 +56,7 @@ async def contract(db: DbSession, admin: AdminUser):
             }
             for d in deployments
         ],
-        "client": get_chain_client().admin_status(),
+        "client": client_status,
     }
 
 

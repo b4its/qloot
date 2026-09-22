@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { auth } from "$lib/stores/auth";
   import { notifications } from "$lib/stores/notifications";
-  import { opc } from "$lib/stores/opc";
+  import { opt } from "$lib/stores/opt";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import OpcChip from "$lib/components/OpcChip.svelte";
@@ -26,7 +26,7 @@
     // direct landing on `/` and keeps the header state fresh.
     auth.load();
     notifications.refresh();
-    opc.refresh();
+    opt.refresh();
   });
 
   function goTo(id: string) {
@@ -38,7 +38,7 @@
   async function logout() {
     await auth.logout();
     notifications.clear();
-    opc.reset();
+    opt.reset();
     window.location.href = "/";
   }
 </script>

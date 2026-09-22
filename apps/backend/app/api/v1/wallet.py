@@ -14,10 +14,14 @@ from app.db.session import transaction
 from app.models.identity import User
 from app.models.wallet import RewardAllocation, WalletLedgerEntry, WithdrawalRequest
 from app.schemas.wallet import (
+    AIRequestIn,
+    AssetBalanceOut,
     LedgerEntryOut,
     RewardOut,
+    SwapRequestIn,
     TransferRequest,
     WalletAddressUpdate,
+    WalletAssetsOut,
     WalletOut,
     WithdrawalOut,
     WithdrawalRequestIn,
@@ -27,6 +31,16 @@ from app.services.reward_engine import RewardEngine
 from app.services.wallet_service import effective_wallet_address, set_wallet_address
 
 router = APIRouter()
+
+# Assets a user can obtain by swapping OPT through the OryphemProxy.
+SWAPPABLE_ASSETS = ("QTC", "ORT")
+
+
+def _asset_balance_out(asset: str, balance: int) -> AssetBalanceOut:
+    meta = settings.ASSET_META[asset]
+    return AssetBalanceOut(
+        asset=asset, name=meta["name"], symbol=meta["symbol"], balance=balance, role=meta["role"]
+    )
 
 
 async def _account_out(db, user: User) -> WalletOut:
@@ -47,6 +61,111 @@ async def _account_out(db, user: User) -> WalletOut:
 @router.get("", response_model=WalletOut)
 async def get_wallet(user: CurrentUser, db: DbSession):
     return await _account_out(db, user)
+
+
+@router.get("/assets", response_model=WalletAssetsOut)
+async def get_wallet_assets(user: CurrentUser, db: DbSession):
+    """Per-asset balances for the caller (OPT from the ledger, QTC/ORT cached)."""
+    engine = RewardEngine(db)
+    account = await engine.get_or_create_account(user.id)
+    assets = [
+        _asset_balance_out("OPT", account.cached_balance),
+        _asset_balance_out("QTC", await engine.asset_balance(user.id, "QTC")),
+        _asset_balance_out("ORT", await engine.asset_balance(user.id, "ORT")),
+    ]
+    return WalletAssetsOut(user_id=user.id, network=settings.blockchain_network, assets=assets)
+
+
+@router.post("/swap", response_model=WalletAssetsOut)
+async def swap_opt(payload: SwapRequestIn, user: CurrentUser, db: DbSession):
+    """Convert OPT into QTC/ORT through the OryphemProxy (ORX).
+
+    Debits the OPT cost from the ledger, credits the target asset balance and
+    enqueues an on-chain `swap` outbox item (the worker performs the real
+    `swapOptFor` on the router).
+    """
+    asset = payload.asset.upper()
+    rate = settings.orx_rate(asset)
+    opt_cost = rate * payload.amount
+
+    async with transaction(db):
+        engine = RewardEngine(db)
+        account = await engine.get_or_create_account(user.id)
+        if account.is_frozen:
+            raise ConflictError("Wallet is frozen")
+        if account.cached_balance < opt_cost:
+            raise ConflictError("Insufficient OPT balance")
+        # Debit OPT + credit target atomically.
+        await engine.debit_for_withdrawal(
+            user=user,
+            amount=opt_cost,
+            withdrawal_id=uuid.uuid4(),
+            destination=f"ORX:{asset}",
+        )
+        await engine.credit_asset(user_id=user.id, asset=asset, amount=payload.amount)
+
+        from app.models.wallet import TransactionOutbox
+
+        nonce = uuid.uuid4().hex[:16]
+        db.add(
+            TransactionOutbox(
+                topic="swap",
+                idempotency_key=tx_idempotency_key("swap", str(user.id), asset, nonce)[:64],
+                payload={
+                    "asset": asset,
+                    "amount": payload.amount,
+                    "opt_cost": opt_cost,
+                    "user_ref": user.chain_user_ref,
+                },
+                status="pending",
+            )
+        )
+        await db.flush()
+        out = await _assets_out(db, user, engine)
+    return out
+
+
+async def _assets_out(db, user: User, engine: RewardEngine) -> WalletAssetsOut:
+    account = await engine.get_or_create_account(user.id)
+    return WalletAssetsOut(
+        user_id=user.id,
+        network=settings.blockchain_network,
+        assets=[
+            _asset_balance_out("OPT", account.cached_balance),
+            _asset_balance_out("QTC", await engine.asset_balance(user.id, "QTC")),
+            _asset_balance_out("ORT", await engine.asset_balance(user.id, "ORT")),
+        ],
+    )
+
+
+@router.post("/ai-requests", response_model=WalletAssetsOut)
+async def pay_ai_requests(payload: AIRequestIn, user: CurrentUser, db: DbSession):
+    """Spend ORT on AI usage (1 request = 1 ORT).
+
+    Debits ORT from the user's balance and enqueues an on-chain `ai_request`
+    outbox item (the worker burns ORT via the OryphemProxy).
+    """
+    async with transaction(db):
+        engine = RewardEngine(db)
+        await engine.debit_asset(user_id=user.id, asset="ORT", amount=payload.requests)
+
+        from app.models.wallet import TransactionOutbox
+
+        nonce = uuid.uuid4().hex[:16]
+        db.add(
+            TransactionOutbox(
+                topic="ai_request",
+                idempotency_key=tx_idempotency_key("ai_request", str(user.id), nonce)[:64],
+                payload={
+                    "requests": payload.requests,
+                    "user_ref": user.chain_user_ref,
+                },
+                status="pending",
+            )
+        )
+        await db.flush()
+        out = await _assets_out(db, user, engine)
+    return out
 
 
 @router.patch("/address", response_model=WalletOut)

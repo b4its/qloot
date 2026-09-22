@@ -204,6 +204,18 @@ class ChainClient:
             raise ChainError(f"{key.upper()}_CONTRACT_ADDRESS is not configured")
         return contract
 
+    @property
+    def operator_address(self) -> str:
+        """Address the backend signs with (in dry-run: the treasury).
+
+        In the custodial model the operator account holds the pooled tokens, so
+        withdrawals burn from here (burning from treasury would revert unless
+        the operator is approved).
+        """
+        if self._account is not None:
+            return self._account.address
+        return settings.treasury_address or "0x" + "0" * 40
+
     def _fake_hash(self, *parts: str) -> str:
         return "0x" + hashlib.sha256("|".join(parts).encode()).hexdigest()
 

@@ -179,6 +179,20 @@ export interface Wallet {
   network?: string | null;
 }
 
+export interface AssetBalance {
+  asset: string;
+  name: string;
+  symbol: string;
+  balance: number;
+  role: string;
+}
+
+export interface WalletAssets {
+  user_id: string;
+  network?: string | null;
+  assets: AssetBalance[];
+}
+
 export interface LedgerEntry {
   id: string;
   entry_type: string;
@@ -321,8 +335,6 @@ export interface Badge {
   description?: string | null;
   icon: string;
   points: number;
-  // Sequential ERC-1155 token id assigned on-chain (null until assigned).
-  on_chain_id?: number | null;
 }
 
 export interface UserBadge {

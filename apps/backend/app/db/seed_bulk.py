@@ -337,7 +337,6 @@ async def seed_courses_and_lessons(session: AsyncSession, teachers, students) ->
             class_code=cc,
             class_type=ct,
             subject=subject,
-            on_chain_id=i,
         )
         session.add(course)
         session.add(CourseMember(course_id=course.id, user_id=owner.id, role="teacher"))
@@ -755,10 +754,6 @@ async def seed_badges(session: AsyncSession) -> None:
         )
         made += 1
     await session.flush()
-    # Assign sequential on-chain ids to the newly added badges as well.
-    from app.services.social_service import BadgeService
-
-    await BadgeService(session)._assign_on_chain_ids()
     log.info("bulk_badges_ready", added=made)
 
 

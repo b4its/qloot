@@ -61,6 +61,35 @@ class WalletAddressUpdate(BaseModel):
     source: str = Field(default="manual", pattern="^(manual|metamask)$")
 
 
+class AssetBalanceOut(BaseModel):
+    """A single QLoot asset balance for the caller."""
+
+    asset: str  # OPT | QTC | ORT
+    name: str
+    symbol: str
+    balance: int
+    role: str
+
+
+class WalletAssetsOut(BaseModel):
+    user_id: uuid.UUID
+    network: str | None = None
+    assets: list[AssetBalanceOut]
+
+
+class SwapRequestIn(BaseModel):
+    """Convert OPT into QTC or ORT via the OryphemProxy (ORX)."""
+
+    asset: str = Field(pattern="^(QTC|ORT)$")
+    amount: int = Field(gt=0, description="Units of the target asset to receive")
+
+
+class AIRequestIn(BaseModel):
+    """Spend ORT on AI usage (1 request = 1 ORT)."""
+
+    requests: int = Field(gt=0, le=1000)
+
+
 class WithdrawalRequestIn(BaseModel):
     amount: int = Field(gt=0)
     destination_address: str = Field(min_length=42, max_length=42)

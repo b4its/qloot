@@ -30,8 +30,6 @@ class BadgeOut(ORMModel):
     description: str | None = None
     icon: str
     points: int
-    # Sequential ERC-1155 token id assigned on-chain (None until assigned).
-    on_chain_id: int | None = None
 
 
 class UserBadgeOut(BaseModel):

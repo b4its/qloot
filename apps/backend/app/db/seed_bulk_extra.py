@@ -158,9 +158,7 @@ async def seed_attempts_and_grading(session: AsyncSession, students) -> None:
 
     if await _count(session, GradingResult) < TARGET:
         jobs = await _pick(session, GradingJob, 300)
-        existing_jobs = {
-            r.job_id for r in (await session.execute(select(GradingResult))).scalars()
-        }
+        existing_jobs = {r.job_id for r in (await session.execute(select(GradingResult))).scalars()}
         made = 0
         for job in jobs:
             if job.attempt_id is None or job.id in existing_jobs:
@@ -729,14 +727,27 @@ async def seed_ops_tables(session: AsyncSession, students, teachers) -> None:
         await session.flush()
 
     if await _count(session, TransactionOutbox) < TARGET:
-        topics = ["reward", "airdrop", "withdrawal", "pause", "swap", "ai_request"]
+        # Topic-appropriate payloads so a seeded row is realistic. All rows are
+        # seeded as "done" so the worker never re-processes them.
+        samples = [
+            ("reward", {"reward_key": "seed-rk", "amount": 50, "asset": "OPT"}),
+            ("airdrop", {"to": _addr("airdrop"), "amount": 10, "asset": "ORT"}),
+            (
+                "withdrawal",
+                {"withdrawal_id": str(det_uuid("wd", "1")), "amount": 25, "asset": "OPT"},
+            ),
+            ("pause", {"action": "pause", "asset": "OPT"}),
+            ("swap", {"asset": "ORT", "amount": 5, "opt_cost": 250}),
+            ("ai_request", {"requests": 1}),
+        ]
         for i in range(1, TARGET + 1):
+            topic, payload = samples[i % len(samples)]
             session.add(
                 TransactionOutbox(
                     id=det_uuid("outbox", str(i)),
-                    topic=topics[i % len(topics)],
+                    topic=topic,
                     idempotency_key=tx_idempotency_key("outbox", str(i)),
-                    payload={"index": i},
+                    payload=payload,
                     status="done",
                     attempts=1,
                     processed_at=datetime.now(UTC) - timedelta(hours=i),

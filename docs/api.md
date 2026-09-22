@@ -120,7 +120,11 @@ GET /rankings/me
 ## Wallet & blockchain
 
 ```
-GET  /wallet
+GET  /wallet                       # OPT balance (base currency)
+PATCH /wallet/address              # set your personal withdrawal wallet
+GET  /wallet/assets                # per-asset balances (OPT/QTC/ORT)
+POST /wallet/swap                  # convert OPT -> QTC/ORT via OryphemProxy (ORX)
+POST /wallet/ai-requests           # spend ORT on AI usage (1 request = 1 ORT)
 GET  /wallet/ledger
 GET  /wallet/rewards
 GET  /wallet/reconciliation
@@ -128,13 +132,16 @@ POST /wallet/transfers
 POST /wallet/withdrawals
 GET  /wallet/withdrawals/{withdrawal_id}
 
-GET  /blockchain/status
-GET  /blockchain/contract
+GET  /blockchain/status            # address-free chain status
+GET  /blockchain/contract          # admin: configured assets + deployments
 GET  /blockchain/transactions
 GET  /blockchain/transactions/{tx_hash}
 GET  /blockchain/events
 GET  /blockchain/allocations
 ```
+
+Admin-only extra: `GET /blockchain/status/admin` (asset addresses + treasury) and
+`POST /admin/blockchain/pause|unpause?asset=OPT|QTC|ORT`.
 
 ## Admin (`/admin`, role `admin`)
 

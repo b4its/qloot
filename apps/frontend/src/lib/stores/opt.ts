@@ -1,14 +1,15 @@
 import { writable } from "svelte/store";
 import { api } from "$lib/api/client";
 
-export interface OpcState {
+/** The caller's OPT base-currency balance (mirrors GET /wallet). */
+export interface OptState {
   available: number;
   pending: number;
   loaded: boolean;
 }
 
-function createOpcStore() {
-  const { subscribe, set, update } = writable<OpcState>({
+function createOptStore() {
+  const { subscribe, set, update } = writable<OptState>({
     available: 0,
     pending: 0,
     loaded: false,
@@ -29,4 +30,4 @@ function createOpcStore() {
   };
 }
 
-export const opc = createOpcStore();
+export const opt = createOptStore();

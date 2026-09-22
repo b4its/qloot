@@ -105,7 +105,7 @@ class BadgeService:
         self.session = session
 
     async def ensure_catalog(self) -> None:
-        """Idempotently seed the badge catalog and assign on-chain ids.
+        """Idempotently seed the badge catalog.
 
         Uses INSERT ... ON CONFLICT DO NOTHING so concurrent startups cannot
         race the `code` unique constraint.
@@ -135,52 +135,6 @@ class BadgeService:
             pg_insert(Badge).values(rows).on_conflict_do_nothing(index_elements=["code"])
         )
         await self.session.flush()
-        await self._assign_on_chain_ids()
-
-    async def _assign_on_chain_ids(self) -> None:
-        """Assign sequential on-chain badge ids (1..255) to unassigned badges."""
-        rows = (
-            (
-                await self.session.execute(
-                    select(Badge)
-                    .where(Badge.on_chain_id.is_(None))
-                    .order_by(Badge.points, Badge.code)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        if not rows:
-            return
-        used = {
-            b.on_chain_id
-            for b in (
-                await self.session.execute(select(Badge).where(Badge.on_chain_id.is_not(None)))
-            )
-            .scalars()
-            .all()
-        }
-        next_id = 1
-        assigned: list[Badge] = []
-        for badge in rows:
-            while next_id in used:
-                next_id += 1
-            if next_id > 255:
-                # ERC-1155 badge ids are uint8; anything beyond is left without
-                # an on-chain id. Log it instead of silently dropping.
-                log.warning(
-                    "badge_on_chain_id_capacity_reached",
-                    pending=len(rows) - len(assigned),
-                    cap=255,
-                )
-                break
-            badge.on_chain_id = next_id
-            used.add(next_id)
-            assigned.append(badge)
-        await self.session.flush()
-        # NOTE: QLoot's on-chain contracts are pure ERC-1155 digital assets
-        # (OPT/QTC/ORT); badges are tracked off-chain only, so there is no
-        # on-chain badge registration/award step to enqueue here.
 
     async def award(
         self, *, user: User, code: str, meta: dict | None = None, notify: bool = True

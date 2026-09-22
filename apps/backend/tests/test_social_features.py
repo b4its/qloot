@@ -63,8 +63,8 @@ async def test_badge_catalog_available(client):
     catalog = await client.get("/api/v1/badges")
     assert catalog.status_code == 200
     assert len(catalog.json()) >= 1
-    # Each badge exposes its sequential on-chain id for display/linking.
-    assert all("on_chain_id" in b for b in catalog.json())
+    # Badges are off-chain gamification; the catalog exposes code/name/icon/points.
+    assert all({"code", "name", "icon", "points"} <= set(b) for b in catalog.json())
 
 
 async def test_perfect_exam_awards_badge(client):

@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { auth, hasRole } from "$lib/stores/auth";
   import { notifications } from "$lib/stores/notifications";
-  import { opc } from "$lib/stores/opc";
+  import { opt } from "$lib/stores/opt";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import OpcChip from "$lib/components/OpcChip.svelte";
@@ -81,7 +81,7 @@
   async function logout() {
     await auth.logout();
     notifications.clear();
-    opc.reset();
+    opt.reset();
     window.location.href = "/";
   }
 

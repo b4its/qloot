@@ -96,6 +96,9 @@ class Settings(BaseSettings):
     qtc_contract_address: str = ""
     ort_contract_address: str = ""
     orx_contract_address: str = ""
+    # OryphemProxy (ORX) rates, in OPT per 1 unit of the target asset.
+    orx_ort_rate: int = 50
+    orx_qtc_rate: int = 1000
     # Legacy alias (points at the OPT asset). Kept so older configs keep working.
     opc_contract_address: str = ""
     opc_token_id: int = 0
@@ -170,6 +173,29 @@ class Settings(BaseSettings):
             "ORX": self.orx_contract_address,
         }
         return mapping.get(key, "")
+
+    # Static metadata of the three assets, keyed by asset code.
+    ASSET_META: dict[str, dict[str, str]] = {
+        "OPT": {
+            "name": "OryphemToken",
+            "symbol": "OPT",
+            "role": "Mata uang dasar (diperoleh di sistem QLoot)",
+        },
+        "QTC": {
+            "name": "QlootChain",
+            "symbol": "QTC",
+            "role": "Aset premium (sertifikat, pesan terenkripsi)",
+        },
+        "ORT": {
+            "name": "OryphemIntelligence",
+            "symbol": "ORT",
+            "role": "Kredit AI (1 request = 1 ORT)",
+        },
+    }
+
+    def orx_rate(self, asset: str) -> int:
+        """OPT required to obtain 1 unit of `asset` (QTC or ORT)."""
+        return self.orx_ort_rate if asset.upper() == "ORT" else self.orx_qtc_rate
 
 
 @lru_cache

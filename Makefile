@@ -215,12 +215,24 @@ typecheck: ## Typecheck backend (mypy) + frontend (svelte-check)
 test: test-unit ## Alias for test-unit
 
 .PHONY: test-unit
-test-unit: ## Backend unit tests
+test-unit: ## Backend unit tests (needs the test DB: run `make test-db-up`)
 	cd apps/backend && .venv/bin/pytest -q -m "not integration"
 
 .PHONY: test-integration
-test-integration: ## Backend integration tests (needs postgres)
+test-integration: ## Backend integration tests (needs the test DB: run `make test-db-up`)
 	cd apps/backend && .venv/bin/pytest -q -m integration
+
+.PHONY: test-db-up
+test-db-up: ## Start the throwaway test PostgreSQL (localhost:55433, matches conftest)
+	@docker start qloot-test-pg >/dev/null 2>&1 || \
+		docker run -d --name qloot-test-pg \
+			-e POSTGRES_USER=qloot -e POSTGRES_PASSWORD=change-me -e POSTGRES_DB=qloot_test \
+			-p 55433:5432 postgres:16 >/dev/null
+	@echo ">> test postgres on localhost:55433 (db=qloot_test)"
+
+.PHONY: test-db-down
+test-db-down: ## Stop the throwaway test PostgreSQL
+	-@docker rm -f qloot-test-pg >/dev/null 2>&1 || true
 
 .PHONY: test-contracts
 test-contracts: ## Hardhat contract tests

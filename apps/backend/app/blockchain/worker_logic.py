@@ -52,12 +52,14 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
     client = get_chain_client()
     tx = await _existing_tx(session, item.idempotency_key)
     if tx is None:
+        payload0 = item.payload or {}
+        asset_key = str(payload0.get("asset", "OPT")).upper()
         tx = BlockchainTransaction(
             idempotency_key=item.idempotency_key,
             network=settings.blockchain_network,
             chain_id=settings.chain_id,
             from_address=settings.treasury_address or "0x" + "0" * 40,
-            contract_address=settings.opc_contract_address or None,
+            contract_address=settings.asset_address(asset_key) or None,
             method=item.topic,
             arguments=item.payload,
             status="queued",
@@ -95,14 +97,14 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
                 )
                 tx.method = "mint"
             elif item.topic == "withdrawal":
-                # The pooled OPT sits at the treasury address on-chain. A
-                # withdrawal removes that amount from circulation (the user's
-                # share is already debited off-chain in the ledger).
+                # A withdrawal removes the amount from circulation on-chain. The
+                # backend operator signs the burn, so it must burn from its OWN
+                # account (the operator holds the pooled tokens); burning from
+                # the treasury address would revert (operator is not approved).
                 payload = item.payload or {}
                 _require(payload, "amount")
-                recipient = settings.treasury_address or settings.asset_address("OPT")
                 receipt = await client.burn(
-                    from_=payload.get("from", recipient),
+                    from_=payload.get("from", client.operator_address),
                     amount=int(payload["amount"]),
                     asset=payload.get("asset", "OPT"),
                 )

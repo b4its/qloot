@@ -54,6 +54,7 @@ from app.models.wallet import (
     RewardAllocation,
     TransactionOutbox,
     WalletAccount,
+    WalletAssetBalance,
     WalletLedgerEntry,
     WithdrawalRequest,
 )
@@ -106,6 +107,7 @@ __all__ = [
     "CommunityComment",
     "CommunityLike",
     "WalletAccount",
+    "WalletAssetBalance",
     "WalletLedgerEntry",
     "RewardAllocation",
     "BlockchainTransaction",

@@ -3,7 +3,7 @@
   import { onMount } from "svelte";
   import { auth } from "$lib/stores/auth";
   import { notifications } from "$lib/stores/notifications";
-  import { opc } from "$lib/stores/opc";
+  import { opt } from "$lib/stores/opt";
 
   // Root layout is intentionally minimal: it only imports global styles and
   // bootstraps shared stores. The chrome (navbar/footer) lives in the child
@@ -11,7 +11,7 @@
   onMount(() => {
     auth.load();
     notifications.refresh();
-    opc.refresh();
+    opt.refresh();
   });
 </script>
 

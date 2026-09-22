@@ -24,6 +24,7 @@ from app.models.wallet import (
     RewardAllocation,
     TransactionOutbox,
     WalletAccount,
+    WalletAssetBalance,
     WalletLedgerEntry,
 )
 from app.services.keys import quest_ref, reward_key, tx_idempotency_key, user_ref
@@ -276,6 +277,74 @@ class RewardEngine:
     async def balance(self, user_id: uuid.UUID) -> int:
         account = await self.get_or_create_account(user_id)
         return account.cached_balance
+
+    # --- secondary assets (QTC / ORT) -------------------------------------
+    async def asset_balance(self, user_id: uuid.UUID, asset: str) -> int:
+        """Cached balance of a secondary asset (QTC/ORT); 0 if never held."""
+        row = (
+            await self.session.execute(
+                select(WalletAssetBalance).where(
+                    WalletAssetBalance.user_id == user_id,
+                    WalletAssetBalance.asset == asset.upper(),
+                )
+            )
+        ).scalar_one_or_none()
+        return row.cached_balance if row is not None else 0
+
+    async def _locked_asset_row(self, user_id: uuid.UUID, asset: str) -> WalletAssetBalance:
+        asset = asset.upper()
+        row = (
+            await self.session.execute(
+                select(WalletAssetBalance)
+                .where(
+                    WalletAssetBalance.user_id == user_id,
+                    WalletAssetBalance.asset == asset,
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            row = WalletAssetBalance(user_id=user_id, asset=asset, cached_balance=0)
+            try:
+                async with self.session.begin_nested():
+                    self.session.add(row)
+                    await self.session.flush()
+            except IntegrityError:
+                row = (
+                    await self.session.execute(
+                        select(WalletAssetBalance)
+                        .where(
+                            WalletAssetBalance.user_id == user_id,
+                            WalletAssetBalance.asset == asset,
+                        )
+                        .with_for_update()
+                    )
+                ).scalar_one()
+        return row
+
+    async def credit_asset(self, *, user_id: uuid.UUID, asset: str, amount: int) -> int:
+        """Add `amount` of a secondary asset; returns the new balance."""
+        if amount <= 0:
+            raise ConflictError("Amount must be positive")
+        row = await self._locked_asset_row(user_id, asset)
+        row.cached_balance += amount
+        await self.session.flush()
+        return row.cached_balance
+
+    async def debit_asset(self, *, user_id: uuid.UUID, asset: str, amount: int) -> int:
+        """Remove `amount` of a secondary asset; returns the new balance.
+
+        A PL/pgSQL-free atomic guard: we lock the row then check sufficiency so
+        two concurrent debits cannot both pass a stale read.
+        """
+        if amount <= 0:
+            raise ConflictError("Amount must be positive")
+        row = await self._locked_asset_row(user_id, asset)
+        if row.cached_balance < amount:
+            raise ConflictError(f"Insufficient {asset.upper()} balance")
+        row.cached_balance -= amount
+        await self.session.flush()
+        return row.cached_balance
 
     async def reconcile(self, user_id: uuid.UUID) -> tuple[int, int]:
         """Return (cached_balance, computed_balance) for audit."""

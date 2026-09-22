@@ -22,6 +22,17 @@ from app.schemas.auth import AdminUserCreate, UserOut
 router = APIRouter()
 
 
+# Assets that can be paused/unpaused on-chain (ORX is a router, not pausable).
+_PAUSABLE_ASSETS = ("OPT", "QTC", "ORT")
+
+
+def _validate_asset(asset: str) -> str:
+    asset = (asset or "OPT").upper()
+    if asset not in _PAUSABLE_ASSETS:
+        raise ValidationError(f"asset must be one of {', '.join(_PAUSABLE_ASSETS)}")
+    return asset
+
+
 class RoleUpdate(BaseModel):
     role: str = Field(pattern="^(student|teacher|admin)$")
 
@@ -291,7 +302,7 @@ async def cancel_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
 
 @router.post("/blockchain/pause")
 async def blockchain_pause(admin: AdminUser, db: DbSession, asset: str = "OPT"):
-    asset = asset.upper()
+    asset = _validate_asset(asset)
     async with transaction(db):
         db.add(
             TransactionOutbox(
@@ -315,7 +326,7 @@ async def blockchain_pause(admin: AdminUser, db: DbSession, asset: str = "OPT"):
 
 @router.post("/blockchain/unpause")
 async def blockchain_unpause(admin: AdminUser, db: DbSession, asset: str = "OPT"):
-    asset = asset.upper()
+    asset = _validate_asset(asset)
     async with transaction(db):
         db.add(
             TransactionOutbox(

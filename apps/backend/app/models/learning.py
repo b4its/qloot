@@ -49,8 +49,6 @@ class Course(Base, TimestampMixin):
     class_type: Mapped[str | None] = mapped_column(String(32))
     # Optional subject label (e.g. "Matematika") distinct from the class.
     subject: Mapped[str | None] = mapped_column(String(128), index=True)
-    # Numeric id used on-chain for course rewards/badges (auto-assigned).
-    on_chain_id: Mapped[int | None] = mapped_column(Integer, unique=True)
 
     lessons: Mapped[list[Lesson]] = relationship(
         back_populates="course", cascade="all, delete-orphan", order_by="Lesson.position"
