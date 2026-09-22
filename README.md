@@ -198,11 +198,26 @@ Diperoleh dari `make db-seed`:
 Bulk seed menambah hingga **5 guru** dan **50 siswa** (`teacher3…`, `student06…`, dst.)
 yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
 
+### Tiga area terpisah
+
+Aplikasi dibagi menjadi **tiga area dengan tata letak (chrome) yang terpisah**, tidak saling
+mencampur navigasi:
+
+| Area | Rute | Tata letak |
+|---|---|---|
+| **Landing** | `/` | `+layout` khusus landing (nav anchor satu halaman) |
+| **Aplikasi (siswa/publik)** | `/dashboard`, `/courses`, … | nav marketing + ticker + footer |
+| **Panel peran** | `/teacher/*`, `/admin/*` | sidebar + topbar panel (tanpa nav marketing/ticker) |
+
+Area **Panel** punya grup rute sendiri (`(panel)`) dengan *guard* peran: guru hanya bisa masuk
+`/teacher`, admin `/admin` (admin juga boleh melihat panel guru). Tombol **Panel** di header
+aplikasi mengarahkan guru/admin ke panel; dari panel ada tautan **Kembali ke aplikasi**.
+
 ### Alur singkat
 
 **Sebagai guru:**
 
-1. Masuk, lalu buka **Panel Guru**.
+1. Masuk, lalu buka **Panel Guru** (tombol **Panel** di header, atau `/teacher`).
 2. **Pelajaran** — buat pelajaran, tentukan kelas & tipe kelas (IPA/IPS); sunting/hapus
    materi (lesson) langsung dari daftar.
 3. **Materi** — unggah PDF lalu *Buat soal* dengan AI; tinjau draf soal, hapus materi yang

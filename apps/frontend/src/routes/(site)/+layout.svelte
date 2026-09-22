@@ -8,7 +8,6 @@
   import Icon from "$lib/components/Icon.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
   import { API_BASE } from "$lib/api/client";
-  import { adminNav, teacherNav } from "$lib/data/role-nav";
 
   const primaryNav = [
     { href: "/courses", label: "Pelajaran" },
@@ -35,32 +34,12 @@
   let searchQuery = "";
   $: user = $auth.user;
   $: path = $page.url.pathname;
-  $: isAppArea =
-    appNav.some((n) => path.startsWith(n.href)) ||
-    path.startsWith("/profile") ||
-    path.startsWith("/admin") ||
-    path.startsWith("/teacher");
+  // The (site) group is the public + student area only. The /admin and /teacher
+  // panels live in the separate (panel) group with their own shell.
+  $: isAppArea = appNav.some((n) => path.startsWith(n.href)) || path.startsWith("/profile");
 
-  // Per-role sub-nav: inside /teacher or /admin we show that role's own links
-  // instead of the student app nav, so the two areas never mix.
-  $: inTeacherArea = path.startsWith("/teacher");
-  $: inAdminArea = path.startsWith("/admin");
-  $: sectionNav = inTeacherArea
-    ? hasRole(user, "teacher")
-      ? teacherNav
-      : []
-    : inAdminArea
-      ? hasRole(user, "admin")
-        ? adminNav
-        : []
-      : appNav;
-
-  // The most specific nav entry whose href is a prefix of the current path, so
-  // `/teacher/subjects/new` highlights `/teacher/subjects` (not `/teacher`).
-  function isActive(href: string): boolean {
-    if (href === "/teacher" || href === "/admin") {
-      return path === href;
-    }
+  // The most specific nav entry whose href is a prefix of the current path.
+  function isNavActive(href: string): boolean {
     return path === href || path.startsWith(`${href}/`);
   }
 
@@ -148,6 +127,18 @@
           <a href="/dashboard" class="btn-icon" aria-label="Dashboard saya">
             <Icon name="user-astronaut" size="14px" />
           </a>
+          {#if hasRole(user, "teacher")}
+            <a
+              href={hasRole(user, "admin") ? "/admin" : "/teacher"}
+              class="btn-secondary hidden sm:inline-flex"
+            >
+              <Icon
+                name={hasRole(user, "admin") ? "shield-halved" : "chalkboard-user"}
+                size="12px"
+              />
+              Panel
+            </a>
+          {/if}
           <button class="btn-ghost hidden sm:inline-flex" on:click={logout}>Keluar</button>
           <button
             class="btn-icon md:hidden"
@@ -194,24 +185,15 @@
       </div>
     {/if}
 
-    <!-- app / role sub-nav -->
-    {#if isAppArea && sectionNav.length}
+    <!-- app sub-nav (student/public area only) -->
+    {#if isAppArea}
       <div class="border-t">
         <div class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-1.5 sm:px-6">
-          {#if inTeacherArea}
-            <span class="mono-label flex flex-none items-center gap-1.5 pr-2"
-              ><Icon name="chalkboard-user" size="11px" /> Guru</span
-            >
-          {:else if inAdminArea}
-            <span class="mono-label flex flex-none items-center gap-1.5 pr-2"
-              ><Icon name="shield-halved" size="11px" /> Admin</span
-            >
-          {/if}
-          {#each sectionNav as item}
+          {#each appNav as item}
             <a
               href={item.href}
               class="flex flex-none items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-primary/10 hover:text-primary"
-              class:nav-active={isActive(item.href)}
+              class:nav-active={isNavActive(item.href)}
             >
               <Icon name={item.icon} size="12px" />
               {item.label}
@@ -243,29 +225,18 @@
         {/each}
         {#if hasRole(user, "teacher")}
           <div class="my-2 border-t"></div>
-          <p class="mono-label px-3 py-1">Panel Guru</p>
-          {#each teacherNav as item}
-            <a
-              href={item.href}
-              class="block rounded-sm px-3 py-2 text-sm"
-              on:click={() => (mobileOpen = false)}
-            >
-              <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
-            </a>
-          {/each}
-        {/if}
-        {#if hasRole(user, "admin")}
-          <div class="my-2 border-t"></div>
-          <p class="mono-label px-3 py-1">Admin</p>
-          {#each adminNav as item}
-            <a
-              href={item.href}
-              class="block rounded-sm px-3 py-2 text-sm"
-              on:click={() => (mobileOpen = false)}
-            >
-              <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
-            </a>
-          {/each}
+          <a
+            href={hasRole(user, "admin") ? "/admin" : "/teacher"}
+            class="block rounded-sm px-3 py-2 text-sm font-semibold"
+            on:click={() => (mobileOpen = false)}
+          >
+            <Icon
+              name={hasRole(user, "admin") ? "shield-halved" : "chalkboard-user"}
+              size="12px"
+              class="mr-2"
+            />
+            {hasRole(user, "admin") ? "Panel Admin" : "Panel Guru"}
+          </a>
         {/if}
       </nav>
     {/if}

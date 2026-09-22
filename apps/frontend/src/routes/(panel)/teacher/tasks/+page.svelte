@@ -169,7 +169,11 @@
         <input class="input mt-1" type="number" min="0" bind:value={newTask.reward_amount} />
       </label>
     </div>
-    <button class="btn-primary mt-3" on:click={create} disabled={newTask.title.length < 2 || busy === "create"}>
+    <button
+      class="btn-primary mt-3"
+      on:click={create}
+      disabled={newTask.title.length < 2 || busy === "create"}
+    >
       {busy === "create" ? "Membuat…" : "Buat tugas"}
     </button>
   </div>
@@ -196,10 +200,18 @@
             </div>
             <div class="flex items-center gap-2">
               {#if editId !== t.id}
-                <button class="btn-secondary" on:click={() => toggleActive(t)} disabled={busy === `p-${t.id}`}>
+                <button
+                  class="btn-secondary"
+                  on:click={() => toggleActive(t)}
+                  disabled={busy === `p-${t.id}`}
+                >
                   {t.is_active ? "Nonaktifkan" : "Aktifkan"}
                 </button>
-                <button class="btn-ghost" on:click={() => startEdit(t)} disabled={busy === `e-${t.id}`}>
+                <button
+                  class="btn-ghost"
+                  on:click={() => startEdit(t)}
+                  disabled={busy === `e-${t.id}`}
+                >
                   <Icon name="pen" size="11px" /> Ubah
                 </button>
               {/if}
@@ -216,7 +228,11 @@
           {#if editId === t.id}
             <div class="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2">
               <input class="input sm:col-span-2" placeholder="Judul" bind:value={editDraft.title} />
-              <input class="input sm:col-span-2" placeholder="Deskripsi" bind:value={editDraft.description} />
+              <input
+                class="input sm:col-span-2"
+                placeholder="Deskripsi"
+                bind:value={editDraft.description}
+              />
               <input class="input" type="number" min="0" bind:value={editDraft.reward_amount} />
             </div>
             <div class="mt-3 flex gap-2">

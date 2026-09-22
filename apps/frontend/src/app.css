@@ -661,6 +661,37 @@ html.theme-init * {
     box-shadow: inset 0 -2px 0 0 rgb(var(--accent));
   }
 
+  /* Role panel (admin/teacher) shell ------------------------------------ */
+  .panel-sidebar {
+    background-color: rgb(var(--surface));
+    border-color: rgb(var(--line));
+  }
+
+  .panel-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgb(var(--ink2));
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .panel-nav-item:hover {
+    background-color: rgb(var(--accent) / 0.08);
+    color: rgb(var(--accent));
+  }
+
+  .panel-nav-active {
+    background-color: rgb(var(--accent) / 0.14);
+    color: rgb(var(--accent));
+    box-shadow: inset 3px 0 0 0 rgb(var(--accent));
+  }
+
   /* Current user's row in a leaderboard --------------------------------- */
   .row-me {
     background-color: rgb(var(--accent) / 0.1);
