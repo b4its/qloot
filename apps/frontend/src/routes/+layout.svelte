@@ -10,8 +10,10 @@
   // layout groups so the landing page can ship its own navigation.
   onMount(() => {
     auth.load();
-    notifications.refresh();
+    // Start polling so the unread badge stays fresh (no push channel exists).
+    notifications.start();
     opt.refresh();
+    return () => notifications.stop();
   });
 </script>
 

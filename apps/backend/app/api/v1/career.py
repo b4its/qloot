@@ -19,6 +19,7 @@ from app.schemas.career import (
     GradeOut,
     MilestoneOut,
     MilestoneUpdate,
+    PendingReviewOut,
     PersonalityIn,
     PersonalityOut,
     RecommendationOut,
@@ -92,6 +93,18 @@ async def submit_for_review(user: CurrentUser, db: DbSession):
     return Message(message=f"{n} recommendations submitted for review")
 
 
+@router.get("/recommendations/pending", response_model=list[PendingReviewOut])
+async def pending_recommendations(
+    counselor: TeacherUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    """Students whose study-path plan awaits the counselor's approval."""
+    rows = await CareerService(db).pending_review(limit=limit, offset=offset)
+    return [
+        PendingReviewOut(user_id=uid, display_name=name, top_major=major, count=n)
+        for uid, name, major, n in rows
+    ]
+
+
 @router.post("/recommendations/approve", response_model=Message)
 async def approve_recommendations(
     counselor: TeacherUser, db: DbSession, user_id: uuid.UUID | None = None
@@ -100,11 +113,22 @@ async def approve_recommendations(
 
     The human-in-the-loop design requires the *counselor* (guru BK) to approve,
     never the student themselves. ``user_id`` selects the student; it defaults
-    to the caller only for a teacher reviewing their own preview.
+    to the caller only for a teacher previewing their own plan.
+
+    The target must be the caller themselves or an actual student account — a
+    teacher may not approve an arbitrary (or non-student) user by id.
     """
+    from app.core.errors import ForbiddenError, NotFoundError
+    from app.models.identity import User
+
     async with transaction(db):
-        target = user_id or counselor.id
-        n = await CareerService(db).approve_user(target)
+        target_id = user_id or counselor.id
+        target = await db.get(User, target_id)
+        if target is None:
+            raise NotFoundError("User not found")
+        if target.id != counselor.id and not target.has_role("student"):
+            raise ForbiddenError("Only a student's plan can be approved")
+        n = await CareerService(db).approve_user(target_id)
     return Message(message=f"{n} recommendations approved; roadmap activated")
 
 

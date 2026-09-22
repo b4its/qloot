@@ -2,14 +2,16 @@
   import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { Recommendation, Milestone } from "$lib/types";
+  import type { Recommendation, Milestone, PendingReview } from "$lib/types";
   import { statusLabel } from "$lib/utils/format";
   import { auth, hasRole } from "$lib/stores/auth";
 
   let recs: Recommendation[] = [];
   let milestones: Milestone[] = [];
+  let pending: PendingReview[] = [];
   let loading = true;
   let busy = false;
+  let approvingId = "";
   let error = "";
   let message = "";
 
@@ -22,6 +24,9 @@
     try {
       recs = await api.get<Recommendation[]>("/career/recommendations");
       milestones = await api.get<Milestone[]>("/career/roadmap");
+      if (isCounselor) {
+        pending = await api.get<PendingReview[]>("/career/recommendations/pending");
+      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat analisis";
     } finally {
@@ -65,6 +70,23 @@
       error = e instanceof ApiError ? e.message : "Gagal menyetujui";
     } finally {
       busy = false;
+    }
+  }
+
+  /** Counselor: approve a specific student's plan by id. */
+  async function approveStudent(p: PendingReview) {
+    if (approvingId) return;
+    approvingId = p.user_id;
+    error = "";
+    message = "";
+    try {
+      await api.post(`/career/recommendations/approve?user_id=${p.user_id}`);
+      message = `Peta jalan ${p.display_name} disetujui.`;
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menyetujui";
+    } finally {
+      approvingId = "";
     }
   }
 
@@ -143,6 +165,39 @@
       </div>
     </div>
   </div>
+
+  {#if isCounselor}
+    <div class="card mt-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold">Menunggu persetujuan</h2>
+        <span class="badge badge-neutral">{pending.length}</span>
+      </div>
+      <p class="mt-1 text-xs muted">
+        Peta jalan siswa yang dikirim untuk ditinjau. Setujui untuk mengaktifkannya.
+      </p>
+      {#if pending.length}
+        <ul class="mt-3 space-y-2 text-sm">
+          {#each pending as p (p.user_id)}
+            <li class="flex items-center justify-between gap-3 border-b pb-2 last:border-0">
+              <span>
+                <span class="font-medium">{p.display_name}</span>
+                <span class="text-xs muted"> · {p.top_major} · {p.count} rekomendasi</span>
+              </span>
+              <button
+                class="btn-primary !py-1.5 flex-none"
+                on:click={() => approveStudent(p)}
+                disabled={approvingId === p.user_id}
+              >
+                {approvingId === p.user_id ? "Memproses…" : "Setujui"}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="mt-2 muted text-sm">Tidak ada yang menunggu persetujuan.</p>
+      {/if}
+    </div>
+  {/if}
 
   {#if loading}
     <p class="mt-6 muted">Memuat …</p>

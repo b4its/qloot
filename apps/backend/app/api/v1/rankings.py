@@ -228,15 +228,52 @@ async def my_ranking(db: DbSession, user: CurrentUser):
         await db.execute(select(WalletAccount).where(WalletAccount.user_id == user.id))
     ).scalar_one_or_none()
 
-    # Position: count active users with a strictly higher total.
-    higher = (
-        await db.execute(
-            select(func.count())
-            .select_from(totals)
-            .join(User, User.id == totals.c.user_id)
-            .where(User.is_active.is_(True), totals.c.score > int(total or 0))
+    # Position must use the *same* 3-key ordering as ``global_ranking``
+    # (score desc, opc desc, id asc) so the personal card's rank matches the
+    # row the user sees in the global table (they previously diverged on ties).
+    mine_score = int(total or 0)
+    mine_opc = int(
+        (
+            await db.execute(
+                select(func.coalesce(func.sum(RewardAllocation.amount), 0)).where(
+                    RewardAllocation.user_id == user.id,
+                    RewardAllocation.status.in_(("pending", "confirmed")),
+                )
+            )
+        ).scalar_one()
+    )
+    # ``opc`` subquery mirrors global_ranking: lifetime earned (pending+confirmed).
+    opc = (
+        select(
+            RewardAllocation.user_id.label("user_id"),
+            func.coalesce(func.sum(RewardAllocation.amount), 0).label("opc"),
         )
-    ).scalar_one()
+        .where(RewardAllocation.status.in_(("pending", "confirmed")))
+        .group_by(RewardAllocation.user_id)
+        .subquery()
+    )
+    ranked = (
+        select(
+            User.id.label("user_id"),
+            func.coalesce(totals.c.score, 0).label("score"),
+            func.coalesce(opc.c.opc, 0).label("opc"),
+        )
+        .join(totals, totals.c.user_id == User.id)
+        .outerjoin(opc, opc.c.user_id == User.id)
+        .where(User.is_active.is_(True))
+        .subquery()
+    )
+    # Count active users who sort strictly before the caller.
+    before = (
+        (ranked.c.score > mine_score)
+        | ((ranked.c.score == mine_score) & (ranked.c.opc > mine_opc))
+        | (
+            (ranked.c.score == mine_score)
+            & (ranked.c.opc == mine_opc)
+            & (ranked.c.user_id < user.id)
+        )
+    )
+    higher = (await db.execute(select(func.count()).select_from(ranked).where(before))).scalar_one()
     # Level/XP enrich the personal card.
     from app.services.gamification_service import GamificationService
 

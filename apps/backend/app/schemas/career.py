@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -40,7 +41,8 @@ class DashboardOut(BaseModel):
 
 
 class PersonalityIn(BaseModel):
-    answers: list[int] = Field(min_length=5, max_length=200)
+    # A Big-Five Likert response per item — each answer must be 1..5.
+    answers: list[Annotated[int, Field(ge=1, le=5)]] = Field(min_length=5, max_length=200)
 
 
 class PersonalityOut(BaseModel):
@@ -107,6 +109,15 @@ class CounselorOut(BaseModel):
     focus: str
 
 
+class PendingReviewOut(BaseModel):
+    """A student whose study-path plan awaits the counselor's approval."""
+
+    user_id: uuid.UUID
+    display_name: str
+    top_major: str
+    count: int
+
+
 class ResourceOut(ORMModel):
     code: str
     category: str
@@ -123,4 +134,4 @@ class ChatIn(BaseModel):
 
 class ChatOut(BaseModel):
     answer: str
-    confidence_bp: int
+    confidence_bp: int = Field(ge=0, le=10_000)

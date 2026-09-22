@@ -579,6 +579,14 @@ export interface Counselor {
   focus: string;
 }
 
+/** A student whose study-path plan awaits the counselor's approval. */
+export interface PendingReview {
+  user_id: string;
+  display_name: string;
+  top_major: string;
+  count: number;
+}
+
 export interface Consultation {
   id: string;
   counselor: string;

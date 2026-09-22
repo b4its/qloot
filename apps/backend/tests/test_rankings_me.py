@@ -71,8 +71,8 @@ async def test_rankings_me_rank_counts_rivals_by_best_per_exam(client):
     # Total must be best-per-exam (one exam max = 10_000 bp), never doubled.
     assert me["total_score_bp"] == entry["score_bp"] <= 10_000
 
-    # Rank is defined as (rivals with a strictly higher total) + 1. Deriving the
-    # expected value from the global board keeps this independent of test order
-    # and of the sequential tie-break positions.
-    expected = 1 + sum(1 for e in board if e["score_bp"] > me["total_score_bp"])
+    # Rank uses the *same* 3-key ordering as the global board
+    # (score desc, opc desc, id asc), so it must equal the caller's position in
+    # that board. Deriving it from the board keeps the test order-independent.
+    expected = next(i + 1 for i, e in enumerate(board) if e["user_id"] == a["id"])
     assert me["rank"] == expected

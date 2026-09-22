@@ -220,6 +220,8 @@ class RoomService:
             .join(User, User.id == RoomMember.user_id)
             .outerjoin(totals, totals.c.user_id == RoomMember.user_id)
             .where(RoomMember.room_id == room_id)
+            # Hide deactivated members so this board matches /rankings/rooms/{id}.
+            .where(User.is_active.is_(True))
             .order_by(func.coalesce(totals.c.score, 0).desc(), RoomMember.user_id.asc())
             .limit(limit)
             .offset(offset)

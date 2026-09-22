@@ -310,6 +310,45 @@
             {/each}
           </div>
         {/if}
+
+        {#if acad?.insights?.length}
+          <div class="mt-4 border-t pt-3">
+            <p class="mono-label">Wawasan akademik</p>
+            <ul class="mt-2 space-y-2 text-sm">
+              {#each acad.insights as ins}
+                <li class="flex items-start gap-2">
+                  <Icon name="lightbulb" size="12px" class="mt-0.5 text-primary flex-none" />
+                  <span>
+                    <span class="font-medium">{ins.title}</span>
+                    <span class="muted"> — {ins.detail}</span>
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
+        {#if acad?.radar?.length}
+          <div class="mt-4 border-t pt-3">
+            <p class="mono-label">Profil minat</p>
+            <div class="mt-2 space-y-2">
+              {#each acad.radar as dim}
+                <div>
+                  <div class="flex items-center justify-between text-xs">
+                    <span>{dim.dimension}</span>
+                    <span class="mono muted">{dim.value}</span>
+                  </div>
+                  <div class="mt-1 h-1.5 w-full overflow-hidden rounded-sm bg-ink/10">
+                    <div
+                      class="h-full rounded-sm bg-primary"
+                      style={`width:${Math.max(0, Math.min(100, dim.value))}%`}
+                    ></div>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
 
       <!-- streak + current path -->

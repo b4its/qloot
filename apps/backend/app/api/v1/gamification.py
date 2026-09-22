@@ -22,26 +22,27 @@ async def my_gamification(user: CurrentUser, db: DbSession):
 
 @router.get("/levels")
 async def levels(user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0):
-    """Leaderboard ordered by XP (level), computed from real activity."""
-    # Candidate set: active users with at least one graded attempt.
+    """Leaderboard ordered by XP (level), computed from real activity.
+
+    Every active user with at least one graded attempt is ranked by their *full*
+    XP (exam + quest + task + badge) so the order and the displayed value agree,
+    and the window is an exact slice (the previous 500-row cap truncated the
+    board before sorting).
+    """
     graded = (
         select(ExamAttempt.user_id)
         .where(ExamAttempt.score_bp.is_not(None))
+        .where(ExamAttempt.is_flagged.is_(False))
         .distinct()
         .scalar_subquery()
     )
     users = list(
-        (
-            await db.execute(
-                select(User).where(User.is_active.is_(True), User.id.in_(graded)).limit(500)
-            )
-        )
+        (await db.execute(select(User).where(User.is_active.is_(True), User.id.in_(graded))))
         .scalars()
         .all()
     )
     xp_map = await GamificationService(db).xp_for_users([u.id for u in users])
     ordered = sorted(users, key=lambda u: (-xp_map.get(u.id, 0), str(u.id)))
-    # Rank is global (position in the full ordering); only the window is paged.
     window = ordered[offset : offset + limit]
     entries = []
     for i, u in enumerate(window):

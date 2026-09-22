@@ -62,11 +62,14 @@ class GamificationService:
 
     async def xp_for_user(self, user_id: uuid.UUID) -> dict:
         """Compute a user's XP breakdown and level."""
-        # Best exam score per exam (no retry double-counting).
+        # Best exam score per exam (no retry double-counting). Flagged
+        # (disqualified) attempts are excluded so XP/level agree with the score
+        # leaderboards (which also drop flagged attempts).
         best_per_exam = (
             select(func.max(ExamAttempt.score_bp).label("best"))
             .where(ExamAttempt.user_id == user_id)
             .where(ExamAttempt.score_bp.is_not(None))
+            .where(ExamAttempt.is_flagged.is_(False))
             .group_by(ExamAttempt.exam_id)
             .subquery()
         )
@@ -148,6 +151,7 @@ class GamificationService:
             )
             .where(ExamAttempt.user_id.in_(user_ids))
             .where(ExamAttempt.score_bp.is_not(None))
+            .where(ExamAttempt.is_flagged.is_(False))
             .group_by(ExamAttempt.user_id, ExamAttempt.exam_id)
             .subquery()
         )

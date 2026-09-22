@@ -126,6 +126,12 @@ GET /rankings/quests/{quest_id}
 GET /rankings/me
 ```
 
+All boards exclude flagged (disqualified) attempts and inactive users, and
+`/rankings/me`'s `rank` matches the caller's position in `/rankings/global`
+(same `score desc, opc desc, id asc` ordering). XP/levels use the same
+best-per-exam, non-flagged aggregation, so the level board agrees with the
+score board (<code>/gamification/me</code>, <code>/gamification/levels</code>).
+
 ## Wallet & blockchain
 
 ```
@@ -215,7 +221,8 @@ POST  /career/personality
 GET   /career/recommendations
 POST  /career/recommendations/generate
 POST  /career/recommendations/submit
-POST  /career/recommendations/approve
+POST  /career/recommendations/approve     (?user_id=student; teacher/admin)
+GET   /career/recommendations/pending     (teacher/admin: students awaiting review)
 
 GET   /career/roadmap
 PATCH /career/roadmap/{milestone_id}

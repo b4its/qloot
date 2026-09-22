@@ -144,7 +144,16 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
                     reward_amount=amount,
                 )
             )
-    await event_bus.publish(f"quest:{quest_id}", {"type": "quest.finalized", "winners": len(out)})
+    # Announce finalization on the room's live channel (the room page listens on
+    # ``room:{room_id}``) so participants see it — a bespoke ``quest:{id}``
+    # channel has no subscriber and the event would be lost.
+    if quest.room_id is not None:
+        from app.services.realtime import room_channel
+
+        await event_bus.publish(
+            room_channel(str(quest.room_id)),
+            {"type": "quest.finalized", "quest_id": str(quest_id), "winners": len(out)},
+        )
     return FinalizeResult(quest_id=quest_id, winners=out, allocations_created=created)
 
 

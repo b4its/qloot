@@ -31,8 +31,9 @@
     return name && name.trim() ? name : `${id.slice(0, 8)}…`;
   }
 
-  /** Map a WS frame type to a human Indonesian label for the activity feed. */
+  /** Map a WS frame type (dotted) or persisted event type to an Indonesian label. */
   const EVENT_LABEL: Record<string, string> = {
+    // Live WS frames.
     "room.join": "bergabung",
     "room.leave": "keluar",
     "room.open": "membuka ruang",
@@ -40,6 +41,12 @@
     "presence.join": "hadir",
     "presence.leave": "pergi",
     "quest.finalized": "quest difinalisasi",
+    // Persisted room events (GET /rooms/{id}/events).
+    joined: "bergabung",
+    left: "keluar",
+    opened: "membuka ruang",
+    closed: "menutup ruang",
+    invited: "diundang",
   };
 
   async function load() {

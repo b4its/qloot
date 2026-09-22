@@ -16,7 +16,7 @@ import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
@@ -675,6 +675,46 @@ class CareerService:
         )
         await self.session.flush()
         return len(recs)
+
+    async def pending_review(
+        self, *, limit: int = 100, offset: int = 0
+    ) -> list[tuple[uuid.UUID, str, str, int]]:
+        """Students whose recommendations await approval (for the counselor).
+
+        Returns (user_id, full_name, top_major, recommendation_count) for every
+        user with at least one ``in_review`` recommendation.
+        """
+        from app.models.identity import User
+
+        stmt = (
+            select(
+                CareerRecommendation.user_id,
+                User.full_name,
+                func.count(CareerRecommendation.id).label("n"),
+            )
+            .join(User, User.id == CareerRecommendation.user_id)
+            .where(CareerRecommendation.status == "in_review")
+            .group_by(CareerRecommendation.user_id, User.full_name)
+            .order_by(User.full_name)
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        out: list[tuple[uuid.UUID, str, str, int]] = []
+        for user_id, name, n in rows:
+            top = (
+                await self.session.execute(
+                    select(CareerRecommendation.major)
+                    .where(
+                        CareerRecommendation.user_id == user_id,
+                        CareerRecommendation.status == "in_review",
+                    )
+                    .order_by(CareerRecommendation.rank)
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            out.append((user_id, name, top or "", int(n)))
+        return out
 
     async def approve(self, user: User) -> int:
         return await self.approve_user(user.id)
