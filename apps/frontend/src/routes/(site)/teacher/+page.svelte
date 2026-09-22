@@ -36,7 +36,7 @@
 
   {#if analytics}
     <div class="mt-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-      {#each [{ l: "Ujian", v: String(analytics.exams), i: "file-pen" }, { l: "Dinilai", v: String(analytics.graded_attempts), i: "check-double" }, { l: "Rata-rata", v: bpToPercent(analytics.average_score_bp), i: "chart-line" }, { l: "Kelulusan", v: bpToPercent(analytics.pass_rate_bp), i: "award" }, { l: "Quest", v: String(analytics.quests), i: "trophy" }, { l: "OPC dibagi", v: String(analytics.opc_awarded), i: "gem" }] as s}
+      {#each [{ l: "Ujian", v: String(analytics.exams), i: "file-pen" }, { l: "Dinilai", v: String(analytics.graded_attempts), i: "check-double" }, { l: "Rata-rata", v: bpToPercent(analytics.average_score_bp), i: "chart-line" }, { l: "Kelulusan", v: bpToPercent(analytics.pass_rate_bp), i: "award" }, { l: "Quest", v: String(analytics.quests), i: "trophy" }, { l: "OPT dibagi", v: String(analytics.opc_awarded), i: "gem" }] as s}
         <div class="card">
           <div class="flex items-center justify-between">
             <span class="mono-label">{s.l}</span>

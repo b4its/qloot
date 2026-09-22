@@ -30,14 +30,18 @@ make test-unit && make test-contracts && make test-frontend
 ```bash
 # Requires SEPOLIA_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, ETHERSCAN_API_KEY, TREASURY_ADDRESS
 make blockchain-build
-make blockchain-deploy  NETWORK=sepolia CONFIRM_SEPOLIA=yes
-make blockchain-verify  NETWORK=sepolia
-make blockchain-publish NETWORK=sepolia      # public manifest (no secrets)
-make blockchain-grant-role NETWORK=sepolia ROLE=REWARDER_ROLE ADDRESS=0x... CONFIRM_SEPOLIA=yes
+make blockchain-deploy  NETWORK=sepolia CONFIRM_SEPOLIA=yes   # deploys OPT+QTC+ORT+ORX, auto-verifies
+make blockchain-verify  NETWORK=sepolia CONFIRM_SEPOLIA=yes   # re-verify if needed
+make blockchain-publish NETWORK=sepolia                       # public manifest (no secrets)
+make blockchain-grant-role NETWORK=sepolia ASSET=OPT ROLE=REWARDER_ROLE ADDRESS=0x... CONFIRM_SEPOLIA=yes
+make blockchain-status NETWORK=sepolia                        # show all 4 addresses + rates
 ```
 
-Then set in `.env`: `BLOCKCHAIN_DRY_RUN=false`, `OPC_CONTRACT_ADDRESS=0x...`,
-`BLOCKCHAIN_NETWORK=sepolia`, `CHAIN_ID=11155111`, and restart the workers.
+Then set in `.env` (see `make blockchain-status` for the values):
+`BLOCKCHAIN_DRY_RUN=false`, `OPT_CONTRACT_ADDRESS=0x...`,
+`QTC_CONTRACT_ADDRESS=0x...`, `ORT_CONTRACT_ADDRESS=0x...`,
+`ORX_CONTRACT_ADDRESS=0x...`, `BLOCKCHAIN_NETWORK=sepolia`, `CHAIN_ID=11155111`,
+and restart the workers (the indexer must be able to reach the RPC).
 
 After verifying, **transfer `DEFAULT_ADMIN_ROLE` / `PAUSER_ROLE` /
 `URI_MANAGER_ROLE` to a multisig and revoke them from the deployer EOA.**

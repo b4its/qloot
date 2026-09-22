@@ -75,6 +75,7 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
                     user_ref=payload.get("user_ref", ""),
                     amount=int(payload["amount"]),
                     reason=payload.get("reward_type", "reward"),
+                    asset=payload.get("asset", "OPT"),
                 )
                 tx.method = "rewardUser"
                 if payload.get("allocation_id"):
@@ -83,48 +84,56 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
                     )
                     if allocation is not None:
                         allocation.blockchain_transaction_id = tx.id
-            elif item.topic == "xp":
+            elif item.topic == "airdrop":
+                # Router/mint payout of an asset to a recipient (OPT/QTC/ORT).
                 payload = item.payload or {}
                 _require(payload, "to", "amount")
-                receipt = await client.add_xp(
+                receipt = await client.mint(
                     to=payload["to"],
                     amount=int(payload["amount"]),
-                    user_ref=payload.get("user_ref", ""),
+                    asset=payload.get("asset", "OPT"),
                 )
-                tx.method = "addXp"
-            elif item.topic == "badge":
-                payload = item.payload or {}
-                _require(payload, "badge_id")
-                if payload.get("register"):
-                    receipt = await client.register_badge(
-                        badge_id=int(payload["badge_id"]),
-                        uri=payload.get("uri", ""),
-                        soulbound=bool(payload.get("soulbound", False)),
-                    )
-                    tx.method = "registerBadge"
-                else:
-                    _require(payload, "to")
-                    receipt = await client.award_badge(
-                        to=payload["to"],
-                        badge_id=int(payload["badge_id"]),
-                        uri=payload.get("uri", ""),
-                    )
-                    tx.method = "awardBadge"
+                tx.method = "mint"
             elif item.topic == "withdrawal":
+                # The pooled OPT sits at the treasury address on-chain. A
+                # withdrawal removes that amount from circulation (the user's
+                # share is already debited off-chain in the ledger).
                 payload = item.payload or {}
-                _require(payload, "destination", "amount")
-                receipt = await client.complete_withdrawal(
-                    withdrawal_ref=payload.get("withdrawal_id", tx.idempotency_key),
-                    destination=payload["destination"],
+                _require(payload, "amount")
+                recipient = settings.treasury_address or settings.asset_address("OPT")
+                receipt = await client.burn(
+                    from_=payload.get("from", recipient),
                     amount=int(payload["amount"]),
-                    token_id=int(payload.get("token_id", 0)),
+                    asset=payload.get("asset", "OPT"),
                 )
-                tx.method = "completeWithdrawal"
+                tx.method = "burn"
                 if payload.get("withdrawal_id"):
                     wd = await session.get(WithdrawalRequest, uuid.UUID(payload["withdrawal_id"]))
                     if wd is not None:
                         wd.blockchain_transaction_id = tx.id
                         wd.status = "submitted"
+            elif item.topic in ("pause", "unpause"):
+                payload = item.payload or {}
+                if item.topic == "pause":
+                    receipt = await client.pause(asset=payload.get("asset", "OPT"))
+                    tx.method = "pause"
+                else:
+                    receipt = await client.unpause(asset=payload.get("asset", "OPT"))
+                    tx.method = "unpause"
+            elif item.topic == "swap":
+                # ORX router: convert OPT into QTC/ORT.
+                payload = item.payload or {}
+                _require(payload, "asset", "amount")
+                receipt = await client.swap_opt_for(
+                    asset=payload["asset"], amount=int(payload["amount"])
+                )
+                tx.method = "swapOptFor"
+            elif item.topic == "ai_request":
+                # ORX router: burn ORT for AI usage (1 request = 1 ORT).
+                payload = item.payload or {}
+                _require(payload, "requests")
+                receipt = await client.pay_ai_request(requests=int(payload["requests"]))
+                tx.method = "payAiRequest"
             else:
                 raise ChainError(f"Unknown outbox topic: {item.topic}")
         except (KeyError, ValueError) as exc:
@@ -284,7 +293,7 @@ async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> No
                 amount=allocation.amount,
                 allocation_id=allocation.id,
             )
-    if tx.method == "completeWithdrawal" and args.get("withdrawal_id"):
+    if tx.method == "burn" and args.get("withdrawal_id"):
         wd = await session.get(WithdrawalRequest, uuid.UUID(args["withdrawal_id"]))
         if wd is not None and wd.status not in ("completed", "cancelled"):
             wd.status = "failed"
@@ -300,7 +309,7 @@ async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> N
         if allocation is not None:
             allocation.status = "confirmed"
             allocation.confirmed_at = datetime.now(UTC)
-    if tx.method == "completeWithdrawal" and args.get("withdrawal_id"):
+    if tx.method == "burn" and args.get("withdrawal_id"):
         wd = await session.get(WithdrawalRequest, uuid.UUID(args["withdrawal_id"]))
         if wd is not None:
             wd.status = "completed"

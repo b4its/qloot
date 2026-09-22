@@ -67,7 +67,7 @@
         <thead class="text-left muted">
           <tr
             ><th class="py-1">#</th><th>Siswa</th><th class="text-right">Skor</th><th
-              class="text-right">OPC</th
+              class="text-right">OPT</th
             ></tr
           >
         </thead>

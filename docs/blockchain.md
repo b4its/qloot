@@ -42,19 +42,18 @@ plus a custom transient-storage reentrancy guard.
 Standard ERC-1155 `TransferSingle`/`TransferBatch` plus:
 
 ```
-RewardPaid(account, amount, reason, idempotencyKey)
-XpAdded(account, amount, newTotalXp, newLevel)
-LevelSet(account, newLevel)
-CourseCreated(courseId, rewardAmount, badgeId)
-CourseUpdated(courseId, rewardAmount, badgeId, active)
-Enrolled(account, courseId)
-CourseCompleted(account, courseId, reward, badgeId)
-BadgeRegistered(badgeId, uri, soulbound)
-BadgeAwarded(account, badgeId, tokenId)
-AchievementUnlocked(account, achievementId)
-Deposited(account, amount) / Withdrawn(account, amount)
+// Each asset (OPT/QTC/ORT)
+Minted(to, amount)
+Burned(from, amount)
+RewardPaid(to, amount, reason, idempotencyKey)
+MaxSupplyUpdated(newMaxSupply)
+LimitsUpdated(maxMintPerTx, dailyMintCap)
+
+// OryphemProxy (ORX)
+Routed(account, qtcOrOrtId, optIn, assetOut)
+AiRequestPaid(account, requests, totalRequests)
+AssetsUpdated(opt, qtc, ort)
 TreasuryUpdated(oldTreasury, newTreasury)
-V2Initialized(treasury, admin)
 ```
 
 Only **opaque hashes** are emitted for off-chain references — never emails,
@@ -62,42 +61,44 @@ names, answers or scores.
 
 ## Upgrade path
 
-The storage layout of the original reward contract is preserved; v2 state is
-appended only. `initializeV2` is an idempotent reinitializer.
+Every contract is a UUPS proxy (upgrade-safe, appended storage only). Upgrade
+all four, or one via `ASSET`:
 
 ```bash
 make blockchain-deploy  NETWORK=localhost
-make blockchain-upgrade NETWORK=localhost    # preserves all state
+make blockchain-upgrade NETWORK=localhost ASSET=ALL    # preserves all state
 ```
 
 ## Off-chain ↔ on-chain
 
 - The backend computes reward idempotency keys off-chain and mirrors per-user
-  OPC balances; the on-chain `opcBalance` is reconciled against the ledger.
-- The blockchain worker drains `transaction_outbox`; the indexer tracks
-  confirmations and flips reward allocations to `confirmed`.
+  balances in the double-entry ledger; on-chain asset balances are reconciled.
+- The blockchain worker drains `transaction_outbox` (topics: `reward`,
+  `airdrop`, `withdrawal`, `pause`, `unpause`, `swap`, `ai_request`); the
+  indexer tracks confirmations and flips reward allocations to `confirmed`.
 - In development (`BLOCKCHAIN_DRY_RUN=true`) an in-process fake chain returns
   deterministic pseudo-hashes so the whole pipeline runs offline.
 
 ## Roles & key management
 
-Recommended production layout:
+Recommended production layout (identical role set on each asset):
 
 | Role | Holder |
 |---|---|
 | `DEFAULT_ADMIN_ROLE` / `ADMIN_ROLE` | multisig (e.g. Safe) |
 | `REWARDER_ROLE` | dedicated backend signer |
 | `MINTER_ROLE` | backend signer / operations |
+| `ROUTER_ROLE` | the OryphemProxy (ORX) contract |
 | `PAUSER_ROLE` | multisig or security operator |
 | `URI_MANAGER_ROLE` | multisig |
 
 ## What is (and isn't) on-chain
 
-**On-chain**: token balances, XP/levels, course enrollment/completion, badges,
-achievements, reward events, treasury deposits/withdrawals, tx status, gas.
+**On-chain**: asset balances (OPT/QTC/ORT), mint/burn/reward events, ORX swaps
+and AI-request burns, per-asset supply + caps, pause state, tx status, gas.
 
 **Off-chain**: passwords, sessions, emails, names, exam answers, learning
-documents, AI feedback, question drafts.
+documents, AI feedback, question drafts, badges/XP/rankings (gamification).
 
-> All **asset, XP and reward activity** is on-chain; **learning content and
+> All **asset and reward activity** is on-chain; **learning content and
 > personal data** stays off-chain.

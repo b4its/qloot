@@ -134,7 +134,7 @@ async def complete_task(task_id: uuid.UUID, user: CurrentUser, db: DbSession):
             await NotificationService(db).notify(
                 user_id=user.id,
                 kind="reward",
-                title=f"Task complete: +{task.reward_amount} OPC",
+                title=f"Task complete: +{task.reward_amount} OPT",
                 body=task.title,
                 data={"task_id": str(task.id), "amount": task.reward_amount},
             )

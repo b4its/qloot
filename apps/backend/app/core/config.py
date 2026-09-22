@@ -87,6 +87,16 @@ class Settings(BaseSettings):
     # at /wallet (paste an address or connect MetaMask). Read from the
     # environment (DEFAULT_WALLET_ADDRESS) — never hardcode a real address here.
     default_wallet_address: str = ""
+    # QLoot ships FOUR separate ERC-1155 UUPS contracts, each with its own address.
+    #   OPT = OryphemToken (base currency, unlimited)
+    #   QTC = QlootChain (premium asset, cap 1e15)
+    #   ORT = OryphemIntelligence (AI credit, 1 request = 1 ORT)
+    #   ORX = OryphemProxy (router: 1 ORT = 50 OPT, 1 QTC = 1000 OPT)
+    opt_contract_address: str = ""
+    qtc_contract_address: str = ""
+    ort_contract_address: str = ""
+    orx_contract_address: str = ""
+    # Legacy alias (points at the OPT asset). Kept so older configs keep working.
     opc_contract_address: str = ""
     opc_token_id: int = 0
     opc_confirmations: int = 2
@@ -145,6 +155,21 @@ class Settings(BaseSettings):
         if self.blockchain_network == "sepolia":
             return self.sepolia_rpc_url
         return self.localhost_rpc_url
+
+    def asset_address(self, key: str) -> str:
+        """Address of a QLoot asset/router by key: OPT, QTC, ORT or ORX.
+
+        Falls back to the legacy ``OPC_CONTRACT_ADDRESS`` for OPT so older
+        configuration keeps working.
+        """
+        key = key.upper()
+        mapping = {
+            "OPT": self.opt_contract_address or self.opc_contract_address,
+            "QTC": self.qtc_contract_address,
+            "ORT": self.ort_contract_address,
+            "ORX": self.orx_contract_address,
+        }
+        return mapping.get(key, "")
 
 
 @lru_cache

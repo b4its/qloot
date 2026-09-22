@@ -1,9 +1,13 @@
-"""Blockchain client: record rewards/withdrawals on the OPC ERC-1155.
+"""Blockchain client for the QLoot digital assets.
+
+QLoot ships FOUR separate ERC-1155 UUPS contracts (see ``config``):
+  OPT = OryphemToken (base currency)   QTC = QlootChain (capped 1e15)
+  ORT = OryphemIntelligence (AI credit)  ORX = OryphemProxy (router)
 
 Two modes:
   - dry_run=True (default in dev): an in-process fake chain that returns
     deterministic pseudo-hashes so the whole pipeline is exercisable offline.
-  - dry_run=False: real web3.py against the configured RPC + contract.
+  - dry_run=False: real web3.py against the configured RPC + contracts.
 
 The private key is read from settings and never logged.
 """
@@ -21,7 +25,9 @@ from app.core.logging import get_logger
 
 log = get_logger("chain")
 
-OPC_ABI_MIN = [
+# Minimal ABI shared by the three ERC-1155 assets (OPT/QTC/ORT). Each asset is
+# its own contract and uses token id 0.
+ASSET_ABI_MIN = [
     {
         "inputs": [
             {"internalType": "address", "name": "to", "type": "address"},
@@ -36,63 +42,62 @@ OPC_ABI_MIN = [
     },
     {
         "inputs": [
-            {"internalType": "address", "name": "account", "type": "address"},
-            {"internalType": "uint256", "name": "amount", "type": "uint256"},
-        ],
-        "name": "addXp",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "inputs": [
-            {"internalType": "uint8", "name": "badgeId", "type": "uint8"},
-            {"internalType": "string", "name": "uri", "type": "string"},
-            {"internalType": "bool", "name": "soulbound", "type": "bool"},
-        ],
-        "name": "registerBadge",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "inputs": [
             {"internalType": "address", "name": "to", "type": "address"},
-            {"internalType": "uint8", "name": "badgeId", "type": "uint8"},
-            {"internalType": "string", "name": "uri", "type": "string"},
-        ],
-        "name": "awardBadge",
-        "outputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "courseId", "type": "uint256"},
-            {"internalType": "uint256", "name": "rewardAmount", "type": "uint256"},
-            {"internalType": "uint8", "name": "badgeId", "type": "uint8"},
-            {"internalType": "bool", "name": "active", "type": "bool"},
-        ],
-        "name": "createCourse",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "inputs": [
-            {"internalType": "bytes32", "name": "withdrawalRef", "type": "bytes32"},
-            {"internalType": "address", "name": "destination", "type": "address"},
-            {"internalType": "uint256", "name": "tokenId", "type": "uint256"},
             {"internalType": "uint256", "name": "amount", "type": "uint256"},
         ],
-        "name": "completeWithdrawal",
+        "name": "mint",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function",
     },
     {
-        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "inputs": [
+            {"internalType": "address", "name": "from", "type": "address"},
+            {"internalType": "uint256", "name": "amount", "type": "uint256"},
+        ],
+        "name": "burn",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "pause",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "unpause",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "id", "type": "uint256"}],
         "name": "totalSupply",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "totalMinted",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "totalBurned",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "maxSupply",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
         "stateMutability": "view",
         "type": "function",
@@ -107,28 +112,41 @@ OPC_ABI_MIN = [
         "stateMutability": "view",
         "type": "function",
     },
+]
+
+# Minimal ABI of the OryphemProxy (ORX) router.
+ORX_ABI_MIN = [
     {
-        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-        "name": "xp",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
+        "inputs": [
+            {"internalType": "uint256", "name": "assetId", "type": "uint256"},
+            {"internalType": "uint256", "name": "amount", "type": "uint256"},
+        ],
+        "name": "swapOptFor",
+        "outputs": [{"internalType": "uint256", "name": "optCost", "type": "uint256"}],
+        "stateMutability": "nonpayable",
         "type": "function",
     },
     {
-        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-        "name": "level",
-        "outputs": [{"internalType": "uint32", "name": "", "type": "uint32"}],
-        "stateMutability": "view",
+        "inputs": [{"internalType": "uint256", "name": "requests", "type": "uint256"}],
+        "name": "payAiRequest",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function",
     },
     {
-        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-        "name": "userBadgeCount",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "inputs": [],
+        "name": "proxyRates",
+        "outputs": [
+            {"internalType": "uint256", "name": "optPerOrt", "type": "uint256"},
+            {"internalType": "uint256", "name": "optPerQtc", "type": "uint256"},
+        ],
         "stateMutability": "view",
         "type": "function",
     },
 ]
+
+# Asset id used by the ORX router for each asset.
+ORX_ASSET_IDS = {"QTC": 1, "ORT": 2}
 
 
 @dataclass
@@ -142,9 +160,11 @@ class TxReceipt:
 
 class ChainClient:
     def __init__(self) -> None:
-        self.dry_run = settings.blockchain_dry_run or not settings.opc_contract_address
+        # In dry-run mode when no OPT address is configured (legacy behaviour).
+        self.dry_run = settings.blockchain_dry_run or not settings.asset_address("OPT")
         self._w3: Any = None
-        self._contract: Any = None
+        self._assets: dict[str, Any] = {}
+        self._orx: Any = None
         self._account: Any = None
         # Serialises nonce allocation + submission: web3.py's HTTP provider is
         # sync, and two concurrent submits that both read the "latest" nonce
@@ -162,14 +182,27 @@ class ChainClient:
                 raise ChainError("BLOCKCHAIN_PRIVATE_KEY is not configured")
             self._w3 = Web3(Web3.HTTPProvider(settings.rpc_url))
             self._account = Account.from_key(settings.blockchain_private_key)
-            self._contract = self._w3.eth.contract(
-                address=Web3.to_checksum_address(settings.opc_contract_address),
-                abi=OPC_ABI_MIN,
-            )
+            for key in ("OPT", "QTC", "ORT"):
+                addr = settings.asset_address(key)
+                if addr:
+                    self._assets[key] = self._w3.eth.contract(
+                        address=Web3.to_checksum_address(addr), abi=ASSET_ABI_MIN
+                    )
+            orx_addr = settings.asset_address("ORX")
+            if orx_addr:
+                self._orx = self._w3.eth.contract(
+                    address=Web3.to_checksum_address(orx_addr), abi=ORX_ABI_MIN
+                )
         except ChainError:
             raise
         except Exception as exc:  # noqa: BLE001
             raise ChainError("Failed to initialise web3 client") from exc
+
+    def _asset(self, key: str) -> Any:
+        contract = self._assets.get(key.upper())
+        if contract is None:
+            raise ChainError(f"{key.upper()}_CONTRACT_ADDRESS is not configured")
+        return contract
 
     def _fake_hash(self, *parts: str) -> str:
         return "0x" + hashlib.sha256("|".join(parts).encode()).hexdigest()
@@ -182,26 +215,28 @@ class ChainClient:
         amount: int,
         reason: str = "reward",
         to: str | None = None,
+        asset: str = "OPT",
     ) -> TxReceipt:
-        """Pay an idempotent OPC reward via the v2 `rewardUser` function.
+        """Pay an idempotent asset reward via the `rewardUser` function.
 
         The contract keys idempotency on a uint256; we derive it deterministically
         from the off-chain `reward_key` so retries never double-pay.
         """
+        asset = asset.upper()
         # Derive a stable uint256 key from the bytes32/hex reward key.
         idem = int(reward_key, 16) if reward_key.startswith("0x") else _stable_uint(reward_key)
         idem &= (1 << 256) - 1
 
         if self.dry_run:
-            tx_hash = self._fake_hash("reward", reward_key, user_ref, str(amount))
-            log.info("dry_run_reward_user", reward_key=reward_key, amount=amount)
+            tx_hash = self._fake_hash("reward", asset, reward_key, user_ref, str(amount))
+            log.info("dry_run_reward_user", asset=asset, reward_key=reward_key, amount=amount)
             return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
 
-        assert self._contract is not None and self._account is not None and self._w3 is not None
+        assert self._account is not None and self._w3 is not None
         recipient = to or settings.treasury_address
         if not recipient:
             raise ChainError("TREASURY_ADDRESS is not configured")
-        fn = self._contract.functions.rewardUser(
+        fn = self._asset(asset).functions.rewardUser(
             self._w3.to_checksum_address(recipient),
             int(amount),
             _b32(reason),
@@ -209,48 +244,65 @@ class ChainClient:
         )
         return await self._send(fn)
 
-    async def add_xp(self, *, to: str, amount: int, user_ref: str = "") -> TxReceipt:
+    async def mint(self, *, to: str, amount: int, asset: str = "OPT") -> TxReceipt:
+        """Mint `amount` of an asset to `to` (MINTER_ROLE)."""
+        asset = asset.upper()
         if self.dry_run:
-            tx_hash = self._fake_hash("xp", user_ref or to, str(amount))
-            return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
-        assert self._contract is not None and self._w3 is not None
-        fn = self._contract.functions.addXp(self._w3.to_checksum_address(to), int(amount))
+            return TxReceipt(
+                tx_hash=self._fake_hash("mint", asset, to, str(amount)), status=1, dry_run=True
+            )
+        assert self._w3 is not None
+        fn = self._asset(asset).functions.mint(self._w3.to_checksum_address(to), int(amount))
         return await self._send(fn)
 
-    async def award_badge(self, *, to: str, badge_id: int, uri: str = "") -> TxReceipt:
+    async def burn(self, *, from_: str, amount: int, asset: str = "OPT") -> TxReceipt:
+        """Burn `amount` of an asset from `from_` (router/self burn)."""
+        asset = asset.upper()
         if self.dry_run:
-            tx_hash = self._fake_hash("badge", to, str(badge_id))
-            return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
-        assert self._contract is not None and self._w3 is not None
-        fn = self._contract.functions.awardBadge(
-            self._w3.to_checksum_address(to), int(badge_id), uri
-        )
+            return TxReceipt(
+                tx_hash=self._fake_hash("burn", asset, from_, str(amount)), status=1, dry_run=True
+            )
+        assert self._w3 is not None
+        fn = self._asset(asset).functions.burn(self._w3.to_checksum_address(from_), int(amount))
         return await self._send(fn)
 
-    async def register_badge(
-        self, *, badge_id: int, uri: str = "", soulbound: bool = False
-    ) -> TxReceipt:
+    async def pause(self, asset: str = "OPT") -> TxReceipt:
+        """Pause an asset (PAUSER_ROLE)."""
+        asset = asset.upper()
         if self.dry_run:
-            tx_hash = self._fake_hash("badge_register", str(badge_id))
-            return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
-        assert self._contract is not None
-        fn = self._contract.functions.registerBadge(int(badge_id), uri, bool(soulbound))
+            return TxReceipt(tx_hash=self._fake_hash("pause", asset), status=1, dry_run=True)
+        return await self._send(self._asset(asset).functions.pause())
+
+    async def unpause(self, asset: str = "OPT") -> TxReceipt:
+        """Unpause an asset (PAUSER_ROLE)."""
+        asset = asset.upper()
+        if self.dry_run:
+            return TxReceipt(tx_hash=self._fake_hash("unpause", asset), status=1, dry_run=True)
+        return await self._send(self._asset(asset).functions.unpause())
+
+    async def swap_opt_for(self, *, asset: str, amount: int) -> TxReceipt:
+        """Route OPT into QTC/ORT through the ORX proxy (owner call)."""
+        asset = asset.upper()
+        if asset not in ORX_ASSET_IDS:
+            raise ChainError("ORX swap asset must be QTC or ORT")
+        if self.dry_run:
+            return TxReceipt(
+                tx_hash=self._fake_hash("swap", asset, str(amount)), status=1, dry_run=True
+            )
+        if self._orx is None:
+            raise ChainError("ORX_CONTRACT_ADDRESS is not configured")
+        fn = self._orx.functions.swapOptFor(ORX_ASSET_IDS[asset], int(amount))
         return await self._send(fn)
 
-    async def complete_withdrawal(
-        self, *, withdrawal_ref: str, destination: str, amount: int, token_id: int
-    ) -> TxReceipt:
+    async def pay_ai_request(self, *, requests: int) -> TxReceipt:
+        """Burn ORT for AI usage (1 request = 1 ORT) via ORX."""
         if self.dry_run:
-            tx_hash = self._fake_hash("withdrawal", withdrawal_ref, destination, str(amount))
-            return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)
-        assert self._contract is not None and self._w3 is not None
-        fn = self._contract.functions.completeWithdrawal(
-            _b32(withdrawal_ref),
-            self._w3.to_checksum_address(destination),
-            int(token_id),
-            int(amount),
-        )
-        return await self._send(fn)
+            return TxReceipt(
+                tx_hash=self._fake_hash("ai_request", str(requests)), status=1, dry_run=True
+            )
+        if self._orx is None:
+            raise ChainError("ORX_CONTRACT_ADDRESS is not configured")
+        return await self._send(self._orx.functions.payAiRequest(int(requests)))
 
     async def _send(self, fn) -> TxReceipt:
         assert self._w3 is not None and self._account is not None
@@ -311,12 +363,7 @@ class ChainClient:
             return None
 
     def status(self) -> dict:
-        """Public, address-free status (safe for any authenticated user).
-
-        Contract/treasury addresses are intentionally omitted so the platform's
-        on-chain addresses are never leaked to non-operators. Use
-        :meth:`admin_status` for the privileged view.
-        """
+        """Public, address-free status (safe for any authenticated user)."""
         return {
             "dry_run": self.dry_run,
             "network": settings.blockchain_network,
@@ -326,11 +373,39 @@ class ChainClient:
         }
 
     def admin_status(self) -> dict:
-        """Privileged status including contract/treasury addresses (admin only)."""
+        """Privileged status including every asset/router address (admin only)."""
         return {
             **self.status(),
-            "contract_address": settings.opc_contract_address or None,
+            # Backwards-compatible single-contract fields = OPT.
+            "contract_address": settings.asset_address("OPT") or None,
             "treasury_address": settings.treasury_address or None,
+            # Full multi-contract map.
+            "assets": {
+                "OPT": {
+                    "name": "OryphemToken",
+                    "symbol": "OPT",
+                    "address": settings.asset_address("OPT") or None,
+                    "role": "base currency (unlimited)",
+                },
+                "QTC": {
+                    "name": "QlootChain",
+                    "symbol": "QTC",
+                    "address": settings.asset_address("QTC") or None,
+                    "role": "premium chain asset (cap 1e15)",
+                },
+                "ORT": {
+                    "name": "OryphemIntelligence",
+                    "symbol": "ORT",
+                    "address": settings.asset_address("ORT") or None,
+                    "role": "AI credit (1 request = 1 ORT)",
+                },
+                "ORX": {
+                    "name": "OryphemProxy",
+                    "symbol": "ORX",
+                    "address": settings.asset_address("ORX") or None,
+                    "role": "router (1 ORT = 50 OPT, 1 QTC = 1000 OPT)",
+                },
+            },
         }
 
     def explorer_url(self, tx_hash: str) -> str | None:

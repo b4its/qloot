@@ -78,11 +78,13 @@ attempt id.
 
 ## Wallet model
 
-On-chain: the treasury holds all OPC. Off-chain: a **double-entry ledger**
-(`credit − debit = balance`) tracks each user's beneficial balance, with cached
-balances for fast reads and a reconciliation endpoint. Rewards are idempotent at
-both the database (`reward_key` unique, `(quest,user,type)` unique) and contract
-(`rewardFinalized` mapping) layers. Users may withdraw to a personal address.
+On-chain: the treasury holds the pooled assets (OPT/QTC/ORT). Off-chain: a
+**double-entry ledger** (`credit − debit = balance`) tracks each user's
+beneficial balance, with cached balances for fast reads and a reconciliation
+endpoint. Rewards are idempotent at both the database (`reward_key` unique,
+`(quest,user,type)` unique) and contract (`rewardKeyUsed` mapping) layers. Users
+may withdraw to a personal address; the OryphemProxy (ORX) router converts OPT
+into QTC/ORT at fixed rates.
 
 ## Observability
 

@@ -15,6 +15,7 @@
   let message = "";
   let loading = true;
   let busy = "";
+  let pauseAsset = "OPT";
 
   const links = [
     {
@@ -49,8 +50,8 @@
     message = "";
     busy = action;
     try {
-      await api.post(`/admin/blockchain/${action}`);
-      message = `${action === "pause" ? "Jeda" : "Lanjutkan"} rewards diantrekan untuk blockchain worker`;
+      await api.post(`/admin/blockchain/${action}?asset=${pauseAsset}`);
+      message = `${action === "pause" ? "Jeda" : "Lanjutkan"} ${pauseAsset} diantrekan untuk blockchain worker`;
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengirim perintah";
@@ -68,7 +69,7 @@
   <PageHeader
     eyebrow="Admin · Blockchain"
     title="Blockchain"
-    subtitle="Status kontrak OryphemToken dan kontrol hadiah on-chain."
+    subtitle="Status 4 aset digital QLoot (OPT · QTC · ORT + ORX) dan kontrol on-chain."
     backHref="/admin"
     backLabel="Admin"
   />
@@ -95,24 +96,39 @@
         <div class="mono-label">Konfirmasi</div>
         <div class="font-semibold">{status.confirmations_required}</div>
       </div>
-      <div class="sm:col-span-2">
-        <div class="mono-label">Kontrak</div>
-        <div class="break-all font-mono text-xs">
-          {status.contract_address ?? "belum diterapkan"}
-        </div>
-      </div>
-      <div class="sm:col-span-2">
+      <div class="sm:col-span-4">
         <div class="mono-label">Treasury</div>
         <div class="break-all font-mono text-xs">{status.treasury_address ?? "belum diatur"}</div>
       </div>
     </div>
 
-    <div class="mt-4 flex gap-2">
+    {#if status.assets}
+      <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        {#each Object.entries(status.assets) as [key, a]}
+          <div class="card">
+            <div class="flex items-center justify-between">
+              <span class="badge badge-indigo">{key}</span>
+              <span class="mono-label">{a.symbol}</span>
+            </div>
+            <h2 class="mt-2 font-display text-lg font-bold">{a.name}</h2>
+            <p class="text-xs muted">{a.role}</p>
+            <div class="mt-2 break-all font-mono text-xs">{a.address ?? "belum diterapkan"}</div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <select class="input !w-auto" bind:value={pauseAsset} aria-label="Pilih aset">
+        <option value="OPT">OPT</option>
+        <option value="QTC">QTC</option>
+        <option value="ORT">ORT</option>
+      </select>
       <button class="btn-ghost" on:click={() => control("pause")} disabled={busy === "pause"}>
-        {busy === "pause" ? "Mengirim…" : "Jeda hadiah"}
+        {busy === "pause" ? "Mengirim…" : "Jeda aset"}
       </button>
       <button class="btn-primary" on:click={() => control("unpause")} disabled={busy === "unpause"}>
-        {busy === "unpause" ? "Mengirim…" : "Lanjutkan hadiah"}
+        {busy === "unpause" ? "Mengirim…" : "Lanjutkan aset"}
       </button>
     </div>
   {/if}

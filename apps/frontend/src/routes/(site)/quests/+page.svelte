@@ -104,7 +104,7 @@
               {#each q.rules as r}
                 <li class="flex justify-between border-b pb-1 last:border-0">
                   <span>Peringkat {r.rank}</span>
-                  <span class="font-mono text-highlight">{r.reward_amount} OPC</span>
+                  <span class="font-mono text-highlight">{r.reward_amount} OPT</span>
                 </li>
               {/each}
             </ul>
@@ -122,7 +122,7 @@
                 {#each winnersByQuest[q.id] as w}
                   <li class="flex justify-between">
                     <span>#{w.rank} · <span class="font-mono">{w.user_id.slice(0, 8)}…</span></span>
-                    <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPC</span>
+                    <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPT</span>
                   </li>
                 {/each}
               </ol>

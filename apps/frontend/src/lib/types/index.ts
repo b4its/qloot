@@ -204,15 +204,24 @@ export interface Reward {
   user_id?: string;
 }
 
+export interface AssetInfo {
+  name: string;
+  symbol: string;
+  address?: string | null;
+  role?: string;
+}
+
 export interface BlockchainStatus {
   dry_run: boolean;
   network: string;
   chain_id: number;
   token_id: number;
   confirmations_required: number;
-  /** Address fields are only present on the admin status endpoint. */
+  /** Legacy single-contract fields (= OPT); only on the admin status endpoint. */
   contract_address?: string | null;
   treasury_address?: string | null;
+  /** Per-asset addresses (OPT/QTC/ORT/ORX); only on the admin status endpoint. */
+  assets?: Record<string, AssetInfo>;
 }
 
 export interface BlockchainTx {

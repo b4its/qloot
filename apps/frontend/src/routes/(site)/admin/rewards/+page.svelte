@@ -79,7 +79,7 @@
   <PageHeader
     eyebrow="Admin · Hadiah"
     title="Hadiah"
-    subtitle="Pantau, ulangi, dan batalkan alokasi OPC."
+    subtitle="Pantau, ulangi, dan batalkan alokasi OPT."
     backHref="/admin"
     backLabel="Admin"
   />

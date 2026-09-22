@@ -229,7 +229,7 @@
           </div>
         </div>
         <div class="card">
-          <p class="mono-label">OPC tersedia</p>
+          <p class="mono-label">OPT tersedia</p>
           <p class="mt-2 font-display text-3xl font-bold text-highlight">
             <StatCounter value={wallet?.available ?? 0} />
           </p>

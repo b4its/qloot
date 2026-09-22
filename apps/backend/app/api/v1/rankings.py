@@ -192,7 +192,7 @@ async def quest_ranking(
 
 @router.get("/me")
 async def my_ranking(db: DbSession, user: CurrentUser):
-    """The caller's own total, OPC balance, and live global position."""
+    """The caller's own total, OPT balance, and live global position."""
     # Use the *same* best-per-exam aggregation as the global board so the
     # caller's own total and rank agree with their global position. Retries must
     # not double-count and flagged attempts must be excluded — re-implementing

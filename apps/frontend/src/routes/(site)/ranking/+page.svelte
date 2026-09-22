@@ -123,7 +123,7 @@
             </div>
           {/if}
           <div>
-            <p class="mono-label">OPC diperoleh</p>
+            <p class="mono-label">OPT diperoleh</p>
             <p class="font-display text-2xl font-bold text-highlight">
               {formatNumber(me.opc_balance)}
             </p>
@@ -162,7 +162,7 @@
             <th class="px-5 py-3">#</th>
             <th class="px-5 py-3">Pengguna</th>
             <th class="px-5 py-3 text-right">Skor</th>
-            <th class="px-5 py-3 text-right">OPC</th>
+            <th class="px-5 py-3 text-right">OPT</th>
           </tr>
         </thead>
         <tbody>

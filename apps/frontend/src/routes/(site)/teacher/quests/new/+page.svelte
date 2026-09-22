@@ -51,7 +51,7 @@
   <PageHeader
     eyebrow="Panel Guru · Quest"
     title="Quest baru"
-    subtitle="Tautkan ke ujian (opsional), tentukan jumlah pemenang, dan hadiah OPC per peringkat."
+    subtitle="Tautkan ke ujian (opsional), tentukan jumlah pemenang, dan hadiah OPT per peringkat."
     backHref="/teacher/quests"
     backLabel="Quest"
   />
@@ -76,7 +76,7 @@
         <input class="input mt-1" type="number" min="1" max="50" bind:value={form.top_n_winners} />
       </label>
       <div class="block">
-        <span class="mono-label">Hadiah OPC per peringkat</span>
+        <span class="mono-label">Hadiah OPT per peringkat</span>
         <div class="mt-1 flex items-center gap-2">
           {#each form.ranks as amount, i}
             <input class="input w-20" type="number" min="0" bind:value={form.ranks[i]} />

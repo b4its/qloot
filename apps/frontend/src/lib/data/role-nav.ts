@@ -73,7 +73,7 @@ export const adminNav: RoleNavItem[] = [
     href: "/admin/rewards",
     label: "Hadiah",
     icon: "gem",
-    desc: "Pantau, ulangi dan batalkan alokasi OPC",
+    desc: "Pantau, ulangi dan batalkan alokasi OPT",
   },
   {
     href: "/admin/blockchain",

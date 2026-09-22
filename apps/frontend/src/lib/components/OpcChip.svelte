@@ -14,13 +14,13 @@
   href="/wallet"
   class="wallet-chip group transition-colors hover:border-highlight"
   title="Saldo OryphemToken (OPT)"
-  aria-label={`Saldo ${$opc.available} OPC, buka dompet`}
+  aria-label={`Saldo ${$opc.available} OPT, buka dompet`}
 >
   <span class="brand-mark-cool grid h-6 w-6 flex-none place-items-center rounded-sm">
     <Icon name="coins" size="11px" />
   </span>
   <span class="flex flex-col items-start leading-tight">
-    {#if !compact}<span class="text-[10px] muted">OPC</span>{/if}
+    {#if !compact}<span class="text-[10px] muted">OPT</span>{/if}
     <span class="font-semibold text-ink">{$opc.available.toLocaleString("id-ID")}</span>
   </span>
   {#if $opc.pending > 0}

@@ -8,7 +8,6 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.errors import NotFoundError
 from app.core.logging import get_logger
 from app.models.identity import User
@@ -117,7 +116,7 @@ class BadgeService:
             ("first_quest", "First Quest", "Completed your first quest", "🎯", 10),
             ("quiz_master", "Quiz Master", "Completed 5 lessons", "🧠", 25),
             ("top_3", "Podium Finish", "Finished in the top 3 of a quest", "🥉", 50),
-            ("first_reward", "First OPC", "Earned your first OryphemToken", "💎", 15),
+            ("first_reward", "First OPT", "Earned your first OryphemToken", "💎", 15),
             ("room_regular", "Room Regular", "Joined 5 rooms", "🎪", 20),
             ("perfect_exam", "Perfect Score", "Scored 100% on an exam", "🌟", 40),
             ("learner", "Dedicated Learner", "Completed 10 lessons", "📚", 30),
@@ -179,37 +178,9 @@ class BadgeService:
             used.add(next_id)
             assigned.append(badge)
         await self.session.flush()
-        # Enqueue on-chain registration for newly assigned badges. Skip any
-        # outbox row that already exists so a repeat call is a harmless no-op
-        # rather than an IntegrityError.
-        from app.models.wallet import TransactionOutbox
-        from app.services.keys import tx_idempotency_key
-
-        if assigned:
-            keys = [tx_idempotency_key("badge_register", b.code) for b in assigned]
-            existing_keys = set(
-                (
-                    await self.session.execute(
-                        select(TransactionOutbox.idempotency_key).where(
-                            TransactionOutbox.idempotency_key.in_(keys)
-                        )
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            for badge, key in zip(assigned, keys, strict=False):
-                if key in existing_keys:
-                    continue
-                self.session.add(
-                    TransactionOutbox(
-                        topic="badge",
-                        idempotency_key=key,
-                        payload={"badge_id": badge.on_chain_id, "uri": "", "register": True},
-                        status="pending",
-                    )
-                )
-            await self.session.flush()
+        # NOTE: QLoot's on-chain contracts are pure ERC-1155 digital assets
+        # (OPT/QTC/ORT); badges are tracked off-chain only, so there is no
+        # on-chain badge registration/award step to enqueue here.
 
     async def award(
         self, *, user: User, code: str, meta: dict | None = None, notify: bool = True
@@ -238,26 +209,9 @@ class BadgeService:
                 await self.session.flush()
         except IntegrityError:
             return None
-        # Mirror the badge award on-chain (best-effort; custodial model mints to
-        # the treasury address and records the user ref).
-        if badge.on_chain_id and settings.treasury_address:
-            from app.models.wallet import TransactionOutbox
-            from app.services.keys import tx_idempotency_key
-
-            self.session.add(
-                TransactionOutbox(
-                    topic="badge",
-                    idempotency_key=tx_idempotency_key("badge_award", code, str(user.id)),
-                    payload={
-                        "to": settings.treasury_address,
-                        "badge_id": badge.on_chain_id,
-                        "uri": "",
-                        "user_ref": user.chain_user_ref,
-                    },
-                    status="pending",
-                )
-            )
-            await self.session.flush()
+        # Badges are an off-chain gamification concept in QLoot; the on-chain
+        # contracts hold the fungible assets (OPT/QTC/ORT) only, so nothing is
+        # mirrored on-chain for a badge award.
         if notify:
             await NotificationService(self.session).notify(
                 user_id=user.id,

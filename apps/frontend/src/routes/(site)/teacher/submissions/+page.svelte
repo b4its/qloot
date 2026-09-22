@@ -101,7 +101,7 @@
         <div class="mt-1 font-display text-2xl font-bold">{analytics.winners}</div>
       </div>
       <div class="card">
-        <div class="mono-label">OPC diberikan</div>
+        <div class="mono-label">OPT diberikan</div>
         <div class="mt-1 font-display text-2xl font-bold text-highlight">
           {analytics.opc_awarded}
         </div>

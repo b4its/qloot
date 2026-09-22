@@ -65,7 +65,7 @@ async def update_wallet_address(payload: WalletAddressUpdate, user: CurrentUser,
 
 @router.get("/transfer-recipients", response_model=list[dict])
 async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", limit: LimitParam = 8):
-    """Search active users to transfer OPC to (simulated directory)."""
+    """Search active users to transfer OPT to (simulated directory)."""
     stmt = select(User).where(User.is_active.is_(True), User.id != user.id)
     term = q.strip()
     if term:
@@ -222,6 +222,7 @@ async def request_withdrawal(payload: WithdrawalRequestIn, user: CurrentUser, db
                     "destination": payload.destination_address,
                     "amount": payload.amount,
                     "token_id": account.token_id,
+                    "asset": "OPT",
                 },
                 status="pending",
             )

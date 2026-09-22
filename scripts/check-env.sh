@@ -44,6 +44,15 @@ if [[ "$BLOCKCHAIN_NETWORK" != "localhost" && "$BLOCKCHAIN_NETWORK" != "anvil" ]
   require SEPOLIA_RPC_URL
   require BLOCKCHAIN_PRIVATE_KEY
   require TREASURY_ADDRESS
+  # QLoot ships 4 separate asset contracts; OPT may fall back to the legacy
+  # OPC_CONTRACT_ADDRESS alias, but QTC/ORT/ORX must be set for live routing.
+  if [[ -z "${OPT_CONTRACT_ADDRESS:-}" && -z "${OPC_CONTRACT_ADDRESS:-}" ]]; then
+    echo "ERROR: OPT_CONTRACT_ADDRESS (or OPC_CONTRACT_ADDRESS) is not set"
+    err=1
+  fi
+  require QTC_CONTRACT_ADDRESS
+  require ORT_CONTRACT_ADDRESS
+  require ORX_CONTRACT_ADDRESS
 fi
 
 if [[ "$err" -ne 0 ]]; then

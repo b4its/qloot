@@ -654,7 +654,7 @@ async def seed_ops_tables(session: AsyncSession, students, teachers) -> None:
                     chain_id=31337,
                     from_address=_addr(f"from{i}"),
                     to_address=_addr(f"to{i}"),
-                    method=["rewardUser", "awardBadge", "completeWithdrawal"][i % 3],
+                    method=["rewardUser", "mint", "burn", "swapOptFor"][i % 4],
                     arguments={"index": i},
                     transaction_hash="0x"
                     + uuid.uuid5(uuid.NAMESPACE_URL, f"tx{i}").hex
@@ -689,14 +689,15 @@ async def seed_ops_tables(session: AsyncSession, students, teachers) -> None:
         await session.flush()
 
     if await _count(session, ContractDeployment) < TARGET:
-        names = ["OryphemToken"]
+        # The four QLoot contracts (each its own UUPS proxy).
+        names = ["OryphemToken", "QlootChain", "OryphemIntelligence", "OryphemProxy"]
         for i in range(1, TARGET + 1):
             session.add(
                 ContractDeployment(
                     id=det_uuid("cdeploy", str(i)),
                     network=f"seed-net-{i}",
                     chain_id=31337,
-                    name=names[0],
+                    name=names[(i - 1) % len(names)],
                     address=_addr(f"deploy{i}"),
                     deployer=_addr("deployer"),
                     treasury=_addr("treasury"),
@@ -728,7 +729,7 @@ async def seed_ops_tables(session: AsyncSession, students, teachers) -> None:
         await session.flush()
 
     if await _count(session, TransactionOutbox) < TARGET:
-        topics = ["reward", "xp", "badge", "withdrawal", "pause"]
+        topics = ["reward", "airdrop", "withdrawal", "pause", "swap", "ai_request"]
         for i in range(1, TARGET + 1):
             session.add(
                 TransactionOutbox(

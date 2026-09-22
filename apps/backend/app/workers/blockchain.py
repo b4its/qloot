@@ -22,7 +22,7 @@ log = get_logger("blockchain_worker")
 
 _shutdown = asyncio.Event()
 
-TOPICS = ("reward", "xp", "badge", "withdrawal", "pause", "unpause")
+TOPICS = ("reward", "airdrop", "withdrawal", "pause", "unpause", "swap", "ai_request")
 
 
 async def _claim(session) -> TransactionOutbox | None:
@@ -43,13 +43,6 @@ async def _process_once() -> bool:
         item = await _claim(session)
         if item is None:
             return False
-        # pause/unpause are handled at contract level; in dry-run we just mark done.
-        if item.topic in ("pause", "unpause"):
-            item.status = "done"
-            item.processed_at = datetime.now(UTC)
-            await session.flush()
-            log.info("contract_control", action=item.topic)
-            return True
         return await process_outbox_item(session, item.id)
 
 

@@ -73,7 +73,7 @@
         amount: Number(transferAmount),
         note: transferNote || null,
       });
-      transferMsg = `Berhasil mengirim ${transferAmount} OPC ke ${transferTarget.full_name}.`;
+      transferMsg = `Berhasil mengirim ${transferAmount} OPT ke ${transferTarget.full_name}.`;
       transferAmount = 0;
       transferNote = "";
       transferTarget = null;
@@ -222,7 +222,7 @@
   <p class="mono-label">Web3</p>
   <h1 class="mt-2 font-display text-4xl font-bold">Dompet</h1>
   <p class="mt-1 muted">
-    Saldo OPC kustodialmu. Semua reward on-chain masuk ke satu wallet bersama; bagianmu terfokus
+    Saldo aset digital kustodialmu. Semua reward on-chain masuk ke satu wallet bersama; bagianmu terfokus
     pada akunmu dan dilacak dalam ledger double-entry.
   </p>
 
@@ -241,7 +241,7 @@
         <div class="mt-1 font-display text-3xl font-bold text-highlight">
           {formatNumber(wallet.available)}
         </div>
-        <div class="text-xs muted">OPC (token id {wallet.token_id})</div>
+        <div class="text-xs muted">OPT (token id {wallet.token_id})</div>
       </div>
       <div class="card">
         <div class="mono-label">Menunggu</div>
@@ -259,12 +259,39 @@
 
     <div class="mt-4 grid gap-4">
       <div class="card">
+        <div class="mono-label">Aset digital QLoot</div>
+        <p class="mt-1 text-xs muted">
+          Saldo di dompet ini adalah OPT. Aset lain diperoleh lewat
+          <span class="text-primary">OryphemProxy (ORX)</span>: 1 ORT = 50 OPT, 1 QTC = 1000 OPT.
+        </p>
+        <div class="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+          <div>
+            <span class="badge badge-indigo">OPT</span>
+            <p class="mt-1 font-medium">OryphemToken</p>
+            <p class="text-xs muted">Mata uang dasar · tanpa batas</p>
+          </div>
+          <div>
+            <span class="badge badge-indigo">QTC</span>
+            <p class="mt-1 font-medium">QlootChain</p>
+            <p class="text-xs muted">Sertifikat &amp; pesan terenkripsi · cap 1e15</p>
+          </div>
+          <div>
+            <span class="badge badge-indigo">ORT</span>
+            <p class="mt-1 font-medium">OryphemIntelligence</p>
+            <p class="text-xs muted">Kredit AI (1 request = 1 ORT)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-4">
+      <div class="card">
         <div class="mono-label">Saldo terfokus</div>
         <div class="mt-1 flex flex-wrap items-baseline gap-2">
           <span class="font-display text-2xl font-bold text-highlight"
             >{formatNumber(wallet.available)}</span
           >
-          <span class="text-sm muted">OPC tersedia</span>
+          <span class="text-sm muted">OPT tersedia</span>
           {#if wallet.withdrawal_address}
             <span class="badge badge-indigo font-mono text-xs"
               >→ {shortHash(wallet.withdrawal_address, 6)}</span
@@ -286,7 +313,7 @@
         <span class="mono-label">Alamat yang dipakai untuk penarikan</span>
       </div>
       <p class="mt-1 text-xs muted">
-        Ini wallet pribadimu — semua penarikan OPC akan dikirim ke alamat ini. Tempel alamatnya
+        Ini wallet pribadimu — semua penarikan akan dikirim ke alamat ini. Tempel alamatnya
         langsung, atau hubungkan lewat MetaMask. Semua akun memakai alamat default platform sampai
         kamu menggantinya.
       </p>
@@ -330,7 +357,7 @@
             class="input"
             type="number"
             min="1"
-            placeholder="Jumlah (OPC)"
+            placeholder="Jumlah (OPT)"
             bind:value={withdrawAmount}
           />
           <label class="block">
@@ -361,7 +388,7 @@
       </div>
 
       <div class="card">
-        <h2 class="hud font-display text-lg font-bold">Kirim OPC ke pengguna lain</h2>
+        <h2 class="hud font-display text-lg font-bold">Kirim OPT ke pengguna lain</h2>
         <div class="mt-3 space-y-3">
           {#if transferTarget}
             <div class="flex items-center justify-between rounded-sm border px-3 py-2 text-sm">
@@ -411,7 +438,7 @@
             class="input"
             type="number"
             min="1"
-            placeholder="Jumlah (OPC)"
+            placeholder="Jumlah (OPT)"
             bind:value={transferAmount}
           />
           <input class="input" placeholder="Catatan (opsional)" bind:value={transferNote} />

@@ -198,3 +198,92 @@ async def test_withdrawal_refund_restores_balance(session):
     # A failed payout returns the funds.
     await engine.refund_withdrawal(user_id=student.id, amount=50, withdrawal_id=wd_id)
     assert await engine.balance(student.id) == 80
+
+
+async def _mk_outbox(session, topic, payload, key):
+    item = TransactionOutbox(topic=topic, idempotency_key=key, payload=payload, status="pending")
+    session.add(item)
+    await session.flush()
+    return item
+
+
+async def test_airdrop_topic_mints(session):
+    """An 'airdrop' outbox item mints the asset (dry-run: deterministic hash)."""
+    from sqlalchemy import select
+
+    item = await _mk_outbox(
+        session,
+        "airdrop",
+        {"to": "0x" + "ab" * 20, "amount": 500, "asset": "QTC"},
+        "airdrop-1",
+    )
+    assert await process_outbox_item(session, item.id) is True
+    tx = (await session.execute(select(BlockchainTransaction))).scalars().first()
+    assert tx.method == "mint"
+    assert tx.transaction_hash is not None
+
+
+async def test_swap_topic_routes_through_orx(session):
+    from sqlalchemy import select
+
+    item = await _mk_outbox(session, "swap", {"asset": "ORT", "amount": 10}, "swap-1")
+    assert await process_outbox_item(session, item.id) is True
+    tx = (await session.execute(select(BlockchainTransaction))).scalars().first()
+    assert tx.method == "swapOptFor"
+
+
+async def test_ai_request_topic_pays_with_ort(session):
+    from sqlalchemy import select
+
+    item = await _mk_outbox(session, "ai_request", {"requests": 3}, "ai-1")
+    assert await process_outbox_item(session, item.id) is True
+    tx = (await session.execute(select(BlockchainTransaction))).scalars().first()
+    assert tx.method == "payAiRequest"
+
+
+async def test_pause_topic_calls_contract(session):
+    from sqlalchemy import select
+
+    item = await _mk_outbox(session, "pause", {"asset": "OPT"}, "pause-1")
+    assert await process_outbox_item(session, item.id) is True
+    tx = (await session.execute(select(BlockchainTransaction))).scalars().first()
+    assert tx.method == "pause"
+
+
+async def test_withdrawal_topic_burns_and_confirms(session):
+    """A withdrawal outbox item burns on-chain and completes on confirmation."""
+    from sqlalchemy import select
+
+    from app.models.wallet import WithdrawalRequest
+
+    student = await _mk_user(session, "wdflow@q.com")
+    wd = WithdrawalRequest(
+        user_id=student.id,
+        reward_key="wd-0",
+        destination_address="0x" + "9" * 40,
+        token_id=0,
+        amount=10,
+        status="requested",
+    )
+    session.add(wd)
+    await session.flush()
+    item = await _mk_outbox(
+        session,
+        "withdrawal",
+        {"withdrawal_id": str(wd.id), "amount": 10, "asset": "OPT"},
+        "wdflow-1",
+    )
+    assert await process_outbox_item(session, item.id) is True
+    tx = (await session.execute(select(BlockchainTransaction))).scalars().first()
+    assert tx.method == "burn"
+    # The withdrawal is linked to the tx now.
+    assert (await session.get(WithdrawalRequest, wd.id)).status == "submitted"
+
+    # Indexing confirms it and completes the withdrawal.
+    await refresh_confirmations(session)
+    assert (await session.get(WithdrawalRequest, wd.id)).status == "completed"
+
+
+async def test_unknown_topic_is_rejected_retryably(session):
+    item = await _mk_outbox(session, "nonsense", {}, "bad-1")
+    assert await process_outbox_item(session, item.id) is False

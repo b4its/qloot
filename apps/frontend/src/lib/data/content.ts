@@ -96,7 +96,7 @@ export const features: Feature[] = [
   },
   {
     icon: "gem",
-    title: "Hadiah OPC",
+    title: "Hadiah OPT",
     desc: "Setiap pencapaian tercatat sebagai OryphemToken (OPT) — reward digital yang dapat dilacak.",
   },
   {
@@ -130,7 +130,7 @@ export const testimonials: Testimonial[] = [
   },
   {
     quote:
-      "Quest dan ranking membuat anak-anak lebih semangat belajar. Hadiah OPC jadi pemacu tambahan.",
+      "Quest dan ranking membuat anak-anak lebih semangat belajar. Hadiah OPT jadi pemacu tambahan.",
     name: "Sari Melati",
     role: "Guru Ekonomi",
   },

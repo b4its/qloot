@@ -1,7 +1,7 @@
 """Personal wallet address helpers.
 
 Every account has a *personal* wallet address (``WalletAccount.withdrawal_address``)
-that OPC withdrawals are sent to. It defaults to ``settings.default_wallet_address``
+that OPT withdrawals are sent to. It defaults to ``settings.default_wallet_address``
 and each user may change their own at any time — by pasting an address or by
 connecting MetaMask in the browser (which just fills in the address).
 

@@ -50,7 +50,7 @@ QLoot memodelkan sebuah sekolah digital:
 - **Admin** mengelola pengguna, hadiah, audit log, dan kontrol blockchain.
 
 Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) menghasilkan
-**reward OPC** yang dicatat pada **ledger double-entry**, diterbitkan sebagai event
+**reward OPT** yang dicatat pada **ledger double-entry**, diterbitkan sebagai event
 *outbox* transaksional, lalu diproses oleh **blockchain worker** dan dikonfirmasi oleh
 **indexer**.
 
@@ -114,7 +114,7 @@ Browser → SvelteKit → FastAPI ─┬─ PostgreSQL
                                └─ Workers: ai, blockchain, indexer
                                         └─ ERC-1155 OryphemToken (OPT · QTC · ORT)
                                            ├─ local: Anvil (chain 31337, dry-run)
-                                           └─ Sepolia: proxy OPC (chain 11155111)
+                                           └─ Sepolia: kontrak OPT/QTC/ORT + ORX (chain 11155111)
 ```
 
 Backend berlapis: Router (`app/api/v1`) → Service (`app/services`) → Repository
@@ -218,12 +218,12 @@ yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
    yang selesai akan menerbitkan **sertifikat** otomatis).
 3. **Ujian** — kerjakan ujian (timer server, autosave); lihat hasil & feedback AI.
 4. **Ruang** — bergabung ke ruang live (leaderboard & event real-time via WebSocket).
-5. **Quest / Tugas** — selesaikan untuk memperoleh OPC.
+5. **Quest / Tugas** — selesaikan untuk memperoleh OPT.
 6. **Peringkat / Badge / Sertifikat** — pantau posisi dan pencapaian; sertifikat dapat
    diverifikasi publik lewat `/verify/<credential_id>`.
 7. **Komunitas** — diskusi, like, dan komentar antar pelajar.
 8. **Karier** — tes Big Five, rekomendasi jurusan & roadmap, konsultasi BK, asisten AI.
-9. **Wallet** — lihat saldo terfokusmu, ledger, reward, kirim OPC internal, dan buat penarikan ke
+9. **Wallet** — lihat saldo terfokusmu, ledger, reward, kirim OPT internal, dan buat penarikan ke
    wallet pribadi. **Ganti wallet** sendiri kapan saja (tempel alamat atau hubungkan MetaMask);
    setiap akun otomatis memakai wallet default platform (dibaca dari `.env`, tidak ditampilkan
    ke pengguna lain) sampai diubah.
@@ -269,7 +269,7 @@ curl -s -b cookies.txt http://localhost:8000/api/v1/wallet
 - **Materi PDF** — teks diekstrak dari **PDF edukasi asli dari internet**
   (catatan kuliah Stanford CS224n); bila jaringan tidak tersedia, seeder membuat PDF lokal
   sebagai fallback sehingga proses seeding selalu berhasil.
-- **Aktivitas** — ujian yang sudah dinilai, quest yang difinalisasi beserta reward OPC,
+- **Aktivitas** — ujian yang sudah dinilai, quest yang difinalisasi beserta reward OPT,
   sertifikat, badge, notifikasi, dan data panduan karier.
 
 Seeder aman dijalankan berulang kali (idempotent — id deterministik, guard unique
@@ -341,7 +341,8 @@ BLOCKCHAIN_PRIVATE_KEY=<deployer-key>     # JANGAN commit
 ETHERSCAN_API_KEY=<key>                   # JANGAN commit
 TREASURY_ADDRESS=<treasury-address>
 DEFAULT_WALLET_ADDRESS=<default-personal-wallet>
-OPC_CONTRACT_ADDRESS=<opc-proxy-address>
+OPT_CONTRACT_ADDRESS=<opt-proxy>
+# ... QTC_CONTRACT_ADDRESS / ORT_CONTRACT_ADDRESS / ORX_CONTRACT_ADDRESS
 BLOCKCHAIN_DRY_RUN=true                    # ubah ke false untuk submit on-chain
 ```
 

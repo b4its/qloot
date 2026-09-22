@@ -110,7 +110,7 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
                     await notifications.notify(
                         user_id=user_row.id,
                         kind="reward",
-                        title=f"You earned {amount} OPC!",
+                        title=f"You earned {amount} OPT!",
                         body=f"Quest '{quest.title}' — rank {w.rank}",
                         data={"quest_id": str(quest.id), "rank": w.rank, "amount": amount},
                     )

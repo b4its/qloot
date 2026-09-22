@@ -290,41 +290,51 @@ async def cancel_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
 
 
 @router.post("/blockchain/pause")
-async def blockchain_pause(admin: AdminUser, db: DbSession):
+async def blockchain_pause(admin: AdminUser, db: DbSession, asset: str = "OPT"):
+    asset = asset.upper()
     async with transaction(db):
         db.add(
             TransactionOutbox(
                 topic="pause",
-                idempotency_key=f"pause-{uuid.uuid4().hex}",
-                payload={"action": "pause"},
+                idempotency_key=f"pause-{asset}-{uuid.uuid4().hex}",
+                payload={"action": "pause", "asset": asset},
                 status="pending",
             )
         )
         db.add(
             AuditLog(
-                actor_id=admin.id, action="chain.pause", entity_type="contract", entity_id="opc"
+                actor_id=admin.id,
+                action="chain.pause",
+                entity_type="contract",
+                entity_id=asset,
+                data={"asset": asset},
             )
         )
-    return {"status": "pause_queued"}
+    return {"status": "pause_queued", "asset": asset}
 
 
 @router.post("/blockchain/unpause")
-async def blockchain_unpause(admin: AdminUser, db: DbSession):
+async def blockchain_unpause(admin: AdminUser, db: DbSession, asset: str = "OPT"):
+    asset = asset.upper()
     async with transaction(db):
         db.add(
             TransactionOutbox(
                 topic="unpause",
-                idempotency_key=f"unpause-{uuid.uuid4().hex}",
-                payload={"action": "unpause"},
+                idempotency_key=f"unpause-{asset}-{uuid.uuid4().hex}",
+                payload={"action": "unpause", "asset": asset},
                 status="pending",
             )
         )
         db.add(
             AuditLog(
-                actor_id=admin.id, action="chain.unpause", entity_type="contract", entity_id="opc"
+                actor_id=admin.id,
+                action="chain.unpause",
+                entity_type="contract",
+                entity_id=asset,
+                data={"asset": asset},
             )
         )
-    return {"status": "unpause_queued"}
+    return {"status": "unpause_queued", "asset": asset}
 
 
 @router.get("/audit-logs")

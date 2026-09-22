@@ -56,7 +56,7 @@
   <PageHeader
     eyebrow="Admin · Blockchain"
     title="Transaksi"
-    subtitle="Semua transaksi on-chain OryphemToken dan status konfirmasinya."
+    subtitle="Semua transaksi on-chain aset QLoot (OPT/QTC/ORT + ORX) dan status konfirmasinya."
     backHref="/admin/blockchain"
     backLabel="Blockchain"
   />

@@ -141,7 +141,7 @@
             {#each winners as w}
               <li class="flex justify-between border-b pb-1 last:border-0">
                 <span>#{w.rank} · <span class="font-mono">{w.user_id.slice(0, 8)}…</span></span>
-                <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPC</span>
+                <span>{bpToPercent(w.score_bp)} · {w.reward_amount} OPT</span>
               </li>
             {/each}
           </ol>

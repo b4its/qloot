@@ -6,7 +6,7 @@ Creates (idempotently):
   - published courses with lessons and PDF materials
   - exams with AI-generated (mock) questions, published
   - open rooms with members
-  - quests with reward rules, and finalized winners with OPC rewards
+  - quests with reward rules, and finalized winners with OPT rewards
   - tasks and some completions
   - ledger rewards + notifications + badges for simulated students
 
@@ -34,7 +34,7 @@ from app.services.storage import build_key, sniff_pdf, storage
 log = get_logger("seed")
 
 ROLES = [
-    ("student", "Learner who takes quests and earns OPC"),
+    ("student", "Learner who takes quests and earns OPT"),
     ("teacher", "Creates materials, exams, rooms and quests"),
     ("admin", "Platform administrator"),
 ]
@@ -629,7 +629,7 @@ async def _simulate_activity(teacher: User, students: list[User]) -> None:
                 await notifier.notify(
                     user_id=user_row.id,
                     kind="reward",
-                    title=f"You earned {amount} OPC!",
+                    title=f"You earned {amount} OPT!",
                     body=f"Quest '{quest.title}' — rank {w.rank}",
                     data={"quest_id": str(quest.id), "rank": w.rank},
                 )

@@ -128,7 +128,7 @@
         <ThemeToggle />
 
         {#if user}
-          <!-- OPC balance — visible for both students and teachers -->
+          <!-- OPT balance — visible for both students and teachers -->
           <OpcChip compact={false} />
           {#if user.class_code}
             <span class="badge badge-indigo hidden sm:inline-flex" title="Kelas kamu">

@@ -43,7 +43,7 @@
     try {
       await api.post(`/tasks/${t.id}/complete`);
       completed = { ...completed, [t.id]: true };
-      message = `Tugas selesai! +${t.reward_amount} OPC ditambahkan ke dompetmu.`;
+      message = `Tugas selesai! +${t.reward_amount} OPT ditambahkan ke dompetmu.`;
     } catch (e) {
       message = e instanceof ApiError ? e.message : "Tidak dapat menyelesaikan tugas";
     } finally {
@@ -102,7 +102,7 @@
             </div>
           </div>
           <div class="flex items-center gap-4">
-            <span class="mono font-semibold text-highlight">+{t.reward_amount} OPC</span>
+            <span class="mono font-semibold text-highlight">+{t.reward_amount} OPT</span>
             {#if completed[t.id]}
               <span class="badge badge-mint"><Icon name="check" size="10px" /> Selesai</span>
             {:else}

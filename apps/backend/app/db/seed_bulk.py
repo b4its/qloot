@@ -556,7 +556,7 @@ async def seed_quests_and_tasks(session: AsyncSession, teachers) -> None:
             Task(
                 id=det_uuid("task", str(i)),
                 title=f"Tugas {kinds[i % 3].title()} #{i:03d}",
-                description="Selesaikan aktivitas untuk mendapatkan OPC.",
+                description="Selesaikan aktivitas untuk mendapatkan OPT.",
                 owner_id=teachers[i % len(teachers)].id,
                 kind=kinds[i % 3],
                 reward_amount=5 + (i % 20),
