@@ -87,6 +87,7 @@ async def create_user(payload: AdminUserCreate, admin: AdminUser, db: DbSession)
             role=payload.role,
             class_code=payload.class_code,
             class_type=payload.class_type,
+            issue_session=False,
         )
         db.add(
             AuditLog(
@@ -203,8 +204,16 @@ async def list_rewards(
             "user_id": str(r.user_id),
             "amount": r.amount,
             "status": r.status,
+            "rank": r.rank,
+            "token_id": r.token_id,
             "quest_id": str(r.quest_id) if r.quest_id else None,
             "task_id": str(r.task_id) if r.task_id else None,
+            # Troubleshooting fields so an admin can see *why* a reward failed
+            # and link to its on-chain transaction without DB access.
+            "error_message": r.error_message,
+            "blockchain_transaction_id": (
+                str(r.blockchain_transaction_id) if r.blockchain_transaction_id else None
+            ),
             "created_at": r.created_at,
         }
         for r in rows
@@ -219,6 +228,19 @@ async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
             raise NotFoundError("Reward not found")
         if allocation.status in ("confirmed", "cancelled"):
             raise ConflictError(f"Cannot retry a {allocation.status} reward")
+        # A previously-failed reward was refunded (its credit reversed); retrying
+        # must restore the ledger credit so a *successful* retry leaves the user
+        # whole. (`recredit_reward_retry` is idempotent.)
+        if allocation.status == "failed":
+            from app.services.reward_engine import RewardEngine
+
+            await RewardEngine(db).recredit_reward_retry(
+                user_id=allocation.user_id,
+                amount=allocation.amount,
+                allocation_id=allocation.id,
+            )
+        allocation.status = "pending"
+        allocation.error_message = None
         from app.services.keys import quest_ref, tx_idempotency_key
 
         idem_key = tx_idempotency_key("reward", allocation.reward_key)

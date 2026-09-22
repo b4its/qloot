@@ -52,6 +52,7 @@ class AuthService:
         class_type: str | None = None,
         user_agent: str | None = None,
         ip_address: str | None = None,
+        issue_session: bool = True,
     ) -> tuple[User, str]:
         existing = await self.users.get_by_email(email)
         if existing is not None:
@@ -99,7 +100,11 @@ class AuthService:
         fresh = await self.users.get_with_roles(user.id)
         user = fresh or user
 
-        token = await self._issue_session(user, user_agent=user_agent, ip_address=ip_address)
+        # Admin-driven creation does not need (and must not leave behind) a live
+        # session token nobody holds; only self-registration issues one.
+        token = ""
+        if issue_session:
+            token = await self._issue_session(user, user_agent=user_agent, ip_address=ip_address)
         log.info("user_registered", user_id=str(user.id), role=role)
         return user, token
 

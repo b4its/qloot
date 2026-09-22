@@ -32,6 +32,10 @@ async def submissions(
         .join(Exam, Exam.id == ExamAttempt.exam_id)
         .join(User, User.id == ExamAttempt.user_id)
         .where(Exam.owner_id == user.id)
+        # Only real submissions (autosaved in-progress work and disabled students
+        # must not appear as if they were final answers).
+        .where(ExamAttempt.status.in_(("submitted", "graded", "grading_failed")))
+        .where(User.is_active.is_(True))
         .order_by(StudentAnswer.saved_at.desc())
         .limit(limit)
         .offset(offset)

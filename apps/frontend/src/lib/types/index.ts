@@ -232,6 +232,9 @@ export interface Reward {
   created_at: string;
   /** Present on the admin rewards listing. */
   user_id?: string;
+  token_id?: number;
+  error_message?: string | null;
+  blockchain_transaction_id?: string | null;
 }
 
 export interface AssetInfo {

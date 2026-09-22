@@ -444,6 +444,45 @@ class RewardEngine:
         await self.session.flush()
         return entry
 
+    async def recredit_reward_retry(
+        self, *, user_id: uuid.UUID, amount: int, allocation_id: uuid.UUID
+    ) -> WalletLedgerEntry | None:
+        """Restore a reward's credit when a previously-failed mint is retried.
+
+        A failed/reverted reward was refunded (a ``reward_refund`` debit). If an
+        admin retries it and the retry succeeds, the user must be credited again
+        or the double-entry invariant (credit - debit == cached_balance) breaks.
+        Idempotent on the allocation id.
+        """
+        account = await self.get_or_create_account(user_id)
+        reference_id = str(allocation_id)
+        dup = (
+            await self.session.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "reward_retry",
+                    WalletLedgerEntry.reference_id == reference_id,
+                    WalletLedgerEntry.entry_type == "credit",
+                )
+            )
+        ).scalar_one_or_none()
+        if dup is not None:
+            return dup
+        new_balance = account.cached_balance + amount
+        entry = WalletLedgerEntry(
+            account_id=account.id,
+            token_id=account.token_id,
+            entry_type="credit",
+            amount=amount,
+            balance_after=new_balance,
+            reference_type="reward_retry",
+            reference_id=reference_id,
+            description="Re-credit for retried on-chain reward",
+        )
+        self.session.add(entry)
+        account.cached_balance = new_balance
+        await self.session.flush()
+        return entry
+
     async def refund_swap(
         self,
         *,

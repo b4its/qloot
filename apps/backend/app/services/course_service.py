@@ -179,9 +179,11 @@ class CourseService:
             data["class_code"] = normalize_class_code(data["class_code"])
         if "class_type" in data:
             data["class_type"] = normalize_class_type(data.get("class_type"))
+        # Only keys the caller actually sent are present (router uses
+        # exclude_unset), so an explicit ``None`` means "clear this field" —
+        # honour it rather than silently ignoring.
         for k, v in data.items():
-            if v is not None:
-                setattr(course, k, v)
+            setattr(course, k, v)
         await self.session.flush()
         return course
 
@@ -206,15 +208,17 @@ class CourseService:
         return lesson
 
     async def list_lessons(
-        self, course_id: uuid.UUID, *, limit: int = 200, offset: int = 0
+        self,
+        course_id: uuid.UUID,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+        published_only: bool = False,
     ) -> list[Lesson]:
-        stmt = (
-            select(Lesson)
-            .where(Lesson.course_id == course_id)
-            .order_by(Lesson.position)
-            .limit(limit)
-            .offset(offset)
-        )
+        stmt = select(Lesson).where(Lesson.course_id == course_id)
+        if published_only:
+            stmt = stmt.where(Lesson.is_published.is_(True))
+        stmt = stmt.order_by(Lesson.position).limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def update_lesson(self, lesson_id: uuid.UUID, user: User, **data) -> Lesson:

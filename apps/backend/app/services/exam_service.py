@@ -121,6 +121,22 @@ class ExamService:
 
     async def publish(self, exam_id: uuid.UUID, user: User) -> Exam:
         exam = await self._get_owned_exam(exam_id, user)
+        # AI-generated questions start as ``pending`` and must be reviewed before
+        # students can be graded on them; publishing an exam with unreviewed or
+        # rejected questions would silently expose unreviewed content.
+        unreviewed = int(
+            (
+                await self.session.execute(
+                    select(func.count())
+                    .select_from(Question)
+                    .where(Question.exam_id == exam_id, Question.review_status != "approved")
+                )
+            ).scalar_one()
+        )
+        if unreviewed:
+            raise ConflictError(
+                f"{unreviewed} soal belum ditinjau/disetujui — tinjau soal sebelum menerbitkan"
+            )
         exam.status = "published"
         exam.is_active = True
         await self.session.flush()

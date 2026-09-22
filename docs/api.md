@@ -43,6 +43,10 @@ POST   /lessons/{lesson_id}/progress
 GET    /me/learning-progress
 ```
 
+Students see **only published** lessons; a draft lesson (`is_published=false`) is
+hidden from the lesson list and 404s on direct fetch (owner/admin can still see
+it). `PATCH /courses/{id}` honours an explicit `null` to clear a field.
+
 ## Materials & AI
 
 ```
@@ -58,7 +62,13 @@ POST /ai/grade
 
 AI-generated questions are created `review_status="pending"`; a teacher approves
 or rejects them via `PATCH /questions/{question_id}` (`review_status`) and can
-list a material's drafts via `GET /materials/{material_id}/questions`.
+list a material's *pending* drafts via `GET /materials/{material_id}/questions`
+(approved questions drop out of that list). An exam cannot be published while it
+still contains a question that is not `approved`.
+
+`AI_PROVIDER=openai|gemini` requires the matching API key: if it is missing the
+app fails fast rather than silently falling back to the deterministic mock (which
+would fabricate grades). `MockProvider` is used only when `AI_PROVIDER=mock`.
 
 ## Rooms
 

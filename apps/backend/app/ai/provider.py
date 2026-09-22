@@ -885,16 +885,49 @@ def get_ai_provider() -> AIProvider:
 
     Reusing one provider (and therefore one HTTP client/pool) avoids leaking
     connections across the many grading/generation jobs a worker processes.
+
+    If a real provider is configured but its API key is missing, this **fails
+    fast** instead of silently falling back to the deterministic mock — which
+    would fabricate grades and exam questions in production with no signal.
     """
     global _provider
     if _provider is None:
-        if settings.ai_provider == "openai" and settings.ai_api_key:
-            _provider = OpenAICompatProvider()
-        elif settings.ai_provider == "gemini" and settings.gemini_api_key:
-            _provider = GeminiProvider()
-        else:
-            _provider = MockProvider()
+        resolved = _resolve_provider()
+        if resolved == "mock" and settings.ai_provider != "mock" and not settings.is_production:
+            # Explicit mock selection is fine; a *fallback* to mock outside
+            # production is allowed but warned so it is never mistaken for AI.
+            log.warning("ai_provider_fallback_mock", requested=settings.ai_provider)
+        _provider = _build_provider(resolved)
     return _provider
+
+
+def _resolve_provider() -> str:
+    """Decide which provider to use, raising if a real one is requested without
+    its key (rather than silently degrading to the mock)."""
+    name = settings.ai_provider
+    if name == "openai":
+        if not settings.ai_api_key:
+            raise AIProviderError(
+                "AI_PROVIDER=openai but AI_API_KEY is not set — refusing to fall "
+                "back to the mock provider (it would fabricate grading)."
+            )
+        return "openai"
+    if name == "gemini":
+        if not settings.gemini_api_key:
+            raise AIProviderError(
+                "AI_PROVIDER=gemini but GEMINI_API_KEY is not set — refusing to "
+                "fall back to the mock provider (it would fabricate grading)."
+            )
+        return "gemini"
+    return "mock"
+
+
+def _build_provider(resolved: str) -> AIProvider:
+    if resolved == "openai":
+        return OpenAICompatProvider()
+    if resolved == "gemini":
+        return GeminiProvider()
+    return MockProvider()
 
 
 async def close_ai_provider() -> None:
@@ -912,3 +945,17 @@ def summarize_text(text: str, *, max_chars: int = 200_000) -> str:
 
 def text_fingerprint(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()[:32]
+
+
+def provider_name() -> str:
+    """Human-readable name of the active provider, for audit records.
+
+    Records the *real* model (e.g. ``openai:hk/deepseek-4.1-flash``) so a stored
+    grading result can be told apart from a mock one.
+    """
+    p = get_ai_provider()
+    if isinstance(p, OpenAICompatProvider):
+        return f"openai:{settings.ai_generation_model}"
+    if isinstance(p, GeminiProvider):
+        return f"gemini:{settings.ai_scoring_model}"
+    return "mock"

@@ -89,8 +89,13 @@ async def list_lessons(
     offset: OffsetParam = 0,
 ):
     service = CourseService(db)
-    await service.get_accessible(course_id, user)
-    return await service.list_lessons(course_id, limit=limit, offset=offset)
+    course = await service.get_accessible(course_id, user)
+    # Draft lessons are only visible to the owner/admin; students see published
+    # lessons only (a staged lesson must not leak).
+    owner = user.has_role("admin") or course.owner_id == user.id
+    return await service.list_lessons(
+        course_id, limit=limit, offset=offset, published_only=not owner
+    )
 
 
 @router.post(
@@ -107,7 +112,12 @@ async def create_lesson(
 async def get_lesson(lesson_id: uuid.UUID, user: CurrentUser, db: DbSession):
     service = CourseService(db)
     lesson = await service.get_lesson(lesson_id)
-    await service.get_accessible(lesson.course_id, user)
+    course = await service.get_accessible(lesson.course_id, user)
+    owner = user.has_role("admin") or course.owner_id == user.id
+    if not lesson.is_published and not owner:
+        from app.core.errors import NotFoundError
+
+        raise NotFoundError("Materi pelajaran tidak ditemukan")
     return lesson
 
 

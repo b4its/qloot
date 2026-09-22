@@ -11,7 +11,7 @@ from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, Teache
 from app.core.config import settings
 from app.core.errors import ValidationError
 from app.db.session import transaction
-from app.models.exam import Question
+from app.models.exam import Question, QuestionOption
 from app.schemas.exam import OptionOut, QuestionOut
 from app.schemas.material import (
     AnswerOut,
@@ -155,31 +155,44 @@ async def material_questions(
 ):
     """Draft questions generated from a material (owner/admin only).
 
-    Async generation creates questions detached from any exam; this surfaces
-    them so a teacher can review/approve them instead of them becoming orphaned.
+    Async generation creates questions detached from any exam; this surfaces the
+    ones still awaiting review so a teacher can approve/reject them instead of
+    them becoming orphaned. Approved/rejected questions are excluded (they are
+    no longer drafts).
     """
     service = MaterialService(db)
     material = await service.get_viewable(material_id, user)
     stmt = (
         select(Question)
-        .where(Question.material_id == material.id)
+        .where(Question.material_id == material.id, Question.review_status == "pending")
         .order_by(Question.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
     rows = list((await db.execute(stmt)).scalars().all())
-    from app.services.exam_service import ExamService
-
-    exam_service = ExamService(db)
+    if not rows:
+        return []
+    # Batch-load every option in one query (never N+1).
+    option_rows = (
+        (
+            await db.execute(
+                select(QuestionOption).where(QuestionOption.question_id.in_([q.id for q in rows]))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_question: dict[uuid.UUID, list[QuestionOption]] = {}
+    for o in option_rows:
+        by_question.setdefault(o.question_id, []).append(o)
     out: list[QuestionOut] = []
     for q in rows:
         item = QuestionOut.model_validate(q)
-        options = await exam_service.options_for(q.id)
         item.options = [
             OptionOut(
                 id=o.id, label=o.label, text=o.text, position=o.position, is_correct=o.is_correct
             )
-            for o in options
+            for o in sorted(by_question.get(q.id, []), key=lambda x: x.position)
         ]
         out.append(item)
     return out

@@ -277,7 +277,9 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
     try:
         service = GradingService(session)
         await service.grade_attempt(attempt)
-        await service.record_job_result(job, attempt, "provider")
+        from app.ai.provider import provider_name
+
+        await service.record_job_result(job, attempt, provider_name())
         job.status = "done"
         job.finished_at = datetime.now(UTC)
         job.error_code = None

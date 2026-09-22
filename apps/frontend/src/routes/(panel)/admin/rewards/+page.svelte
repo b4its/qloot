@@ -99,7 +99,7 @@
           <tr
             ><th class="py-1">Kunci</th><th>Pengguna</th><th class="text-right">Jumlah</th><th
               >Status</th
-            ><th></th></tr
+            ><th>Catatan</th><th></th></tr
           >
         </thead>
         <tbody>
@@ -115,6 +115,9 @@
                   class:badge-amber={r.status === "pending"}
                   class:badge-magenta={r.status === "failed"}>{statusLabel(r.status)}</span
                 >
+              </td>
+              <td class="max-w-[240px] truncate text-xs muted" title={r.error_message ?? ""}>
+                {r.error_message ?? "—"}
               </td>
               <td class="text-right">
                 {#if r.status === "failed"}<button
