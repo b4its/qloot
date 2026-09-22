@@ -227,6 +227,7 @@ POST   /exams/{exam_id}/publish
 POST   /exams/{exam_id}/close
 DELETE /exams/{exam_id}
 GET    /exams/{exam_id}/results            # teacher: attempts + display_name + pagination
+GET    /exams/{exam_id}/results/review      # teacher: per-student answers + correctness
 
 POST   /exams/{exam_id}/questions          # qtype=essay|multiple_choice (+ options[] for MC)
 PATCH  /questions/{question_id}            # replace MC options atomically
@@ -240,6 +241,11 @@ GET  /attempts/{attempt_id}/result                  # includes exam + (when grad
 
 Multiple-choice options are `[{text, is_correct}]` (2–8, exactly one correct); the
 correct option is never exposed to students taking the exam.
+
+`GET /exams/{exam_id}/results/review` powers the teacher "Hasil peserta" view: for every
+student who attempted the exam it returns their name/score plus, per question, the prompt,
+the student's answer (option text for MC), whether it was correct, and the score — so a
+teacher can see exactly which questions each student got right or wrong.
 
 ## Conventions
 

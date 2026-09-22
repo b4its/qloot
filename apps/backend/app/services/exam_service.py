@@ -339,3 +339,89 @@ class ExamService:
             .offset(offset)
         )
         return [(a, name) for a, name in (await self.session.execute(stmt)).all()]
+
+    async def exam_review(
+        self, exam_id: uuid.UUID, user: User, *, limit: int = 200, offset: int = 0
+    ) -> tuple[Exam, list[tuple[ExamAttempt, str | None, dict[uuid.UUID, dict]]]]:
+        """Per-student answer review for an exam (owner/admin only).
+
+        For every attempt it returns the student's name plus a map of
+        ``question_id -> {answer row, is_correct, displays}`` built from a
+        handful of batched queries (never N+1). Used by the teacher results
+        review: who took the exam, which questions they answered, and whether
+        each answer was correct.
+        """
+        exam = await self._get_owned_exam(exam_id, user)
+        attempts = await self.exam_results(exam_id, user, limit=limit, offset=offset)
+        attempt_ids = [a.id for a, _ in attempts]
+        if not attempt_ids:
+            return exam, []
+
+        # One query for every answer across the page of attempts.
+        answer_rows = list(
+            (
+                await self.session.execute(
+                    select(StudentAnswer).where(StudentAnswer.attempt_id.in_(attempt_ids))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        # One query for the exam's questions, and one for all their options.
+        questions = {q.id: q for q in await self.list_questions(exam_id)}
+        option_map: dict[tuple[uuid.UUID, str], str] = {}
+        if questions:
+            opt_rows = (
+                await self.session.execute(
+                    select(
+                        QuestionOption.question_id, QuestionOption.label, QuestionOption.text
+                    ).where(QuestionOption.question_id.in_(list(questions.keys())))
+                )
+            ).all()
+            option_map = {(qid, label): text for qid, label, text in opt_rows}
+
+        # Group answers by attempt, then assemble the review map per attempt.
+        by_attempt: dict[uuid.UUID, list[StudentAnswer]] = {aid: [] for aid in attempt_ids}
+        for sa in answer_rows:
+            by_attempt.setdefault(sa.attempt_id, []).append(sa)
+
+        def _review_for(sa: StudentAnswer) -> dict:
+            q = questions.get(sa.question_id)
+            is_mc = bool(q and q.qtype == "multiple_choice")
+            chosen = (sa.answer_text or "").strip().upper()
+            correct_label = (q.correct_answer or "").strip().upper() if q else ""
+            # MC correctness is only known once the answer has been graded.
+            is_correct: bool | None = None
+            if is_mc and sa.score_bp is not None:
+                is_correct = sa.score_bp >= sa.max_score_bp and sa.max_score_bp > 0
+            return {
+                "question_id": sa.question_id,
+                "position": q.position if q else 0,
+                "qtype": q.qtype if q else "essay",
+                "prompt": q.prompt if q else "",
+                "answer_text": sa.answer_text,
+                "answer_display": (
+                    option_map.get((sa.question_id, chosen)) if is_mc else sa.answer_text
+                ),
+                "correct_answer": correct_label if is_mc else None,
+                "correct_display": (
+                    option_map.get((sa.question_id, correct_label)) if is_mc else None
+                ),
+                "is_correct": is_correct,
+                "score_bp": sa.score_bp,
+                "max_score_bp": sa.max_score_bp,
+                "feedback": sa.feedback,
+            }
+
+        out: list[tuple[ExamAttempt, str | None, dict[uuid.UUID, dict]]] = []
+        for attempt, name in attempts:
+            review: dict[uuid.UUID, dict] = {}
+
+            def _pos(s: StudentAnswer) -> int:
+                q = questions.get(s.question_id)
+                return q.position if q else 0
+
+            for sa in sorted(by_attempt.get(attempt.id, []), key=_pos):
+                review[sa.question_id] = _review_for(sa)
+            out.append((attempt, name, review))
+        return exam, out

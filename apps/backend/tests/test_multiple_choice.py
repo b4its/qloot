@@ -403,3 +403,101 @@ async def test_result_returns_exam_even_when_not_graded(client):
     assert body["exam"]["title"] == "Hasil Konteks"
     # No answer key revealed before grading.
     assert body["questions"] == []
+
+
+async def test_exam_results_review_shows_students_questions_and_correctness(client):
+    """The per-exam review lists each student, their questions, answers and
+    whether each multiple-choice answer was correct."""
+    await _register(client, "rev_teacher@ex.com", "teacher")
+    exam_id, qid = await _make_mc_exam(client)  # answer A = Jakarta (correct)
+    await client.post("/api/v1/auth/logout")
+
+    # Student 1 answers correctly, student 2 wrongly.
+    await _register(client, "rev_stu_ok@ex.com", "student")
+    a1 = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.put(f"/api/v1/attempts/{a1}/answers/{qid}", json={"answer_text": "A"})
+    await client.post(f"/api/v1/attempts/{a1}/submit")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "rev_stu_bad@ex.com", "student")
+    a2 = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.put(f"/api/v1/attempts/{a2}/answers/{qid}", json={"answer_text": "B"})
+    await client.post(f"/api/v1/attempts/{a2}/submit")
+    await client.post("/api/v1/auth/logout")
+
+    # Teacher reviews the whole exam.
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "rev_teacher@ex.com", "password": "Password123!"},
+    )
+    review = await client.get(f"/api/v1/exams/{exam_id}/results/review")
+    assert review.status_code == 200, review.text
+    body = review.json()
+    assert body["exam"]["id"] == exam_id
+    rows = {r["display_name"]: r for r in body["results"]}
+    assert "MC User" in rows  # the shared full_name used by _register
+    assert len(body["results"]) == 2
+
+    ok = next(r for r in body["results"] if r["answers"][0]["is_correct"] is True)
+    bad = next(r for r in body["results"] if r["answers"][0]["is_correct"] is False)
+    assert ok["passed"] is True
+    assert bad["passed"] is False
+
+    q_ok = ok["answers"][0]
+    assert q_ok["question_id"] == qid
+    assert q_ok["qtype"] == "multiple_choice"
+    assert q_ok["answer_text"] == "A"
+    assert q_ok["answer_display"] == "Jakarta"
+    assert q_ok["correct_answer"] == "A"
+    assert q_ok["correct_display"] == "Jakarta"
+    assert q_ok["score_bp"] == q_ok["max_score_bp"]
+
+    q_bad = bad["answers"][0]
+    assert q_bad["answer_text"] == "B"
+    assert q_bad["answer_display"] == "Bandung"
+    assert q_bad["is_correct"] is False
+    assert q_bad["score_bp"] == 0
+
+
+async def test_exam_results_review_is_owner_only(client):
+    """A different teacher cannot read another teacher's exam review."""
+    await _register(client, "rev_owner@ex.com", "teacher")
+    exam_id, _qid = await _make_mc_exam(client)
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "rev_other@ex.com", "teacher")
+    denied = await client.get(f"/api/v1/exams/{exam_id}/results/review")
+    assert denied.status_code == 403, denied.text
+    await client.post("/api/v1/auth/logout")
+
+    # A student is also rejected.
+    await _register(client, "rev_stu@ex.com", "student")
+    denied2 = await client.get(f"/api/v1/exams/{exam_id}/results/review")
+    assert denied2.status_code == 403, denied2.text
+
+
+async def test_teacher_submissions_exposes_student_and_correctness(client):
+    """The flat submissions feed carries the student's name and, for MC, whether
+    the answer was correct."""
+    await _register(client, "sub_teacher@ex.com", "teacher")
+    exam_id, qid = await _make_mc_exam(client)
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "sub_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.put(f"/api/v1/attempts/{attempt_id}/answers/{qid}", json={"answer_text": "A"})
+    await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    await client.post("/api/v1/auth/logout")
+
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "sub_teacher@ex.com", "password": "Password123!"},
+    )
+    subs = await client.get("/api/v1/teacher/submissions")
+    assert subs.status_code == 200, subs.text
+    row = next(r for r in subs.json() if r["question_id"] == qid)
+    assert row["student_name"] == "MC User"
+    assert row["qtype"] == "multiple_choice"
+    assert row["answer_display"] == "Jakarta"
+    assert row["correct_display"] == "Jakarta"
+    assert row["is_correct"] is True

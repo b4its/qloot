@@ -167,3 +167,37 @@ class AttemptResultOut(BaseModel):
     # Questions with the answer key revealed for review (only populated once the
     # attempt is graded, so a student can see which choice was correct).
     questions: list[QuestionOut] = Field(default_factory=list)
+
+
+class ReviewAnswerOut(BaseModel):
+    """One answered question inside a per-student exam review.
+
+    ``is_correct`` is only meaningful for multiple-choice (``score_bp ==
+    max_score_bp``); it is ``None`` for essays and for ungraded attempts.
+    """
+
+    question_id: uuid.UUID
+    position: int
+    qtype: str
+    prompt: str
+    answer_text: str | None  # raw (MC: the chosen option label)
+    answer_display: str | None  # resolved option text for MC; else answer_text
+    correct_answer: str | None  # MC: the correct option label
+    correct_display: str | None  # MC: the correct option text
+    is_correct: bool | None
+    score_bp: int | None
+    max_score_bp: int
+    feedback: str | None
+
+
+class ExamResultReviewRow(ExamResultRow):
+    """An attempt, the student's name, and their per-question answers."""
+
+    answers: list[ReviewAnswerOut] = Field(default_factory=list)
+
+
+class ExamResultsReviewOut(BaseModel):
+    """Per-student answer review for a whole exam (teacher-only)."""
+
+    exam: ExamOut
+    results: list[ExamResultReviewRow] = Field(default_factory=list)

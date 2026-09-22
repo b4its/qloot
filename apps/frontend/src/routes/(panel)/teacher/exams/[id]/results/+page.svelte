@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { Exam } from "$lib/types";
+  import type { ExamResultsReview, ExamResultReviewRow } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import { bpToPercent, statusLabel } from "$lib/utils/format";
@@ -16,32 +16,25 @@
   const examId = $page.params.id;
   const PAGE = 25;
 
-  interface ExamResultRow {
-    id: string;
-    user_id: string;
-    attempt_number: number;
-    status: string;
-    score_bp?: number | null;
-    passed?: boolean | null;
-    display_name?: string | null;
-  }
-
-  let exam: Exam | null = null;
-  let results: ExamResultRow[] = [];
+  let review: ExamResultsReview | null = null;
   let loading = true;
   let error = "";
   let currentPage = 1;
   let hasMore = false;
+  // Which student's answer sheet is expanded (attempt id).
+  let openAttempt: string | null = null;
+
+  $: exam = review?.exam ?? null;
+  $: results = review?.results ?? [];
 
   async function load() {
     loading = true;
     error = "";
     try {
-      exam = await api.get<Exam>(`/exams/${examId}`);
-      results = await api.get<ExamResultRow[]>(
-        `/exams/${examId}/results?limit=${PAGE}&offset=${(currentPage - 1) * PAGE}`,
+      review = await api.get<ExamResultsReview>(
+        `/exams/${examId}/results/review?limit=${PAGE}&offset=${(currentPage - 1) * PAGE}`,
       );
-      hasMore = results.length === PAGE;
+      hasMore = review.results.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat hasil";
     } finally {
@@ -53,7 +46,16 @@
     const next = currentPage + delta;
     if (next < 1 || (delta > 0 && !hasMore)) return;
     currentPage = next;
+    openAttempt = null;
     load();
+  }
+
+  function toggle(a: ExamResultReviewRow) {
+    openAttempt = openAttempt === a.id ? null : a.id;
+  }
+
+  function correctnessLabel(v: boolean | null | undefined): string {
+    return v === true ? "Benar" : v === false ? "Salah" : "—";
   }
 
   onMount(load);
@@ -83,44 +85,106 @@
       <p class="text-sm muted">Hasil akan muncul setelah siswa mengerjakan ujian.</p>
     </div>
   {:else}
-    <div class="card mt-6 overflow-x-auto !p-0">
-      <table class="w-full text-sm">
-        <thead class="mono-label border-b text-left">
-          <tr>
-            <th class="px-5 py-3">Peserta</th>
-            <th class="px-5 py-3">Percobaan</th>
-            <th class="px-5 py-3">Status</th>
-            <th class="px-5 py-3 text-right">Skor</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each results as a}
-            <tr class="border-b last:border-0">
-              <td class="px-5 py-3">
-                {#if a.display_name}
-                  {a.display_name}
-                {:else}
-                  <span class="font-mono text-xs">{a.user_id.slice(0, 8)}…</span>
-                {/if}
-              </td>
-              <td class="px-5 py-3">#{a.attempt_number}</td>
-              <td class="px-5 py-3">
-                <span
-                  class="badge"
-                  class:badge-mint={a.passed === true}
-                  class:badge-magenta={a.passed === false}
-                  class:badge-neutral={a.passed === null || a.passed === undefined}
-                >
-                  {statusLabel(a.status)}
-                </span>
-              </td>
-              <td class="px-5 py-3 text-right">
+    <p class="mt-4 text-xs muted">
+      Klik seorang peserta untuk melihat soal, jawaban, dan benarnya.
+    </p>
+    <div class="mt-3 space-y-2">
+      {#each results as a (a.id)}
+        <div class="card !p-0">
+          <button
+            type="button"
+            class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left"
+            on:click={() => toggle(a)}
+            aria-expanded={openAttempt === a.id}
+          >
+            <span class="flex items-center gap-2">
+              <Icon
+                name={openAttempt === a.id ? "chevron-down" : "chevron-right"}
+                size="11px"
+                class="muted"
+              />
+              <span class="font-semibold">
+                {a.display_name ?? `${a.user_id.slice(0, 8)}…`}
+              </span>
+              <span class="text-xs muted">Percobaan #{a.attempt_number}</span>
+            </span>
+            <span class="flex items-center gap-3">
+              <span
+                class="badge"
+                class:badge-mint={a.passed === true}
+                class:badge-magenta={a.passed === false}
+                class:badge-neutral={a.passed === null || a.passed === undefined}
+              >
+                {statusLabel(a.status)}
+              </span>
+              <span class="font-mono text-sm">
                 {a.score_bp !== null && a.score_bp !== undefined ? bpToPercent(a.score_bp) : "—"}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+              </span>
+            </span>
+          </button>
+
+          {#if openAttempt === a.id}
+            <div class="border-t px-5 py-4">
+              {#if a.answers.length === 0}
+                <p class="text-sm muted">Peserta ini tidak menjawab soal apa pun.</p>
+              {:else}
+                <ol class="space-y-3 text-sm">
+                  {#each a.answers as ans}
+                    <li class="border-b pb-3 last:border-0 last:pb-0">
+                      <div class="flex items-start justify-between gap-3">
+                        <p class="font-medium">
+                          <span class="mono-label mr-1"
+                            >{ans.qtype === "multiple_choice" ? "PG" : "Esai"}</span
+                          >
+                          {ans.prompt}
+                        </p>
+                        <span class="flex flex-none items-center gap-2">
+                          {#if ans.qtype === "multiple_choice"}
+                            <span
+                              class="badge"
+                              class:badge-mint={ans.is_correct === true}
+                              class:badge-magenta={ans.is_correct === false}
+                              class:badge-neutral={ans.is_correct === null ||
+                                ans.is_correct === undefined}
+                            >
+                              {correctnessLabel(ans.is_correct)}
+                            </span>
+                          {/if}
+                          <span class="mono text-xs muted">
+                            {bpToPercent(ans.score_bp)} / {bpToPercent(ans.max_score_bp, 0)}
+                          </span>
+                        </span>
+                      </div>
+                      <p class="mt-1 text-ink2">
+                        <span class="mono-label">Jawaban:</span>
+                        {#if ans.qtype === "multiple_choice"}
+                          {#if ans.answer_text}
+                            <span class="mono">{ans.answer_text}.</span>
+                            {ans.answer_display ?? "(opsi tidak dikenal)"}
+                          {:else}
+                            <span class="muted">tidak dijawab</span>
+                          {/if}
+                        {:else}
+                          {ans.answer_text ?? "(tanpa jawaban)"}
+                        {/if}
+                      </p>
+                      {#if ans.qtype === "multiple_choice" && ans.is_correct === false && ans.correct_answer}
+                        <p class="mt-0.5 text-xs text-tertiary">
+                          Kunci: <span class="mono">{ans.correct_answer}.</span>
+                          {ans.correct_display ?? ""}
+                        </p>
+                      {/if}
+                      {#if ans.feedback && ans.qtype !== "multiple_choice"}
+                        <p class="mt-1 text-xs muted">Umpan balik: {ans.feedback}</p>
+                      {/if}
+                    </li>
+                  {/each}
+                </ol>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/each}
     </div>
     <Pagination
       page={currentPage}

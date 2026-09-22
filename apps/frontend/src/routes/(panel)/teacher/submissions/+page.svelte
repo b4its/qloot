@@ -118,15 +118,22 @@
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr
-            ><th class="py-1">Ujian</th><th>Tipe</th><th>Soal</th><th>Jawaban</th><th
-              class="text-right">Skor</th
-            ><th>Umpan balik</th></tr
+            ><th class="py-1">Ujian</th><th>Siswa</th><th>Tipe</th><th>Soal</th><th>Jawaban</th><th
+              >Benar?</th
+            ><th class="text-right">Skor</th><th>Umpan balik</th></tr
           >
         </thead>
         <tbody>
           {#each rows as r}
             <tr class="border-t align-top">
               <td class="py-2">{r.exam_title}</td>
+              <td class="py-2">
+                {#if r.student_name}
+                  {r.student_name}
+                {:else}
+                  <span class="font-mono text-xs">{r.student_id.slice(0, 8)}…</span>
+                {/if}
+              </td>
               <td>
                 <span class="badge badge-indigo"
                   >{r.qtype === "multiple_choice" ? "PG" : "Esai"}</span
@@ -135,13 +142,28 @@
               <td class="max-w-[220px]">{r.prompt}</td>
               <td class="max-w-[260px] text-xs muted">
                 {#if r.qtype === "multiple_choice"}
-                  <span class="mono">{r.answer_text ?? "—"}.</span>
-                  {r.answer_display ?? ""}
-                  {#if r.correct_answer && (r.answer_text ?? "").toUpperCase() !== r.correct_answer}
-                    <span class="block text-tertiary">Kunci: {r.correct_answer}</span>
+                  {#if r.answer_text}
+                    <span class="mono">{r.answer_text}.</span>
+                    {r.answer_display ?? ""}
+                  {:else}
+                    <span>tidak dijawab</span>
                   {/if}
                 {:else}
                   {r.answer_text}
+                {/if}
+              </td>
+              <td>
+                {#if r.qtype === "multiple_choice"}
+                  <span
+                    class="badge"
+                    class:badge-mint={r.is_correct === true}
+                    class:badge-magenta={r.is_correct === false}
+                    class:badge-neutral={r.is_correct === null || r.is_correct === undefined}
+                  >
+                    {r.is_correct === true ? "Benar" : r.is_correct === false ? "Salah" : "—"}
+                  </span>
+                {:else}
+                  <span class="text-xs muted">—</span>
                 {/if}
               </td>
               <td class="text-right font-mono">{bpToPercent(r.score_bp)}</td>

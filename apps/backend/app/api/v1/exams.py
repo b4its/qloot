@@ -16,12 +16,15 @@ from app.schemas.exam import (
     ExamCreate,
     ExamDetailOut,
     ExamOut,
+    ExamResultReviewRow,
     ExamResultRow,
+    ExamResultsReviewOut,
     ExamUpdate,
     OptionOut,
     QuestionCreate,
     QuestionOut,
     QuestionUpdate,
+    ReviewAnswerOut,
 )
 from app.services.exam_service import ExamService
 from app.services.grading_service import GradingService
@@ -254,3 +257,32 @@ async def exam_results(
         base = AttemptOut.model_validate(attempt)
         out.append(ExamResultRow(**base.model_dump(), display_name=name))
     return out
+
+
+@router.get("/exams/{exam_id}/results/review", response_model=ExamResultsReviewOut)
+async def exam_results_review(
+    exam_id: uuid.UUID,
+    user: TeacherUser,
+    db: DbSession,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
+    """Per-student answer review for an exam (owner/admin only).
+
+    For each student who attempted the exam: their name, score/pass, and their
+    answers to every question with the question text, the resolved answer
+    (option text for multiple-choice), whether it was correct, and the score.
+    """
+    service = ExamService(db)
+    exam, rows = await service.exam_review(exam_id, user, limit=limit, offset=offset)
+    results: list[ExamResultReviewRow] = []
+    for attempt, name, review in rows:
+        base = AttemptOut.model_validate(attempt)
+        results.append(
+            ExamResultReviewRow(
+                **base.model_dump(),
+                display_name=name,
+                answers=[ReviewAnswerOut(**payload) for payload in review.values()],
+            )
+        )
+    return ExamResultsReviewOut(exam=ExamOut.model_validate(exam), results=results)

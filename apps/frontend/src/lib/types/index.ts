@@ -418,6 +418,8 @@ export interface SubmissionRow {
   exam_title: string;
   attempt_id: string;
   student_id: string;
+  /** The student's display name. */
+  student_name?: string | null;
   question_id: string;
   /** "essay" | "multiple_choice" */
   qtype: string;
@@ -427,10 +429,54 @@ export interface SubmissionRow {
   answer_display?: string | null;
   /** For MC: the correct option label (A/B/…). */
   correct_answer?: string | null;
+  /** For MC: the human-readable text of the correct option. */
+  correct_display?: string | null;
+  /** For MC: whether the answer was correct (null for essays / ungraded). */
+  is_correct?: boolean | null;
   score_bp?: number | null;
   max_score_bp: number;
   feedback?: string | null;
   similarity_bp?: number | null;
+}
+
+/** One answered question inside a per-student exam review. */
+export interface ReviewAnswer {
+  question_id: string;
+  position: number;
+  qtype: string;
+  prompt: string;
+  answer_text?: string | null;
+  answer_display?: string | null;
+  correct_answer?: string | null;
+  correct_display?: string | null;
+  /** Only meaningful for MC (null for essays / ungraded attempts). */
+  is_correct?: boolean | null;
+  score_bp?: number | null;
+  max_score_bp: number;
+  feedback?: string | null;
+}
+
+export interface ExamResultRow {
+  id: string;
+  exam_id: string;
+  user_id: string;
+  attempt_number: number;
+  status: string;
+  score_bp?: number | null;
+  passed?: boolean | null;
+  started_at: string;
+  submitted_at?: string | null;
+  graded_at?: string | null;
+  display_name?: string | null;
+}
+
+export interface ExamResultReviewRow extends ExamResultRow {
+  answers: ReviewAnswer[];
+}
+
+export interface ExamResultsReview {
+  exam: Exam;
+  results: ExamResultReviewRow[];
 }
 
 // --- Career guidance (simulated) ------------------------------------------

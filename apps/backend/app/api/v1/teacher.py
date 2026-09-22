@@ -9,6 +9,7 @@ from sqlalchemy import case, func, select
 
 from app.api.deps import DbSession, LimitParam, OffsetParam, TeacherUser
 from app.models.exam import Exam, ExamAttempt, Question, QuestionOption, StudentAnswer
+from app.models.identity import User
 from app.models.quest import Quest, QuestWinner
 from app.models.wallet import RewardAllocation
 
@@ -19,12 +20,17 @@ router = APIRouter()
 async def submissions(
     user: TeacherUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
 ):
-    """Recent student answers across this teacher's exams, with AI feedback."""
+    """Recent student answers across this teacher's exams, with AI feedback.
+
+    Each row tells you *which student* answered, *which question*, their answer
+    (option text for multiple-choice) and, for MC, whether it was correct.
+    """
     stmt = (
-        select(StudentAnswer, Question, ExamAttempt, Exam.title)
+        select(StudentAnswer, Question, ExamAttempt, Exam.title, User.full_name)
         .join(Question, Question.id == StudentAnswer.question_id)
         .join(ExamAttempt, ExamAttempt.id == StudentAnswer.attempt_id)
         .join(Exam, Exam.id == ExamAttempt.exam_id)
+        .join(User, User.id == ExamAttempt.user_id)
         .where(Exam.owner_id == user.id)
         .order_by(StudentAnswer.saved_at.desc())
         .limit(limit)
@@ -33,7 +39,7 @@ async def submissions(
     rows = (await db.execute(stmt)).all()
 
     # Resolve the chosen option text for multiple-choice answers in one query.
-    mc_qids = {q.id for _sa, q, _a, _t in rows if q.qtype == "multiple_choice"}
+    mc_qids = {q.id for _sa, q, _a, _t, _n in rows if q.qtype == "multiple_choice"}
     option_text: dict[tuple[uuid.UUID, str], str] = {}
     if mc_qids:
         opt_rows = (
@@ -45,6 +51,11 @@ async def submissions(
         ).all()
         option_text = {(qid, label): text for qid, label, text in opt_rows}
 
+    def _is_correct(sa: StudentAnswer, q: Question) -> bool | None:
+        if q.qtype != "multiple_choice" or sa.score_bp is None:
+            return None
+        return sa.score_bp >= sa.max_score_bp and sa.max_score_bp > 0
+
     return [
         {
             "answer_id": str(sa.id),
@@ -52,6 +63,7 @@ async def submissions(
             "exam_title": title,
             "attempt_id": str(attempt.id),
             "student_id": str(attempt.user_id),
+            "student_name": name,
             "question_id": str(q.id),
             "qtype": q.qtype,
             "prompt": q.prompt,
@@ -62,12 +74,18 @@ async def submissions(
                 else sa.answer_text
             ),
             "correct_answer": q.correct_answer if q.qtype == "multiple_choice" else None,
+            "correct_display": (
+                option_text.get((q.id, (q.correct_answer or "").upper()))
+                if q.qtype == "multiple_choice"
+                else None
+            ),
+            "is_correct": _is_correct(sa, q),
             "score_bp": sa.score_bp,
             "max_score_bp": sa.max_score_bp,
             "feedback": sa.feedback,
             "similarity_bp": sa.similarity_bp,
         }
-        for sa, q, attempt, title in rows
+        for sa, q, attempt, title, name in rows
     ]
 
 
