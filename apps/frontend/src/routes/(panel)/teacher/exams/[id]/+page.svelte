@@ -210,6 +210,28 @@
     }
   }
 
+  /** Approve or reject an AI-generated question awaiting review. */
+  async function reviewQ(q: Question, status: "approved" | "rejected") {
+    error = "";
+    message = "";
+    busy = `qr-${q.id}`;
+    try {
+      await api.patch(`/questions/${q.id}`, { review_status: status });
+      message = status === "approved" ? "Soal disetujui." : "Soal ditolak.";
+      await loadQuestions();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal meninjau soal";
+    } finally {
+      busy = "";
+    }
+  }
+
+  const REVIEW_LABEL: Record<string, string> = {
+    pending: "Menunggu tinjauan",
+    approved: "Disetujui",
+    rejected: "Ditolak",
+  };
+
   onMount(() => {
     loadExam();
     loadQuestions();
@@ -348,6 +370,15 @@
                   <span class="badge badge-indigo"
                     >{q.qtype === "multiple_choice" ? "PG" : "Esai"}</span
                   >
+                  {#if q.review_status && q.review_status !== "approved"}
+                    <span
+                      class="badge"
+                      class:badge-amber={q.review_status === "pending"}
+                      class:badge-magenta={q.review_status === "rejected"}
+                    >
+                      {REVIEW_LABEL[q.review_status] ?? q.review_status}
+                    </span>
+                  {/if}
                   {q.prompt}
                   {#if q.qtype === "multiple_choice" && q.options?.length}
                     <ul class="mt-1 space-y-0.5 text-xs muted">
@@ -366,6 +397,22 @@
                   {/if}</span
                 >
                 <span class="flex flex-none gap-1">
+                  {#if q.review_status === "pending"}
+                    <button
+                      class="btn-icon !text-secondary hover:!border-secondary"
+                      on:click={() => reviewQ(q, "approved")}
+                      disabled={busy === `qr-${q.id}`}
+                      title="Setujui soal"
+                      aria-label="Setujui soal"><Icon name="circle-check" size="11px" /></button
+                    >
+                    <button
+                      class="btn-icon !text-tertiary hover:!border-tertiary"
+                      on:click={() => reviewQ(q, "rejected")}
+                      disabled={busy === `qr-${q.id}`}
+                      title="Tolak soal"
+                      aria-label="Tolak soal"><Icon name="circle-xmark" size="11px" /></button
+                    >
+                  {/if}
                   <button class="btn-icon" on:click={() => startEditQ(q)} aria-label="Sunting soal"
                     ><Icon name="pen" size="11px" /></button
                   >

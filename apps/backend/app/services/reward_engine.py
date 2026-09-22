@@ -443,3 +443,66 @@ class RewardEngine:
         account.cached_balance = new_balance
         await self.session.flush()
         return entry
+
+    async def refund_swap(
+        self,
+        *,
+        user_id: uuid.UUID,
+        opt_cost: int,
+        asset: str,
+        asset_amount: int,
+        swap_key: str,
+    ) -> None:
+        """Reverse a swap whose on-chain routing failed/reverted.
+
+        A successful swap debits ``opt_cost`` OPT and credits ``asset_amount``
+        of the target asset. A failure must return the OPT *and* claw back the
+        credited target asset so the ledger and on-chain balances stay in step.
+        Idempotent on ``swap_key`` (the outbox idempotency key).
+        """
+        # Return the OPT (idempotent on swap_key).
+        account = await self.get_or_create_account(user_id)
+        dup = (
+            await self.session.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "swap_refund",
+                    WalletLedgerEntry.reference_id == swap_key,
+                    WalletLedgerEntry.entry_type == "credit",
+                )
+            )
+        ).scalar_one_or_none()
+        if dup is None and opt_cost > 0:
+            new_balance = account.cached_balance + opt_cost
+            self.session.add(
+                WalletLedgerEntry(
+                    account_id=account.id,
+                    token_id=account.token_id,
+                    entry_type="credit",
+                    amount=opt_cost,
+                    balance_after=new_balance,
+                    reference_type="swap_refund",
+                    reference_id=swap_key,
+                    description=f"Reversal for failed swap to {asset}",
+                )
+            )
+            account.cached_balance = new_balance
+            await self.session.flush()
+        # Claw back the credited target asset (best-effort: clamp at 0).
+        if asset and asset_amount > 0:
+            row = await self._locked_asset_row(user_id, asset)
+            row.cached_balance = max(0, row.cached_balance - asset_amount)
+            await self.session.flush()
+
+    async def refund_ai_request(
+        self, *, user_id: uuid.UUID, requests: int, asset: str = "ORT"
+    ) -> None:
+        """Return ORT debited for AI usage whose on-chain burn failed/reverted.
+
+        Idempotency is enforced at the caller (the outbox row is terminal), so a
+        single refund is applied per failed item.
+        """
+        if requests <= 0:
+            return
+        row = await self._locked_asset_row(user_id, asset)
+        row.cached_balance += requests
+        await self.session.flush()

@@ -55,6 +55,38 @@ class GradingService:
             return existing
         return self.enqueue(attempt)
 
+    async def reopen_for_regrade(self, attempt: ExamAttempt) -> GradingJob | None:
+        """Re-queue grading for a failed attempt (teacher/admin retry).
+
+        A permanently ``grading_failed`` attempt otherwise has no path back:
+        ``enqueue_if_absent`` would return the existing (failed) job unchanged.
+        Here we reset that job to ``queued`` and clear its error so the worker
+        picks it up again, and flip the attempt back to ``submitted``.
+        """
+        job = (
+            await self.session.execute(
+                select(GradingJob).where(GradingJob.attempt_id == attempt.id)
+            )
+        ).scalar_one_or_none()
+        if job is None:
+            job = self.enqueue(attempt)
+            await self.session.flush()
+            attempt.status = "submitted"
+            return job
+        # Only a terminal/failed job is re-openable; a queued/running one is left
+        # alone so we never double-grade.
+        if job.status in ("done",):
+            return job
+        job.status = "queued"
+        job.attempts = 0
+        job.error_code = None
+        job.error_message = None
+        job.available_at = datetime.now(UTC)
+        job.finished_at = None
+        attempt.status = "submitted"
+        await self.session.flush()
+        return job
+
     async def grade_mc_answers(self, attempt: ExamAttempt) -> int:
         """Deterministically score the multiple-choice questions of an attempt.
 

@@ -116,6 +116,7 @@ async def swap_opt(payload: SwapRequestIn, user: CurrentUser, db: DbSession):
                     "asset": asset,
                     "amount": payload.amount,
                     "opt_cost": opt_cost,
+                    "user_id": str(user.id),
                     "user_ref": user.chain_user_ref,
                 },
                 status="pending",
@@ -159,6 +160,7 @@ async def pay_ai_requests(payload: AIRequestIn, user: CurrentUser, db: DbSession
                 idempotency_key=tx_idempotency_key("ai_request", str(user.id), nonce)[:64],
                 payload={
                     "requests": payload.requests,
+                    "user_id": str(user.id),
                     "user_ref": user.chain_user_ref,
                 },
                 status="pending",

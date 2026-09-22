@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
   import { api, wsUrl, ApiError } from "$lib/api/client";
-  import type { Room, RoomMember, RankingResponse } from "$lib/types";
+  import type { Room, RoomMember, RankingResponse, RoomEvent } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import { statusLabel } from "$lib/utils/format";
 
@@ -12,7 +12,9 @@
   let loading = true;
   let error = "";
   let connected = false;
-  let events: { text: string; at: number }[] = [];
+  // Historical (persisted) room events, plus live WS frames merged on top.
+  let history: RoomEvent[] = [];
+  let liveEvents: { text: string; at: number }[] = [];
   let socket: WebSocket | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -29,11 +31,23 @@
     return name && name.trim() ? name : `${id.slice(0, 8)}…`;
   }
 
+  /** Map a WS frame type to a human Indonesian label for the activity feed. */
+  const EVENT_LABEL: Record<string, string> = {
+    "room.join": "bergabung",
+    "room.leave": "keluar",
+    "room.open": "membuka ruang",
+    "room.close": "menutup ruang",
+    "presence.join": "hadir",
+    "presence.leave": "pergi",
+    "quest.finalized": "quest difinalisasi",
+  };
+
   async function load() {
     try {
       room = await api.get<Room>(`/rooms/${roomId}`);
       participants = await api.get<RoomMember[]>(`/rooms/${roomId}/participants`);
       ranking = await api.get<RankingResponse>(`/rankings/rooms/${roomId}`);
+      history = await api.get<RoomEvent[]>(`/rooms/${roomId}/events?limit=20`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ruang";
     } finally {
@@ -55,12 +69,14 @@
       try {
         const msg = JSON.parse(ev.data);
         if (msg.type === "pong") return;
-        events = [
+        const actor = participants.find((p) => p.user_id === msg.user_id);
+        const label = EVENT_LABEL[msg.type] ?? msg.type;
+        liveEvents = [
           {
-            text: `${msg.type}${msg.user_id ? ` · ${String(msg.user_id).slice(0, 8)}` : ""}`,
+            text: `${actor ? who(actor.display_name, actor.user_id) : msg.user_id ? `${String(msg.user_id).slice(0, 8)}…` : "Ruang"} ${label}`,
             at: Date.now(),
           },
-          ...events,
+          ...liveEvents,
         ].slice(0, 20);
         // Refresh light state on meaningful events.
         if (
@@ -208,10 +224,18 @@
     <div class="card mt-4">
       <h2 class="hud font-display text-lg font-bold">Umpan aktivitas</h2>
       <ul class="mt-2 space-y-1 text-xs font-mono">
-        {#each events as e}
-          <li class="muted">[{new Date(e.at).toLocaleTimeString()}] {e.text}</li>
+        {#each liveEvents as e}
+          <li class="text-ink2">[{new Date(e.at).toLocaleTimeString()}] {e.text}</li>
         {/each}
-        {#if events.length === 0}<li class="muted">Menunggu aktivitas…</li>{/if}
+        {#each history as e}
+          <li class="muted">
+            [{new Date(e.created_at).toLocaleTimeString()}] {EVENT_LABEL[e.event_type] ??
+              e.event_type}
+          </li>
+        {/each}
+        {#if liveEvents.length === 0 && history.length === 0}
+          <li class="muted">Menunggu aktivitas…</li>
+        {/if}
       </ul>
     </div>
   {/if}

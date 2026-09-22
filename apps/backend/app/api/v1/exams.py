@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
+from app.core.errors import ConflictError, ForbiddenError
 from app.db.session import transaction
 from app.schemas.exam import (
     AnswerOut,
@@ -233,6 +234,31 @@ async def _record_quest_attempt_if_any(db, attempt, user) -> None:
     )
     if quest is not None:
         await QuestService(db).record_attempt(quest.id, user, exam_attempt_id=attempt.id)
+
+
+@router.post("/attempts/{attempt_id}/regrade", response_model=AttemptOut)
+async def regrade_attempt(attempt_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    """Re-enqueue grading for a failed attempt (teacher/admin retry).
+
+    A permanently ``grading_failed`` attempt otherwise has no path back to a
+    graded state. Only an attempt whose exam the caller owns (or an admin) may
+    be re-graded.
+    """
+    async with transaction(db):
+        service = ExamService(db)
+        attempt = await service.get_attempt(attempt_id, user)
+        exam = await service.get(attempt.exam_id)
+        if not user.has_role("admin") and exam.owner_id != user.id:
+            raise ForbiddenError("You do not own this exam")
+        if attempt.status not in ("submitted", "grading_failed"):
+            raise ConflictError("Only a submitted or failed attempt can be re-graded")
+        grading = GradingService(db)
+        await grading.reopen_for_regrade(attempt)
+        # An MC-only exam is cheap to grade inline; otherwise the worker picks
+        # up the re-queued job.
+        if not await service.exam_has_essay(attempt.exam_id):
+            attempt = await grading.grade_attempt(attempt)
+    return attempt
 
 
 @router.get("/attempts/{attempt_id}/result", response_model=AttemptResultOut)

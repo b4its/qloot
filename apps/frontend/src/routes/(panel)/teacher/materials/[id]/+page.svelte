@@ -1,9 +1,16 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { Material, Question, SummaryResult, AskResult } from "$lib/types";
+  import type {
+    Material,
+    Question,
+    SummaryResult,
+    AskResult,
+    GenerationJob,
+    AIJob,
+  } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import { formatDate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
@@ -26,6 +33,11 @@
   // AI question generation.
   let count = 3;
   let generated: Question[] = [];
+  // Async mode: enqueue a job, poll it, then surface the drafts.
+  let asyncMode = false;
+  let job: AIJob | null = null;
+  let jobTimer: ReturnType<typeof setTimeout> | null = null;
+  let regenerating = "";
 
   // AI study assistant.
   let summary: SummaryResult | null = null;
@@ -33,6 +45,13 @@
   let question = "";
   let asking = false;
   let asks: { q: string; a: AskResult }[] = [];
+
+  function stopPolling() {
+    if (jobTimer) {
+      clearTimeout(jobTimer);
+      jobTimer = null;
+    }
+  }
 
   async function load() {
     loading = true;
@@ -66,6 +85,12 @@
     error = "";
     message = "";
     generated = [];
+    job = null;
+    stopPolling();
+    if (asyncMode) {
+      await generateAsync();
+      return;
+    }
     busy = "generate";
     try {
       generated = await api.post<Question[]>(`/materials/${materialId}/generate-questions-sync`, {
@@ -78,6 +103,95 @@
     } finally {
       busy = "";
     }
+  }
+
+  /** Enqueue an async generation job, then poll until it finishes. */
+  async function generateAsync() {
+    busy = "generate";
+    try {
+      const enq = await api.post<GenerationJob>(`/materials/${materialId}/generate-questions`, {
+        count,
+        language: "id",
+      });
+      message = "Pekerjaan pembuatan soal diantrekan…";
+      pollJob(enq.job_id);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengantrekan pembuatan soal";
+      busy = "";
+    }
+  }
+
+  function pollJob(jobId: string) {
+    stopPolling();
+    jobTimer = setTimeout(async () => {
+      try {
+        const j = await api.get<AIJob>(`/ai/jobs/${jobId}`);
+        job = j;
+        if (j.status === "done") {
+          busy = "";
+          message = "Soal selesai dibuat — muat ulang draf untuk meninjau.";
+          await loadDrafts();
+        } else if (j.status === "failed") {
+          busy = "";
+          error = j.error_message || "Pembuatan soal gagal";
+        } else {
+          pollJob(jobId);
+        }
+      } catch (e) {
+        busy = "";
+        error = e instanceof ApiError ? e.message : "Gagal memeriksa status pekerjaan";
+      }
+    }, 1500);
+  }
+
+  /** Load the teacher's own draft (pending) questions for this material. */
+  async function loadDrafts() {
+    try {
+      const detail = await api.get<Question[]>(`/materials/${materialId}/questions`);
+      generated = detail;
+    } catch {
+      /* endpoint optional; leave the drafts as-is */
+    }
+  }
+
+  /** Ask the AI to regenerate a question from its source material. */
+  async function regenerate(q: Question) {
+    regenerating = q.id;
+    error = "";
+    try {
+      const j = await api.post<AIJob>(`/ai/questions/${q.id}/regenerate`);
+      job = j;
+      // Replace the stale draft with the freshly generated sibling.
+      generated = generated.filter((g) => g.id !== q.id);
+      message = "Membuat ulang soal…";
+      pollJobForDrafts(j.id);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal membuat ulang soal";
+      regenerating = "";
+    }
+  }
+
+  function pollJobForDrafts(jobId: string) {
+    stopPolling();
+    jobTimer = setTimeout(async () => {
+      try {
+        const j = await api.get<AIJob>(`/ai/jobs/${jobId}`);
+        job = j;
+        if (j.status === "done") {
+          regenerating = "";
+          message = "Soal dibuat ulang.";
+          await loadDrafts();
+        } else if (j.status === "failed") {
+          regenerating = "";
+          error = j.error_message || "Pembuatan ulang gagal";
+        } else {
+          pollJobForDrafts(jobId);
+        }
+      } catch (e) {
+        regenerating = "";
+        error = e instanceof ApiError ? e.message : "Gagal membuat ulang soal";
+      }
+    }, 1500);
   }
 
   async function approve(q: Question) {
@@ -117,6 +231,7 @@
   }
 
   onMount(load);
+  onDestroy(stopPolling);
 </script>
 
 <svelte:head><title>Kelola Materi — Panel Guru — QLoot</title></svelte:head>
@@ -165,7 +280,18 @@
             />{/if}
           Buat soal
         </button>
+        <label class="mb-1 flex items-center gap-2 text-xs muted">
+          <input type="checkbox" bind:checked={asyncMode} />
+          Antrean (async)
+        </label>
       </div>
+
+      {#if job}
+        <p class="mono-label mt-2">
+          Pekerjaan {job.kind} · {job.status}
+          {#if job.attempts > 1}· percobaan {job.attempts}{/if}
+        </p>
+      {/if}
 
       {#if generated.length}
         <ol class="mt-3 space-y-3">
@@ -180,9 +306,22 @@
                 >
               </div>
               <p class="mt-1 text-sm muted">Kunci: {q.correct_answer}</p>
-              {#if q.review_status !== "approved"}
-                <button class="btn-ghost mt-2" on:click={() => approve(q)}>Setujui</button>
-              {/if}
+              <div class="mt-2 flex gap-2">
+                {#if q.review_status !== "approved"}
+                  <button class="btn-ghost" on:click={() => approve(q)}>Setujui</button>
+                {/if}
+                <button
+                  class="btn-ghost"
+                  on:click={() => regenerate(q)}
+                  disabled={regenerating === q.id}
+                >
+                  {#if regenerating === q.id}<Icon name="spinner" spin size="11px" />{:else}<Icon
+                      name="rotate"
+                      size="11px"
+                    />{/if}
+                  Buat ulang
+                </button>
+              </div>
             </li>
           {/each}
         </ol>

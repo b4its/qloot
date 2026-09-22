@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select
 
-from app.blockchain.worker_logic import process_outbox_item
+from app.blockchain.worker_logic import process_outbox_item, reap_unknown_topics
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import session_scope
@@ -42,6 +42,9 @@ async def _process_once() -> bool:
     async with session_scope() as session:
         item = await _claim(session)
         if item is None:
+            # No eligible work: sweep any rows whose topic no one consumes so
+            # they surface as failed instead of lurking as pending forever.
+            await reap_unknown_topics(session, TOPICS)
             return False
         return await process_outbox_item(session, item.id)
 

@@ -418,6 +418,24 @@ export interface AskResult {
   confidence_bp: number;
 }
 
+/** Reference to an enqueued AI generation job. */
+export interface GenerationJob {
+  job_id: string;
+  status: string;
+}
+
+/** Polled AI job status. */
+export interface AIJob {
+  id: string;
+  kind: string;
+  status: string;
+  attempts: number;
+  error_code?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  finished_at?: string | null;
+}
+
 export interface TeacherAnalytics {
   exams: number;
   graded_attempts: number;

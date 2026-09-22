@@ -5,12 +5,14 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, File, Form, UploadFile, status
+from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.core.config import settings
 from app.core.errors import ValidationError
 from app.db.session import transaction
 from app.models.exam import Question
+from app.schemas.exam import OptionOut, QuestionOut
 from app.schemas.material import (
     AnswerOut,
     AskRequest,
@@ -141,6 +143,46 @@ async def generate_questions_sync(
         )
         for q in questions
     ]
+
+
+@router.get("/{material_id}/questions", response_model=list[QuestionOut])
+async def material_questions(
+    material_id: uuid.UUID,
+    user: TeacherUser,
+    db: DbSession,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
+    """Draft questions generated from a material (owner/admin only).
+
+    Async generation creates questions detached from any exam; this surfaces
+    them so a teacher can review/approve them instead of them becoming orphaned.
+    """
+    service = MaterialService(db)
+    material = await service.get_viewable(material_id, user)
+    stmt = (
+        select(Question)
+        .where(Question.material_id == material.id)
+        .order_by(Question.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    from app.services.exam_service import ExamService
+
+    exam_service = ExamService(db)
+    out: list[QuestionOut] = []
+    for q in rows:
+        item = QuestionOut.model_validate(q)
+        options = await exam_service.options_for(q.id)
+        item.options = [
+            OptionOut(
+                id=o.id, label=o.label, text=o.text, position=o.position, is_correct=o.is_correct
+            )
+            for o in options
+        ]
+        out.append(item)
+    return out
 
 
 @router.get("/{material_id}/summary", response_model=SummaryOut)

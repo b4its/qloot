@@ -67,7 +67,9 @@ async def transactions(
     """On-chain transactions.
 
     Admins see every transaction; other users only see transactions linked to
-    their own reward allocations or withdrawals (never the global firehose).
+    their own reward allocations, withdrawals, swaps or AI burns (never the
+    global firehose). Swaps/AI burns are matched via their ``user_ref`` in the
+    stored arguments so the payer can see the tx they paid for.
     """
     stmt = select(BlockchainTransaction).order_by(BlockchainTransaction.created_at.desc())
     if not user.has_role("admin"):
@@ -79,7 +81,10 @@ async def transactions(
             WithdrawalRequest.user_id == user.id,
             WithdrawalRequest.blockchain_transaction_id.is_not(None),
         )
-        stmt = stmt.where(BlockchainTransaction.id.in_(reward_tx.union(wd_tx)))
+        stmt = stmt.where(
+            BlockchainTransaction.id.in_(reward_tx.union(wd_tx))
+            | (BlockchainTransaction.arguments["user_ref"].astext == user.chain_user_ref)
+        )
     stmt = stmt.limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     client = get_chain_client()

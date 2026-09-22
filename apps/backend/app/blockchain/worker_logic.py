@@ -42,6 +42,37 @@ def _require(payload: dict, *keys: str) -> None:
         raise ChainError(f"Malformed outbox payload: missing {', '.join(missing)}")
 
 
+async def reap_unknown_topics(session: AsyncSession, known_topics: tuple[str, ...]) -> int:
+    """Fail outbox rows whose topic no worker consumes.
+
+    Without this, a row with an unknown/misspelled topic sits ``pending``
+    forever (``_claim`` filters to known topics) — a silent loss of a financial
+    event. Marking it ``failed`` surfaces it in admin views instead.
+    """
+    from app.models.wallet import TransactionOutbox
+
+    if not known_topics:
+        return 0
+    stmt = (
+        select(TransactionOutbox)
+        .where(
+            TransactionOutbox.status == "pending",
+            TransactionOutbox.topic.not_in(known_topics),
+        )
+        .with_for_update(skip_locked=True)
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    for item in rows:
+        item.status = "failed"
+        item.attempts += 1
+        item.last_error = f"Unknown outbox topic: {item.topic}"
+        item.processed_at = datetime.now(UTC)
+    if rows:
+        await session.flush()
+        log.warning("outbox_unknown_topics_failed", count=len(rows))
+    return len(rows)
+
+
 async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bool:
     from app.models.wallet import TransactionOutbox
 
@@ -206,6 +237,25 @@ async def _mark_failed(session: AsyncSession, item, error: str) -> None:
             await engine.refund_withdrawal(
                 user_id=wd.user_id, amount=wd.amount, withdrawal_id=wd.id
             )
+    if item.topic == "swap":
+        await _refund_swap(engine, item, payload)
+    if item.topic == "ai_request" and payload.get("user_id"):
+        await engine.refund_ai_request(
+            user_id=uuid.UUID(payload["user_id"]), requests=int(payload.get("requests", 0))
+        )
+
+
+async def _refund_swap(engine, item, payload: dict) -> None:
+    """Return a failed swap's OPT and claw back the credited target asset."""
+    if not payload.get("user_id"):
+        return
+    await engine.refund_swap(
+        user_id=uuid.UUID(payload["user_id"]),
+        opt_cost=int(payload.get("opt_cost", 0)),
+        asset=str(payload.get("asset", "")),
+        asset_amount=int(payload.get("amount", 0)),
+        swap_key=item.idempotency_key,
+    )
 
 
 async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
@@ -302,6 +352,18 @@ async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> No
             await engine.refund_withdrawal(
                 user_id=wd.user_id, amount=wd.amount, withdrawal_id=wd.id
             )
+    if tx.method == "swapOptFor" and args.get("user_id"):
+        await engine.refund_swap(
+            user_id=uuid.UUID(args["user_id"]),
+            opt_cost=int(args.get("opt_cost", 0)),
+            asset=str(args.get("asset", "")),
+            asset_amount=int(args.get("amount", 0)),
+            swap_key=tx.idempotency_key,
+        )
+    if tx.method == "payAiRequest" and args.get("user_id"):
+        await engine.refund_ai_request(
+            user_id=uuid.UUID(args["user_id"]), requests=int(args.get("requests", 0))
+        )
 
 
 async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> None:

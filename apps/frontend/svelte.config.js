@@ -14,6 +14,7 @@ const config = {
       $routes: "./src/routes",
       "$routes-landing": "./src/routes/(landing)",
       "$routes-site": "./src/routes/(site)",
+      "$routes-panel": "./src/routes/(panel)",
     },
   },
 };

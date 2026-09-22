@@ -22,6 +22,7 @@ export default defineConfig({
       $app: new URL("./tests/stubs/app", import.meta.url).pathname,
       "$routes-landing": new URL("./src/routes/(landing)", import.meta.url).pathname,
       "$routes-site": new URL("./src/routes/(site)", import.meta.url).pathname,
+      "$routes-panel": new URL("./src/routes/(panel)", import.meta.url).pathname,
     },
   },
 });

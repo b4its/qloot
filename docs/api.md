@@ -50,10 +50,15 @@ POST /materials/upload
 GET  /materials/{material_id}
 POST /materials/{material_id}/generate-questions        (async job)
 POST /materials/{material_id}/generate-questions-sync   (dev)
+GET  /materials/{material_id}/questions                 (teacher: draft AI questions)
 GET  /ai/jobs/{job_id}
 POST /ai/questions/{question_id}/regenerate
 POST /ai/grade
 ```
+
+AI-generated questions are created `review_status="pending"`; a teacher approves
+or rejects them via `PATCH /questions/{question_id}` (`review_status`) and can
+list a material's drafts via `GET /materials/{material_id}/questions`.
 
 ## Rooms
 
@@ -240,11 +245,17 @@ DELETE /questions/{question_id}
 POST /exams/{exam_id}/attempts
 PUT  /attempts/{attempt_id}/answers/{question_id}   # answer_text = option label for MC
 POST /attempts/{attempt_id}/submit                  # MC graded instantly; essays via AI worker
+POST /attempts/{attempt_id}/regrade                 # teacher: re-queue a grading_failed attempt
 GET  /attempts/{attempt_id}/result                  # includes exam + (when graded) the answer key
 ```
 
 Multiple-choice options are `[{text, is_correct}]` (2–8, exactly one correct); the
 correct option is never exposed to students taking the exam.
+
+A failed on-chain step is compensated: `reward` and `withdrawal` reverse their
+ledger effect, and `swap` / `ai_request` refund the debited OPT / ORT so a user
+never loses funds to a failed chain transaction. Outbox rows with an unknown
+topic are marked `failed` by the worker (never silently stuck `pending`).
 
 `GET /exams/{exam_id}/results/review` powers the teacher "Hasil peserta" view: for every
 student who attempted the exam it returns their name/score plus, per question, the prompt,
