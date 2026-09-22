@@ -501,3 +501,64 @@ async def test_teacher_submissions_exposes_student_and_correctness(client):
     assert row["answer_display"] == "Jakarta"
     assert row["correct_display"] == "Jakarta"
     assert row["is_correct"] is True
+
+
+async def _add_essay_question(client, exam_id, prompt="Jelaskan fotosintesis.", position=0):
+    q = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={"prompt": prompt, "qtype": "essay", "position": position},
+    )
+    assert q.status_code == 201, q.text
+    return q.json()["id"]
+
+
+async def test_exam_list_and_detail_expose_question_composition(client):
+    """The exam list/detail classify an exam as MC, essay or mixed via counts."""
+    await _register(client, "comp_teacher@ex.com", "teacher")
+
+    # Pure multiple-choice exam.
+    mc_id, _ = await _make_mc_exam(client)
+    # Pure essay exam.
+    essay_exam = await client.post("/api/v1/exams", json={"title": "Ujian Esai Murni"})
+    essay_id = essay_exam.json()["id"]
+    await _add_essay_question(client, essay_id)
+    await _add_essay_question(client, essay_id, prompt="Apa itu gravitasi?", position=1)
+    # Mixed exam: one MC + one essay.
+    mixed_exam = await client.post("/api/v1/exams", json={"title": "Ujian Campuran"})
+    mixed_id = mixed_exam.json()["id"]
+    await client.post(
+        f"/api/v1/exams/{mixed_id}/questions",
+        json={
+            "prompt": "Hasil dari 3 x 3?",
+            "qtype": "multiple_choice",
+            "position": 0,
+            "options": [
+                {"text": "9", "is_correct": True},
+                {"text": "6", "is_correct": False},
+            ],
+        },
+    )
+    await _add_essay_question(client, mixed_id, prompt="Uraikan hukum Newton.", position=1)
+
+    listing = await client.get("/api/v1/exams?limit=50")
+    assert listing.status_code == 200, listing.text
+    by_id = {e["id"]: e for e in listing.json()}
+
+    assert by_id[mc_id]["question_count"] == 1
+    assert by_id[mc_id]["mc_count"] == 1
+    assert by_id[mc_id]["essay_count"] == 0
+
+    assert by_id[essay_id]["question_count"] == 2
+    assert by_id[essay_id]["mc_count"] == 0
+    assert by_id[essay_id]["essay_count"] == 2
+
+    assert by_id[mixed_id]["question_count"] == 2
+    assert by_id[mixed_id]["mc_count"] == 1
+    assert by_id[mixed_id]["essay_count"] == 1
+
+    # The single-exam detail endpoint carries the same composition.
+    detail = await client.get(f"/api/v1/exams/{mixed_id}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["question_count"] == 2
+    assert detail.json()["mc_count"] == 1
+    assert detail.json()["essay_count"] == 1

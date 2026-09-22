@@ -77,6 +77,40 @@ class ExamService:
             stmt = stmt.where(Exam.owner_id == user.id) if not user.has_role("admin") else stmt
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def question_counts(
+        self, exam_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[int, int, int]]:
+        """Batched (total, multiple_choice, essay) question counts per exam.
+
+        One grouped query for every exam id (never N+1).
+        """
+        if not exam_ids:
+            return {}
+        rows = (
+            await self.session.execute(
+                select(Question.exam_id, Question.qtype, func.count())
+                .where(Question.exam_id.in_(exam_ids))
+                .group_by(Question.exam_id, Question.qtype)
+            )
+        ).all()
+        counts: dict[uuid.UUID, tuple[int, int, int]] = {}
+        for exam_id, qtype, n in rows:
+            total, mc, essay = counts.get(exam_id, (0, 0, 0))
+            if qtype == "multiple_choice":
+                mc += int(n)
+            else:
+                essay += int(n)
+            counts[exam_id] = (total + int(n), mc, essay)
+        return counts
+
+    async def list_all_with_counts(
+        self, user: User, *, limit: int = 50, offset: int = 0
+    ) -> list[tuple[Exam, int, int, int]]:
+        """Exams plus their (total, mc, essay) question counts (batched)."""
+        exams = await self.list_all(user, limit=limit, offset=offset)
+        counts = await self.question_counts([e.id for e in exams])
+        return [(e, *counts.get(e.id, (0, 0, 0))) for e in exams]
+
     async def update(self, exam_id: uuid.UUID, user: User, **data) -> Exam:
         exam = await self._get_owned_exam(exam_id, user)
         for k, v in data.items():

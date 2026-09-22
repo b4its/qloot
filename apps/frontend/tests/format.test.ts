@@ -7,6 +7,7 @@ import {
   statusLabel,
   relativeTime,
   paginate,
+  examCategory,
 } from "../src/lib/utils/format";
 
 describe("format utils", () => {
@@ -62,5 +63,38 @@ describe("format utils", () => {
     expect(paginate(items, 4, 3)).toEqual([]);
     expect(paginate(items, 0, 3)).toEqual([1, 2, 3]);
     expect(paginate([], 1, 10)).toEqual([]);
+  });
+});
+
+describe("examCategory", () => {
+  it("classifies an all-multiple-choice exam", () => {
+    expect(examCategory({ question_count: 5, mc_count: 5, essay_count: 0 })).toBe(
+      "multiple_choice",
+    );
+  });
+
+  it("classifies an all-essay exam", () => {
+    expect(examCategory({ question_count: 3, mc_count: 0, essay_count: 3 })).toBe("essay");
+  });
+
+  it("classifies an exam mixing both kinds as mixed", () => {
+    expect(examCategory({ question_count: 4, mc_count: 2, essay_count: 2 })).toBe("mixed");
+  });
+
+  it("classifies an exam with no questions as empty", () => {
+    expect(examCategory({ question_count: 0, mc_count: 0, essay_count: 0 })).toBe("empty");
+    expect(examCategory({})).toBe("empty");
+  });
+
+  it("falls back to the loaded questions when counts are absent", () => {
+    expect(
+      examCategory({
+        questions: [{ qtype: "multiple_choice" }, { qtype: "multiple_choice" }],
+      }),
+    ).toBe("multiple_choice");
+    expect(examCategory({ questions: [{ qtype: "essay" }] })).toBe("essay");
+    expect(examCategory({ questions: [{ qtype: "essay" }, { qtype: "multiple_choice" }] })).toBe(
+      "mixed",
+    );
   });
 });

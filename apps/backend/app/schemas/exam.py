@@ -119,6 +119,11 @@ class ExamOut(ORMModel):
     closes_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # Question composition, so the UI can classify an exam as multiple-choice,
+    # essay or mixed without fetching every question.
+    question_count: int = 0
+    mc_count: int = 0
+    essay_count: int = 0
 
 
 class ExamDetailOut(ExamOut):

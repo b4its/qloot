@@ -52,11 +52,27 @@ async def _question_out(service: ExamService, q, *, reveal_answers: bool) -> Que
     return base
 
 
+async def _exam_out(service: ExamService, exam) -> ExamOut:
+    """Serialise an exam with its (total, mc, essay) question counts."""
+    counts = await service.question_counts([exam.id])
+    total, mc, essay = counts.get(exam.id, (0, 0, 0))
+    return ExamOut.model_validate(exam).model_copy(
+        update={"question_count": total, "mc_count": mc, "essay_count": essay}
+    )
+
+
 @router.get("/exams", response_model=list[ExamOut])
 async def list_exams(
     user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
 ):
-    return await ExamService(db).list_all(user, limit=limit, offset=offset)
+    rows = await ExamService(db).list_all_with_counts(user, limit=limit, offset=offset)
+    out: list[ExamOut] = []
+    for exam, total, mc, essay in rows:
+        base = ExamOut.model_validate(exam)
+        out.append(
+            base.model_copy(update={"question_count": total, "mc_count": mc, "essay_count": essay})
+        )
+    return out
 
 
 @router.post("/exams", response_model=ExamOut, status_code=status.HTTP_201_CREATED)
@@ -78,7 +94,7 @@ async def get_exam(exam_id: uuid.UUID, user: CurrentUser, db: DbSession):
     reveal_answers = user.has_role("admin") or exam.owner_id == user.id
     # Validate the base fields first: validating ExamDetailOut directly would
     # read the lazy ``questions`` relationship and raise MissingGreenlet.
-    base = ExamOut.model_validate(exam)
+    base = await _exam_out(service, exam)
     return ExamDetailOut(
         **base.model_dump(),
         questions=[
@@ -233,7 +249,7 @@ async def attempt_result(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
     questions = await service.list_questions(attempt.exam_id)
     return AttemptResultOut(
         attempt=AttemptOut.model_validate(attempt),
-        exam=ExamOut.model_validate(exam),
+        exam=await _exam_out(service, exam),
         answers=[AnswerOut.model_validate(a) for a in answers],
         questions=(
             [await _question_out(service, q, reveal_answers=True) for q in questions]

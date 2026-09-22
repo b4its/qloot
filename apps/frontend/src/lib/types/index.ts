@@ -109,6 +109,11 @@ export interface Exam {
   closes_at?: string | null;
   created_at: string;
   updated_at: string;
+  /** Question composition — lets the UI classify an exam as multiple-choice,
+   * essay or mixed without fetching every question. */
+  question_count?: number;
+  mc_count?: number;
+  essay_count?: number;
   questions?: Question[];
 }
 

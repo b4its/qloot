@@ -101,3 +101,46 @@ export function etherscanUrl(txHash: string | null | undefined, chainId = 111551
   if (chainId === 11155111) return `https://sepolia.etherscan.io/tx/${txHash}`;
   return null;
 }
+
+/** Exam category derived from its question composition. */
+export type ExamCategory = "multiple_choice" | "essay" | "mixed" | "empty";
+
+interface ExamComposition {
+  question_count?: number | null;
+  mc_count?: number | null;
+  essay_count?: number | null;
+  questions?: { qtype?: string }[] | null;
+}
+
+/**
+ * Classify an exam by its question mix:
+ *   - `multiple_choice` — only multiple-choice questions
+ *   - `essay`           — only essay questions
+ *   - `mixed`           — both kinds present
+ *   - `empty`           — no questions yet
+ *
+ * The counts come from the API (`mc_count` / `essay_count`). When they are
+ * absent (e.g. a freshly created exam detail that predates the counts) we fall
+ * back to the loaded `questions` array so the UI stays correct.
+ */
+export function examCategory(exam: ExamComposition): ExamCategory {
+  let mc = exam.mc_count ?? 0;
+  let essay = exam.essay_count ?? 0;
+  if (!exam.question_count && !mc && !essay) {
+    const questions = exam.questions ?? [];
+    mc = questions.filter((q) => q.qtype === "multiple_choice").length;
+    essay = questions.length - mc;
+  }
+  if (mc > 0 && essay > 0) return "mixed";
+  if (mc > 0) return "multiple_choice";
+  if (essay > 0) return "essay";
+  return "empty";
+}
+
+/** Indonesian display label for an exam category. */
+export const EXAM_CATEGORY_LABEL: Record<ExamCategory, string> = {
+  multiple_choice: "Pilihan Ganda",
+  essay: "Esai",
+  mixed: "Campuran",
+  empty: "Belum ada soal",
+};
