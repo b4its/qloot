@@ -2,13 +2,14 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { Attempt, Answer, Exam } from "$lib/types";
+  import type { Attempt, Answer, Exam, Question } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
   import { statusLabel } from "$lib/utils/format";
 
   let exam: Exam | null = null;
   let attempt: Attempt | null = null;
   let answers: Answer[] = [];
+  let reviewQuestions: Question[] = [];
   let loading = true;
   let error = "";
   let grading = false;
@@ -18,12 +19,17 @@
 
   async function load() {
     try {
-      exam = await api.get<Exam>(`/exams/${examId}`);
-      const res = await api.get<{ attempt: Attempt; answers: Answer[] }>(
+      const res = await api.get<{ attempt: Attempt; answers: Answer[]; questions: Question[] }>(
         `/attempts/${attemptId}/result`,
       );
       attempt = res.attempt;
       answers = res.answers;
+      // Graded attempts include the questions with the answer key for review.
+      if (res.questions?.length) {
+        reviewQuestions = res.questions;
+      } else {
+        exam = await api.get<Exam>(`/exams/${examId}`);
+      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat hasil";
     } finally {
@@ -44,7 +50,9 @@
   }
 
   function questionFor(qid: string) {
-    return exam?.questions?.find((q) => q.id === qid);
+    return (reviewQuestions.length ? reviewQuestions : (exam?.questions ?? [])).find(
+      (q) => q.id === qid,
+    );
   }
 
   onMount(load);
@@ -100,11 +108,36 @@
               {bpToPercent(a.score_bp)} / {bpToPercent(a.max_score_bp, 0)}
             </span>
           </div>
-          <p class="mt-3 whitespace-pre-wrap text-sm">{a.answer_text ?? "(tanpa jawaban)"}</p>
+          {#if q?.qtype === "multiple_choice"}
+            <ul class="mt-3 space-y-1 text-sm">
+              {#each q.options ?? [] as opt}
+                {@const chosen = (a.answer_text ?? "").toUpperCase() === opt.label}
+                <li
+                  class="flex items-center gap-2 rounded-sm border px-2 py-1"
+                  class:border-secondary={opt.is_correct}
+                  class:border-tertiary={chosen && !opt.is_correct}
+                >
+                  <span class="mono text-xs muted">{opt.label}.</span>
+                  <span class="flex-1">{opt.text}</span>
+                  {#if opt.is_correct}
+                    <span class="badge badge-mint">Benar</span>
+                  {/if}
+                  {#if chosen}
+                    <span class="badge badge-indigo">Pilihanmu</span>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+            {#if !(q.options ?? []).some((o) => o.label === (a.answer_text ?? "").toUpperCase())}
+              <p class="mt-2 text-xs muted">Kamu tidak menjawab soal ini.</p>
+            {/if}
+          {:else}
+            <p class="mt-3 whitespace-pre-wrap text-sm">{a.answer_text ?? "(tanpa jawaban)"}</p>
+          {/if}
           {#if a.feedback}
             <div class="alert-info mt-3">
               <span>
-                <strong>Umpan balik AI:</strong>
+                <strong>Umpan balik:</strong>
                 {a.feedback}
                 {#if a.similarity_bp !== null && a.similarity_bp !== undefined}
                   <span class="muted"> · kemiripan {bpToPercent(a.similarity_bp)}</span>
@@ -112,7 +145,7 @@
               </span>
             </div>
           {/if}
-          {#if q?.correct_answer}
+          {#if q?.qtype !== "multiple_choice" && q?.correct_answer}
             <details class="mt-3 text-sm">
               <summary class="cursor-pointer muted">Tampilkan jawaban acuan</summary>
               <p class="mt-2">{q.correct_answer}</p>

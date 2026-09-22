@@ -64,7 +64,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   dan provider mock deterministik untuk pengembangan offline. Asisten belajar/karier
   bernama **“Asisten Qlo”** (boleh dipanggil *Kulo*) dengan persona dari `ASSISTANT_NAME`.
 - **Ujian** — timer otoritatif di server, autosave, submit idempoten, umpan-balik AI,
-  skor kemiripan.
+  skor kemiripan. Guru dapat membuat soal **pilihan ganda** (multiple choice) maupun esai;
+  **pilihan ganda dinilai otomatis & instan** (tanpa AI) saat dikumpulkan — cocok untuk kuis
+  bergamifikasi, dengan badge **Quiz Master** bila semua jawaban PG benar.
 - **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
   pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
   quest, notifikasi, dan badge (off-chain). **XP & level (simulasi deterministik)**:

@@ -15,12 +15,14 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, ForbiddenError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import get_logger
-from app.models.exam import Exam, ExamAttempt, Question, StudentAnswer
+from app.models.exam import Exam, ExamAttempt, Question, QuestionOption, StudentAnswer
 from app.models.identity import User
 
 log = get_logger("exams")
+
+_OPTION_LABELS = "ABCDEFGH"
 
 
 class ExamService:
@@ -98,20 +100,78 @@ class ExamService:
         return exam
 
     # --- questions ---------------------------------------------------------
-    async def add_question(self, exam_id: uuid.UUID, user: User, **data) -> Question:
+    async def add_question(
+        self, exam_id: uuid.UUID, user: User, *, options: list[dict] | None = None, **data
+    ) -> Question:
         exam = await self._get_owned_exam(exam_id, user)
+        qtype = data.get("qtype", "essay")
+        if qtype == "multiple_choice" and not options:
+            raise ValidationError("multiple_choice requires options")
         question = Question(
             exam_id=exam.id, owner_id=user.id, source="manual", review_status="approved", **data
         )
         self.session.add(question)
         await self.session.flush()
+        if qtype == "multiple_choice":
+            await self._replace_options(question, options or [])
         return question
 
     async def list_questions(self, exam_id: uuid.UUID) -> list[Question]:
         stmt = select(Question).where(Question.exam_id == exam_id).order_by(Question.position)
         return list((await self.session.execute(stmt)).scalars().all())
 
-    async def update_question(self, question_id: uuid.UUID, user: User, **data) -> Question:
+    async def exam_has_essay(self, exam_id: uuid.UUID) -> bool:
+        """True if the exam has any AI-graded (essay) question."""
+        count = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(Question)
+                .where(Question.exam_id == exam_id, Question.qtype != "multiple_choice")
+            )
+        ).scalar_one()
+        return int(count) > 0
+
+    async def options_for(self, question_id: uuid.UUID) -> list[QuestionOption]:
+        stmt = (
+            select(QuestionOption)
+            .where(QuestionOption.question_id == question_id)
+            .order_by(QuestionOption.position)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def _replace_options(self, question: Question, options: list[dict]) -> None:
+        """Replace a question's options wholesale (atomic: delete + insert)."""
+        if len(options) < 2:
+            raise ValidationError("multiple_choice needs at least 2 options")
+        correct = [o for o in options if o.get("is_correct")]
+        if len(correct) != 1:
+            raise ValidationError("multiple_choice needs exactly one correct option")
+        # Drop existing options, then insert the new set deterministically.
+        for existing in await self.options_for(question.id):
+            await self.session.delete(existing)
+        await self.session.flush()
+        correct_label = ""
+        for i, opt in enumerate(options):
+            label = (opt.get("label") or _OPTION_LABELS[i]).strip().upper()[:8]
+            self.session.add(
+                QuestionOption(
+                    question_id=question.id,
+                    label=label,
+                    text=opt["text"],
+                    is_correct=bool(opt.get("is_correct")),
+                    position=i,
+                )
+            )
+            if opt.get("is_correct"):
+                correct_label = label
+        # Keep ``correct_answer`` in sync with the correct option's label so
+        # existing tooling/reporting still has a single answer key.
+        question.correct_answer = correct_label
+        await self.session.flush()
+
+    async def update_question(
+        self, question_id: uuid.UUID, user: User, *, options: list[dict] | None = None, **data
+    ) -> Question:
         question = await self.session.get(Question, question_id)
         if question is None:
             raise NotFoundError("Question not found")
@@ -120,6 +180,8 @@ class ExamService:
         for k, v in data.items():
             if v is not None:
                 setattr(question, k, v)
+        if question.qtype == "multiple_choice" and options is not None:
+            await self._replace_options(question, options)
         await self.session.flush()
         return question
 
@@ -207,6 +269,13 @@ class ExamService:
         question = await self.session.get(Question, question_id)
         if question is None or question.exam_id != attempt.exam_id:
             raise NotFoundError("Question not found in this exam")
+        if question.qtype == "multiple_choice":
+            # The answer must be one of the question's option labels.
+            labels = {o.label for o in await self.options_for(question_id)}
+            choice = (answer_text or "").strip().upper()
+            if choice and choice not in labels:
+                raise ValidationError("Answer must be one of the question's options")
+            answer_text = choice
         stmt = select(StudentAnswer).where(
             StudentAnswer.attempt_id == attempt_id, StudentAnswer.question_id == question_id
         )

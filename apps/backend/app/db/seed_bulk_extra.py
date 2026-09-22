@@ -182,6 +182,9 @@ async def seed_attempts_and_grading(session: AsyncSession, students) -> None:
     if await _count(session, QuestionOption) < TARGET:
         made = 0
         for q in questions:
+            # Options only make sense for multiple-choice questions.
+            q.qtype = "multiple_choice"
+            q.correct_answer = "A"
             for label, text, correct in (
                 ("A", "Pilihan pertama (benar)", True),
                 ("B", "Pilihan kedua", False),

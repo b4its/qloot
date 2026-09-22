@@ -172,15 +172,42 @@
                 </span>
               </div>
               <p class="mt-3">{q.prompt}</p>
-              <textarea
-                class="input mt-3 min-h-[160px]"
-                placeholder="Tulis jawabanmu…"
-                value={answers[q.id] ?? ""}
-                on:input={(e) => {
-                  answers[q.id] = (e.currentTarget as HTMLTextAreaElement).value;
-                  onInput(q.id);
-                }}
-              ></textarea>
+              {#if q.qtype === "multiple_choice"}
+                <div class="mt-3 space-y-2">
+                  {#each q.options ?? [] as opt}
+                    <label
+                      class="flex cursor-pointer items-center gap-3 rounded-sm border px-3 py-2 text-sm transition-colors"
+                      class:border-primary={answers[q.id] === opt.label}
+                      style={answers[q.id] === opt.label
+                        ? "background-color: rgb(var(--accent) / 0.1)"
+                        : ""}
+                    >
+                      <input
+                        type="radio"
+                        name={`q-${q.id}`}
+                        value={opt.label}
+                        checked={answers[q.id] === opt.label}
+                        on:change={() => {
+                          answers[q.id] = opt.label;
+                          onInput(q.id);
+                        }}
+                      />
+                      <span class="mono text-xs muted">{opt.label}.</span>
+                      <span>{opt.text}</span>
+                    </label>
+                  {/each}
+                </div>
+              {:else}
+                <textarea
+                  class="input mt-3 min-h-[160px]"
+                  placeholder="Tulis jawabanmu…"
+                  value={answers[q.id] ?? ""}
+                  on:input={(e) => {
+                    answers[q.id] = (e.currentTarget as HTMLTextAreaElement).value;
+                    onInput(q.id);
+                  }}
+                ></textarea>
+              {/if}
               <div class="mt-3 flex justify-between">
                 <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}
                   >← Sebelumnya</button

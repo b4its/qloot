@@ -144,6 +144,13 @@ class BadgeService:
             await self.session.execute(select(Badge).where(Badge.code == code))
         ).scalar_one_or_none()
         if badge is None:
+            # The catalog may not have been seeded yet (e.g. the very first
+            # award). Ensure it exists so the award can proceed.
+            await self.ensure_catalog()
+            badge = (
+                await self.session.execute(select(Badge).where(Badge.code == code))
+            ).scalar_one_or_none()
+        if badge is None:
             return None
         existing = (
             await self.session.execute(

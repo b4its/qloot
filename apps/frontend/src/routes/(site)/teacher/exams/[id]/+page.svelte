@@ -23,9 +23,38 @@
 
   let questions: Question[] = [];
   let questionsLoading = false;
-  let newQ = { prompt: "", correct_answer: "" };
+  // New-question draft. ``qtype`` selects essay (AI-graded) or multiple_choice.
+  type OptionDraft = { text: string; is_correct: boolean };
+  const OPTION_LABELS = "ABCDEFGH";
+  function blankOptions(): OptionDraft[] {
+    return [
+      { text: "", is_correct: true },
+      { text: "", is_correct: false },
+    ];
+  }
+  let newQ = { prompt: "", correct_answer: "", qtype: "essay", options: blankOptions() };
   let editingQ: string | null = null;
-  let editQ = { prompt: "", correct_answer: "" };
+  let editQ = { prompt: "", correct_answer: "", qtype: "essay", options: blankOptions() };
+
+  function addOption(list: OptionDraft[]) {
+    if (list.length < 8) list.push({ text: "", is_correct: false });
+  }
+  function removeOption(list: OptionDraft[], i: number) {
+    if (list.length <= 2) return;
+    const wasCorrect = list[i].is_correct;
+    list.splice(i, 1);
+    if (wasCorrect && list.length) list[0].is_correct = true;
+  }
+  function setCorrect(list: OptionDraft[], i: number) {
+    list.forEach((o, j) => (o.is_correct = j === i));
+  }
+  function validMc(list: OptionDraft[]): boolean {
+    return (
+      list.length >= 2 &&
+      list.every((o) => o.text.trim().length > 0) &&
+      list.filter((o) => o.is_correct).length === 1
+    );
+  }
 
   async function loadExam() {
     loading = true;
@@ -93,16 +122,25 @@
       error = "Soal minimal 5 karakter.";
       return;
     }
+    if (newQ.qtype === "multiple_choice" && !validMc(newQ.options)) {
+      error = "Pilihan ganda butuh ≥2 opsi dan tepat satu jawaban benar.";
+      return;
+    }
     error = "";
     message = "";
     busy = "q-add";
     try {
       await api.post(`/exams/${examId}/questions`, {
         prompt: newQ.prompt.trim(),
-        correct_answer: newQ.correct_answer.trim() || null,
+        correct_answer: newQ.qtype === "essay" ? newQ.correct_answer.trim() || null : null,
+        qtype: newQ.qtype,
         position: questions.length,
+        options:
+          newQ.qtype === "multiple_choice"
+            ? newQ.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }))
+            : [],
       });
-      newQ = { prompt: "", correct_answer: "" };
+      newQ = { prompt: "", correct_answer: "", qtype: "essay", options: blankOptions() };
       message = "Soal ditambahkan.";
       await loadQuestions();
     } catch (e) {
@@ -114,7 +152,15 @@
 
   function startEditQ(q: Question) {
     editingQ = q.id;
-    editQ = { prompt: q.prompt, correct_answer: q.correct_answer ?? "" };
+    editQ = {
+      prompt: q.prompt,
+      correct_answer: q.correct_answer ?? "",
+      qtype: q.qtype,
+      options:
+        q.qtype === "multiple_choice"
+          ? (q.options ?? []).map((o) => ({ text: o.text, is_correct: !!o.is_correct }))
+          : blankOptions(),
+    };
   }
 
   async function saveQ() {
@@ -123,12 +169,20 @@
       error = "Soal minimal 5 karakter.";
       return;
     }
+    if (editQ.qtype === "multiple_choice" && !validMc(editQ.options)) {
+      error = "Pilihan ganda butuh ≥2 opsi dan tepat satu jawaban benar.";
+      return;
+    }
     error = "";
     busy = "q-edit";
     try {
       await api.patch(`/questions/${editingQ}`, {
         prompt: editQ.prompt.trim(),
-        correct_answer: editQ.correct_answer.trim() || null,
+        correct_answer: editQ.qtype === "essay" ? editQ.correct_answer.trim() || null : null,
+        options:
+          editQ.qtype === "multiple_choice"
+            ? editQ.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }))
+            : undefined,
       });
       editingQ = null;
       message = "Soal diperbarui.";
@@ -233,11 +287,52 @@
             {#if editingQ === q.id}
               <li class="border-b pb-2 last:border-0">
                 <input class="input" bind:value={editQ.prompt} />
-                <textarea
-                  class="input mt-2 min-h-[60px]"
-                  placeholder="Kunci jawaban"
-                  bind:value={editQ.correct_answer}
-                ></textarea>
+                {#if editQ.qtype === "multiple_choice"}
+                  <div class="mt-2 space-y-2">
+                    {#each editQ.options as opt, oi}
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="btn-icon flex-none"
+                          class:!border-secondary={opt.is_correct}
+                          class:!text-secondary={opt.is_correct}
+                          title="Tandai jawaban benar"
+                          on:click={() => setCorrect(editQ.options, oi)}
+                        >
+                          <Icon name={opt.is_correct ? "circle-check" : "circle"} size="11px" />
+                        </button>
+                        <span class="mono text-xs muted">{OPTION_LABELS[oi]}</span>
+                        <input
+                          class="input !py-1"
+                          bind:value={opt.text}
+                          placeholder="Teks pilihan"
+                        />
+                        <button
+                          type="button"
+                          class="btn-icon !text-tertiary flex-none"
+                          on:click={() => removeOption(editQ.options, oi)}
+                          disabled={editQ.options.length <= 2}
+                          aria-label="Hapus pilihan"
+                        >
+                          <Icon name="xmark" size="11px" />
+                        </button>
+                      </div>
+                    {/each}
+                    <button
+                      type="button"
+                      class="btn-ghost !py-1 text-xs"
+                      on:click={() => addOption(editQ.options)}
+                    >
+                      <Icon name="plus" size="10px" /> Tambah pilihan
+                    </button>
+                  </div>
+                {:else}
+                  <textarea
+                    class="input mt-2 min-h-[60px]"
+                    placeholder="Kunci jawaban"
+                    bind:value={editQ.correct_answer}
+                  ></textarea>
+                {/if}
                 <div class="mt-2 flex gap-2">
                   <button class="btn-primary !py-1.5" on:click={saveQ} disabled={busy === "q-edit"}
                     >Simpan</button
@@ -249,10 +344,26 @@
             {:else}
               <li class="flex items-start justify-between gap-2 border-b pb-1 last:border-0">
                 <span
-                  >{i + 1}. {q.prompt}
-                  {#if q.correct_answer}<span class="block text-xs muted"
-                      >Kunci: {q.correct_answer}</span
-                    >{/if}</span
+                  >{i + 1}.
+                  <span class="badge badge-indigo"
+                    >{q.qtype === "multiple_choice" ? "PG" : "Esai"}</span
+                  >
+                  {q.prompt}
+                  {#if q.qtype === "multiple_choice" && q.options?.length}
+                    <ul class="mt-1 space-y-0.5 text-xs muted">
+                      {#each q.options as opt}
+                        <li>
+                          <span class="mono" class:text-secondary={opt.is_correct}
+                            >{opt.label}.</span
+                          >
+                          <span class:text-secondary={opt.is_correct}>{opt.text}</span>
+                          {#if opt.is_correct}<Icon name="circle-check" size="10px" />{/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  {:else if q.correct_answer}
+                    <span class="block text-xs muted">Kunci: {q.correct_answer}</span>
+                  {/if}</span
                 >
                 <span class="flex flex-none gap-1">
                   <button class="btn-icon" on:click={() => startEditQ(q)} aria-label="Sunting soal"
@@ -272,12 +383,56 @@
         </ol>
 
         <div class="mt-3 space-y-2 border-t pt-3">
+          <div class="flex items-center gap-2">
+            <span class="mono-label">Tipe soal</span>
+            <select class="input !w-auto !py-1" bind:value={newQ.qtype}>
+              <option value="essay">Esai (dinilai AI)</option>
+              <option value="multiple_choice">Pilihan ganda</option>
+            </select>
+          </div>
           <input class="input" placeholder="Pertanyaan baru" bind:value={newQ.prompt} />
-          <textarea
-            class="input min-h-[70px]"
-            placeholder="Kunci jawaban / acuan"
-            bind:value={newQ.correct_answer}
-          ></textarea>
+          {#if newQ.qtype === "multiple_choice"}
+            <div class="space-y-2">
+              {#each newQ.options as opt, oi}
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="btn-icon flex-none"
+                    class:!border-secondary={opt.is_correct}
+                    class:!text-secondary={opt.is_correct}
+                    title="Tandai jawaban benar"
+                    on:click={() => setCorrect(newQ.options, oi)}
+                  >
+                    <Icon name={opt.is_correct ? "circle-check" : "circle"} size="11px" />
+                  </button>
+                  <span class="mono text-xs muted">{OPTION_LABELS[oi]}</span>
+                  <input class="input !py-1" bind:value={opt.text} placeholder="Teks pilihan" />
+                  <button
+                    type="button"
+                    class="btn-icon !text-tertiary flex-none"
+                    on:click={() => removeOption(newQ.options, oi)}
+                    disabled={newQ.options.length <= 2}
+                    aria-label="Hapus pilihan"
+                  >
+                    <Icon name="xmark" size="11px" />
+                  </button>
+                </div>
+              {/each}
+              <button
+                type="button"
+                class="btn-ghost !py-1 text-xs"
+                on:click={() => addOption(newQ.options)}
+              >
+                <Icon name="plus" size="10px" /> Tambah pilihan
+              </button>
+            </div>
+          {:else}
+            <textarea
+              class="input min-h-[70px]"
+              placeholder="Kunci jawaban / acuan"
+              bind:value={newQ.correct_answer}
+            ></textarea>
+          {/if}
           <button class="btn-primary" on:click={addQuestion} disabled={busy === "q-add"}>
             {#if busy === "q-add"}<Icon name="spinner" spin size="12px" />{:else}<Icon
                 name="plus"

@@ -72,6 +72,15 @@ export interface Room {
   created_at: string;
 }
 
+export interface QuestionOption {
+  id: string;
+  label: string;
+  text: string;
+  position: number;
+  /** Only revealed to the exam owner/admin, or in the graded review. */
+  is_correct?: boolean | null;
+}
+
 export interface Question {
   id: string;
   exam_id?: string | null;
@@ -79,9 +88,11 @@ export interface Question {
   correct_answer?: string | null;
   max_score_bp: number;
   position: number;
+  /** "essay" (AI-graded) or "multiple_choice" (deterministic). */
   qtype: string;
   source: string;
   review_status: string;
+  options?: QuestionOption[];
 }
 
 export interface Exam {

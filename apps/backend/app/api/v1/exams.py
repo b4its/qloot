@@ -17,6 +17,7 @@ from app.schemas.exam import (
     ExamDetailOut,
     ExamOut,
     ExamUpdate,
+    OptionOut,
     QuestionCreate,
     QuestionOut,
     QuestionUpdate,
@@ -25,6 +26,26 @@ from app.services.exam_service import ExamService
 from app.services.grading_service import GradingService
 
 router = APIRouter()
+
+
+async def _question_out(service: ExamService, q, *, reveal_answers: bool) -> QuestionOut:
+    """Serialise a question, including options. The correct option is only
+    revealed to the exam owner/admin (never to students taking the exam)."""
+    base = QuestionOut.model_validate(q)
+    options = await service.options_for(q.id)
+    base.options = [
+        OptionOut(
+            id=o.id,
+            label=o.label,
+            text=o.text,
+            position=o.position,
+            is_correct=(o.is_correct if reveal_answers else None),
+        )
+        for o in options
+    ]
+    if not reveal_answers:
+        base = base.model_copy(update={"correct_answer": None})
+    return base
 
 
 @router.get("/exams", response_model=list[ExamOut])
@@ -57,10 +78,7 @@ async def get_exam(exam_id: uuid.UUID, user: CurrentUser, db: DbSession):
     return ExamDetailOut(
         **base.model_dump(),
         questions=[
-            QuestionOut.model_validate(q).model_copy(
-                update={} if reveal_answers else {"correct_answer": None}
-            )
-            for q in questions
+            await _question_out(service, q, reveal_answers=reveal_answers) for q in questions
         ],
     )
 
@@ -101,18 +119,26 @@ async def delete_question(question_id: uuid.UUID, user: TeacherUser, db: DbSessi
 async def add_question(
     exam_id: uuid.UUID, payload: QuestionCreate, user: TeacherUser, db: DbSession
 ):
+    data = payload.model_dump()
+    options = data.pop("options", [])
     async with transaction(db):
-        return await ExamService(db).add_question(exam_id, user, **payload.model_dump())
+        service = ExamService(db)
+        question = await service.add_question(exam_id, user, options=options, **data)
+        out = await _question_out(service, question, reveal_answers=True)
+    return out
 
 
 @router.patch("/questions/{question_id}", response_model=QuestionOut)
 async def update_question(
     question_id: uuid.UUID, payload: QuestionUpdate, user: TeacherUser, db: DbSession
 ):
+    data = payload.model_dump(exclude_unset=True)
+    options = data.pop("options", None)
     async with transaction(db):
-        return await ExamService(db).update_question(
-            question_id, user, **payload.model_dump(exclude_unset=True)
-        )
+        service = ExamService(db)
+        question = await service.update_question(question_id, user, options=options, **data)
+        out = await _question_out(service, question, reveal_answers=True)
+    return out
 
 
 @router.post(
@@ -152,9 +178,18 @@ async def submit_attempt(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
     async with transaction(db):
         service = ExamService(db)
         attempt = await service.submit_attempt(attempt_id, user)
-        # Enqueue grading (worker picks it up). Idempotent per attempt.
         if attempt.status == "submitted":
-            await GradingService(db).enqueue_if_absent(attempt)
+            grading = GradingService(db)
+            # Multiple-choice questions are graded deterministically and
+            # instantly (gamified quiz feedback). If the exam is MC-only, the
+            # attempt is fully graded here; a mixed exam still enqueues an AI
+            # grading job for the essay portion.
+            await grading.grade_mc_answers(attempt)
+            has_essay = await service.exam_has_essay(attempt.exam_id)
+            if has_essay:
+                await grading.enqueue_if_absent(attempt)
+            else:
+                attempt = await grading.grade_attempt(attempt)
             # If the exam belongs to an open quest, record the quest attempt so
             # winner finalization can consider it (server-authoritative time).
             await _record_quest_attempt_if_any(db, attempt, user)
@@ -185,9 +220,18 @@ async def attempt_result(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
     service = ExamService(db)
     attempt = await service.get_attempt(attempt_id, user)
     answers = await service.list_answers(attempt_id)
+    # Review is only meaningful once the attempt is graded; before that we do
+    # not reveal answer keys (that would let a retaker look up the answers).
+    graded = attempt.status == "graded"
+    questions = await service.list_questions(attempt.exam_id)
     return AttemptResultOut(
         attempt=AttemptOut.model_validate(attempt),
         answers=[AnswerOut.model_validate(a) for a in answers],
+        questions=(
+            [await _question_out(service, q, reveal_answers=True) for q in questions]
+            if graded
+            else []
+        ),
     )
 
 

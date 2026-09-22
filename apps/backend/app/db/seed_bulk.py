@@ -477,6 +477,93 @@ async def seed_exams_and_questions(session: AsyncSession, teachers) -> None:
     await session.flush()
     log.info("bulk_exams_questions_ready")
 
+    await _seed_mc_quiz(session, teachers)
+
+
+async def _seed_mc_quiz(session: AsyncSession, teachers) -> None:
+    """Seed one published multiple-choice quiz (gamified, instantly graded)."""
+    from app.models.exam import Exam, Question, QuestionOption
+
+    title = "Kuis Pilihan Ganda — Pengetahuan Umum"
+    exists = (
+        await session.execute(select(Exam.id).where(Exam.title == title))
+    ).scalar_one_or_none()
+    if exists is not None:
+        return
+    owner = teachers[0]
+    exam_id = det_uuid("exam", "mc-quiz")
+    session.add(
+        Exam(
+            id=exam_id,
+            title=title,
+            owner_id=owner.id,
+            duration_minutes=15,
+            status="published",
+            is_active=True,
+            passing_score_bp=6000,
+            instructions="Pilih satu jawaban yang paling tepat.",
+        )
+    )
+    await session.flush()
+
+    mc_items = [
+        (
+            "Ibu kota Indonesia adalah?",
+            ["Jakarta", "Bandung", "Surabaya", "Medan"],
+            0,
+        ),
+        (
+            "Planet terdekat dengan Matahari adalah?",
+            ["Venus", "Merkurius", "Bumi", "Mars"],
+            1,
+        ),
+        (
+            "Hasil dari 7 × 8 adalah?",
+            ["54", "56", "48", "64"],
+            1,
+        ),
+        (
+            "Lambang unsur kimia air adalah?",
+            ["CO2", "O2", "H2O", "NaCl"],
+            2,
+        ),
+        (
+            "Pulau terbesar di Indonesia adalah?",
+            ["Jawa", "Sumatra", "Kalimantan", "Sulawesi"],
+            2,
+        ),
+    ]
+    for pos, (prompt, choices, correct_idx) in enumerate(mc_items):
+        qid = det_uuid("question", str(exam_id), str(pos))
+        labels = "ABCDEFGH"
+        session.add(
+            Question(
+                id=qid,
+                exam_id=exam_id,
+                owner_id=owner.id,
+                prompt=prompt,
+                correct_answer=labels[correct_idx],
+                qtype="multiple_choice",
+                position=pos,
+                source="manual",
+                review_status="approved",
+            )
+        )
+        await session.flush()
+        for oi, text in enumerate(choices):
+            session.add(
+                QuestionOption(
+                    id=det_uuid("qopt", str(qid), str(oi)),
+                    question_id=qid,
+                    label=labels[oi],
+                    text=text,
+                    is_correct=(oi == correct_idx),
+                    position=oi,
+                )
+            )
+    await session.flush()
+    log.info("bulk_mc_quiz_ready")
+
 
 async def seed_rooms(session: AsyncSession, teachers, students) -> None:
     from app.models.room import Room, RoomMember
