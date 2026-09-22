@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.provider import GradeItem, GradingContext, get_ai_provider
@@ -246,14 +247,22 @@ class GradingService:
     async def record_job_result(
         self, job: GradingJob, attempt: ExamAttempt, provider_name: str
     ) -> None:
-        self.session.add(
-            GradingResult(
-                job_id=job.id,
-                attempt_id=attempt.id,
-                model=provider_name,
-                raw={"score_bp": attempt.score_bp, "passed": attempt.passed},
-            )
-        )
+        # Idempotent: UNIQUE(job_id) guarantees one result per job, so a re-run
+        # (e.g. after a reaper requeue) must not raise. SAVEPOINT keeps the rest
+        # of the transaction intact if the row already exists.
+        try:
+            async with self.session.begin_nested():
+                self.session.add(
+                    GradingResult(
+                        job_id=job.id,
+                        attempt_id=attempt.id,
+                        model=provider_name,
+                        raw={"score_bp": attempt.score_bp, "passed": attempt.passed},
+                    )
+                )
+                await self.session.flush()
+        except IntegrityError:
+            return
 
 
 async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:

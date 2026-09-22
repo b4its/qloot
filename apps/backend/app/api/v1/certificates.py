@@ -12,6 +12,22 @@ from app.services.certificate_service import CertificateService
 router = APIRouter(prefix="/certificates", tags=["certificates"])
 
 
+def _mask_name(name: str | None) -> str:
+    """Privacy-preserving display of a recipient name for the *public* verify.
+
+    Keeps the first name and the initial(s) of the rest ("Budi Santoso" →
+    "Budi S.") so a holder can recognise their own credential without the public
+    endpoint disclosing a full legal name to anyone with the link.
+    """
+    if not name:
+        return "—"
+    parts = name.split()
+    if len(parts) == 1:
+        return parts[0]
+    initials = " ".join(f"{p[0]}." for p in parts[1:] if p)
+    return f"{parts[0]} {initials}".strip()
+
+
 @router.get("", response_model=list[CertificateOut])
 async def my_certificates(
     user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
@@ -34,7 +50,8 @@ async def verify(credential_id: str, user: OptionalUser, db: DbSession):
         valid=cert.revoked_at is None,
         credential_id=cert.credential_id,
         course_title=cert.course_title,
-        recipient_name=cert.recipient_name,
+        # Masked: the public verify must not leak a full legal name.
+        recipient_name=_mask_name(cert.recipient_name),
         issued_by=cert.issued_by,
         issued_at=cert.issued_at,
         verification_hash=cert.verification_hash,

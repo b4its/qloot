@@ -95,6 +95,10 @@ class ExamCreate(BaseModel):
     year: int | None = Field(default=None, ge=1900, le=2100)
     passing_score_bp: int = Field(default=6000, ge=0, le=10_000)
     instructions: str | None = Field(default=None, max_length=20_000)
+    # Optional scheduling window. When set, attempts can only start within it
+    # (students see 409 before `opens_at` / the deadline enforced at submit).
+    opens_at: datetime | None = None
+    closes_at: datetime | None = None
 
 
 class ExamUpdate(BaseModel):
@@ -103,6 +107,8 @@ class ExamUpdate(BaseModel):
     passing_score_bp: int | None = Field(default=None, ge=0, le=10_000)
     instructions: str | None = Field(default=None, max_length=20_000)
     is_active: bool | None = None
+    opens_at: datetime | None = None
+    closes_at: datetime | None = None
 
 
 class ExamOut(ORMModel):

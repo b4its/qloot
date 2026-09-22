@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -110,6 +111,17 @@ class CertificateService:
         # lock: concurrent issuances for *different* users would otherwise read
         # the same count and mint the same edition number.
         await self.session.execute(select(func.pg_advisory_xact_lock(0xC0DE_C3_01)))
+        # Re-check under the lock: a concurrent request for the *same* (user,
+        # course) may have inserted between the check above and the lock.
+        existing = (
+            await self.session.execute(
+                select(Certificate).where(
+                    Certificate.user_id == user.id, Certificate.course_id == course_id
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
         edition = (
             int(
                 (
@@ -132,10 +144,38 @@ class CertificateService:
             edition_total=EDITION_TOTAL,
             issued_at=datetime.now(UTC),
         )
-        self.session.add(cert)
-        await self.session.flush()
+        try:
+            # SAVEPOINT so a duplicate (user, course) from a racing request only
+            # unwinds this insert instead of failing the whole request with a
+            # 500. Mirrors BadgeService.award.
+            async with self.session.begin_nested():
+                self.session.add(cert)
+                await self.session.flush()
+        except IntegrityError:
+            return (
+                await self.session.execute(
+                    select(Certificate).where(
+                        Certificate.user_id == user.id, Certificate.course_id == course_id
+                    )
+                )
+            ).scalar_one_or_none()
         log.info("certificate_issued", user=str(user.id), course=str(course_id))
+        await self._notify_issued(user, course.title)
         return cert
+
+    async def _notify_issued(self, user: User, course_title: str) -> None:
+        """Tell the learner they earned a certificate (best-effort)."""
+        from app.services.social_service import NotificationService
+
+        try:
+            await NotificationService(self.session).notify(
+                user_id=user.id,
+                kind="badge",
+                title="Sertifikat diterbitkan! 🎓",
+                body=f"Selamat! Kamu menyelesaikan {course_title} dan mendapat sertifikat digital.",
+            )
+        except Exception as exc:  # noqa: BLE001 - never block issuance on notify
+            log.warning("certificate_notify_failed", error=str(exc))
 
     async def sync_for_user(self, user: User) -> list[Certificate]:
         """Issue certificates for all of the user's fully-completed courses."""

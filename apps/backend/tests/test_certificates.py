@@ -79,7 +79,10 @@ async def test_certificate_issued_on_course_completion_and_verifiable(client):
     v = verify.json()
     assert v["valid"] is True
     assert v["course_title"] == "Sertifikat 1A"
-    assert v["recipient_name"] == "Cert Student"
+    # Public verify masks the recipient's surname (privacy): "Cert Student"
+    # becomes "Cert S." so a shared link can't harvest a full legal name.
+    assert v["recipient_name"] == "Cert S."
+    assert "Student" not in v["recipient_name"]
 
 
 async def test_certificate_not_issued_until_all_lessons_done(client):

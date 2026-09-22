@@ -274,6 +274,12 @@ class ExamService:
         exam = await self.get(exam_id)
         if not exam.is_active:
             raise ConflictError("Exam is not open")
+        # Enforce the scheduling window (when the teacher set one).
+        now = datetime.now(UTC)
+        if exam.opens_at and now < exam.opens_at:
+            raise ConflictError("Ujian belum dibuka")
+        if exam.closes_at and now > exam.closes_at:
+            raise ConflictError("Batas waktu ujian telah lewat")
         # Lock the exam row to serialize concurrent attempt creation, then
         # compute the next attempt number. The UNIQUE(exam_id,user_id,num)
         # constraint is the ultimate guard against races.

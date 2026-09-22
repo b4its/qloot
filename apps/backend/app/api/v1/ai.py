@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession, TeacherUser
-from app.core.errors import ForbiddenError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.db.session import transaction
 from app.models.exam import Exam, ExamAttempt, GradingJob, Question
 from app.schemas.material import AIJobOut, GradedItemOut, GradeRequest
@@ -59,7 +59,13 @@ async def regenerate_question(question_id: uuid.UUID, user: TeacherUser, db: DbS
 
 @router.post("/grade", response_model=list[GradedItemOut])
 async def grade_attempt(payload: GradeRequest, user: CurrentUser, db: DbSession):
-    """Synchronously grade an attempt (worker also does this asynchronously)."""
+    """Synchronously grade an attempt (the worker also grades on submit).
+
+    A student may only (re)trigger grading of their *own* attempt once it has
+    been submitted — never while it is still ``in_progress`` (that would let a
+    student stamp a final score before answering, and without ``submitted_at``,
+    which breaks ranking). Teachers/admins may grade attempts on exams they own.
+    """
     async with transaction(db):
         attempt = await db.get(ExamAttempt, payload.attempt_id)
         if attempt is None:
@@ -72,6 +78,8 @@ async def grade_attempt(payload: GradeRequest, user: CurrentUser, db: DbSession)
                 exam = await db.get(Exam, attempt.exam_id)
                 if exam is None or exam.owner_id != user.id:
                     raise ForbiddenError("You do not own this exam")
+        elif attempt.status not in ("submitted", "grading_failed"):
+            raise ConflictError("Only a submitted attempt can be graded")
         await GradingService(db).grade_attempt(attempt)
 
     from sqlalchemy import select
