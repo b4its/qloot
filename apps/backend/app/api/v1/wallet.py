@@ -37,7 +37,7 @@ SWAPPABLE_ASSETS = ("QTC", "ORT")
 
 
 def _asset_balance_out(asset: str, balance: int) -> AssetBalanceOut:
-    meta = settings.ASSET_META[asset]
+    meta = settings.ASSET_META.get(asset, {"name": asset, "symbol": asset, "role": ""})
     return AssetBalanceOut(
         asset=asset, name=meta["name"], symbol=meta["symbol"], balance=balance, role=meta["role"]
     )

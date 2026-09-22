@@ -118,7 +118,8 @@
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr
-            ><th class="py-1">Ujian</th><th>Soal</th><th>Jawaban</th><th class="text-right">Skor</th
+            ><th class="py-1">Ujian</th><th>Tipe</th><th>Soal</th><th>Jawaban</th><th
+              class="text-right">Skor</th
             ><th>Umpan balik</th></tr
           >
         </thead>
@@ -126,8 +127,23 @@
           {#each rows as r}
             <tr class="border-t align-top">
               <td class="py-2">{r.exam_title}</td>
+              <td>
+                <span class="badge badge-indigo"
+                  >{r.qtype === "multiple_choice" ? "PG" : "Esai"}</span
+                >
+              </td>
               <td class="max-w-[220px]">{r.prompt}</td>
-              <td class="max-w-[260px] text-xs muted">{r.answer_text}</td>
+              <td class="max-w-[260px] text-xs muted">
+                {#if r.qtype === "multiple_choice"}
+                  <span class="mono">{r.answer_text ?? "—"}.</span>
+                  {r.answer_display ?? ""}
+                  {#if r.correct_answer && (r.answer_text ?? "").toUpperCase() !== r.correct_answer}
+                    <span class="block text-tertiary">Kunci: {r.correct_answer}</span>
+                  {/if}
+                {:else}
+                  {r.answer_text}
+                {/if}
+              </td>
               <td class="text-right font-mono">{bpToPercent(r.score_bp)}</td>
               <td class="max-w-[220px] text-xs muted">{r.feedback}</td>
             </tr>

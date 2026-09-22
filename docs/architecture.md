@@ -54,9 +54,12 @@ run even on error.
 2. AI generation job drafts questions (`review_status=pending`).
 3. Teacher reviews/approves, attaches questions to an exam, publishes.
 4. Student starts an attempt; answers autosave (idempotent upsert).
-5. Submit stamps a server-authoritative `submitted_at` and enqueues a grading job.
-6. Worker grades (AI call made **outside** any DB transaction), storing per-answer
-   scores/feedback in integer basis points; attempt gets an overall score.
+5. Submit stamps a server-authoritative `submitted_at`. Multiple-choice questions
+   are graded deterministically; an MC-only exam is graded instantly at submit,
+   while an exam with any essay question enqueues a grading job.
+6. Worker scores the essays via the AI provider (call made **outside** any DB
+   transaction), storing per-answer scores/feedback in integer basis points; the
+   attempt gets an overall score (MC + essay / full exam max).
 
 ## Reward flow (the §11.3 model)
 ```

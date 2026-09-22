@@ -97,7 +97,7 @@ NQID=$(echo "$QIDS" | grep -c .)
 PUB=$(api "$TEACHER" -X POST "$API/exams/$EXAM_ID/publish")
 ok "exam published with $NQID questions"
 
-say "5. Teacher creates a quest with 3 reward ranks (100/60/40 OPC)"
+say "5. Teacher creates a quest with 3 reward ranks (100/60/40 OPT)"
 QUEST=$(api "$TEACHER" -X POST "$API/quests" -H 'Content-Type: application/json' \
   -d "{\"title\":\"E2E Speed Quest\",\"exam_id\":\"$EXAM_ID\",\"top_n_winners\":3,\"rules\":[{\"rank\":1,\"reward_amount\":100},{\"rank\":2,\"reward_amount\":60},{\"rank\":3,\"reward_amount\":40}]}")
 QUEST_ID=$(echo "$QUEST" | jqget "['id']")
@@ -140,7 +140,7 @@ import sys, json
 d = json.load(sys.stdin)
 print('  winners:', len(d['winners']), 'allocations:', d['allocations_created'])
 for w in d['winners']:
-    print(f\"    rank {w['rank']}: {w['user_id'][:8]}… score_bp={w['score_bp']} reward={w['reward_amount']} OPC\")
+    print(f\"    rank {w['rank']}: {w['user_id'][:8]}… score_bp={w['score_bp']} reward={w[\"reward_amount\"]} OPT\")
 "
 ok "winners finalized"
 
@@ -155,7 +155,7 @@ for t in json.load(sys.stdin)[:5]:
 "
 ok "$NTX blockchain transactions recorded"
 
-say "10. Student wallet reflects the OPC reward + ledger"
+say "10. Student wallet reflects the OPT reward + ledger"
 WINNER_JAR="${STUDENT_JARS[0]}"
 WALLET=$(api "$WINNER_JAR" "$API/wallet")
 echo "$WALLET" | python3 -c "

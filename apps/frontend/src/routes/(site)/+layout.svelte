@@ -6,7 +6,7 @@
   import { opt } from "$lib/stores/opt";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
-  import OpcChip from "$lib/components/OpcChip.svelte";
+  import OptChip from "$lib/components/OptChip.svelte";
   import { API_BASE } from "$lib/api/client";
   import { adminNav, teacherNav } from "$lib/data/role-nav";
 
@@ -129,7 +129,7 @@
 
         {#if user}
           <!-- OPT balance — visible for both students and teachers -->
-          <OpcChip compact={false} />
+          <OptChip compact={false} />
           {#if user.class_code}
             <span class="badge badge-indigo hidden sm:inline-flex" title="Kelas kamu">
               <Icon name="chalkboard-user" size="9px" />

@@ -327,13 +327,15 @@ class ExamService:
 
     async def exam_results(
         self, exam_id: uuid.UUID, user: User, *, limit: int = 200, offset: int = 0
-    ) -> list[ExamAttempt]:
+    ) -> list[tuple[ExamAttempt, str | None]]:
+        """Return (attempt, student_name) pairs for an exam, best score first."""
         await self._get_owned_exam(exam_id, user)
         stmt = (
-            select(ExamAttempt)
+            select(ExamAttempt, User.full_name)
+            .join(User, User.id == ExamAttempt.user_id)
             .where(ExamAttempt.exam_id == exam_id)
             .order_by(ExamAttempt.score_bp.desc().nullslast())
             .limit(limit)
             .offset(offset)
         )
-        return list((await self.session.execute(stmt)).scalars().all())
+        return [(a, name) for a, name in (await self.session.execute(stmt)).all()]

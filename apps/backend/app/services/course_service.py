@@ -277,8 +277,8 @@ class CourseService:
             ).scalar_one()
             badges = BadgeService(self.session)
             if done >= 5:
-                await badges.award(user=user, code="quiz_master")
-            if done >= 10:
+                # "Dedicated Learner": completed 5 lessons. (quiz_master is
+                # reserved for acing a multiple-choice quiz.)
                 await badges.award(user=user, code="learner")
         return progress
 

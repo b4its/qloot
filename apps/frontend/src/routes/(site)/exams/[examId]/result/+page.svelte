@@ -19,17 +19,17 @@
 
   async function load() {
     try {
-      const res = await api.get<{ attempt: Attempt; answers: Answer[]; questions: Question[] }>(
-        `/attempts/${attemptId}/result`,
-      );
+      const res = await api.get<{
+        attempt: Attempt;
+        exam: Exam;
+        answers: Answer[];
+        questions: Question[];
+      }>(`/attempts/${attemptId}/result`);
       attempt = res.attempt;
+      exam = res.exam;
       answers = res.answers;
       // Graded attempts include the questions with the answer key for review.
-      if (res.questions?.length) {
-        reviewQuestions = res.questions;
-      } else {
-        exam = await api.get<Exam>(`/exams/${examId}`);
-      }
+      reviewQuestions = res.questions ?? [];
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat hasil";
     } finally {

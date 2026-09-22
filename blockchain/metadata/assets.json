@@ -1,0 +1,68 @@
+{
+  "platform": "QLoot",
+  "token": {
+    "name": "OryphemToken",
+    "symbol": "OPT",
+    "standard": "ERC-1155",
+    "decimals": 0,
+    "primary_token_id": 0
+  },
+  "description": "The QLoot digital-asset economy. Four separate ERC-1155 UUPS contracts: OPT (base currency, unlimited), QTC (QlootChain, premium asset capped at 1e15) and ORT (OryphemIntelligence, AI credit: 1 request = 1 ORT), with the OryphemProxy (ORX) router governing conversions between them (1 ORT = 50 OPT, 1 QTC = 1000 OPT).",
+  "assets": [
+    {
+      "code": "OPT",
+      "contract": "OryphemToken",
+      "name": "OryphemToken",
+      "symbol": "OPT",
+      "role": "Base currency obtained in the QLoot system",
+      "supply": "unlimited",
+      "image": "ipfs://REPLACE_ME/opt.png"
+    },
+    {
+      "code": "QTC",
+      "contract": "QlootChain",
+      "name": "QlootChain",
+      "symbol": "QTC",
+      "role": "Premium asset: store certificates on-chain and encrypted messages (decryptable with a private key)",
+      "supply": "1000000000000000 (1e15)",
+      "image": "ipfs://REPLACE_ME/qtc.png"
+    },
+    {
+      "code": "ORT",
+      "contract": "OryphemIntelligence",
+      "name": "OryphemIntelligence",
+      "symbol": "ORT",
+      "role": "AI credit: 1 request = 1 ORT (spend to ask QLO)",
+      "supply": "unlimited",
+      "image": "ipfs://REPLACE_ME/ort.png"
+    }
+  ],
+  "router": {
+    "code": "ORX",
+    "contract": "OryphemProxy",
+    "role": "Governs the network between OPT and the other assets",
+    "rates": { "ORT": 50, "QTC": 1000 },
+    "rates_note": "OPT required per 1 unit of the target asset."
+  },
+  "properties": {
+    "chain": "sepolia",
+    "standard": "UUPS-upgradeable ERC-1155",
+    "external_url": "https://qloot.example",
+    "roles": [
+      "DEFAULT_ADMIN_ROLE",
+      "ADMIN_ROLE",
+      "MINTER_ROLE",
+      "REWARDER_ROLE",
+      "ROUTER_ROLE",
+      "PAUSER_ROLE",
+      "URI_MANAGER_ROLE"
+    ],
+    "utility": [
+      "OPT: reward for classes, quests, exams and daily tasks; leaderboard currency",
+      "QTC: certificate storage and encrypted messages on-chain",
+      "ORT: entitlement to QLoot AI services"
+    ],
+    "transferable": true,
+    "custodial_note": "The treasury custodies pooled assets on-chain; per-user ownership is tracked per-account in the QLoot double-entry ledger and can be withdrawn to a personal wallet. QTC/ORT are obtained by converting OPT through the OryphemProxy (ORX)."
+  }
+}

@@ -419,8 +419,14 @@ export interface SubmissionRow {
   attempt_id: string;
   student_id: string;
   question_id: string;
+  /** "essay" | "multiple_choice" */
+  qtype: string;
   prompt: string;
   answer_text?: string | null;
+  /** For MC: the human-readable text of the chosen option. */
+  answer_display?: string | null;
+  /** For MC: the correct option label (A/B/…). */
+  correct_answer?: string | null;
   score_bp?: number | null;
   max_score_bp: number;
   feedback?: string | null;

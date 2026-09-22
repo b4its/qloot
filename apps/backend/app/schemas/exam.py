@@ -138,6 +138,12 @@ class AttemptOut(ORMModel):
     graded_at: datetime | None
 
 
+class ExamResultRow(AttemptOut):
+    """An attempt plus the student's display name (teacher results listing)."""
+
+    display_name: str | None = None
+
+
 class AnswerUpsert(BaseModel):
     answer_text: str = Field(max_length=20_000)
 
@@ -154,6 +160,9 @@ class AnswerOut(ORMModel):
 
 class AttemptResultOut(BaseModel):
     attempt: AttemptOut
+    # Always returned so the result page renders even before grading / after the
+    # exam is closed.
+    exam: ExamOut
     answers: list[AnswerOut]
     # Questions with the answer key revealed for review (only populated once the
     # attempt is graded, so a student can see which choice was correct).

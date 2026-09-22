@@ -1,7 +1,7 @@
 {
   "name": "qloot-blockchain",
   "version": "1.0.0",
-  "description": "QLoot OryphemCoin (OPC) ERC-1155 rewards contract — Hardhat",
+  "description": "QLoot digital assets (OPT/QTC/ORT + ORX router) — ERC-1155 Hardhat contracts",
   "license": "MIT",
   "scripts": {
     "compile": "hardhat compile",

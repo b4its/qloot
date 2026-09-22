@@ -114,12 +114,12 @@ class BadgeService:
 
         catalog = [
             ("first_quest", "First Quest", "Completed your first quest", "🎯", 10),
-            ("quiz_master", "Quiz Master", "Completed 5 lessons", "🧠", 25),
+            ("quiz_master", "Quiz Master", "Aced a multiple-choice quiz", "🧠", 25),
             ("top_3", "Podium Finish", "Finished in the top 3 of a quest", "🥉", 50),
             ("first_reward", "First OPT", "Earned your first OryphemToken", "💎", 15),
             ("room_regular", "Room Regular", "Joined 5 rooms", "🎪", 20),
             ("perfect_exam", "Perfect Score", "Scored 100% on an exam", "🌟", 40),
-            ("learner", "Dedicated Learner", "Completed 10 lessons", "📚", 30),
+            ("learner", "Dedicated Learner", "Completed 5 lessons", "📚", 30),
         ]
         rows = [
             {

@@ -17,7 +17,7 @@ module.exports = {
     version: "0.8.28",
     settings: {
       // `runs: 1` prioritises deployment size over runtime gas, which keeps the
-      // feature-rich OPC contract under the 24 576-byte mainnet limit.
+      // feature-rich asset contracts under the 24 576-byte mainnet limit.
       optimizer: { enabled: true, runs: 1 },
       // OpenZeppelin 5.x uses the MCOPY opcode, which requires Cancun.
       evmVersion: "cancun",

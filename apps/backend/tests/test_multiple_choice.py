@@ -283,3 +283,123 @@ async def test_seed_mc_quiz_creates_valid_questions(session):
         assert len([o for o in options if o.is_correct]) == 1
         # correct_answer stays in sync with the correct option's label.
         assert q.correct_answer in {o.label for o in options if o.is_correct}
+
+
+async def test_mc_only_submit_creates_no_grading_job(client, engine):
+    """An MC-only exam is graded instantly and never enqueues an AI job."""
+    from sqlalchemy import func, select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.exam import GradingJob
+
+    await _register(client, "mc_job_teacher@ex.com", "teacher")
+    exam_id, qid = await _make_mc_exam(client)
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "mc_job_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.put(f"/api/v1/attempts/{attempt_id}/answers/{qid}", json={"answer_text": "A"})
+    submit = await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    assert submit.json()["status"] == "graded"
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        n = (
+            await s.execute(
+                select(func.count())
+                .select_from(GradingJob)
+                .where(GradingJob.attempt_id == __import__("uuid").UUID(attempt_id))
+            )
+        ).scalar_one()
+    assert n == 0
+
+
+async def test_mixed_exam_enqueues_job_and_grades_correctly(client, engine):
+    """An MC + essay exam grades MC instantly, enqueues a job for the essay, and
+    the essay portion is graded by the worker."""
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.exam import GradingJob
+    from app.services.grading_service import process_grading_job
+
+    await _register(client, "mixed_teacher@ex.com", "teacher")
+    exam = await client.post("/api/v1/exams", json={"title": "Campuran", "passing_score_bp": 5000})
+    exam_id = exam.json()["id"]
+    mc = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={
+            "prompt": "2 + 2 = ?",
+            "qtype": "multiple_choice",
+            "position": 0,
+            "options": [{"text": "4", "is_correct": True}, {"text": "5", "is_correct": False}],
+        },
+    )
+    mc_id = mc.json()["id"]
+    es = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={
+            "prompt": "Jelaskan fotosintesis",
+            "correct_answer": "Proses tumbuhan",
+            "position": 1,
+        },
+    )
+    essay_id = es.json()["id"]
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "mixed_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.put(f"/api/v1/attempts/{attempt_id}/answers/{mc_id}", json={"answer_text": "A"})
+    await client.put(
+        f"/api/v1/attempts/{attempt_id}/answers/{essay_id}",
+        json={"answer_text": "Fotosintesis adalah proses tumbuhan."},
+    )
+    submit = await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    # Mixed exam waits for the worker.
+    assert submit.json()["status"] == "submitted"
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        import uuid as _uuid
+
+        job = (
+            await s.execute(
+                select(GradingJob).where(GradingJob.attempt_id == _uuid.UUID(attempt_id))
+            )
+        ).scalars().first()
+        assert job is not None
+        await process_grading_job(s, job.id)
+        await s.commit()
+
+    result = await client.get(f"/api/v1/attempts/{attempt_id}/result")
+    body = result.json()
+    assert body["attempt"]["status"] == "graded"
+    # MC answer scored (0 or full) and the essay was graded too.
+    scores = {a["question_id"]: a["score_bp"] for a in body["answers"]}
+    assert scores[mc_id] == 10000  # correct MC
+    assert scores[essay_id] is not None  # essay graded
+
+
+async def test_result_returns_exam_even_when_not_graded(client):
+    """The result endpoint always returns exam context (result page can render
+    before the worker finishes / after the exam is closed)."""
+    await _register(client, "res_teacher@ex.com", "teacher")
+    exam = await client.post("/api/v1/exams", json={"title": "Hasil Konteks"})
+    exam_id = exam.json()["id"]
+    await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={"prompt": "Tulis esai", "correct_answer": "acuan", "position": 0},
+    )
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "res_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    result = await client.get(f"/api/v1/attempts/{attempt_id}/result")
+    body = result.json()
+    # Exam context present even though the attempt is still in progress.
+    assert body["exam"]["id"] == exam_id
+    assert body["exam"]["title"] == "Hasil Konteks"
+    # No answer key revealed before grading.
+    assert body["questions"] == []

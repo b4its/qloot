@@ -5,7 +5,7 @@
   import { opt } from "$lib/stores/opt";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
-  import OpcChip from "$lib/components/OpcChip.svelte";
+  import OptChip from "$lib/components/OptChip.svelte";
 
   // The landing page has its own chrome, independent from the app shell
   // (no ticker / app sub-nav). It is a one-page experience: every entry in
@@ -71,7 +71,7 @@
         <ThemeToggle />
 
         {#if user}
-          <OpcChip compact={false} />
+          <OptChip compact={false} />
           <a href="/notifications" class="btn-icon relative" aria-label="Notifikasi">
             <Icon name="bell" size="14px" />
             {#if $notifications > 0}

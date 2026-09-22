@@ -16,6 +16,7 @@ from app.schemas.exam import (
     ExamCreate,
     ExamDetailOut,
     ExamOut,
+    ExamResultRow,
     ExamUpdate,
     OptionOut,
     QuestionCreate,
@@ -180,11 +181,11 @@ async def submit_attempt(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
         attempt = await service.submit_attempt(attempt_id, user)
         if attempt.status == "submitted":
             grading = GradingService(db)
-            # Multiple-choice questions are graded deterministically and
-            # instantly (gamified quiz feedback). If the exam is MC-only, the
-            # attempt is fully graded here; a mixed exam still enqueues an AI
-            # grading job for the essay portion.
-            await grading.grade_mc_answers(attempt)
+            # Multiple-choice questions are graded deterministically; essay
+            # questions need the AI provider. If the exam has any essay question
+            # we enqueue a grading job (the worker scores MC instantly and then
+            # the essays with AI). An MC-only exam is fully graded right here for
+            # instant, gamified feedback.
             has_essay = await service.exam_has_essay(attempt.exam_id)
             if has_essay:
                 await grading.enqueue_if_absent(attempt)
@@ -220,12 +221,16 @@ async def attempt_result(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
     service = ExamService(db)
     attempt = await service.get_attempt(attempt_id, user)
     answers = await service.list_answers(attempt_id)
+    # Exam context is always returned so the result page renders even before the
+    # worker finishes grading (and even if the exam was since closed).
+    exam = await service.get(attempt.exam_id)
     # Review is only meaningful once the attempt is graded; before that we do
     # not reveal answer keys (that would let a retaker look up the answers).
     graded = attempt.status == "graded"
     questions = await service.list_questions(attempt.exam_id)
     return AttemptResultOut(
         attempt=AttemptOut.model_validate(attempt),
+        exam=ExamOut.model_validate(exam),
         answers=[AnswerOut.model_validate(a) for a in answers],
         questions=(
             [await _question_out(service, q, reveal_answers=True) for q in questions]
@@ -235,7 +240,7 @@ async def attempt_result(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
     )
 
 
-@router.get("/exams/{exam_id}/results", response_model=list[AttemptOut])
+@router.get("/exams/{exam_id}/results", response_model=list[ExamResultRow])
 async def exam_results(
     exam_id: uuid.UUID,
     user: TeacherUser,
@@ -243,4 +248,9 @@ async def exam_results(
     limit: LimitParam = 200,
     offset: OffsetParam = 0,
 ):
-    return await ExamService(db).exam_results(exam_id, user, limit=limit, offset=offset)
+    rows = await ExamService(db).exam_results(exam_id, user, limit=limit, offset=offset)
+    out: list[ExamResultRow] = []
+    for attempt, name in rows:
+        base = AttemptOut.model_validate(attempt)
+        out.append(ExamResultRow(**base.model_dump(), display_name=name))
+    return out

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter
 from sqlalchemy import case, func, select
 
 from app.api.deps import DbSession, LimitParam, OffsetParam, TeacherUser
-from app.models.exam import Exam, ExamAttempt, Question, StudentAnswer
+from app.models.exam import Exam, ExamAttempt, Question, QuestionOption, StudentAnswer
 from app.models.quest import Quest, QuestWinner
 from app.models.wallet import RewardAllocation
 
@@ -29,6 +31,20 @@ async def submissions(
         .offset(offset)
     )
     rows = (await db.execute(stmt)).all()
+
+    # Resolve the chosen option text for multiple-choice answers in one query.
+    mc_qids = {q.id for _sa, q, _a, _t in rows if q.qtype == "multiple_choice"}
+    option_text: dict[tuple[uuid.UUID, str], str] = {}
+    if mc_qids:
+        opt_rows = (
+            await db.execute(
+                select(QuestionOption.question_id, QuestionOption.label, QuestionOption.text).where(
+                    QuestionOption.question_id.in_(mc_qids)
+                )
+            )
+        ).all()
+        option_text = {(qid, label): text for qid, label, text in opt_rows}
+
     return [
         {
             "answer_id": str(sa.id),
@@ -37,8 +53,15 @@ async def submissions(
             "attempt_id": str(attempt.id),
             "student_id": str(attempt.user_id),
             "question_id": str(q.id),
+            "qtype": q.qtype,
             "prompt": q.prompt,
             "answer_text": sa.answer_text,
+            "answer_display": (
+                option_text.get((q.id, (sa.answer_text or "").upper()))
+                if q.qtype == "multiple_choice"
+                else sa.answer_text
+            ),
+            "correct_answer": q.correct_answer if q.qtype == "multiple_choice" else None,
             "score_bp": sa.score_bp,
             "max_score_bp": sa.max_score_bp,
             "feedback": sa.feedback,

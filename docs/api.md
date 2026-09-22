@@ -207,8 +207,7 @@ POST  /career/assistant
 ## Learning extras
 
 ```
-POST /courses/{course_id}/enroll
-GET  /me/enrollments
+GET  /me/subjects
 GET  /materials/{material_id}/summary
 POST /materials/{material_id}/ask
 GET  /rooms/{room_id}/live
@@ -216,6 +215,31 @@ GET  /rooms/{room_id}/events
 POST /rooms/{room_id}/invite
 POST /rooms/invitations/accept
 ```
+
+## Exams & multiple-choice questions
+
+```
+GET    /exams
+POST   /exams
+GET    /exams/{exam_id}
+PATCH  /exams/{exam_id}
+POST   /exams/{exam_id}/publish
+POST   /exams/{exam_id}/close
+DELETE /exams/{exam_id}
+GET    /exams/{exam_id}/results            # teacher: attempts + display_name + pagination
+
+POST   /exams/{exam_id}/questions          # qtype=essay|multiple_choice (+ options[] for MC)
+PATCH  /questions/{question_id}            # replace MC options atomically
+DELETE /questions/{question_id}
+
+POST /exams/{exam_id}/attempts
+PUT  /attempts/{attempt_id}/answers/{question_id}   # answer_text = option label for MC
+POST /attempts/{attempt_id}/submit                  # MC graded instantly; essays via AI worker
+GET  /attempts/{attempt_id}/result                  # includes exam + (when graded) the answer key
+```
+
+Multiple-choice options are `[{text, is_correct}]` (2–8, exactly one correct); the
+correct option is never exposed to students taking the exam.
 
 ## Conventions
 

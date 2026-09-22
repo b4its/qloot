@@ -207,11 +207,13 @@ yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
    materi (lesson) langsung dari daftar.
 3. **Materi** — unggah PDF lalu *Buat soal* dengan AI; tinjau draf soal, hapus materi yang
    tidak dipakai.
-4. **Ujian** — susun ujian, kelola soal (tambah/sunting/hapus), publikasikan, atau hapus
-   ujian yang belum dikerjakan.
+4. **Ujian** — susun ujian, kelola soal **esai maupun pilihan ganda** (tambah/sunting/hapus),
+   publikasikan, atau hapus ujian yang belum dikerjakan.
 5. **Quest** — atur hadiah per peringkat, publikasikan, lalu finalisasi pemenang; hapus
    quest yang belum difinalisasi.
-6. **Jawaban** — lihat jawaban siswa, feedback AI, dan analitik (berpaginasi).
+6. **Tugas** — buat tugas harian/mingguan, atur hadiah OPT, aktif/nonaktifkan, sunting, atau
+   hapus (ditinjau saat belum ada yang menyelesaikan).
+7. **Jawaban** — lihat jawaban siswa (esai & pilihan ganda), feedback, dan analitik (berpaginasi).
 
 **Sebagai siswa:**
 

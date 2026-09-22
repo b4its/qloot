@@ -43,6 +43,12 @@ export const teacherNav: RoleNavItem[] = [
     desc: "Atur hadiah dan finalisasi pemenang",
   },
   {
+    href: "/teacher/tasks",
+    label: "Tugas",
+    icon: "list-check",
+    desc: "Buat dan atur tugas harian/mingguan",
+  },
+  {
     href: "/teacher/submissions",
     label: "Jawaban",
     icon: "inbox",

@@ -16,7 +16,7 @@
   import ProgressRing from "$lib/components/ProgressRing.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
-  import OpcChip from "$lib/components/OpcChip.svelte";
+  import OptChip from "$lib/components/OptChip.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
 
   let acad: AcademicDashboard | null = null;
@@ -320,7 +320,7 @@
         <div class="card">
           <div class="flex items-center justify-between">
             <p class="mono-label">Kelas saya</p>
-            <OpcChip compact={true} />
+            <OptChip compact={true} />
           </div>
           <div class="mt-3 flex items-center gap-3">
             <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
