@@ -393,6 +393,17 @@ make blockchain-mint NETWORK=sepolia CONFIRM_SEPOLIA=yes ASSET=OPT TO=0x… AMOU
 
 > `ASSET` = `OPT` (default) | `QTC` | `ORT`, atau `ORX`/`ALL` untuk upgrade.
 
+> **Troubleshooting.**
+> - `Error response from daemon: … network … not found` saat `make blockchain-up` → container
+>   Anvil lama menunjuk jaringan Docker yang sudah dihapus. Sudah ditangani otomatis
+>   (`blockchain-up` menghapus container basi lebih dulu). Perbaikan manual:
+>   `make blockchain-down` (atau `docker rm -f qloot-anvil-1`) lalu `make blockchain-up`.
+> - `Error: TO (address) is required` → Anda menjalankan target yang butuh parameter tanpa
+>   mengisinya. Gunakan contoh usage yang tercetak, mis.
+>   `make blockchain-transfer NETWORK=localhost ASSET=OPT TO=0x… AMOUNT=10`.
+> - `make blockchain-verify` di jaringan lokal akan berhenti dengan pesan bahwa verifikasi
+>   Etherscan hanya berlaku untuk jaringan publik (itu normal, bukan error).
+
 > **Reset vs down.** `blockchain-down` menghentikan Anvil dan menghapus network-nya
 > (`down --remove-orphans`) sehingga `docker network` yang tertinggal tidak lagi
 > menyebabkan error `network … not found` saat `blockchain-up` berikutnya.

@@ -111,6 +111,8 @@ make blockchain-upgrade NETWORK=sepolia CONFIRM_SEPOLIA=yes ASSET=ALL
 > If `make blockchain-up` previously failed with `network … not found`, the stale
 > container is now removed automatically; `blockchain-down` also deletes the
 > network (`down --remove-orphans`) so the error does not recur.
+> `make blockchain-verify` on a local network exits with an informational message
+> (Etherscan verification only applies to public networks).
 
 ## Roles & key management
 
