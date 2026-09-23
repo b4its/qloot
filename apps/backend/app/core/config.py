@@ -10,7 +10,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     rate_limit_password_reset: int = 10
     rate_limit_ai: int = 30
     rate_limit_window_seconds: int = 60
+
+    # Double-submit CSRF token (cookie + X-CSRF-Token header on unsafe methods).
+    csrf_enabled: bool = True
+    csrf_cookie_name: str = "qloot_csrf"
+    csrf_header_name: str = "X-CSRF-Token"
 
     # --- CORS --------------------------------------------------------------
     cors_origins: Annotated[list[str], NoDecode] = Field(
@@ -164,6 +169,16 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @model_validator(mode="after")
+    def _guard_cross_site_without_csrf(self) -> Settings:
+        # `SameSite=None` (cross-site cookies) without a token is unsafe: a
+        # top-level cross-site POST would carry the session cookie. Refuse it.
+        if self.session_same_site == "none" and not self.csrf_enabled:
+            raise ValueError(
+                "SESSION_SAME_SITE=none requires CSRF protection (set CSRF_ENABLED=true)"
+            )
+        return self
 
     @property
     def rpc_url(self) -> str:

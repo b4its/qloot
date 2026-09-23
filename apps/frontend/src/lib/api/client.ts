@@ -18,14 +18,26 @@ export class ApiError extends Error {
 
 type FetchOpts = Omit<RequestInit, "body"> & { body?: unknown };
 
+const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/** Read the double-submit CSRF token set by the backend as a readable cookie. */
+function csrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)qloot_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function request<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   const { body, headers, ...rest } = opts;
   const isForm = body instanceof FormData;
+  const method = (rest.method ?? "GET").toUpperCase();
+  const csrf = UNSAFE_METHODS.has(method) ? csrfToken() : null;
   const res = await fetch(`${API_BASE}${API_PREFIX}${path}`, {
     ...rest,
     credentials: "include",
     headers: {
       ...(isForm ? {} : { "Content-Type": "application/json" }),
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
       ...(headers ?? {}),
     },
     body: isForm ? (body as FormData) : body !== undefined ? JSON.stringify(body) : undefined,

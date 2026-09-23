@@ -20,6 +20,8 @@ def enable_rate_limit(monkeypatch):
     """Turn the limiter on with tiny windows and clear local counters."""
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
     monkeypatch.setattr(settings, "app_env", "development")
+    # Flipping app_env also arms CSRF; isolate this test to rate limiting only.
+    monkeypatch.setattr(settings, "csrf_enabled", False)
     monkeypatch.setattr(settings, "rate_limit_login", 3)
     monkeypatch.setattr(settings, "rate_limit_register", 2)
     monkeypatch.setattr(settings, "rate_limit_password_reset", 2)

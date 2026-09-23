@@ -32,7 +32,10 @@ command line (which leaks to shell history and process lists).
 - [x] Self-registration restricted to the `student` role (privileged roles are
       provisioned by an admin via `POST /admin/users`)
 - [x] Strict CORS (no wildcard with credentials)
-- [x] CSRF-safe cookies (`SameSite=Lax`, `HttpOnly`; `Secure` in prod)
+- [x] CSRF-safe cookies (`SameSite=Lax`, `HttpOnly`; `Secure` in prod) **plus** a
+      double-submit CSRF token (`qloot_csrf` cookie + `X-CSRF-Token` header on
+      unsafe methods, 403 on mismatch). `SESSION_SAME_SITE=none` is refused at
+      start-up unless CSRF is enabled.
 - [x] File size limit + content-based PDF sniffing on upload
 - [x] SQLAlchemy parameter binding (no string SQL)
 - [x] Security headers middleware (CSP, HSTS in prod, nosniff, frame-deny)
