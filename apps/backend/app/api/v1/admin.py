@@ -402,3 +402,62 @@ async def show_config(admin: AdminUser):
         "reward_ranks": settings.reward_ranks,
         "confirmations": settings.opc_confirmations,
     }
+
+
+# --- withdrawal review -----------------------------------------------------
+class RejectRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=255)
+
+
+@router.get("/withdrawals")
+async def list_withdrawals(
+    admin: AdminUser,
+    db: DbSession,
+    status_filter: str | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
+    """Admin queue of withdrawal requests (optionally filtered by status)."""
+    from app.services.withdrawal_service import WithdrawalService
+
+    rows = await WithdrawalService(db).list_for_admin(
+        status=status_filter, limit=limit, offset=offset
+    )
+    return [
+        {
+            "id": str(w.id),
+            "user_id": str(w.user_id),
+            "destination_address": w.destination_address,
+            "amount": w.amount,
+            "fee_amount": w.fee_amount,
+            "status": w.status,
+            "reject_reason": w.reject_reason,
+            "created_at": w.created_at,
+            "reviewed_at": w.reviewed_at,
+        }
+        for w in rows
+    ]
+
+
+@router.post("/withdrawals/{withdrawal_id}/approve")
+async def approve_withdrawal(withdrawal_id: uuid.UUID, admin: AdminUser, db: DbSession):
+    """Approve a pending withdrawal (enqueues the on-chain burn)."""
+    from app.services.withdrawal_service import WithdrawalService
+
+    async with transaction(db):
+        wd = await WithdrawalService(db).approve(admin=admin, withdrawal_id=withdrawal_id)
+    return {"id": str(wd.id), "status": wd.status}
+
+
+@router.post("/withdrawals/{withdrawal_id}/reject")
+async def reject_withdrawal(
+    withdrawal_id: uuid.UUID, payload: RejectRequest, admin: AdminUser, db: DbSession
+):
+    """Reject a pending withdrawal (refunds the user)."""
+    from app.services.withdrawal_service import WithdrawalService
+
+    async with transaction(db):
+        wd = await WithdrawalService(db).reject(
+            admin=admin, withdrawal_id=withdrawal_id, reason=payload.reason
+        )
+    return {"id": str(wd.id), "status": wd.status}

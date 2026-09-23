@@ -152,3 +152,85 @@ async def test_reject_refunds_the_user(client, engine):
     # Log back in as the student and confirm the refund.
     await client.post("/api/v1/auth/login", json={"email": "wd_rej_s@ex.com", "password": "Password123!"})
     assert await _balance(client) == 500
+
+
+async def test_admin_review_endpoints_and_user_cancel(client, engine):
+    # Student requests, then cancels from the wallet (funds returned).
+    await register_actor(client, "wd_admin_s@ex.com", "student")
+    me = await _me(client)
+    await _credit_opt(engine, me, 500)
+    wd = (
+        await client.post(
+            "/api/v1/wallet/withdrawals", json={"amount": 100, "destination_address": DEST}
+        )
+    ).json()
+    cancel = await client.post(f"/api/v1/wallet/withdrawals/{wd['id']}/cancel")
+    assert cancel.status_code == 200, cancel.text
+    assert cancel.json()["status"] == "cancelled"
+    assert await _balance(client) == 500
+
+    # A second withdrawal, reviewed by admin via the HTTP endpoints.
+    wd2 = (
+        await client.post(
+            "/api/v1/wallet/withdrawals", json={"amount": 100, "destination_address": DEST}
+        )
+    ).json()
+
+    await register_actor(client, "wd_admin_a@ex.com", "admin")
+    queue = await client.get("/api/v1/admin/withdrawals?status_filter=requested")
+    assert queue.status_code == 200, queue.text
+    assert any(w["id"] == wd2["id"] for w in queue.json())
+
+    approved = await client.post(f"/api/v1/admin/withdrawals/{wd2['id']}/approve")
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "approved"
+
+    # Already-approved cannot be approved again.
+    again = await client.post(f"/api/v1/admin/withdrawals/{wd2['id']}/approve")
+    assert again.status_code == 409, again.text
+
+
+async def test_user_cannot_cancel_after_approval(client, engine):
+    await register_actor(client, "wd_late_s@ex.com", "student")
+    me = await _me(client)
+    await _credit_opt(engine, me, 500)
+    wd = (
+        await client.post(
+            "/api/v1/wallet/withdrawals", json={"amount": 100, "destination_address": DEST}
+        )
+    ).json()
+
+    await register_actor(client, "wd_late_a@ex.com", "admin")
+    await client.post(f"/api/v1/admin/withdrawals/{wd['id']}/approve")
+
+    # Log back in as the student: cancel must now be refused.
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "wd_late_s@ex.com", "password": "Password123!"},
+    )
+    late = await client.post(f"/api/v1/wallet/withdrawals/{wd['id']}/cancel")
+    assert late.status_code == 409, late.text
+
+
+async def test_admin_rejects_with_reason(client, engine):
+    await register_actor(client, "wd_aj_s@ex.com", "student")
+    me = await _me(client)
+    await _credit_opt(engine, me, 500)
+    wd = (
+        await client.post(
+            "/api/v1/wallet/withdrawals", json={"amount": 100, "destination_address": DEST}
+        )
+    ).json()
+
+    await register_actor(client, "wd_aj_a@ex.com", "admin")
+    rej = await client.post(
+        f"/api/v1/admin/withdrawals/{wd['id']}/reject", json={"reason": "KYC failed"}
+    )
+    assert rej.status_code == 200, rej.text
+    assert rej.json()["status"] == "rejected"
+
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "wd_aj_s@ex.com", "password": "Password123!"},
+    )
+    assert await _balance(client) == 500

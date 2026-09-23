@@ -82,6 +82,12 @@ export const adminNav: RoleNavItem[] = [
     desc: "Pantau, ulangi dan batalkan alokasi OPT",
   },
   {
+    href: "/admin/withdrawals",
+    label: "Penarikan",
+    icon: "money-bill-transfer",
+    desc: "Setujui atau tolak permintaan penarikan",
+  },
+  {
     href: "/admin/blockchain",
     label: "Blockchain",
     icon: "cube",

@@ -370,3 +370,30 @@ async def get_withdrawal(withdrawal_id: uuid.UUID, user: CurrentUser, db: DbSess
     if wd is None or (wd.user_id != user.id and not user.has_role("admin")):
         raise NotFoundError("Withdrawal not found")
     return WithdrawalOut.model_validate(wd)
+
+
+@router.post("/withdrawals/{withdrawal_id}/cancel", response_model=WithdrawalOut)
+async def cancel_withdrawal(withdrawal_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    """Cancel a still-pending withdrawal (funds returned). Idempotent-ish: only
+    a ``requested`` withdrawal can be cancelled; anything else 409s."""
+    from app.services.withdrawal_service import WithdrawalService
+
+    async with transaction(db):
+        wd = await WithdrawalService(db).cancel(user=user, withdrawal_id=withdrawal_id)
+    return WithdrawalOut.model_validate(wd)
+
+
+@router.get("/withdrawals", response_model=list[WithdrawalOut])
+async def list_my_withdrawals(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+):
+    """List the caller's own withdrawal requests (most recent first)."""
+    stmt = (
+        select(WithdrawalRequest)
+        .where(WithdrawalRequest.user_id == user.id)
+        .order_by(WithdrawalRequest.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [WithdrawalOut.model_validate(w) for w in rows]

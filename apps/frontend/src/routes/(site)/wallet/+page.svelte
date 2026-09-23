@@ -239,10 +239,43 @@
         amount: Number(withdrawAmount),
         destination_address: withdrawAddr,
       });
-      withdrawMsg = "Penarikan diminta dan dimasukkan ke antrean worker blockchain.";
-      await load();
+      withdrawMsg = "Penarikan diminta. Menunggu persetujuan admin sebelum dikirim ke jaringan.";
+      await Promise.all([load(), loadWithdrawals()]);
     } catch (e) {
       withdrawMsg = e instanceof ApiError ? e.message : "Penarikan gagal";
+    } finally {
+      withdrawBusy = false;
+    }
+  }
+
+  interface MyWithdrawal {
+    id: string;
+    amount: number;
+    fee_amount: number;
+    status: string;
+    destination_address: string;
+    reject_reason?: string | null;
+    created_at: string;
+  }
+  let withdrawals: MyWithdrawal[] = [];
+
+  async function loadWithdrawals() {
+    try {
+      withdrawals = await api.get<MyWithdrawal[]>("/wallet/withdrawals?limit=20");
+    } catch {
+      withdrawals = [];
+    }
+  }
+
+  async function cancelWithdrawal(id: string) {
+    withdrawMsg = "";
+    withdrawBusy = true;
+    try {
+      await api.post(`/wallet/withdrawals/${id}/cancel`);
+      withdrawMsg = "Penarikan dibatalkan; dana dikembalikan.";
+      await Promise.all([load(), loadWithdrawals()]);
+    } catch (e) {
+      withdrawMsg = e instanceof ApiError ? e.message : "Gagal membatalkan";
     } finally {
       withdrawBusy = false;
     }
@@ -293,6 +326,7 @@
   onMount(() => {
     metamaskAvailable = hasInjectedWallet();
     load();
+    loadWithdrawals();
   });
 </script>
 
@@ -517,6 +551,31 @@
           >
           {#if withdrawMsg}<p class="text-sm muted">{withdrawMsg}</p>{/if}
         </div>
+        {#if withdrawals.length}
+          <div class="mt-4 border-t pt-4">
+            <p class="mono-label mb-2">Riwayat penarikan</p>
+            <ul class="space-y-2">
+              {#each withdrawals as w}
+                <li class="flex items-center justify-between gap-3 text-sm">
+                  <span>
+                    <span class="font-mono">{formatNumber(w.amount)} OPT</span>
+                    <span class="ml-2 badge badge-slate">{w.status}</span>
+                    {#if w.reject_reason}
+                      <span class="ml-2 text-xs muted">{w.reject_reason}</span>
+                    {/if}
+                  </span>
+                  {#if w.status === "requested"}
+                    <button
+                      class="btn-ghost !py-1 text-xs"
+                      on:click={() => cancelWithdrawal(w.id)}
+                      disabled={withdrawBusy}>Batalkan</button
+                    >
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
       </div>
 
       <div class="card">
