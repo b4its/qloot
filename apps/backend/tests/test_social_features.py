@@ -14,14 +14,16 @@ pytestmark = pytest.mark.integration
 async def _register(
     client, email, role="student", name="Test User", class_code=None, class_type=None
 ):
-    payload = {"email": email, "full_name": name, "password": "Password123!", "role": role}
-    if class_code:
-        payload["class_code"] = class_code
-    if class_type:
-        payload["class_type"] = class_type
-    r = await client.post("/api/v1/auth/register", json=payload)
-    assert r.status_code == 201, r.text
-    return r.json()
+    from tests.helpers import register_actor
+
+    return await register_actor(
+        client,
+        email,
+        role,
+        full_name=name,
+        class_code=class_code,
+        class_type=class_type,
+    )
 
 
 async def test_welcome_notification_on_register(client):
@@ -42,16 +44,9 @@ async def test_welcome_notification_on_register(client):
 async def test_admin_broadcast_notification(client):
     await _register(client, "broadcast_target@ex.com")
     await client.post("/api/v1/auth/logout")
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "admin_b@ex.com",
-            "full_name": "Admin B",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    assert r.status_code == 201
+    from tests.helpers import register_actor
+
+    await register_actor(client, "admin_b@ex.com", "teacher")
     # Promote to admin directly via DB is covered elsewhere; broadcast requires admin.
     # Here we only assert a non-admin is rejected and the endpoint exists.
     resp = await client.post("/api/v1/admin/notifications", json={"title": "Hi", "body": "all"})
@@ -131,16 +126,7 @@ async def test_material_summary_and_qa(client):
 async def test_class_based_subject_access(client):
     """A student only sees subjects for their own class (+ broadcasts)."""
     # Teacher creates a 1A subject and a 2D subject.
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "t_class@ex.com",
-            "full_name": "T Class",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    assert r.status_code == 201
+    await _register(client, "t_class@ex.com", "teacher")
     a = await client.post(
         "/api/v1/courses",
         json={"title": "Kelas-A Sains", "class_code": "1A", "class_type": "IPA"},
@@ -169,16 +155,7 @@ async def test_class_based_subject_access(client):
 
 async def test_class_type_mismatch_and_untargeted_subject_hidden(client, engine):
     """A same class code but different programme, and untargeted subjects, are hidden."""
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "t_match@ex.com",
-            "full_name": "T Match",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    assert r.status_code == 201
+    await _register(client, "t_match@ex.com", "teacher")
     ok = await client.post(
         "/api/v1/courses",
         json={"title": "Mata Pelajaran IPA", "class_code": "1A", "class_type": "IPA"},
@@ -210,16 +187,7 @@ async def test_class_type_mismatch_and_untargeted_subject_hidden(client, engine)
 
 
 async def test_room_live_and_events_and_invite(client):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "t_room_live@ex.com",
-            "full_name": "T Room Live",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    assert r.status_code == 201
+    await _register(client, "t_room_live@ex.com", "teacher")
     room = await client.post("/api/v1/rooms", json={"name": "Live Room"})
     room_id = room.json()["id"]
     await client.post(f"/api/v1/rooms/{room_id}/open")
@@ -241,16 +209,7 @@ async def test_room_live_and_events_and_invite(client):
 
 
 async def test_teacher_analytics_and_submissions(client):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "t_analytics@ex.com",
-            "full_name": "T Analytics",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    assert r.status_code == 201
+    await _register(client, "t_analytics@ex.com", "teacher")
     analytics = await client.get("/api/v1/teacher/analytics")
     assert analytics.status_code == 200
     body = analytics.json()

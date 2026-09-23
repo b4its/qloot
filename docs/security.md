@@ -26,6 +26,8 @@ command line (which leaks to shell history and process lists).
 - [x] Session expiry + revocation + list/revoke-all
 - [x] Login rate limiting / progressive account lockout
 - [x] Object-level authorization (owner or admin, never id alone)
+- [x] Self-registration restricted to the `student` role (privileged roles are
+      provisioned by an admin via `POST /admin/users`)
 - [x] Strict CORS (no wildcard with credentials)
 - [x] CSRF-safe cookies (`SameSite=Lax`, `HttpOnly`; `Secure` in prod)
 - [x] File size limit + content-based PDF sniffing on upload

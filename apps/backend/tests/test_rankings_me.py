@@ -14,12 +14,9 @@ pytestmark = pytest.mark.integration
 
 
 async def _register(client, email, role="student"):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "full_name": email, "password": "Password123!", "role": role},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()
+    from tests.helpers import register_actor
+
+    return await register_actor(client, email, role, full_name=email)
 
 
 async def _make_exam(client, title="Ranking Exam"):

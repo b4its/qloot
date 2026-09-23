@@ -19,12 +19,9 @@ pytestmark = pytest.mark.integration
 
 
 async def _register(client, email, role="student", name="Test User"):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "full_name": name, "password": "Password123!", "role": role},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()
+    from tests.helpers import register_actor
+
+    return await register_actor(client, email, role, full_name=name)
 
 
 async def _make_exam_with_questions(client, n=2):
@@ -217,18 +214,10 @@ async def test_reserved_domain_email_does_not_break_user_listing(client, engine)
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     from app.models.identity import Role, User, UserRole
+    from tests.helpers import register_actor
 
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "legacy_admin@example.com",
-            "full_name": "Legacy Admin",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    assert r.status_code == 201, r.text
-    user_id = uuid.UUID(r.json()["id"])
+    r = await register_actor(client, "legacy_admin@example.com", "teacher")
+    user_id = uuid.UUID(r["id"])
 
     sm = async_sessionmaker(engine, expire_on_commit=False)
     async with sm() as s:
@@ -300,17 +289,10 @@ async def test_admin_reward_retry_resets_existing_outbox(client, engine):
     from app.services.keys import tx_idempotency_key
 
     # Register a teacher, promote to admin.
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "retry_admin@ex.com",
-            "full_name": "Retry Admin",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    assert r.status_code == 201, r.text
-    admin_id = _uuid.UUID(r.json()["id"])
+    from tests.helpers import register_actor
+
+    r = await register_actor(client, "retry_admin@ex.com", "teacher")
+    admin_id = _uuid.UUID(r["id"])
     student = await _register(client, "retry_student@ex.com", "student")
     student_id = _uuid.UUID(student["id"])
 

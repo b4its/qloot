@@ -15,6 +15,17 @@ async def _register(client, email, role="student", password="Password123!"):
     return resp
 
 
+async def _provision_teacher(client, email):
+    """Create a teacher the way an admin would, then log in.
+
+    Self-registration is student-only, so privileged accounts are provisioned
+    out-of-band (mirrors ``POST /admin/users``).
+    """
+    from tests.helpers import register_actor
+
+    return await register_actor(client, email, "teacher")
+
+
 async def test_register_login_me_logout(client):
     resp = await _register(client, "alice@example.com")
     assert resp.status_code == 201, resp.text
@@ -81,7 +92,7 @@ async def test_student_cannot_create_course(client):
 
 
 async def test_student_cannot_create_lesson(client):
-    await _register(client, "lesson_t@example.com", role="teacher")
+    await _provision_teacher(client, "lesson_t@example.com")
     course = await client.post(
         "/api/v1/courses",
         json={"title": "Kelas Materi", "class_code": "1A", "class_type": "IPA"},
@@ -95,7 +106,7 @@ async def test_student_cannot_create_lesson(client):
 
 
 async def test_teacher_can_create_course(client):
-    await _register(client, "teach@example.com", role="teacher")
+    await _provision_teacher(client, "teach@example.com")
     resp = await client.post(
         "/api/v1/courses",
         json={
@@ -169,3 +180,48 @@ async def test_forgot_password_does_not_leak_unknown_email(client):
     assert resp.status_code == 200
     # Unknown email yields no token but the same generic message.
     assert resp.json()["reset_token"] is None
+
+
+async def test_self_registration_cannot_create_teacher(client):
+    """AUTH-12: anonymous visitors must not self-assign the teacher role."""
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "sneaky@example.com",
+            "full_name": "Sneaky Teacher",
+            "password": "Password123!",
+            "role": "teacher",
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_self_registration_cannot_create_admin(client):
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "sneaky2@example.com",
+            "full_name": "Sneaky Admin",
+            "password": "Password123!",
+            "role": "admin",
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+
+async def test_admin_can_still_create_teacher(client):
+    """The admin-only creation path keeps working for privileged roles."""
+    from tests.helpers import register_actor
+
+    await register_actor(client, "boss@example.com", "admin")
+    resp = await client.post(
+        "/api/v1/admin/users",
+        json={
+            "email": "newteacher@example.com",
+            "full_name": "New Teacher",
+            "password": "Password123!",
+            "role": "teacher",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert "teacher" in resp.json()["roles"]

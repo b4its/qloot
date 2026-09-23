@@ -30,6 +30,87 @@ from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
 
 
+async def provision_user(
+    sess: AsyncSession,
+    *,
+    email: str,
+    role: str = "student",
+    password: str = "Password123!",
+    full_name: str = "Test User",
+    class_code: str | None = None,
+    class_type: str | None = None,
+):
+    """Seed a user of any role straight through the auth service.
+
+    Self-registration is student-only since the C01 hardening, so tests that
+    need a teacher/admin account provision it here (the way an admin would via
+    ``POST /admin/users``) instead of going through ``/auth/register``.
+    """
+    from app.services.auth_service import AuthService
+
+    user, _token = await AuthService(sess).register(
+        email=email,
+        full_name=full_name,
+        password=password,
+        role=role,
+        class_code=class_code,
+        class_type=class_type,
+        issue_session=False,
+    )
+    await sess.commit()
+    return user
+
+
+@pytest_asyncio.fixture
+async def make_actor(engine):
+    """Return an async helper that provisions a user and returns an authenticated
+    client bound to that user's session cookie.
+
+    Usage::
+
+        teacher = await make_actor("t@ex.com", role="teacher")
+        await teacher.client.post("/api/v1/courses", json={"title": "x"})
+    """
+    from dataclasses import dataclass
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+
+    @dataclass
+    class _Actor:
+        client: AsyncClient
+        user: object
+
+    async def _make(email: str, role: str = "student", password: str = "Password123!"):
+        async with sm() as s:
+            await provision_user(s, email=email, role=role, password=password)
+
+        transport = ASGITransport(app=app)
+
+        async def _override_get_db():
+            async with sm() as s:
+                try:
+                    yield s
+                    if s.in_transaction():
+                        await s.commit()
+                except Exception:
+                    if s.in_transaction():
+                        await s.rollback()
+                    raise
+
+        app.dependency_overrides[get_db] = _override_get_db
+        c = AsyncClient(transport=transport, base_url="http://test")
+        login = await c.post(
+            "/api/v1/auth/login", json={"email": email, "password": password}
+        )
+        assert login.status_code == 200, login.text
+        actor = _Actor(client=c, user=login.json())
+        return actor
+
+    yield _make
+    app.dependency_overrides.clear()
+
+
+
 @pytest_asyncio.fixture(scope="session")
 async def engine():
     eng = create_async_engine(TEST_DB_URL, future=True)

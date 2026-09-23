@@ -18,12 +18,9 @@ pytestmark = pytest.mark.integration
 
 
 async def _register(client, email, role="teacher"):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "full_name": "Round7 User", "password": "Password123!", "role": role},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()
+    from tests.helpers import register_actor
+
+    return await register_actor(client, email, role, full_name="Round7 User")
 
 
 async def _make_admin(client, email):

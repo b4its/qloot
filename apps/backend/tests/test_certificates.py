@@ -8,18 +8,16 @@ pytestmark = pytest.mark.integration
 
 
 async def _register(client, email, role="student", class_code=None, class_type=None):
-    payload = {
-        "email": email,
-        "full_name": "Cert Student",
-        "password": "Password123!",
-        "role": role,
-    }
-    if class_code:
-        payload["class_code"] = class_code
-        payload["class_type"] = class_type
-    r = await client.post("/api/v1/auth/register", json=payload)
-    assert r.status_code == 201, r.text
-    return r.json()
+    from tests.helpers import register_actor
+
+    return await register_actor(
+        client,
+        email,
+        role,
+        full_name="Cert Student",
+        class_code=class_code,
+        class_type=class_type,
+    )
 
 
 async def test_certificate_issued_on_course_completion_and_verifiable(client):

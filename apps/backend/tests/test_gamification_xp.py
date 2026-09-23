@@ -30,12 +30,9 @@ def test_level_progress_bounds():
 
 
 async def _register(client, email, role="teacher"):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "full_name": "XP User", "password": "Password123!", "role": role},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()
+    from tests.helpers import register_actor
+
+    return await register_actor(client, email, role, full_name="XP User")
 
 
 async def test_gamification_me_returns_breakdown(client):

@@ -8,7 +8,6 @@
   let email = "";
   let full_name = "";
   let password = "";
-  let role = "student";
   let class_code = "1A";
   let class_type = "IPA";
   let error = "";
@@ -20,7 +19,7 @@
     if (full_name.trim().length < 2) return "Nama minimal 2 karakter.";
     if (password.length < 8) return "Kata sandi minimal 8 karakter.";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "Masukkan email yang valid.";
-    if (role === "student" && class_code.trim().length < 1) return "Masukkan kelasmu (mis. 1A).";
+    if (class_code.trim().length < 1) return "Masukkan kelasmu (mis. 1A).";
     return null;
   }
 
@@ -38,8 +37,9 @@
         email,
         full_name,
         password,
-        role,
-        ...(role === "student" ? { class_code, class_type } : {}),
+        role: "student",
+        class_code,
+        class_type,
       });
       await goto("/dashboard");
     } catch (err) {
@@ -103,36 +103,25 @@
             />
           </div>
           <div>
-            <label class="mono-label" for="role">Saya adalah</label>
-            <select id="role" class="input mt-1" bind:value={role}>
-              <option value="student">Pelajar</option>
-              <option value="teacher">Pengajar</option>
+            <label class="mono-label" for="class_code">Kelas</label>
+            <input
+              id="class_code"
+              class="input mt-1"
+              placeholder="mis. 1A"
+              bind:value={class_code}
+              required
+            />
+          </div>
+          <div>
+            <label class="mono-label" for="class_type">Tipe kelas</label>
+            <select id="class_type" class="input mt-1" bind:value={class_type}>
+              {#each classTypes as t}<option value={t}>{t}</option>{/each}
             </select>
           </div>
-          {#if role === "student"}
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="mono-label" for="class_code">Kelas</label>
-                <input
-                  id="class_code"
-                  class="input mt-1"
-                  placeholder="mis. 1A"
-                  bind:value={class_code}
-                  required
-                />
-              </div>
-              <div>
-                <label class="mono-label" for="class_type">Tipe kelas</label>
-                <select id="class_type" class="input mt-1" bind:value={class_type}>
-                  {#each classTypes as t}<option value={t}>{t}</option>{/each}
-                </select>
-              </div>
-            </div>
-            <p class="muted text-xs">
-              <Icon name="circle-info" size="10px" /> Kamu akan melihat pelajaran untuk kelas {class_code ||
-                "—"}.
-            </p>
-          {/if}
+          <p class="muted text-xs">
+            <Icon name="circle-info" size="10px" /> Kamu akan melihat pelajaran untuk kelas {class_code ||
+              "—"}. Akun guru dibuat oleh admin.
+          </p>
           <button class="btn-primary w-full" type="submit" disabled={loading}>
             {#if loading}<Icon name="spinner" spin size="13px" />{:else}<Icon
                 name="user-plus"

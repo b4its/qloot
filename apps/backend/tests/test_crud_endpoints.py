@@ -14,12 +14,9 @@ pytestmark = pytest.mark.integration
 
 
 async def _register(client, email, role="teacher"):
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "full_name": "CRUD User", "password": "Password123!", "role": role},
-    )
-    assert r.status_code == 201, r.text
-    return r.json()
+    from tests.helpers import register_actor
+
+    return await register_actor(client, email, role, full_name="CRUD User")
 
 
 async def _make_exam(client, title="CRUD Exam"):
@@ -187,17 +184,10 @@ async def test_admin_can_deactivate_and_reactivate_user(client, engine):
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
     from app.models.identity import Role, UserRole
+    from tests.helpers import register_actor
 
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "crud_admin8@ex.com",
-            "full_name": "Admin Eight",
-            "password": "Password123!",
-            "role": "teacher",
-        },
-    )
-    admin_id = r.json()["id"]
+    r = await register_actor(client, "crud_admin8@ex.com", "teacher")
+    admin_id = r["id"]
     target = await _register(client, "crud_target8@ex.com", "student")
     target_id = target["id"]
 

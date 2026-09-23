@@ -14,8 +14,9 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=255)
     password: str = Field(min_length=8, max_length=128)
-    # Students self-register; teacher/admin accounts are created by an admin.
-    role: str = Field(default="student", pattern="^(student|teacher)$")
+    # Self-registration is student-only. Teacher/admin accounts are provisioned
+    # by an admin via ``AdminUserCreate`` — never by an anonymous visitor.
+    role: str = Field(default="student", pattern="^student$")
     # For students: the class they belong to (e.g. "1A") and programme ("IPA").
     class_code: str | None = Field(default=None, max_length=16)
     class_type: str | None = Field(default=None, max_length=32)
