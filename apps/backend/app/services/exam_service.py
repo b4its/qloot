@@ -10,7 +10,7 @@ Important correctness properties:
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -296,9 +296,24 @@ class ExamService:
         attempt = ExamAttempt(
             exam_id=exam_id, user_id=user.id, attempt_number=max_num + 1, status="in_progress"
         )
+        # Server-authoritative deadline: the attempt's own duration, never later
+        # than the exam's close time. The client cannot extend this.
+        expires_at = now + timedelta(minutes=exam.duration_minutes or 60)
+        if exam.closes_at is not None and exam.closes_at < expires_at:
+            expires_at = exam.closes_at
+        attempt.expires_at = expires_at
         self.session.add(attempt)
         await self.session.flush()
         return attempt
+
+    def _ensure_not_expired(self, attempt: ExamAttempt, now: datetime) -> None:
+        """Refuse writes to an in-progress attempt past its server deadline."""
+        if (
+            attempt.status == "in_progress"
+            and attempt.expires_at is not None
+            and now > attempt.expires_at
+        ):
+            raise ConflictError("Waktu ujian telah habis")
 
     async def _get_own_attempt(self, attempt_id: uuid.UUID, user: User) -> ExamAttempt:
         attempt = await self.session.get(ExamAttempt, attempt_id)
@@ -320,6 +335,7 @@ class ExamService:
             raise ForbiddenError("You cannot answer this attempt")
         if attempt.status not in ("in_progress",):
             raise ConflictError("Attempt is not in progress")
+        self._ensure_not_expired(attempt, datetime.now(UTC))
         # The question must belong to the attempt's exam; otherwise a student
         # could inject answers for questions from other exams and skew grading.
         question = await self.session.get(Question, question_id)
@@ -355,6 +371,9 @@ class ExamService:
             return attempt
         exam = await self.session.get(Exam, attempt.exam_id)
         now = datetime.now(UTC)
+        # Server-side deadline: an in-progress attempt past its own expiry cannot
+        # be submitted (the sweeper auto-submits it instead).
+        self._ensure_not_expired(attempt, now)
         if exam and exam.closes_at and now > exam.closes_at:
             raise ConflictError("The exam deadline has passed")
         attempt.submitted_at = now

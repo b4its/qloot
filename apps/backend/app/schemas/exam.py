@@ -147,6 +147,7 @@ class AttemptOut(ORMModel):
     started_at: datetime
     submitted_at: datetime | None
     graded_at: datetime | None
+    expires_at: datetime | None = None
 
 
 class ExamResultRow(AttemptOut):

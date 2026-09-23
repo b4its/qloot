@@ -130,6 +130,10 @@ class ExamAttempt(Base, TimestampMixin):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    # Server-side deadline for an in-progress attempt (started_at + duration,
+    # capped at the exam's closes_at). Indexed so the sweeper (C19) can find
+    # expired attempts. Answers/submits after this are refused with 409.
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     is_flagged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     flag_reason: Mapped[str | None] = mapped_column(String(255))
 

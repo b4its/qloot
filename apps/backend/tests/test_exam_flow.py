@@ -208,3 +208,85 @@ async def test_reject_non_pdf_upload(client):
         files={"file": ("evil.pdf", io.BytesIO(b"not a real pdf"), "application/pdf")},
     )
     assert resp.status_code == 422
+
+
+async def test_attempt_deadline_is_enforced_server_side(client, engine):
+    """C18: expires_at is set at start; answers/submits after it are refused."""
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import select, update
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.exam import ExamAttempt
+
+    await _register(client, "dl_teacher@ex.com", "teacher")
+    exam = await client.post(
+        "/api/v1/exams",
+        json={"title": "Deadline", "duration_minutes": 30, "passing_score_bp": 5000},
+    )
+    exam_id = exam.json()["id"]
+    q = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={"prompt": "Pertanyaan?", "correct_answer": "A", "position": 0},
+    )
+    assert q.status_code == 201, q.text
+    qid = q.json()["id"]
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "dl_student@ex.com", "student")
+    attempt = await client.post(f"/api/v1/exams/{exam_id}/attempts")
+    assert attempt.status_code == 201, attempt.text
+    body = attempt.json()
+    assert body["expires_at"] is not None, "expires_at must be set at start"
+    attempt_id = body["id"]
+
+    # Force the deadline into the past.
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        await s.execute(
+            update(ExamAttempt)
+            .where(ExamAttempt.id == __import__("uuid").UUID(attempt_id))
+            .values(expires_at=datetime.now(UTC) - timedelta(seconds=5))
+        )
+        await s.commit()
+
+    save = await client.put(
+        f"/api/v1/attempts/{attempt_id}/answers/{qid}",
+        json={"answer_text": "late answer"},
+    )
+    assert save.status_code == 409, save.text
+
+    submit = await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    assert submit.status_code == 409, submit.text
+
+    # Sanity: still in_progress (the sweeper, C19, will finish it).
+    async with sm() as s:
+        row = (
+            await s.execute(
+                select(ExamAttempt).where(ExamAttempt.id == __import__("uuid").UUID(attempt_id))
+            )
+        ).scalar_one()
+    assert row.status == "in_progress"
+
+
+async def test_expires_at_capped_by_closes_at(client):
+    """The deadline never exceeds the exam's close time."""
+    from datetime import UTC, datetime, timedelta
+
+    await _register(client, "cap_teacher@ex.com", "teacher")
+    closes = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
+    exam = await client.post(
+        "/api/v1/exams",
+        json={"title": "Capped", "duration_minutes": 120, "closes_at": closes},
+    )
+    exam_id = exam.json()["id"]
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "cap_student@ex.com", "student")
+    attempt = await client.post(f"/api/v1/exams/{exam_id}/attempts")
+    assert attempt.status_code == 201, attempt.text
+    expires = datetime.fromisoformat(attempt.json()["expires_at"])
+    # 120-minute duration but the exam closes in ~5 minutes -> capped.
+    assert expires <= datetime.now(UTC) + timedelta(minutes=6)
