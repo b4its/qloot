@@ -105,6 +105,42 @@ async def transactions(
     ]
 
 
+@router.get("/transactions/failed")
+async def failed_transactions(
+    db: DbSession, admin: AdminUser, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    """Consolidated view of every terminally-failed transaction.
+
+    Covers both submission failures (``error_code == 'chain_error'``) and
+    transactions that reverted after being submitted (``error_code ==
+    'reverted'``/``internal_error``) so operators see one queue instead of
+    two tables. Each row links to its source (allocation/withdrawal) so the
+    compensating ledger entry can be verified.
+    """
+    stmt = (
+        select(BlockchainTransaction)
+        .where(BlockchainTransaction.status == "failed")
+        .order_by(BlockchainTransaction.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "id": str(t.id),
+            "method": t.method,
+            "status": t.status,
+            "error_code": t.error_code,
+            "error_message": t.error_message,
+            "transaction_hash": t.transaction_hash,
+            "allocation_id": (t.arguments or {}).get("allocation_id"),
+            "withdrawal_id": (t.arguments or {}).get("withdrawal_id"),
+            "created_at": t.created_at,
+        }
+        for t in rows
+    ]
+
+
 @router.get("/transactions/{tx_hash}")
 async def transaction_detail(tx_hash: str, db: DbSession, admin: AdminUser):
     stmt = select(BlockchainTransaction).where(BlockchainTransaction.transaction_hash == tx_hash)

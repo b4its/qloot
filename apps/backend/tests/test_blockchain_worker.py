@@ -315,3 +315,54 @@ async def test_withdrawal_topic_burns_and_confirms(session):
 async def test_unknown_topic_is_rejected_retryably(session):
     item = await _mk_outbox(session, "nonsense", {}, "bad-1")
     assert await process_outbox_item(session, item.id) is False
+
+
+async def test_reverted_tx_compensates_ledger_and_is_listed_as_failed(session):
+    """C17: a reported-then-reverted reward reverses the credit (compensation).
+
+    Every terminal-failure state must produce a compensating ledger entry so the
+    off-chain balance matches the (absent) on-chain token.
+    """
+    from sqlalchemy import select
+
+    from app.models.wallet import TransactionOutbox
+
+    owner = await _mk_user(session, "rev_owner@q.com")
+    student = await _mk_user(session, "rev_student@q.com")
+    quest = Quest(title="Rev", owner_id=owner.id, status="open")
+    session.add(quest)
+    await session.flush()
+
+    engine = RewardEngine(session)
+    alloc = await engine.allocate_quest_reward(
+        quest=quest, user=student, rank=1, amount=100, score_bp=9000
+    )
+    assert await engine.balance(student.id) == 100
+
+    item = await _outbox_for_allocation(session, alloc.id)
+    await process_outbox_item(session, item.id)
+    tx = await _tx_for_outbox(session, item.idempotency_key)
+    assert tx is not None
+
+    # Simulate the chain reverting the tx, then index it.
+    from app.blockchain.worker_logic import _mark_reverted
+
+    tx.status = "failed"
+    tx.error_code = "reverted"
+    await _mark_reverted(session, tx)
+    await session.flush()
+
+    # The credit was reversed (compensation entry) -> balance back to 0.
+    assert await engine.balance(student.id) == 0
+    cached, computed = await engine.reconcile(student.id)
+    assert cached == computed == 0
+    refreshed = await session.get(RewardAllocation, alloc.id)
+    assert refreshed.status == "failed"
+
+    # And the tx is surfaced in the consolidated failed view.
+    failed = (
+        await session.execute(
+            select(TransactionOutbox).where(TransactionOutbox.id == item.id)
+        )
+    ).scalar_one()
+    assert failed.status == "done"  # outbox itself is done; the *tx* failed

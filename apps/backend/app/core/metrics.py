@@ -22,6 +22,7 @@ _HELP = {
     "grading_failures_total": "Grading failures",
     "blockchain_transactions_total": "Blockchain transactions submitted",
     "blockchain_failed_transactions_total": "Blockchain transactions failed",
+    "blockchain_terminal_failures_total": "Blockchain transactions in a terminal failed state",
     "reward_allocations_total": "Reward allocations created",
     "reward_cap_rejections_total": "Reward allocations rejected for exceeding the per-tx cap",
     "ledger_reconciliation_errors_total": "Ledger reconciliation mismatches",

@@ -231,8 +231,10 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
 
 async def _mark_failed(session: AsyncSession, item, error: str) -> None:
     """Terminal failure: flag the allocation/withdrawal and refund the ledger."""
+    from app.core import metrics
     from app.services.reward_engine import RewardEngine
 
+    metrics.incr("blockchain_terminal_failures_total", topic=item.topic)
     payload = item.payload or {}
     engine = RewardEngine(session)
     if item.topic == "reward" and payload.get("allocation_id"):
@@ -362,8 +364,10 @@ async def _record_event(session: AsyncSession, tx: BlockchainTransaction) -> Non
 
 async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> None:
     """A reverted tx must reverse its financial effect and flag the source row."""
+    from app.core import metrics
     from app.services.reward_engine import RewardEngine
 
+    metrics.incr("blockchain_terminal_failures_total", topic=tx.method)
     args = tx.arguments or {}
     engine = RewardEngine(session)
     if tx.method == "rewardUser" and args.get("allocation_id"):

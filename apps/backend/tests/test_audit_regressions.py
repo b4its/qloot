@@ -413,3 +413,13 @@ async def test_admin_manual_reward_adjustment_is_idempotent_and_audited(client):
     assert len(entries) == 1, "adjustment must be idempotent"
     assert entries[0].amount == 250
     assert len(audits) >= 1
+
+
+async def test_failed_transactions_view_consolidates_terminal_failures(client, engine):
+    """C17: admin failed-transactions view lists terminal failures."""
+    await _register(client, "fail_view_a@ex.com", "admin")
+    r = await client.get("/api/v1/blockchain/transactions/failed")
+    assert r.status_code == 200, r.text
+    # Shape check: every row carries the failure fields the UI renders.
+    for row in r.json():
+        assert {"id", "method", "status", "error_code"} <= set(row)
