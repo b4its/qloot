@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, ValidationError
 from app.core.logging import get_logger
 from app.models.identity import User
 from app.models.quest import Quest
@@ -76,6 +76,19 @@ class RewardEngine:
         """Idempotently credit a user's custodial balance."""
         if amount <= 0:
             raise ConflictError("Reward amount must be positive")
+        # Enforce the same per-transaction ceiling the on-chain contract applies
+        # (opc_max_reward_per_tx) *before* writing the ledger, so we never mint
+        # off-chain credit that the chain would reject and then have to reverse.
+        from app.core.config import settings
+
+        if amount > settings.opc_max_reward_per_tx:
+            from app.core import metrics
+
+            metrics.incr("reward_cap_rejections_total")
+            raise ValidationError(
+                f"Reward amount {amount} exceeds the per-transaction cap "
+                f"of {settings.opc_max_reward_per_tx}"
+            )
 
         account = await self.get_or_create_account(user.id)
         if account.is_frozen:

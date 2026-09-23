@@ -364,3 +364,37 @@ async def test_refund_reward_preserves_ledger_invariant(session):
     cached, computed = await engine.reconcile(student.id)
     assert cached == computed, "refund must keep cached balance reconcilable"
     assert cached == -100
+
+
+async def test_reward_cap_enforced_before_ledger_write(session):
+    """WEB3-05: a credit above opc_max_reward_per_tx is refused before writing."""
+    from app.core.config import settings
+    from app.core.errors import ValidationError
+
+    student = await _user(session, "cap@q.com")
+    engine = RewardEngine(session)
+    over = settings.opc_max_reward_per_tx + 1
+
+    with pytest.raises(ValidationError):
+        await engine.credit(
+            user=student,
+            amount=over,
+            reference_type="reward",
+            reference_id="cap-1",
+            reward_key_value="rk-cap-1",
+            token_id=0,
+        )
+
+    # Nothing was written; balance stays 0.
+    assert await engine.balance(student.id) == 0
+
+    # An allocation exactly at the cap is still allowed.
+    await engine.credit(
+        user=student,
+        amount=settings.opc_max_reward_per_tx,
+        reference_type="reward",
+        reference_id="cap-2",
+        reward_key_value="rk-cap-2",
+        token_id=0,
+    )
+    assert await engine.balance(student.id) == settings.opc_max_reward_per_tx
