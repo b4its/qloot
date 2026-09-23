@@ -51,11 +51,16 @@ class TransferRequest(BaseModel):
 
 
 class TransferRecipientOut(BaseModel):
-    """A candidate recipient for an internal OPT transfer (directory entry)."""
+    """A candidate recipient for an internal OPT transfer (directory entry).
+
+    The raw email is never exposed — only a masked handle + display name so a
+    user cannot enumerate every account's address.
+    """
 
     user_id: uuid.UUID
     full_name: str
-    email: str
+    email_masked: str
+    handle: str
 
 
 class WalletAddressUpdate(BaseModel):

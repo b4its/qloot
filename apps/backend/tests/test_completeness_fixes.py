@@ -122,7 +122,16 @@ async def test_transfer_recipients_endpoint_returns_typed_shape(client):
     r = await client.get("/api/v1/wallet/transfer-recipients")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body and {"user_id", "full_name", "email"} <= set(body[0])
+    assert body and {"user_id", "full_name", "email_masked", "handle"} <= set(body[0])
+    # The raw email must never be exposed.
+    assert "email" not in body[0]
+
+
+async def test_transfer_recipients_short_query_rejected(client):
+    """WEB3-12: queries under 3 chars are rejected to stop bulk enumeration."""
+    await _register(client, "xfer_short@ex.com", "student")
+    r = await client.get("/api/v1/wallet/transfer-recipients?q=ab")
+    assert r.status_code == 422, r.text
 
 
 async def test_user_out_exposes_last_login(client):

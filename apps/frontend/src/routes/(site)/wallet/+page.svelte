@@ -63,10 +63,16 @@
   let txLoading = false;
 
   // Internal transfer state.
-  let recipients: { user_id: string; full_name: string; email: string }[] = [];
+  let recipients: { user_id: string; full_name: string; email_masked: string; handle: string }[] =
+    [];
   let recipientQuery = "";
   let recipientBusy = false;
-  let transferTarget: { user_id: string; full_name: string; email: string } | null = null;
+  let transferTarget: {
+    user_id: string;
+    full_name: string;
+    email_masked: string;
+    handle: string;
+  } | null = null;
   let transferAmount = 0;
   let transferNote = "";
   let transferMsg = "";
@@ -520,7 +526,9 @@
             <div class="flex items-center justify-between rounded-sm border px-3 py-2 text-sm">
               <span>
                 <span class="font-medium">{transferTarget.full_name}</span>
-                <span class="block text-xs muted">{transferTarget.email}</span>
+                <span class="block text-xs muted"
+                  >{transferTarget.handle} · {transferTarget.email_masked}</span
+                >
               </span>
               <button class="btn-ghost !py-1 text-xs" on:click={() => (transferTarget = null)}
                 >Ganti</button
@@ -553,7 +561,7 @@
                       }}
                     >
                       <span>{r.full_name}</span>
-                      <span class="text-xs muted">{r.email}</span>
+                      <span class="text-xs muted">{r.email_masked}</span>
                     </button>
                   </li>
                 {/each}

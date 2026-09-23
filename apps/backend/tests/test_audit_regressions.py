@@ -145,6 +145,9 @@ async def test_transfer_recipient_search(client):
     ids = [x["user_id"] for x in r.json()]
     assert me not in ids
     assert any(x["full_name"] == "Targetted Name" for x in r.json())
+    # Raw email is never returned (WEB3-12).
+    assert all("email" not in x for x in r.json())
+    assert all("email_masked" in x for x in r.json())
 
 
 async def test_room_ranking_excludes_unrelated_exams(client, engine):

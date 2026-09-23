@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
 from app.core.config import settings
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.db.session import transaction
 from app.models.identity import User
 from app.models.wallet import RewardAllocation, WalletLedgerEntry, WithdrawalRequest
@@ -35,6 +35,27 @@ router = APIRouter()
 
 # Assets a user can obtain by swapping OPT through the OryphemProxy.
 SWAPPABLE_ASSETS = ("QTC", "ORT")
+
+
+def _mask_email(email: str) -> str:
+    """Mask the local part of an email: ``alice@x.com`` -> ``a***e@x.com``."""
+    if "@" not in email:
+        return "***"
+    local, _, domain = email.partition("@")
+    if len(local) <= 2:
+        masked = local[:1] + "*"
+    else:
+        masked = local[0] + "*" * (len(local) - 2) + local[-1]
+    return f"{masked}@{domain}"
+
+
+def _handle(email: str, full_name: str, user_id: uuid.UUID) -> str:
+    """A stable, non-PII handle for display next to a display name."""
+    import hashlib
+
+    base = email.split("@")[0] if "@" in email else full_name.replace(" ", "").lower()
+    digest = hashlib.sha256(str(user_id).encode()).hexdigest()[:4]
+    return f"@{base or 'user'}#{digest}"
 
 
 def _asset_balance_out(asset: str, balance: int) -> AssetBalanceOut:
@@ -186,10 +207,19 @@ async def update_wallet_address(payload: WalletAddressUpdate, user: CurrentUser,
 
 
 @router.get("/transfer-recipients", response_model=list[TransferRecipientOut])
-async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", limit: LimitParam = 8):
-    """Search active users to transfer OPT to (simulated directory)."""
-    stmt = select(User).where(User.is_active.is_(True), User.id != user.id)
+async def transfer_recipients(
+    user: CurrentUser, db: DbSession, q: str = "", limit: LimitParam = 8
+):
+    """Search active users to transfer OPT to (simulated directory).
+
+    Only a masked email/handle is returned so the endpoint cannot be used to
+    harvest every user's address. A search term shorter than 3 characters is
+    rejected to prevent bulk enumeration.
+    """
     term = q.strip()
+    if term and len(term) < 3:
+        raise ValidationError("Search term must be at least 3 characters")
+    stmt = select(User).where(User.is_active.is_(True), User.id != user.id)
     if term:
         like = f"%{term.lower()}%"
         stmt = stmt.where(
@@ -197,7 +227,15 @@ async def transfer_recipients(user: CurrentUser, db: DbSession, q: str = "", lim
         )
     stmt = stmt.order_by(User.full_name).limit(limit)
     rows = (await db.execute(stmt)).scalars().all()
-    return [TransferRecipientOut(user_id=u.id, full_name=u.full_name, email=u.email) for u in rows]
+    return [
+        TransferRecipientOut(
+            user_id=u.id,
+            full_name=u.full_name,
+            email_masked=_mask_email(u.email),
+            handle=_handle(u.email, u.full_name, u.id),
+        )
+        for u in rows
+    ]
 
 
 @router.get("/ledger", response_model=list[LedgerEntryOut])
