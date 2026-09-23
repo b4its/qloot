@@ -56,3 +56,38 @@ async def test_mismatched_csrf_token_is_rejected(client, enable_csrf):
         headers={settings.csrf_header_name: "not-the-cookie"},
     )
     assert resp.status_code == 403
+
+
+# --- security headers (C07) ------------------------------------------------
+async def test_security_headers_present(client):
+    resp = await client.get("/api/v1/health/live")
+    assert resp.headers["X-Content-Type-Options"] == "nosniff"
+    assert resp.headers["X-Frame-Options"] == "DENY"
+    assert resp.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+    # CSP is only for non-docs paths; live endpoint is not exempt.
+    assert "Content-Security-Policy" in resp.headers
+
+
+async def test_hsts_only_in_production(client, monkeypatch):
+    resp = await client.get("/api/v1/health/live")
+    assert "Strict-Transport-Security" not in resp.headers
+    monkeypatch.setattr(settings, "app_env", "production")
+    resp2 = await client.get("/api/v1/health/live")
+    assert "Strict-Transport-Security" in resp2.headers
+
+
+# --- CORS (C07) ------------------------------------------------------------
+async def test_cors_allows_configured_origin_with_credentials(client):
+    origin = settings.cors_origins[0]
+    resp = await client.get("/api/v1/health/live", headers={"Origin": origin})
+    assert resp.headers.get("access-control-allow-origin") == origin
+    assert resp.headers.get("access-control-allow-credentials") == "true"
+
+
+async def test_cors_rejects_non_allowlisted_origin(client):
+    resp = await client.get(
+        "/api/v1/health/live", headers={"Origin": "https://evil.example"}
+    )
+    # No ACAO header is echoed for a disallowed origin.
+    assert "access-control-allow-origin" not in resp.headers
+
