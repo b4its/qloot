@@ -123,6 +123,7 @@ class RewardEngine:
         self.session.add(entry)
         account.cached_balance = new_balance
         account.cached_pending = max(0, account.cached_pending - amount)
+        await self._apply_negative_policy(account, "credit")
         await self.session.flush()
         return entry
 
@@ -557,8 +558,33 @@ class RewardEngine:
         )
         self.session.add(entry)
         account.cached_balance = new_balance
+        await self._apply_negative_policy(account, "reward_refund")
         await self.session.flush()
         return entry
+
+    async def _apply_negative_policy(self, account: WalletAccount, reason: str) -> None:
+        """Enforce the explicit negative-balance policy after a mutation.
+
+        A negative OPT balance is *allowed* (it is the honest record of a
+        clawback the user already spent) but it is never silent: we flag the
+        account and bump ``ledger_negative_balance_total`` so operators can see
+        it. When the balance climbs back to >= 0 the flag clears. Secondary
+        assets (QTC/ORT) are never allowed to go negative — enforced by a DB
+        CHECK constraint and by ``debit_asset``'s sufficiency guard.
+        """
+        from app.core import metrics
+
+        if account.cached_balance < 0:
+            account.is_in_debt = True
+            metrics.incr("ledger_negative_balance_total", reason=reason)
+            log.warning(
+                "ledger_negative_balance",
+                account_id=str(account.id),
+                balance=account.cached_balance,
+                reason=reason,
+            )
+        elif account.is_in_debt:
+            account.is_in_debt = False
 
     async def refund_withdrawal(
         self, *, user_id: uuid.UUID, amount: int, withdrawal_id: uuid.UUID

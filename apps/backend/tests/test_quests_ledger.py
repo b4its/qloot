@@ -365,6 +365,103 @@ async def test_refund_reward_preserves_ledger_invariant(session):
     assert cached == computed, "refund must keep cached balance reconcilable"
     assert cached == -100
 
+    # The negative balance is never silent: the account is flagged as in debt.
+    account = await engine.get_or_create_account(student.id)
+    assert account.is_in_debt is True
+
+
+async def test_negative_balance_is_flagged_and_metric_bumped(session):
+    """WEB3-02: a compensation-driven negative balance flags the account."""
+    from app.core import metrics
+
+    student = await _user(session, "debt@q.com")
+    engine = RewardEngine(session)
+    alloc_id = uuid.uuid4()
+    await engine.credit(
+        user=student,
+        amount=100,
+        reference_type="reward",
+        reference_id=str(alloc_id),
+        reward_key_value="rk-debt",
+        token_id=0,
+    )
+    await engine.debit_for_withdrawal(
+        user=student, amount=100, withdrawal_id=uuid.uuid4(), destination="0x" + "3" * 40
+    )
+    assert await engine.balance(student.id) == 0
+
+    before = sum(
+        v for k, v in metrics._counters.items()  # noqa: SLF001
+        if k.startswith("ledger_negative_balance_total")
+    )
+    await engine.refund_reward(user_id=student.id, amount=100, allocation_id=alloc_id)
+    after = sum(
+        v for k, v in metrics._counters.items()  # noqa: SLF001
+        if k.startswith("ledger_negative_balance_total")
+    )
+
+    account = await engine.get_or_create_account(student.id)
+    assert account.cached_balance == -100
+    assert account.is_in_debt is True
+    assert after > before, "the negative-balance metric must increment"
+
+    # A later credit that lifts the balance back to >= 0 clears the debt flag.
+    await engine.credit(
+        user=student,
+        amount=100,
+        reference_type="reward",
+        reference_id="recover",
+        reward_key_value="rk-recover",
+        token_id=0,
+    )
+    assert await engine.balance(student.id) == 0
+    assert (await engine.get_or_create_account(student.id)).is_in_debt is False
+
+
+async def test_secondary_asset_cannot_go_negative(session):
+    """The QTC/ORT non-negative invariant is enforced at the engine layer."""
+    from app.core.errors import ConflictError
+
+    student = await _user(session, "asset_neg@q.com")
+    engine = RewardEngine(session)
+    with pytest.raises(ConflictError):
+        await engine.debit_asset(user_id=student.id, asset="ORT", amount=1)
+
+
+async def test_admin_can_list_negative_balances(client, engine):
+    """WEB3-02: accounts in debt are surfaced to admins."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.identity import User as _User
+    from tests.helpers import register_actor
+
+    await register_actor(client, "debt_s@ex.com", "student")
+    me = (await client.get("/api/v1/auth/me")).json()["id"]
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    alloc_id = uuid.uuid4()
+    async with sm() as s:
+        eng = RewardEngine(s)
+        user = await s.get(_User, uuid.UUID(me))
+        await eng.credit(
+            user=user,
+            amount=100,
+            reference_type="reward",
+            reference_id=str(alloc_id),
+            reward_key_value="rk-admin-debt",
+            token_id=0,
+        )
+        await eng.debit_for_withdrawal(
+            user=user, amount=100, withdrawal_id=uuid.uuid4(), destination="0x" + "4" * 40
+        )
+        await eng.refund_reward(user_id=user.id, amount=100, allocation_id=alloc_id)
+        await s.commit()
+
+    await register_actor(client, "debt_admin@ex.com", "admin")
+    r = await client.get("/api/v1/admin/ledger/negative")
+    assert r.status_code == 200, r.text
+    assert any(row["user_id"] == me and row["cached_balance"] == -100 for row in r.json())
+
 
 async def test_reward_cap_enforced_before_ledger_write(session):
     """WEB3-05: a credit above opc_max_reward_per_tx is refused before writing."""

@@ -461,3 +461,30 @@ async def reject_withdrawal(
             admin=admin, withdrawal_id=withdrawal_id, reason=payload.reason
         )
     return {"id": str(wd.id), "status": wd.status}
+
+
+@router.get("/ledger/negative")
+async def negative_balances(
+    admin: AdminUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+):
+    """Accounts whose OPT balance went negative (clawback debt)."""
+    from app.models.wallet import WalletAccount
+
+    stmt = (
+        select(WalletAccount)
+        .where(WalletAccount.cached_balance < 0)
+        .order_by(WalletAccount.cached_balance)
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [
+        {
+            "account_id": str(a.id),
+            "user_id": str(a.user_id),
+            "cached_balance": a.cached_balance,
+            "is_in_debt": a.is_in_debt,
+            "is_frozen": a.is_frozen,
+        }
+        for a in rows
+    ]

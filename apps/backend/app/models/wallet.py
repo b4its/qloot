@@ -11,6 +11,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -45,6 +46,10 @@ class WalletAccount(Base, TimestampMixin):
     cached_pending: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     withdrawal_address: Mapped[str | None] = mapped_column(String(42))
     is_frozen: Mapped[bool] = mapped_column(default=False, nullable=False)
+    # True when a compensation (e.g. a failed on-chain reward refund) drove the
+    # cached balance negative — the user owes the platform. Surfaced to admins
+    # and counted by the ledger_negative_balance_total metric.
+    is_in_debt: Mapped[bool] = mapped_column(default=False, nullable=False)
 
 
 class WalletAssetBalance(Base, TimestampMixin):
@@ -56,7 +61,12 @@ class WalletAssetBalance(Base, TimestampMixin):
     """
 
     __tablename__ = "wallet_asset_balances"
-    __table_args__ = (UniqueConstraint("user_id", "asset", name="uq_wallet_asset_user_asset"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "asset", name="uq_wallet_asset_user_asset"),
+        # Secondary assets are never allowed to go negative (only OPT can, as a
+        # clawback debt). A DB-level invariant so no code path can violate it.
+        CheckConstraint("cached_balance >= 0", name="ck_wallet_asset_balance_non_negative"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
