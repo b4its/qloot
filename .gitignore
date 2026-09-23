@@ -61,3 +61,7 @@ apps/backend/.storage/
 
 # Auto-loop state
 .opencode/auto-loop.local.md
+
+plan/
+/plan
+plan
