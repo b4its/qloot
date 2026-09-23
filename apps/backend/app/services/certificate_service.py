@@ -227,6 +227,57 @@ class CertificateService:
         await self._notify_revoked(cert)
         return cert
 
+    async def anchor(self, user: User, credential_id: str) -> Certificate | None:
+        """Anchor a certificate's verification hash on-chain (QTC-funded).
+
+        Debits one QTC from the owner, enqueues a ``certificate_anchor`` outbox
+        item (the worker writes the hash on QTC) and marks the cert
+        ``anchoring``. Idempotent: an already-anchored/anchoring cert is
+        returned unchanged, so re-clicking never double-spends or double-writes.
+        """
+        from app.models.wallet import TransactionOutbox
+        from app.services.keys import certificate_anchor_key, tx_idempotency_key
+        from app.services.reward_engine import RewardEngine
+
+        cert = await self.get_by_credential(credential_id)
+        if cert is None:
+            return None
+        if cert.user_id != user.id and not user.has_role("admin"):
+            from app.core.errors import ForbiddenError
+
+            raise ForbiddenError("You do not own this certificate")
+        if cert.revoked_at is not None:
+            from app.core.errors import ConflictError
+
+            raise ConflictError("A revoked certificate cannot be anchored")
+        if cert.anchor_status in ("anchoring", "submitted", "anchored"):
+            return cert
+
+        engine = RewardEngine(self.session)
+        # 1 QTC per anchoring (the documented QTC sink).
+        await engine.debit_asset(user_id=cert.user_id, asset="QTC", amount=1)
+        cert.anchor_status = "anchoring"
+        await self.session.flush()
+
+        anchor_key = certificate_anchor_key(cert.id)
+        self.session.add(
+            TransactionOutbox(
+                topic="certificate_anchor",
+                idempotency_key=tx_idempotency_key("anchor", str(cert.id)),
+                payload={
+                    "certificate_id": str(cert.id),
+                    "anchor_key": anchor_key,
+                    "document_hash": "0x" + cert.verification_hash,
+                    "user_id": str(cert.user_id),
+                    "qtc_cost": 1,
+                },
+                status="pending",
+            )
+        )
+        await self.session.flush()
+        log.info("certificate_anchor_queued", credential_id=credential_id)
+        return cert
+
     async def _notify_revoked(self, cert: Certificate) -> None:
         from app.services.social_service import NotificationService
 
@@ -255,4 +306,7 @@ class CertificateService:
             "issued_at": cert.issued_at,
             "revoked_at": cert.revoked_at,
             "revoked_reason": cert.revoked_reason,
+            "anchor_status": cert.anchor_status,
+            "anchor_tx_hash": cert.anchor_tx_hash,
+            "anchored_at": cert.anchored_at,
         }

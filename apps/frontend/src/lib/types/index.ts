@@ -375,6 +375,9 @@ export interface Certificate {
   issued_at: string;
   revoked_at?: string | null;
   revoked_reason?: string | null;
+  anchor_status?: string;
+  anchor_tx_hash?: string | null;
+  anchored_at?: string | null;
 }
 
 export interface CertificateVerify {
@@ -385,6 +388,8 @@ export interface CertificateVerify {
   issued_by?: string | null;
   issued_at?: string | null;
   verification_hash?: string | null;
+  anchor_status?: string;
+  anchor_tx_hash?: string | null;
 }
 
 export interface LiveEntry {

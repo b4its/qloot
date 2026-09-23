@@ -55,6 +55,8 @@ async def verify(credential_id: str, user: OptionalUser, db: DbSession):
         issued_by=cert.issued_by,
         issued_at=cert.issued_at,
         verification_hash=cert.verification_hash,
+        anchor_status=cert.anchor_status,
+        anchor_tx_hash=cert.anchor_tx_hash,
     )
 
 
@@ -64,6 +66,18 @@ async def sync(user: CurrentUser, db: DbSession):
     async with transaction(db):
         certs = await CertificateService(db).sync_for_user(user)
     return [CertificateService.out(c) for c in certs]
+
+
+@router.post("/{credential_id}/anchor", response_model=CertificateOut)
+async def anchor(credential_id: str, user: CurrentUser, db: DbSession):
+    """Anchor the certificate's hash on-chain (QTC). Owner or admin only."""
+    from app.core.errors import NotFoundError
+
+    async with transaction(db):
+        cert = await CertificateService(db).anchor(user, credential_id)
+    if cert is None:
+        raise NotFoundError("Certificate not found")
+    return CertificateService.out(cert)
 
 
 @router.post("/{credential_id}/revoke", response_model=CertificateOut)

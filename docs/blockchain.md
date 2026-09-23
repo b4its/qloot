@@ -35,6 +35,10 @@ plus a custom transient-storage reentrancy guard.
 - Role-based mint/burn + `mintBatch`, idempotent `rewardUser` keyed by uint256.
 - Pausable, per-tx + rolling daily mint caps, URI management.
 - **ORX router**: `swapOptFor` (OPT → QTC/ORT at fixed rates), `payAiRequest`.
+- **QTC anchoring**: `anchorDocument` (via ORX `anchorOnQtc`) stores an opaque
+  document hash (e.g. a certificate's verification hash) under a unique key —
+  hash only, no PII. This is QTC's functional sink: anchoring a certificate
+  costs `1 QTC`.
 - ORX totals: `totalOptSwappedIn`, `totalOrtMinted`, `totalQtcMinted`, `totalAiRequests`.
 
 ### Events
@@ -48,6 +52,7 @@ Burned(from, amount)
 RewardPaid(to, amount, reason, idempotencyKey)
 MaxSupplyUpdated(newMaxSupply)
 LimitsUpdated(maxMintPerTx, dailyMintCap)
+DocumentAnchored(anchorKey, documentHash, by)
 
 // OryphemProxy (ORX)
 Routed(account, qtcOrOrtId, optIn, assetOut)
@@ -74,8 +79,9 @@ make blockchain-upgrade NETWORK=localhost ASSET=ALL    # preserves all state
 - The backend computes reward idempotency keys off-chain and mirrors per-user
   balances in the double-entry ledger; on-chain asset balances are reconciled.
 - The blockchain worker drains `transaction_outbox` (topics: `reward`,
-  `airdrop`, `withdrawal`, `pause`, `unpause`, `swap`, `ai_request`); the
-  indexer tracks confirmations and flips reward allocations to `confirmed`.
+  `airdrop`, `withdrawal`, `pause`, `unpause`, `swap`, `ai_request`,
+  `certificate_anchor`); the indexer tracks confirmations and flips reward
+  allocations to `confirmed`.
 - In development (`BLOCKCHAIN_DRY_RUN=true`) an in-process fake chain returns
   deterministic pseudo-hashes so the whole pipeline runs offline.
 

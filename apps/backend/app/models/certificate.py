@@ -56,3 +56,7 @@ class Certificate(Base):
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_reason: Mapped[str | None] = mapped_column(String(255))
+    # On-chain anchoring (QTC) of the certificate's verification hash.
+    anchor_status: Mapped[str] = mapped_column(String(16), default="unanchored", nullable=False)
+    anchor_tx_hash: Mapped[str | None] = mapped_column(String(66))
+    anchored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

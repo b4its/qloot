@@ -41,6 +41,11 @@ def course_completion_key(course_id: uuid.UUID, user_id: uuid.UUID) -> str:
     return _h("course_complete", str(course_id), str(user_id))
 
 
+def certificate_anchor_key(certificate_id: uuid.UUID) -> str:
+    """On-chain anchor key for a certificate (deterministic, one per cert)."""
+    return _h("cert_anchor", str(certificate_id))
+
+
 def withdrawal_key(withdrawal_id: uuid.UUID) -> str:
     return _h("withdrawal", str(withdrawal_id))
 

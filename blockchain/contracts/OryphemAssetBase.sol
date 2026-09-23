@@ -72,8 +72,13 @@ abstract contract OryphemAssetBase is
     /// @notice Tracked idempotency keys for `rewardUser`.
     mapping(uint256 => bool) public rewardKeyUsed;
 
-    /// @dev Reserved storage for future upgrades.
-    uint256[40] private __gap;
+    /// @notice On-chain anchors for opaque document hashes (e.g. certificate
+    ///         hashes). Maps the caller-chosen anchor key to the stored hash.
+    ///         Only the hash is stored — never any PII.
+    mapping(bytes32 => bytes32) public documentAnchors;
+
+    /// @dev Reserved storage for future upgrades (was [40]; one slot used).
+    uint256[39] private __gap;
 
     // =====================================================================
     // Events
@@ -83,6 +88,7 @@ abstract contract OryphemAssetBase is
     event RewardPaid(address indexed to, uint256 amount, bytes32 reason, uint256 idempotencyKey);
     event MaxSupplyUpdated(uint256 newMaxSupply);
     event LimitsUpdated(uint256 maxMintPerTx, uint256 dailyMintCap);
+    event DocumentAnchored(bytes32 indexed anchorKey, bytes32 documentHash, address indexed by);
 
     // =====================================================================
     // Errors
@@ -101,6 +107,8 @@ abstract contract OryphemAssetBase is
     error LengthMismatch();
     error EmptyBatch();
     error BatchTooLarge();
+    error AnchorKeyUsed();
+    error ZeroAnchorKey();
 
     // =====================================================================
     // Init / metadata
@@ -241,6 +249,32 @@ abstract contract OryphemAssetBase is
         _checkAndAccumulateDaily(ASSET_ID, amount);
         _mint(to, ASSET_ID, amount, "");
         emit RewardPaid(to, amount, reason, idempotencyKey);
+    }
+
+    // =====================================================================
+    // Document anchoring (certificates / encrypted-message pointers)
+    // =====================================================================
+    /**
+     * @notice Anchor an opaque document hash under a unique key.
+     * @dev Writes only the hash on-chain (no PII). Idempotent per key: the same
+     *      key cannot be anchored twice, so a certificate can be anchored at
+     *      most once. Callable by ROUTER_ROLE (the operator/router).
+     */
+    function anchorDocument(bytes32 anchorKey, bytes32 documentHash)
+        external
+        onlyRole(ROUTER_ROLE)
+        returns (bytes32)
+    {
+        if (anchorKey == bytes32(0)) revert ZeroAnchorKey();
+        if (documentAnchors[anchorKey] != bytes32(0)) revert AnchorKeyUsed();
+        documentAnchors[anchorKey] = documentHash;
+        emit DocumentAnchored(anchorKey, documentHash, msg.sender);
+        return documentHash;
+    }
+
+    /// @notice Whether `anchorKey` has been anchored, and its stored hash.
+    function documentAnchorOf(bytes32 anchorKey) external view returns (bytes32) {
+        return documentAnchors[anchorKey];
     }
 
     // =====================================================================

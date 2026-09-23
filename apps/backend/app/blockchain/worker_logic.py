@@ -167,6 +167,24 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
                 _require(payload, "requests")
                 receipt = await client.pay_ai_request(requests=int(payload["requests"]))
                 tx.method = "payAiRequest"
+            elif item.topic == "certificate_anchor":
+                # Anchor a certificate's verification hash on QTC.
+                payload = item.payload or {}
+                _require(payload, "anchor_key", "document_hash")
+                receipt = await client.anchor_document(
+                    anchor_key=payload["anchor_key"],
+                    document_hash=payload["document_hash"],
+                )
+                tx.method = "anchorOnQtc"
+                if payload.get("certificate_id"):
+                    from app.models.certificate import Certificate
+
+                    cert = await session.get(
+                        Certificate, uuid.UUID(payload["certificate_id"])
+                    )
+                    if cert is not None:
+                        cert.anchor_status = "submitted"
+                        cert.anchor_tx_hash = receipt.tx_hash
             else:
                 raise ChainError(f"Unknown outbox topic: {item.topic}")
         except (KeyError, ValueError) as exc:
@@ -243,6 +261,19 @@ async def _mark_failed(session: AsyncSession, item, error: str) -> None:
         await engine.refund_ai_request(
             user_id=uuid.UUID(payload["user_id"]), requests=int(payload.get("requests", 0))
         )
+    if item.topic == "certificate_anchor" and payload.get("certificate_id"):
+        from app.models.certificate import Certificate
+
+        cert = await session.get(Certificate, uuid.UUID(payload["certificate_id"]))
+        if cert is not None:
+            cert.anchor_status = "failed"
+            cert.anchor_tx_hash = None
+            if payload.get("user_id"):
+                await engine.refund_ai_request(
+                    user_id=uuid.UUID(payload["user_id"]),
+                    requests=int(payload.get("qtc_cost", 0)),
+                    asset="QTC",
+                )
 
 
 async def _refund_swap(engine, item, payload: dict) -> None:
@@ -364,6 +395,21 @@ async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> No
         await engine.refund_ai_request(
             user_id=uuid.UUID(args["user_id"]), requests=int(args.get("requests", 0))
         )
+    if tx.method == "anchorOnQtc" and args.get("certificate_id"):
+        # The QTC was debited up front; a reverted anchor must return it and
+        # reset the certificate so it can be retried.
+        from app.models.certificate import Certificate
+
+        cert = await session.get(Certificate, uuid.UUID(args["certificate_id"]))
+        if cert is not None:
+            cert.anchor_status = "failed"
+            cert.anchor_tx_hash = None
+            if args.get("user_id"):
+                await engine.refund_ai_request(
+                    user_id=uuid.UUID(args["user_id"]),
+                    requests=int(args.get("qtc_cost", 0)),
+                    asset="QTC",
+                )
 
 
 async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> None:
@@ -377,3 +423,10 @@ async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> N
         wd = await session.get(WithdrawalRequest, uuid.UUID(args["withdrawal_id"]))
         if wd is not None:
             wd.status = "completed"
+    if tx.method == "anchorOnQtc" and args.get("certificate_id"):
+        from app.models.certificate import Certificate
+
+        cert = await session.get(Certificate, uuid.UUID(args["certificate_id"]))
+        if cert is not None:
+            cert.anchor_status = "anchored"
+            cert.anchored_at = datetime.now(UTC)

@@ -21,6 +21,9 @@ class CertificateOut(BaseModel):
     issued_at: datetime
     revoked_at: datetime | None = None
     revoked_reason: str | None = None
+    anchor_status: str = "unanchored"
+    anchor_tx_hash: str | None = None
+    anchored_at: datetime | None = None
 
 
 class RevokeRequest(BaseModel):
@@ -35,3 +38,5 @@ class CertificateVerifyOut(BaseModel):
     issued_by: str | None = None
     issued_at: datetime | None = None
     verification_hash: str | None = None
+    anchor_status: str = "unanchored"
+    anchor_tx_hash: str | None = None

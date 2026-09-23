@@ -63,6 +63,21 @@
             <p class="mono-label">Hash verifikasi</p>
             <p class="mono break-all text-xs muted">{result.verification_hash}</p>
           </div>
+          <div class="sm:col-span-2">
+            <p class="mono-label">Status on-chain</p>
+            {#if result.anchor_status === "anchored"}
+              <p class="text-sm text-secondary">
+                <Icon name="shield-halved" size="12px" /> Ter-anchor di jaringan (QTC)
+                {#if result.anchor_tx_hash}
+                  · <span class="mono break-all text-xs">{result.anchor_tx_hash}</span>
+                {/if}
+              </p>
+            {:else if result.anchor_status === "anchoring" || result.anchor_status === "submitted"}
+              <p class="text-sm muted">Menunggu konfirmasi jaringan…</p>
+            {:else}
+              <p class="text-sm muted">Belum di-anchor on-chain.</p>
+            {/if}
+          </div>
         </div>
       {:else}
         <p class="alert-error mt-5">

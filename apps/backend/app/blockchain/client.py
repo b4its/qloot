@@ -316,6 +316,24 @@ class ChainClient:
             raise ChainError("ORX_CONTRACT_ADDRESS is not configured")
         return await self._send(self._orx.functions.payAiRequest(int(requests)))
 
+    async def anchor_document(self, *, anchor_key: str, document_hash: str) -> TxReceipt:
+        """Anchor a document hash on QTC via the ORX router.
+
+        ``anchor_key`` and ``document_hash`` are 0x-prefixed 32-byte values.
+        Dry-run returns a deterministic hash so the flow is demoable offline.
+        """
+        if self.dry_run:
+            return TxReceipt(
+                tx_hash=self._fake_hash("anchor", anchor_key, document_hash),
+                status=1,
+                dry_run=True,
+            )
+        if self._orx is None:
+            raise ChainError("ORX_CONTRACT_ADDRESS is not configured")
+        return await self._send(
+            self._orx.functions.anchorOnQtc(_b32(anchor_key), _b32(document_hash))
+        )
+
     async def _send(self, fn) -> TxReceipt:
         assert self._w3 is not None and self._account is not None
         try:

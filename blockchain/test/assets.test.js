@@ -417,4 +417,31 @@ describe("QLoot digital assets — OPT / QTC / ORT + ORX router", function () {
       );
     });
   });
+
+  // =====================================================================
+  describe("document anchoring (certificates)", function () {
+    const anchorKey = ethers.keccak256(ethers.toUtf8Bytes("cert:QTC-1"));
+    const docHash = ethers.keccak256(ethers.toUtf8Bytes("certificate-payload"));
+
+    it("anchors a hash and emits DocumentAnchored (router only)", async function () {
+      // The ORX router holds ROUTER_ROLE on QTC; route the call through it.
+      await expect(orx.connect(admin).anchorOnQtc(anchorKey, docHash))
+        .to.emit(qtc, "DocumentAnchored")
+        .withArgs(anchorKey, docHash, await orx.getAddress());
+      expect(await qtc.documentAnchorOf(anchorKey)).to.equal(docHash);
+    });
+
+    it("rejects a direct anchor from a non-router account", async function () {
+      await expect(
+        qtc.connect(attacker).anchorDocument(anchorKey, docHash)
+      ).to.be.revertedWithCustomError(qtc, "AccessControlUnauthorizedAccount");
+    });
+
+    it("is idempotent per key (no double-anchor)", async function () {
+      await orx.connect(admin).anchorOnQtc(anchorKey, docHash);
+      await expect(
+        orx.connect(admin).anchorOnQtc(anchorKey, docHash)
+      ).to.be.revertedWithCustomError(qtc, "AnchorKeyUsed");
+    });
+  });
 });

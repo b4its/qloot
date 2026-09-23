@@ -14,6 +14,7 @@
   let error = "";
   let copied = false;
   let revoking = false;
+  let anchoring = false;
   let listPage = 1;
   $: listTotalPages = Math.max(1, Math.ceil(certs.length / LIST_PAGE_SIZE));
   $: if (listPage > listTotalPages) listPage = 1;
@@ -45,6 +46,24 @@
       error = e instanceof ApiError ? e.message : "Gagal mencabut sertifikat";
     } finally {
       revoking = false;
+    }
+  }
+
+  /** Anchor the active certificate on-chain (costs 1 QTC). */
+  async function anchorActive() {
+    if (!active || anchoring) return;
+    anchoring = true;
+    error = "";
+    try {
+      const updated = await api.post<Certificate>(
+        `/certificates/${active.credential_id}/anchor`,
+      );
+      active = updated;
+      certs = certs.map((c) => (c.id === updated.id ? updated : c));
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal meng-anchor sertifikat";
+    } finally {
+      anchoring = false;
     }
   }
 
@@ -265,6 +284,25 @@
           <a class="btn-ghost w-full" href={linkedinUrl()} target="_blank" rel="noopener">
             <Icon name="linkedin" set="brands" size="12px" /> Tambah ke LinkedIn
           </a>
+          {#if !active.revoked_at}
+            {#if active.anchor_status === "anchored"}
+              <p class="text-xs text-secondary">
+                <Icon name="shield-halved" size="11px" /> Ter-anchor on-chain (QTC)
+                {#if active.anchor_tx_hash}
+                  · <span class="mono-label">{active.anchor_tx_hash.slice(0, 12)}…</span>
+                {/if}
+              </p>
+            {:else if active.anchor_status === "anchoring" || active.anchor_status === "submitted"}
+              <p class="text-xs muted"><Icon name="spinner" spin size="11px" /> Menunggu konfirmasi chain…</p>
+            {:else if active.anchor_status === "failed"}
+              <p class="text-xs text-tertiary">Anchor gagal — QTC dikembalikan. Coba lagi.</p>
+            {:else}
+              <button class="btn-secondary w-full" on:click={anchorActive} disabled={anchoring}>
+                <Icon name="link" size="12px" />
+                {anchoring ? "Meng-anchor…" : "Anchor ke chain (1 QTC)"}
+              </button>
+            {/if}
+          {/if}
           {#if user?.roles?.includes("admin") && !active.revoked_at}
             <button
               class="btn-ghost w-full !text-tertiary hover:!border-tertiary"

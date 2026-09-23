@@ -116,3 +116,107 @@ async def test_verification_of_unknown_credential_is_invalid(client):
     r = await client.get("/api/v1/certificates/verify/QLT-DOES-NOT-EXIST")
     assert r.status_code == 200
     assert r.json()["valid"] is False
+
+
+async def _issue_cert(client, engine, *, code="1A", tag="anchor"):
+    """Create a course+lesson, complete it as a student, return the certificate."""
+    await _register(client, f"anc_t_{tag}@ex.com", "teacher")
+    course = await client.post(
+        "/api/v1/courses",
+        json={
+            "title": f"Anchor {code} {tag}",
+            "class_code": code,
+            "class_type": "IPA",
+            "is_published": True,
+        },
+    )
+    course_id = course.json()["id"]
+    lesson = await client.post(
+        f"/api/v1/courses/{course_id}/lessons", json={"title": "M1", "position": 0}
+    )
+    lid = lesson.json()["id"]
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, f"anc_s_{tag}@ex.com", "student", code, "IPA")
+    me = (await client.get("/api/v1/auth/me")).json()["id"]
+    await client.post(
+        f"/api/v1/lessons/{lid}/progress",
+        json={"progress_percent": 100, "completed": True},
+    )
+    certs = (await client.get("/api/v1/certificates")).json()
+    return certs[0], me
+
+
+async def _credit_qtc(engine, user_id, amount: int):
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.services.reward_engine import RewardEngine
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        await RewardEngine(s).credit_asset(user_id=user_id, asset="QTC", amount=amount)
+        await s.commit()
+
+
+async def test_certificate_anchoring_requires_and_spends_qtc(client, engine):
+    cert, me = await _issue_cert(client, engine, tag="need")
+    cid = cert["credential_id"]
+
+    # No QTC -> 402 (insufficient QTC balance).
+    blocked = await client.post(f"/api/v1/certificates/{cid}/anchor")
+    assert blocked.status_code == 409, blocked.text
+
+    await _credit_qtc(engine, me, 1)
+    ok = await client.post(f"/api/v1/certificates/{cid}/anchor")
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["anchor_status"] == "anchoring"
+
+    # QTC was debited.
+    assets = (await client.get("/api/v1/wallet/assets")).json()["assets"]
+    assert next(a["balance"] for a in assets if a["asset"] == "QTC") == 0
+
+
+async def test_certificate_anchor_end_to_end_confirms(client, engine):
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.blockchain.worker_logic import process_outbox_item, refresh_confirmations
+    from app.models.wallet import TransactionOutbox
+
+    cert, me = await _issue_cert(client, engine, tag="e2e")
+    cid = cert["credential_id"]
+    await _credit_qtc(engine, me, 1)
+    await client.post(f"/api/v1/certificates/{cid}/anchor")
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        item = (
+            await s.execute(
+                select(TransactionOutbox).where(
+                    TransactionOutbox.topic == "certificate_anchor",
+                    TransactionOutbox.payload["certificate_id"].astext == cert["id"],
+                )
+            )
+        ).scalars().first()
+        assert item is not None
+        await process_outbox_item(s, item.id)
+        await refresh_confirmations(s)
+        await s.commit()
+
+    # Verify now reports the anchored status + tx hash.
+    v = (await client.get(f"/api/v1/certificates/verify/{cid}")).json()
+    assert v["anchor_status"] == "anchored"
+    assert v["anchor_tx_hash"]
+
+    # Re-anchoring is idempotent (no second outbox row, no extra QTC debit).
+    await client.post(f"/api/v1/certificates/{cid}/anchor")
+    async with sm() as s:
+        rows = (
+            await s.execute(
+                select(TransactionOutbox).where(
+                    TransactionOutbox.topic == "certificate_anchor",
+                    TransactionOutbox.payload["certificate_id"].astext == cert["id"],
+                )
+            )
+        ).scalars().all()
+    assert len(rows) == 1

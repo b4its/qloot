@@ -21,6 +21,11 @@ interface IOryphemAsset {
     function ASSET_ID() external view returns (uint256);
 }
 
+/// @notice Minimal interface for the document-anchoring ability (QTC).
+interface IDocumentAnchor {
+    function anchorDocument(bytes32 anchorKey, bytes32 documentHash) external returns (bytes32);
+}
+
 /**
  * @title OryphemProxy (ORX) — the QLoot asset router
  * @notice Routes the network between OPT (base currency) and the other digital
@@ -209,6 +214,20 @@ contract OryphemProxy is
     /// @notice Current OPT-per-unit rates for ORT and QTC.
     function proxyRates() external pure returns (uint256 optPerOrt, uint256 optPerQtc) {
         return (ORT_RATE, QTC_RATE);
+    }
+
+    /**
+     * @notice Anchor a document hash on the QTC contract (certificates).
+     * @dev The proxy holds ROUTER_ROLE on QTC, so it forwards the anchoring
+     *      call. Only the hash is written on-chain (no PII).
+     */
+    function anchorOnQtc(bytes32 anchorKey, bytes32 documentHash)
+        external
+        onlyRole(ROUTER_ROLE)
+        returns (bytes32)
+    {
+        if (address(qtc) == address(0)) revert NotConfigured();
+        return IDocumentAnchor(address(qtc)).anchorDocument(anchorKey, documentHash);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(ADMIN_ROLE) {}
