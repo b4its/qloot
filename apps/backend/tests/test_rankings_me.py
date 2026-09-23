@@ -20,7 +20,10 @@ async def _register(client, email, role="student"):
 
 
 async def _make_exam(client, title="Ranking Exam"):
-    exam = await client.post("/api/v1/exams", json={"title": title, "duration_minutes": 20})
+    exam = await client.post(
+        "/api/v1/exams",
+        json={"title": title, "duration_minutes": 20, "max_attempts": 10},
+    )
     assert exam.status_code == 201, exam.text
     exam_id = exam.json()["id"]
     q = await client.post(

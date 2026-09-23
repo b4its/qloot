@@ -94,6 +94,8 @@ class ExamCreate(BaseModel):
     course_id: uuid.UUID | None = None
     year: int | None = Field(default=None, ge=1900, le=2100)
     passing_score_bp: int = Field(default=6000, ge=0, le=10_000)
+    # Maximum attempts per student (0 = unlimited).
+    max_attempts: int = Field(default=1, ge=0, le=100)
     instructions: str | None = Field(default=None, max_length=20_000)
     # Optional scheduling window. When set, attempts can only start within it
     # (students see 409 before `opens_at` / the deadline enforced at submit).
@@ -105,6 +107,7 @@ class ExamUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
     duration_minutes: int | None = Field(default=None, ge=1, le=600)
     passing_score_bp: int | None = Field(default=None, ge=0, le=10_000)
+    max_attempts: int | None = Field(default=None, ge=0, le=100)
     instructions: str | None = Field(default=None, max_length=20_000)
     is_active: bool | None = None
     opens_at: datetime | None = None
@@ -118,6 +121,7 @@ class ExamOut(ORMModel):
     room_id: uuid.UUID | None
     course_id: uuid.UUID | None
     duration_minutes: int
+    max_attempts: int = 1
     status: str
     is_active: bool
     passing_score_bp: int

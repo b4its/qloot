@@ -293,6 +293,12 @@ class ExamService:
                 )
             ).scalar_one()
         )
+        # Enforce the retake policy: 0 means unlimited.
+        if exam.max_attempts and max_num >= exam.max_attempts:
+            raise ConflictError(
+                f"Batas percobaan tercapai ({exam.max_attempts}). "
+                "Hubungi pengajar untuk percobaan tambahan."
+            )
         attempt = ExamAttempt(
             exam_id=exam_id, user_id=user.id, attempt_number=max_num + 1, status="in_progress"
         )

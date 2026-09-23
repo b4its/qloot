@@ -102,6 +102,7 @@ export interface Exam {
   room_id?: string | null;
   course_id?: string | null;
   duration_minutes: number;
+  max_attempts?: number;
   status: string;
   is_active: boolean;
   passing_score_bp: number;

@@ -20,6 +20,11 @@
   $: totalPages = Math.max(1, Math.ceil(pastAttempts.length / PAGE_SIZE));
   $: if (attemptPage > totalPages) attemptPage = 1;
   $: pagedAttempts = paginate(pastAttempts, attemptPage, PAGE_SIZE);
+  // Remaining attempts for the caller (null when unlimited or unknown).
+  $: remainingAttempts =
+    exam?.max_attempts && exam.max_attempts > 0
+      ? Math.max(0, exam.max_attempts - pastAttempts.length)
+      : null;
 
   const examId = $page.params.examId;
   $: canManage = hasRole($auth.user, "teacher");
@@ -104,7 +109,18 @@
         <p class="mt-1 text-sm muted">
           Timer dikendalikan server. Jawabanmu tersimpan otomatis saat kamu mengerjakan.
         </p>
-        <button class="btn-primary mt-4" on:click={start} disabled={starting}>
+        {#if remainingAttempts !== null}
+          <p class="mt-2 text-xs muted">
+            {remainingAttempts > 0
+              ? `Sisa percobaan: ${remainingAttempts}`
+              : "Kamu telah menggunakan semua percobaan. Hubungi pengajar untuk percobaan tambahan."}
+          </p>
+        {/if}
+        <button
+          class="btn-primary mt-4"
+          on:click={start}
+          disabled={starting || remainingAttempts === 0}
+        >
           {starting ? "Memulai…" : "Mulai mengerjakan"}
         </button>
       </div>

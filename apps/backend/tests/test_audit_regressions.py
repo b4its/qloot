@@ -24,8 +24,10 @@ async def _register(client, email, role="student", name="Test User"):
     return await register_actor(client, email, role, full_name=name)
 
 
-async def _make_exam_with_questions(client, n=2):
-    exam = await client.post("/api/v1/exams", json={"title": "Audit Exam"})
+async def _make_exam_with_questions(client, n=2, max_attempts=10):
+    exam = await client.post(
+        "/api/v1/exams", json={"title": "Audit Exam", "max_attempts": max_attempts}
+    )
     assert exam.status_code == 201
     exam_id = exam.json()["id"]
     qids = []

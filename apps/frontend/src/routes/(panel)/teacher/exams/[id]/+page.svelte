@@ -19,7 +19,7 @@
   let message = "";
   let busy = "";
 
-  let form = { title: "", duration_minutes: 60, passing_score_bp: 6000 };
+  let form = { title: "", duration_minutes: 60, passing_score_bp: 6000, max_attempts: 1 };
 
   let questions: Question[] = [];
   let questionsLoading = false;
@@ -64,6 +64,7 @@
         title: exam.title,
         duration_minutes: exam.duration_minutes,
         passing_score_bp: exam.passing_score_bp,
+        max_attempts: exam.max_attempts ?? 1,
       };
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
@@ -293,6 +294,10 @@
             max="10000"
             bind:value={form.passing_score_bp}
           />
+        </label>
+        <label class="block">
+          <span class="mono-label">Maks. percobaan (0 = tak terbatas)</span>
+          <input class="input mt-1" type="number" min="0" max="100" bind:value={form.max_attempts} />
         </label>
       </div>
       <div class="mt-3 flex items-center justify-between">

@@ -9,7 +9,7 @@
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
-  let form = { title: "", duration_minutes: 60, passing_score_bp: 6000 };
+  let form = { title: "", duration_minutes: 60, passing_score_bp: 6000, max_attempts: 1 };
   let busy = false;
   let error = "";
   let message = "";
@@ -73,6 +73,10 @@
           max="10000"
           bind:value={form.passing_score_bp}
         />
+      </label>
+      <label class="block">
+        <span class="mono-label">Maks. percobaan (0 = tak terbatas)</span>
+        <input class="input mt-1" type="number" min="0" max="100" bind:value={form.max_attempts} />
       </label>
     </div>
     <p class="mt-2 text-xs muted">Passing score dalam basis points — 6000 = 60%.</p>
