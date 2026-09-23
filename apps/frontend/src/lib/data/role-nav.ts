@@ -88,6 +88,12 @@ export const adminNav: RoleNavItem[] = [
     desc: "Setujui atau tolak permintaan penarikan",
   },
   {
+    href: "/admin/ledger",
+    label: "Ledger",
+    icon: "book",
+    desc: "Rekonsiliasi saldo dan akun berutang",
+  },
+  {
     href: "/admin/blockchain",
     label: "Blockchain",
     icon: "cube",

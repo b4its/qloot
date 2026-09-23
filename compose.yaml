@@ -177,6 +177,18 @@ services:
       - data-network
       - blockchain-network
 
+  reconciler:
+    <<: [*backend-build, *backend-env]
+    command: ["python", "-m", "app.workers.reconciler"]
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - application-network
+      - data-network
+
   frontend:
     build:
       context: ./apps/frontend

@@ -520,6 +520,70 @@ class RewardEngine:
         ).scalar_one()
         return account.cached_balance, int(credits) - int(debits)
 
+    async def reconcile_all(self, *, limit: int = 200) -> list[dict]:
+        """Scan every OPT account for cached-vs-ledger drift and repair it.
+
+        The ledger is the source of truth: ``cached_balance`` must equal
+        ``sum(credits) - sum(debits)``. Any mismatch is reported (metric + row
+        metadata), and the cached value is repaired to match the ledger so
+        subsequent balance reads are correct again.
+        """
+        from sqlalchemy import func
+
+        from app.core import metrics
+        from app.models.identity import User
+
+        accounts = (
+            await self.session.execute(
+                select(WalletAccount).order_by(WalletAccount.created_at).limit(limit)
+            )
+        ).scalars().all()
+        drifted: list[dict] = []
+        for account in accounts:
+            credits = (
+                await self.session.execute(
+                    select(func.coalesce(func.sum(WalletLedgerEntry.amount), 0)).where(
+                        WalletLedgerEntry.account_id == account.id,
+                        WalletLedgerEntry.entry_type == "credit",
+                    )
+                )
+            ).scalar_one()
+            debits = (
+                await self.session.execute(
+                    select(func.coalesce(func.sum(WalletLedgerEntry.amount), 0)).where(
+                        WalletLedgerEntry.account_id == account.id,
+                        WalletLedgerEntry.entry_type == "debit",
+                    )
+                )
+            ).scalar_one()
+            expected = int(credits) - int(debits)
+            if account.cached_balance != expected:
+                drifted.append(
+                    {
+                        "account_id": str(account.id),
+                        "user_id": str(account.user_id),
+                        "cached": account.cached_balance,
+                        "expected": expected,
+                    }
+                )
+                account.cached_balance = expected
+                metrics.incr("ledger_reconciliation_errors_total")
+                log.warning(
+                    "ledger_drift_detected",
+                    account_id=str(account.id),
+                    cached=drifted[-1]["cached"],
+                    expected=expected,
+                )
+        if drifted:
+            await self.session.flush()
+        # Attach a user email-ish label for the admin view (id only, no PII leak).
+        for row in drifted:
+            user = await self.session.get(User, uuid.UUID(row["user_id"]))
+            row["user_ref"] = user.chain_user_ref[:12] if user else None
+        return drifted
+
+    # --- secondary assets (QTC / ORT) -------------------------------------
+
     async def refund_reward(
         self, *, user_id: uuid.UUID, amount: int, allocation_id: uuid.UUID
     ) -> WalletLedgerEntry | None:

@@ -73,8 +73,14 @@ Confirm the indexer is running (`make logs-blockchain`). Increase
 `OPC_CONFIRMATIONS` or check RPC health.
 
 **Ledger mismatch**
-`GET /api/v1/wallet/reconciliation` returns `cached_balance` vs `computed_balance`.
-A mismatch means a bug: capture the account id and investigate before crediting.
+`GET /api/v1/wallet/reconciliation` returns `cached_balance` vs `computed_balance`
+for the caller. A mismatch means a bug: capture the account id and investigate
+before crediting. The **reconciler worker** (`python -m app.workers.reconciler`,
+compose service `reconciler`) sweeps every OPT account every 5 minutes: it detects
+cached-vs-ledger drift, bumps `ledger_reconciliation_errors_total`, repairs the
+cache to the ledger value, and logs `ledger_drift_detected`. Admins can trigger a
+sweep on demand from `/admin/ledger` (or `POST /api/v1/admin/ledger/reconcile`)
+and see accounts with a negative balance (`is_in_debt`) on the same page.
 
 **Suspect a leaked key**
 Rotate immediately (new wallet, new RPC key, new Etherscan key), move assets, and

@@ -488,3 +488,22 @@ async def negative_balances(
         }
         for a in rows
     ]
+
+
+@router.post("/ledger/reconcile")
+async def run_reconciliation(admin: AdminUser, db: DbSession):
+    """Run a reconciliation sweep now; returns the accounts that had drifted."""
+    from app.services.reward_engine import RewardEngine
+
+    async with transaction(db):
+        drifted = await RewardEngine(db).reconcile_all()
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="ledger.reconcile",
+                entity_type="ledger",
+                entity_id="all",
+                data={"drifted": len(drifted)},
+            )
+        )
+    return {"drifted": drifted, "count": len(drifted)}
