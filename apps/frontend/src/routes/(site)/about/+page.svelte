@@ -29,11 +29,14 @@
   </div>
 
   <div class="mt-10 grid grid-cols-2 gap-6 rounded-sm border p-6 sm:grid-cols-4">
-    {#each [{ v: 12840, s: "+", l: "Pelajar" }, { v: 96, s: "", l: "Kursus" }, { v: 42, s: "", l: "Mentor" }, { v: 5310, s: "+", l: "Sertifikat" }] as s}
+    {#each [{ v: 12840, s: "+", l: "Pelajar" }, { v: 96, s: "", l: "Pelajaran" }, { v: 42, s: "", l: "Pengajar" }, { v: 5310, s: "+", l: "Sertifikat" }] as s}
       <div>
         <p class="font-display text-2xl font-bold"><StatCounter value={s.v} suffix={s.s} /></p>
         <p class="mono-label mt-1">{s.l}</p>
       </div>
     {/each}
   </div>
+  <p class="mono-label mt-3 text-xs muted">
+    Angka di atas ilustratif untuk keperluan demo, bukan data langsung dari sistem.
+  </p>
 </div>

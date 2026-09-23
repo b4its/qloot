@@ -4,19 +4,19 @@
   const faqs = [
     {
       q: "Apakah saya perlu latar belakang teknis?",
-      a: "Tidak. Setiap jalur dimulai dari dasar. Level kursus ditandai jelas: Pemula, Menengah, Lanjutan.",
+      a: "Tidak. Setiap pelajaran dimulai dari dasar. Materi per kelas disusun bertahap oleh pengajar.",
     },
     {
       q: "Apakah sertifikatnya diakui?",
       a: "Sertifikat QLoot adalah kredensial digital dengan ID unik dan tautan verifikasi, cocok untuk portofolio dan LinkedIn.",
     },
     {
-      q: "Berapa lama akses kursus?",
-      a: "Akses selamanya untuk kursus yang kamu daftarkan, termasuk pembaruan materi.",
+      q: "Bagaimana QLoot diorganisir?",
+      a: "QLoot adalah platform belajar berbasis kelas. Kamu melihat pelajaran, ujian, dan tugas sesuai kelas yang kamu daftarkan (mis. 1A · IPA).",
     },
     {
-      q: "Bagaimana sistem pembayarannya?",
-      a: "Beberapa kursus gratis. Untuk kursus berbayar, pembayaran dilakukan sekali di muka.",
+      q: "Apakah saya harus membayar?",
+      a: "Tidak ada kursus berbayar. QLoot adalah platform kelas — akun pelajar dibuat gratis, dan akun pengajar dibuat oleh admin sekolah.",
     },
     {
       q: "Apakah ada komunitas?",
