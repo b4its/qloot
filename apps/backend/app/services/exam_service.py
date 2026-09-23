@@ -400,6 +400,44 @@ class ExamService:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def sweep_expired_attempts(self, *, limit: int = 50) -> int:
+        """Auto-submit in-progress attempts whose server deadline has passed.
+
+        Idempotent and safe under concurrency: rows are locked with SKIP LOCKED
+        and only an attempt still ``in_progress`` is transitioned, so a second
+        sweep (or a second worker) is a no-op. Expired attempts are submitted
+        and queued for grading; the submitted_at is set to the deadline, not
+        "now", so ranking reflects when the time actually ran out.
+        """
+        now = datetime.now(UTC)
+        stmt = (
+            select(ExamAttempt)
+            .where(
+                ExamAttempt.status == "in_progress",
+                ExamAttempt.expires_at.is_not(None),
+                ExamAttempt.expires_at < now,
+            )
+            .order_by(ExamAttempt.expires_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+        attempts = (await self.session.execute(stmt)).scalars().all()
+        for attempt in attempts:
+            attempt.submitted_at = attempt.expires_at or now
+            attempt.status = "submitted"
+            if attempt.started_at and attempt.submitted_at:
+                attempt.duration_seconds = int(
+                    (attempt.submitted_at - attempt.started_at).total_seconds()
+                )
+            # Queue grading for the auto-submitted attempt (idempotent).
+            from app.services.grading_service import GradingService
+
+            await GradingService(self.session).enqueue_if_absent(attempt)
+        if attempts:
+            await self.session.flush()
+            log.info("expired_attempts_submitted", count=len(attempts))
+        return len(attempts)
+
     async def exam_results(
         self, exam_id: uuid.UUID, user: User, *, limit: int = 200, offset: int = 0
     ) -> list[tuple[ExamAttempt, str | None]]:

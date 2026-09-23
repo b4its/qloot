@@ -6,9 +6,10 @@
 |---|---|
 | `frontend` | SvelteKit (adapter-node) UI |
 | `backend` | FastAPI REST + WebSocket API |
-| `worker` | AI generation & grading jobs |
+| `worker` | AI generation & grading jobs, expired-attempt sweeper |
 | `blockchain-worker` | Signs & submits on-chain transactions (outbox drainer) |
 | `blockchain-indexer` | Tracks confirmations, promotes rewards to `confirmed` |
+| `reconciler` | Sweeps OPT accounts for cached-vs-ledger drift and repairs it |
 | `postgres` | Primary datastore |
 | `redis` | Queue, cache, rate-limit, pub/sub for live rooms |
 | `minio` | Object storage for PDFs (local dev) |

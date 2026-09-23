@@ -76,6 +76,12 @@ async def _reap_stuck_jobs(session) -> int:
 
 async def _process_once() -> bool:
     """Claim one job, release its lock, then do the work in a fresh transaction."""
+    # --- 0. Sweep expired exam attempts (auto-submit) ----------------------
+    async with session_factory() as session, session.begin():
+        from app.services.exam_service import ExamService
+
+        await ExamService(session).sweep_expired_attempts()
+
     # --- 1. Short claim + reaper transaction (row lock held only briefly) ---
     async with session_factory() as session, session.begin():
         await _reap_stuck_jobs(session)
