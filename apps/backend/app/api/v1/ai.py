@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.deps import CurrentUser, DbSession, TeacherUser
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.db.session import transaction
+from app.middleware.rate_limit import rate_limit
 from app.models.exam import Exam, ExamAttempt, GradingJob, Question
 from app.schemas.material import AIJobOut, GradedItemOut, GradeRequest
 from app.services.grading_service import GradingService
@@ -31,7 +32,11 @@ async def get_job(job_id: uuid.UUID, user: CurrentUser, db: DbSession):
     return AIJobOut.model_validate(job)
 
 
-@router.post("/questions/{question_id}/regenerate", response_model=AIJobOut)
+@router.post(
+    "/questions/{question_id}/regenerate",
+    response_model=AIJobOut,
+    dependencies=[Depends(rate_limit("ai"))],
+)
 async def regenerate_question(question_id: uuid.UUID, user: TeacherUser, db: DbSession):
     async with transaction(db):
         question = await db.get(Question, question_id)

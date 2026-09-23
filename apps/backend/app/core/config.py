@@ -52,6 +52,18 @@ class Settings(BaseSettings):
     login_max_attempts: int = 10
     login_lockout_seconds: int = 900
 
+    # Redis-backed request rate limiting (per client IP + route bucket).
+    # Disabled in tests by default so the suite is not throttled; enable in
+    # production (and the dedicated rate-limit test) via env.
+    rate_limit_enabled: bool = True
+    # Failed-login attempts allowed per IP+account within the window before a
+    # 429 is returned (on top of the per-account DB lockout above).
+    rate_limit_login: int = 20
+    rate_limit_register: int = 10
+    rate_limit_password_reset: int = 10
+    rate_limit_ai: int = 30
+    rate_limit_window_seconds: int = 60
+
     # --- CORS --------------------------------------------------------------
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000"]

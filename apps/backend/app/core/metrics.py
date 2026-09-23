@@ -24,6 +24,7 @@ _HELP = {
     "blockchain_failed_transactions_total": "Blockchain transactions failed",
     "reward_allocations_total": "Reward allocations created",
     "ledger_reconciliation_errors_total": "Ledger reconciliation mismatches",
+    "rate_limited_total": "Requests rejected by the rate limiter",
 }
 
 

@@ -18,6 +18,9 @@ os.environ.setdefault("BLOCKCHAIN_DRY_RUN", "true")
 os.environ.setdefault("SESSION_SECRET", "test-secret")
 os.environ.setdefault("USE_LOCAL_STORAGE", "true")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
+# Tests exercise endpoints in tight loops; the rate limiter is a no-op for
+# app_env=test (the dedicated rate-limit test re-enables it per-case).
+os.environ.setdefault("APP_ENV", "test")
 
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",

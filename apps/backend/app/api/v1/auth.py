@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
 from app.core.config import settings
 from app.core.errors import AuthError
 from app.db.session import transaction
+from app.middleware.rate_limit import rate_limit
 from app.schemas.auth import (
     ForgotPasswordOut,
     ForgotPasswordRequest,
@@ -54,7 +55,12 @@ def _set_session_cookie(response: Response, token: str) -> None:
     )
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("register"))],
+)
 async def register(
     payload: RegisterRequest, request: Request, response: Response, db: DbSession
 ) -> UserOut:
@@ -74,7 +80,7 @@ async def register(
     return _user_out(user)
 
 
-@router.post("/login", response_model=UserOut)
+@router.post("/login", response_model=UserOut, dependencies=[Depends(rate_limit("login"))])
 async def login(
     payload: LoginRequest, request: Request, response: Response, db: DbSession
 ) -> UserOut:
@@ -159,7 +165,11 @@ async def revoke_session(session_id: uuid.UUID, user: CurrentUser, db: DbSession
     return Message(message="Session revoked")
 
 
-@router.post("/forgot-password", response_model=ForgotPasswordOut)
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordOut,
+    dependencies=[Depends(rate_limit("password_reset"))],
+)
 async def forgot_password(payload: ForgotPasswordRequest, db: DbSession) -> ForgotPasswordOut:
     token: str | None = None
     async with transaction(db):
@@ -173,7 +183,11 @@ async def forgot_password(payload: ForgotPasswordRequest, db: DbSession) -> Forg
     )
 
 
-@router.post("/reset-password", response_model=Message)
+@router.post(
+    "/reset-password",
+    response_model=Message,
+    dependencies=[Depends(rate_limit("password_reset"))],
+)
 async def reset_password(payload: ResetPasswordRequest, db: DbSession) -> Message:
     async with transaction(db):
         await AuthService(db).reset_password(payload.token, payload.new_password)

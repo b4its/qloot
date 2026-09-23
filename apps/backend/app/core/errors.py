@@ -15,10 +15,17 @@ class QLootError(Exception):
     status_code = status.HTTP_400_BAD_REQUEST
     code = "bad_request"
 
-    def __init__(self, message: str = "Bad request", *, detail: object | None = None):
+    def __init__(
+        self,
+        message: str = "Bad request",
+        *,
+        detail: object | None = None,
+        headers: dict[str, str] | None = None,
+    ):
         super().__init__(message)
         self.message = message
         self.detail = detail
+        self.headers = headers or {}
 
 
 class NotFoundError(QLootError):
@@ -67,6 +74,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message, "detail": exc.detail}},
+            headers=exc.headers or None,
         )
 
     @app.exception_handler(RequestValidationError)

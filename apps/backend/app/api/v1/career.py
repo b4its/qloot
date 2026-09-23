@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.db.session import transaction
+from app.middleware.rate_limit import rate_limit
 from app.schemas.career import (
     ChatIn,
     ChatOut,
@@ -193,7 +194,7 @@ async def resources(
 
 
 # --- assistant -------------------------------------------------------------
-@router.post("/assistant", response_model=ChatOut)
+@router.post("/assistant", response_model=ChatOut, dependencies=[Depends(rate_limit("ai"))])
 async def assistant(payload: ChatIn, user: CurrentUser, db: DbSession):
     reply = await CareerService(db).assistant_reply(user, payload.message)
     return ChatOut(answer=reply["answer"], confidence_bp=reply["confidence_bp"])
