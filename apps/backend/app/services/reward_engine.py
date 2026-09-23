@@ -263,6 +263,62 @@ class RewardEngine:
         await self.session.flush()
         return allocation
 
+    async def admin_adjust(
+        self,
+        *,
+        user: User,
+        amount: int,
+        adjust_key: str,
+        reason: str,
+    ) -> WalletLedgerEntry | None:
+        """Manually adjust a user's OPT balance (audited, idempotent).
+
+        ``amount`` may be positive (grant) or negative (claw back, floored so a
+        debit cannot push below the current balance). Idempotent on
+        ``adjust_key`` via the ledger's (reference_type, reference_id, entry_type)
+        uniqueness, so an accidental double-submit never double-adjusts.
+        """
+        if amount == 0:
+            return None
+        account = await self.get_or_create_account(user.id)
+        entry_type = "credit" if amount > 0 else "debit"
+        magnitude = abs(amount)
+        if entry_type == "debit" and account.cached_balance < magnitude:
+            raise ConflictError("Adjustment exceeds the user's balance")
+        new_balance = (
+            account.cached_balance + magnitude
+            if entry_type == "credit"
+            else account.cached_balance - magnitude
+        )
+        entry = WalletLedgerEntry(
+            account_id=account.id,
+            token_id=account.token_id,
+            entry_type=entry_type,
+            amount=magnitude,
+            balance_after=new_balance,
+            reference_type="admin_adjustment",
+            reference_id=adjust_key,
+            reward_key=adjust_key,
+            description=f"Admin adjustment: {reason}"[:255],
+        )
+        try:
+            async with self.session.begin_nested():
+                self.session.add(entry)
+                account.cached_balance = new_balance
+                await self._apply_negative_policy(account, "admin_adjustment")
+                await self.session.flush()
+        except IntegrityError:
+            # Another call with the same key already applied this adjustment.
+            return (
+                await self.session.execute(
+                    select(WalletLedgerEntry).where(
+                        WalletLedgerEntry.reference_type == "admin_adjustment",
+                        WalletLedgerEntry.reference_id == adjust_key,
+                    )
+                )
+            ).scalar_one_or_none()
+        return entry
+
     async def allocate_event_reward(
         self,
         *,

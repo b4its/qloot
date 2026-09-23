@@ -41,6 +41,19 @@ class ActiveUpdate(BaseModel):
     is_active: bool
 
 
+class RejectRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=255)
+
+
+class RewardAdjustRequest(BaseModel):
+    """Manual, audited OPT balance adjustment."""
+
+    user_id: uuid.UUID
+    amount: int = Field(description="Positive grants, negative claws back")
+    reason: str = Field(min_length=3, max_length=255)
+    idempotency_key: str = Field(min_length=4, max_length=64)
+
+
 class AuditLogOut(BaseModel):
     id: uuid.UUID
     actor_id: uuid.UUID | None
@@ -218,6 +231,42 @@ async def list_rewards(
         }
         for r in rows
     ]
+
+
+@router.post("/rewards/adjust")
+async def adjust_reward(payload: RewardAdjustRequest, admin: AdminUser, db: DbSession):
+    """Manually adjust a user's OPT balance (audited, idempotent).
+
+    Writes exactly one ``admin_adjustment`` ledger entry keyed by
+    ``idempotency_key`` (a repeat with the same key is a no-op) and an
+    ``AuditLog`` row carrying the request id.
+    """
+    from app.services.reward_engine import RewardEngine
+
+    async with transaction(db):
+        target = await db.get(User, payload.user_id)
+        if target is None:
+            raise NotFoundError("User not found")
+        await RewardEngine(db).admin_adjust(
+            user=target,
+            amount=payload.amount,
+            adjust_key=payload.idempotency_key,
+            reason=payload.reason,
+        )
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action="reward.adjust",
+                entity_type="user",
+                entity_id=str(target.id),
+                data={
+                    "amount": payload.amount,
+                    "reason": payload.reason,
+                    "idempotency_key": payload.idempotency_key,
+                },
+            )
+        )
+    return {"status": "adjusted", "user_id": str(target.id), "amount": payload.amount}
 
 
 @router.post("/rewards/{reward_id}/retry")
@@ -405,8 +454,7 @@ async def show_config(admin: AdminUser):
 
 
 # --- withdrawal review -----------------------------------------------------
-class RejectRequest(BaseModel):
-    reason: str | None = Field(default=None, max_length=255)
+@router.post("/rewards/{reward_id}/cancel")
 
 
 @router.get("/withdrawals")

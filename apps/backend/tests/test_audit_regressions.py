@@ -364,3 +364,52 @@ async def test_admin_reward_retry_resets_existing_outbox(client, engine):
             delete(_BT).where(_BT.idempotency_key == tx_idempotency_key("reward", reward_key))
         )
         await s.commit()
+
+
+async def test_admin_manual_reward_adjustment_is_idempotent_and_audited(client):
+    """WEB3-14: an admin adjustment writes one ledger entry + an audit row, and
+    a repeated call with the same idempotency key does not double-apply."""
+    from sqlalchemy import select
+
+    from app.models.identity import AuditLog
+    from app.models.wallet import WalletLedgerEntry
+
+    await _register(client, "adj_target@ex.com", "student")
+    target_id = (await client.get("/api/v1/auth/me")).json()["id"]
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "adj_admin@ex.com", "admin")
+    payload = {
+        "user_id": target_id,
+        "amount": 250,
+        "reason": "Kompetisi sekolah",
+        "idempotency_key": "adj-key-0001",
+    }
+    first = await client.post("/api/v1/admin/rewards/adjust", json=payload)
+    assert first.status_code == 200, first.text
+
+    # Repeat with the same key -> no second ledger entry.
+    second = await client.post("/api/v1/admin/rewards/adjust", json=payload)
+    assert second.status_code == 200, second.text
+
+    sm = client._sm  # type: ignore[attr-defined]
+    async with sm() as s:
+        entries = (
+            await s.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "admin_adjustment",
+                    WalletLedgerEntry.reference_id == "adj-key-0001",
+                )
+            )
+        ).scalars().all()
+        audits = (
+            await s.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "reward.adjust",
+                    AuditLog.entity_id == target_id,
+                )
+            )
+        ).scalars().all()
+    assert len(entries) == 1, "adjustment must be idempotent"
+    assert entries[0].amount == 250
+    assert len(audits) >= 1

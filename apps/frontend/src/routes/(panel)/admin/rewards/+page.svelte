@@ -70,6 +70,35 @@
     }
   }
 
+  // --- manual adjustment (audited, idempotent) ---
+  let adjUserId = "";
+  let adjAmount = 0;
+  let adjReason = "";
+  let adjBusy = false;
+
+  async function adjust() {
+    error = "";
+    message = "";
+    if (!adjUserId || !adjReason.trim() || adjAmount === 0) return;
+    adjBusy = true;
+    try {
+      await api.post("/admin/rewards/adjust", {
+        user_id: adjUserId.trim(),
+        amount: Number(adjAmount),
+        reason: adjReason.trim(),
+        idempotency_key: `adj-${adjUserId.trim()}-${Date.now()}`,
+      });
+      message = "Penyesuaian saldo diterapkan.";
+      adjUserId = "";
+      adjAmount = 0;
+      adjReason = "";
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menyesuaikan";
+    } finally {
+      adjBusy = false;
+    }
+  }
+
   onMount(load);
 </script>
 
@@ -85,6 +114,24 @@
   />
 
   <PageAlerts {message} {error} />
+
+  <div class="card mt-6">
+    <p class="mono-label">Penyesuaian saldo manual</p>
+    <p class="mt-1 text-xs muted">
+      Tercatat di audit log. Jumlah positif menambah, negatif mengurangi.
+    </p>
+    <div class="mt-3 grid gap-3 sm:grid-cols-4">
+      <input class="input" placeholder="ID pengguna" bind:value={adjUserId} />
+      <input class="input" type="number" placeholder="Jumlah OPT" bind:value={adjAmount} />
+      <input class="input" placeholder="Alasan (wajib)" bind:value={adjReason} />
+      <button
+        class="btn-secondary"
+        on:click={adjust}
+        disabled={adjBusy || !adjUserId || !adjReason.trim() || adjAmount === 0}
+        >{adjBusy ? "Menyimpan…" : "Terapkan"}</button
+      >
+    </div>
+  </div>
 
   <div class="card mt-6 overflow-x-auto">
     {#if loading}
