@@ -154,6 +154,15 @@ class Settings(BaseSettings):
     reward_quiz_master: int = 30
     reward_course_completion: int = 50
 
+    # --- Withdrawals -------------------------------------------------------
+    # Withdrawals require admin approval before they are submitted on-chain.
+    withdrawal_min_amount: int = 10
+    withdrawal_max_amount: int = 1_000_000
+    # Rolling 24h sum of requested+approved withdrawals per user.
+    withdrawal_daily_limit: int = 5_000_000
+    # Flat fee (in OPT) charged per withdrawal on top of the amount.
+    withdrawal_fee: int = 0
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_csv(cls, v: object) -> object:

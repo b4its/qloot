@@ -27,7 +27,7 @@ from app.schemas.wallet import (
     WithdrawalOut,
     WithdrawalRequestIn,
 )
-from app.services.keys import tx_idempotency_key, withdrawal_key
+from app.services.keys import tx_idempotency_key
 from app.services.reward_engine import RewardEngine
 from app.services.wallet_service import effective_wallet_address, set_wallet_address
 
@@ -348,46 +348,19 @@ async def transfer(payload: TransferRequest, user: CurrentUser, db: DbSession):
 
 @router.post("/withdrawals", response_model=WithdrawalOut, status_code=status.HTTP_201_CREATED)
 async def request_withdrawal(payload: WithdrawalRequestIn, user: CurrentUser, db: DbSession):
-    async with transaction(db):
-        engine = RewardEngine(db)
-        account = await engine.get_or_create_account(user.id)
-        if account.cached_balance < payload.amount:
-            raise ConflictError("Insufficient balance")
-        wd = WithdrawalRequest(
-            user_id=user.id,
-            reward_key=withdrawal_key(uuid.uuid4()),
-            destination_address=payload.destination_address,
-            token_id=account.token_id,
-            amount=payload.amount,
-            status="requested",
-        )
-        db.add(wd)
-        await db.flush()
-        wd.reward_key = withdrawal_key(wd.id)
-        await engine.debit_for_withdrawal(
-            user=user,
-            amount=payload.amount,
-            withdrawal_id=wd.id,
-            destination=payload.destination_address,
-        )
-        from app.models.wallet import TransactionOutbox
+    """Request a withdrawal. It stays ``requested`` until an admin approves it.
 
-        db.add(
-            TransactionOutbox(
-                topic="withdrawal",
-                idempotency_key=tx_idempotency_key("withdrawal", str(wd.id)),
-                payload={
-                    "withdrawal_id": str(wd.id),
-                    "user_ref": user.chain_user_ref,
-                    "destination": payload.destination_address,
-                    "amount": payload.amount,
-                    "token_id": account.token_id,
-                    "asset": "OPT",
-                },
-                status="pending",
-            )
+    The amount (and any fee) are debited immediately so the funds cannot be
+    spent twice, but no on-chain transaction is queued until approval.
+    """
+    from app.services.withdrawal_service import WithdrawalService
+
+    async with transaction(db):
+        wd = await WithdrawalService(db).request(
+            user=user,
+            destination=payload.destination_address,
+            amount=payload.amount,
         )
-        await db.flush()
     return WithdrawalOut.model_validate(wd)
 
 

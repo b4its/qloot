@@ -90,7 +90,7 @@ async def test_withdrawal_rejects_malformed_destination_address(client):
     # A 42-char string that is not hex must be rejected at validation time.
     bad = await client.post(
         "/api/v1/wallet/withdrawals",
-        json={"amount": 1, "destination_address": "0x" + "z" * 40},
+        json={"amount": 50, "destination_address": "0x" + "z" * 40},
     )
     assert bad.status_code == 422, bad.text
 
@@ -101,7 +101,7 @@ async def test_withdrawal_accepts_valid_address(client):
     # business error (insufficient balance), proving it passed validation.
     ok = await client.post(
         "/api/v1/wallet/withdrawals",
-        json={"amount": 1, "destination_address": "0x" + "a" * 40},
+        json={"amount": 50, "destination_address": "0x" + "a" * 40},
     )
     assert ok.status_code == 409, ok.text  # insufficient balance, not 422
 

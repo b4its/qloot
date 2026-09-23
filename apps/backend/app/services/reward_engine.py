@@ -354,6 +354,76 @@ class RewardEngine:
         await self.session.flush()
         return entry
 
+    async def debit_withdrawal_fee(
+        self, *, user_id: uuid.UUID, amount: int, withdrawal_id: uuid.UUID
+    ) -> WalletLedgerEntry | None:
+        """Debit a withdrawal fee as its own ledger entry (idempotent)."""
+        if amount <= 0:
+            return None
+        account = await self.get_or_create_account(user_id)
+        reference_id = str(withdrawal_id)
+        dup = (
+            await self.session.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "withdrawal_fee",
+                    WalletLedgerEntry.reference_id == reference_id,
+                    WalletLedgerEntry.entry_type == "debit",
+                )
+            )
+        ).scalar_one_or_none()
+        if dup is not None:
+            return dup
+        new_balance = account.cached_balance - amount
+        entry = WalletLedgerEntry(
+            account_id=account.id,
+            token_id=account.token_id,
+            entry_type="debit",
+            amount=amount,
+            balance_after=new_balance,
+            reference_type="withdrawal_fee",
+            reference_id=reference_id,
+            description="Withdrawal fee",
+        )
+        self.session.add(entry)
+        account.cached_balance = new_balance
+        await self.session.flush()
+        return entry
+
+    async def refund_withdrawal_fee(
+        self, *, user_id: uuid.UUID, amount: int, withdrawal_id: uuid.UUID
+    ) -> WalletLedgerEntry | None:
+        """Return a withdrawal fee (idempotent)."""
+        if amount <= 0:
+            return None
+        account = await self.get_or_create_account(user_id)
+        reference_id = str(withdrawal_id)
+        dup = (
+            await self.session.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "withdrawal_fee_refund",
+                    WalletLedgerEntry.reference_id == reference_id,
+                    WalletLedgerEntry.entry_type == "credit",
+                )
+            )
+        ).scalar_one_or_none()
+        if dup is not None:
+            return dup
+        new_balance = account.cached_balance + amount
+        entry = WalletLedgerEntry(
+            account_id=account.id,
+            token_id=account.token_id,
+            entry_type="credit",
+            amount=amount,
+            balance_after=new_balance,
+            reference_type="withdrawal_fee_refund",
+            reference_id=reference_id,
+            description="Withdrawal fee refund",
+        )
+        self.session.add(entry)
+        account.cached_balance = new_balance
+        await self.session.flush()
+        return entry
+
     async def balance(self, user_id: uuid.UUID) -> int:
         account = await self.get_or_create_account(user_id)
         return account.cached_balance

@@ -264,8 +264,13 @@ class WithdrawalRequest(Base, TimestampMixin):
     destination_address: Mapped[str] = mapped_column(String(42), nullable=False)
     token_id: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # Fee charged on top of (and debited separately from) the withdrawn amount.
+    fee_amount: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="requested", nullable=False)
     blockchain_transaction_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reject_reason: Mapped[str | None] = mapped_column(String(255))
 
 
 class TransactionOutbox(Base):

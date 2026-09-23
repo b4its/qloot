@@ -131,5 +131,8 @@ class WithdrawalOut(ORMModel):
     destination_address: str
     token_id: int
     amount: int
+    fee_amount: int = 0
     status: str
     created_at: datetime
+    reviewed_at: datetime | None = None
+    reject_reason: str | None = None
