@@ -262,6 +262,73 @@ class RewardEngine:
         await self.session.flush()
         return allocation
 
+    async def allocate_event_reward(
+        self,
+        *,
+        user: User,
+        amount: int,
+        reward_type: str,
+        rkey: str,
+        description: str,
+    ) -> RewardAllocation | None:
+        """Pay a one-off, idempotent OPT reward for a milestone event.
+
+        Used for exam-perfect, quiz-master and course-completion payouts. The
+        deterministic ``rkey`` guarantees at most one allocation per event, so
+        re-grading or re-issuing a certificate never double-pays.
+        """
+        if amount <= 0:
+            return None
+        existing = (
+            await self.session.execute(
+                select(RewardAllocation).where(RewardAllocation.reward_key == rkey)
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing
+
+        allocation = RewardAllocation(
+            reward_key=rkey,
+            user_id=user.id,
+            reward_type=reward_type,
+            token_id=0,
+            amount=amount,
+            status="pending",
+        )
+        self.session.add(allocation)
+        await self.session.flush()
+        entry = await self.credit(
+            user=user,
+            amount=amount,
+            reference_type="reward",
+            reference_id=str(allocation.id),
+            reward_key_value=rkey,
+            token_id=0,
+            description=description,
+        )
+        allocation.ledger_entry_id = entry.id
+        self.session.add(
+            TransactionOutbox(
+                topic="reward",
+                idempotency_key=tx_idempotency_key("reward", rkey),
+                payload={
+                    "allocation_id": str(allocation.id),
+                    "reward_key": rkey,
+                    "user_ref": user_ref(user.chain_user_ref),
+                    "rank": 0,
+                    "amount": amount,
+                    "token_id": 0,
+                },
+                status="pending",
+            )
+        )
+        await self.session.flush()
+        from app.core import metrics
+
+        metrics.incr("reward_allocations_total", reward_type=reward_type)
+        log.info("reward_allocated", reward_key=rkey, user_id=str(user.id), amount=amount)
+        return allocation
+
     async def debit_for_withdrawal(
         self, *, user: User, amount: int, withdrawal_id: uuid.UUID, destination: str
     ) -> WalletLedgerEntry:

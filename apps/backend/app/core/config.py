@@ -145,6 +145,11 @@ class Settings(BaseSettings):
     # --- Reward policy -----------------------------------------------------
     default_top_n_winners: int = 3
     reward_ranks: Annotated[list[int], NoDecode] = Field(default_factory=lambda: [100, 60, 40])
+    # OPT paid for milestone events (0 disables the payout). All are idempotent
+    # per event via deterministic reward keys.
+    reward_perfect_exam: int = 100
+    reward_quiz_master: int = 30
+    reward_course_completion: int = 50
 
     @field_validator("cors_origins", mode="before")
     @classmethod

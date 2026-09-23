@@ -83,9 +83,22 @@ async def make_actor(engine):
         client: AsyncClient
         user: object
 
-    async def _make(email: str, role: str = "student", password: str = "Password123!"):
+    async def _make(
+        email: str,
+        role: str = "student",
+        password: str = "Password123!",
+        class_code: str | None = None,
+        class_type: str | None = None,
+    ):
         async with sm() as s:
-            await provision_user(s, email=email, role=role, password=password)
+            await provision_user(
+                s,
+                email=email,
+                role=role,
+                password=password,
+                class_code=class_code,
+                class_type=class_type,
+            )
 
         transport = ASGITransport(app=app)
 

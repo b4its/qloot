@@ -14,6 +14,36 @@ from app.services.reward_engine import RewardEngine
 pytestmark = pytest.mark.integration
 
 
+async def _outbox_for_allocation(session, allocation_id) -> TransactionOutbox | None:
+    """Return the outbox row whose payload references a given allocation.
+
+    Tests share a session-scoped database, so selecting the global `.first()`
+    outbox row is unsafe: an earlier test may have left reward rows behind.
+    """
+    from sqlalchemy import select
+
+    rows = (await session.execute(select(TransactionOutbox))).scalars().all()
+    target = str(allocation_id)
+    for row in rows:
+        payload = row.payload or {}
+        if payload.get("allocation_id") == target:
+            return row
+    return None
+
+
+async def _tx_for_outbox(session, idempotency_key) -> BlockchainTransaction | None:
+    """The BlockchainTransaction created for a given outbox idempotency key."""
+    from sqlalchemy import select
+
+    return (
+        await session.execute(
+            select(BlockchainTransaction).where(
+                BlockchainTransaction.idempotency_key == idempotency_key
+            )
+        )
+    ).scalar_one_or_none()
+
+
 async def _mk_user(session, email):
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
@@ -52,22 +82,15 @@ async def test_outbox_processed_into_transaction(session):
     alloc = await engine.allocate_quest_reward(
         quest=quest, user=student, rank=1, amount=100, score_bp=9000
     )
-    outbox = (await session.execute(TransactionOutbox.__table__.select())).first()
-    assert outbox is not None
+    # Select THIS allocation's outbox row (earlier tests may leave rows behind
+    # in the session-scoped DB, so a global `.first()` is not safe).
+    item = await _outbox_for_allocation(session, alloc.id)
+    assert item is not None
 
-    item = (
-        (await session.execute(__import__("sqlalchemy").select(TransactionOutbox)))
-        .scalars()
-        .first()
-    )
     ok = await process_outbox_item(session, item.id)
     assert ok is True
 
-    tx = (
-        (await session.execute(__import__("sqlalchemy").select(BlockchainTransaction)))
-        .scalars()
-        .first()
-    )
+    tx = await _tx_for_outbox(session, item.idempotency_key)
     assert tx is not None
     assert tx.transaction_hash is not None
     assert tx.method == "rewardUser"
@@ -98,8 +121,6 @@ async def test_outbox_processing_is_idempotent(session):
 
 
 async def test_confirmations_promote_reward_to_confirmed(session):
-    from sqlalchemy import select
-
     owner = await _mk_user(session, "bo3@q.com")
     student = await _mk_user(session, "bs3@q.com")
     quest = Quest(title="Q3", owner_id=owner.id, status="open")
@@ -109,7 +130,7 @@ async def test_confirmations_promote_reward_to_confirmed(session):
     alloc = await engine.allocate_quest_reward(
         quest=quest, user=student, rank=1, amount=100, score_bp=9000
     )
-    item = (await session.execute(select(TransactionOutbox))).scalars().first()
+    item = await _outbox_for_allocation(session, alloc.id)
     await process_outbox_item(session, item.id)
 
     n = await refresh_confirmations(session)
@@ -130,7 +151,14 @@ async def test_reward_allocation_unique_per_quest_user_type(session):
     await engine.allocate_quest_reward(quest=quest, user=student, rank=2, amount=60, score_bp=9000)
     from sqlalchemy import func, select
 
-    total = (await session.execute(select(func.count()).select_from(RewardAllocation))).scalar_one()
+    # Count only THIS quest's allocations (the DB is shared across tests).
+    total = (
+        await session.execute(
+            select(func.count())
+            .select_from(RewardAllocation)
+            .where(RewardAllocation.quest_id == quest.id)
+        )
+    ).scalar_one()
     assert total == 1
 
 

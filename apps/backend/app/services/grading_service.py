@@ -165,18 +165,30 @@ class GradingService:
 
     async def _maybe_award_badges(self, attempt: ExamAttempt) -> None:
         """Flawless attempts earn the 'perfect exam' badge; MC aces get one too."""
+        from app.core.config import settings
         from app.models.identity import User
+        from app.services.keys import exam_reward_key
+        from app.services.reward_engine import RewardEngine
         from app.services.social_service import BadgeService
 
         owner = await self.session.get(User, attempt.user_id)
         if owner is None:
             return
         badges = BadgeService(self.session)
+        rewards = RewardEngine(self.session)
         if (attempt.score_bp or 0) >= BP_SCALE:
             await badges.award(
                 user=owner,
                 code="perfect_exam",
                 meta={"attempt_id": str(attempt.id), "exam_id": str(attempt.exam_id)},
+            )
+            # README: a perfect exam pays OPT (idempotent per attempt).
+            await rewards.allocate_event_reward(
+                user=owner,
+                amount=settings.reward_perfect_exam,
+                reward_type="perfect_exam",
+                rkey=exam_reward_key(attempt.id, "perfect_exam"),
+                description="Perfect exam reward",
             )
         # "Quiz master": a flawless multiple-choice quiz (all MC answers correct).
         mc_total = (
@@ -204,6 +216,13 @@ class GradingService:
                     user=owner,
                     code="quiz_master",
                     meta={"attempt_id": str(attempt.id), "exam_id": str(attempt.exam_id)},
+                )
+                await rewards.allocate_event_reward(
+                    user=owner,
+                    amount=settings.reward_quiz_master,
+                    reward_type="quiz_master",
+                    rkey=exam_reward_key(attempt.id, "quiz_master"),
+                    description="Quiz Master reward",
                 )
 
     async def grade_attempt(self, attempt: ExamAttempt) -> ExamAttempt:

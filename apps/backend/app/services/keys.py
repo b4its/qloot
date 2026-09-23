@@ -27,6 +27,20 @@ def task_reward_key(task_id: uuid.UUID, user_id: uuid.UUID, period: str = "") ->
     return _h("task", str(task_id), str(user_id), period)
 
 
+def exam_reward_key(attempt_id: uuid.UUID, kind: str) -> str:
+    """Idempotency key for an exam-derived reward.
+
+    ``kind`` distinguishes perfect-exam from quiz-master (a single attempt can
+    legitimately earn both), so each is paid at most once per attempt.
+    """
+    return _h("exam", str(attempt_id), kind)
+
+
+def course_completion_key(course_id: uuid.UUID, user_id: uuid.UUID) -> str:
+    """Idempotency key for a course-completion reward (once per course/user)."""
+    return _h("course_complete", str(course_id), str(user_id))
+
+
 def withdrawal_key(withdrawal_id: uuid.UUID) -> str:
     return _h("withdrawal", str(withdrawal_id))
 

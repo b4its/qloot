@@ -160,6 +160,18 @@ class CertificateService:
                 )
             ).scalar_one_or_none()
         log.info("certificate_issued", user=str(user.id), course=str(course_id))
+        # Course completion pays OPT once per (user, course) — README economy.
+        from app.core.config import settings
+        from app.services.keys import course_completion_key
+        from app.services.reward_engine import RewardEngine
+
+        await RewardEngine(self.session).allocate_event_reward(
+            user=user,
+            amount=settings.reward_course_completion,
+            reward_type="course_completion",
+            rkey=course_completion_key(course_id, user.id),
+            description=f"Course completed: {course.title}",
+        )
         await self._notify_issued(user, course.title)
         return cert
 
