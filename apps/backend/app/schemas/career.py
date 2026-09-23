@@ -135,3 +135,6 @@ class ChatIn(BaseModel):
 class ChatOut(BaseModel):
     answer: str
     confidence_bp: int = Field(ge=0, le=10_000)
+    # Remaining ORT credit and free requests so the UI can show the meter.
+    ort_balance: int = 0
+    free_requests_remaining: int = 0

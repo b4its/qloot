@@ -179,7 +179,11 @@ async def test_resource_library_categories(client):
     assert all(i["category"] == "course" for i in courses.json())
 
 
-async def test_assistant_rule_based_replies(client):
+async def test_assistant_rule_based_replies(client, monkeypatch):
+    # This test is about reply content, not metering: grant a generous free tier.
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "ai_free_requests", 50)
     await _register(client, "career_chat@ex.com")
     for msg, token in [
         ("Bedanya SNBP dan SNBT?", "SNBP"),

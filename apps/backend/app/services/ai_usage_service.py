@@ -103,3 +103,13 @@ class AiUsageService:
         charge.refunded = True
         await self.session.flush()
         log.info("ai_job_refunded", user_id=str(charge.user_id), job_id=str(job_id))
+
+    async def charge_request(self, *, user: User) -> uuid.UUID:
+        """Charge 1 ORT for a one-shot AI request (e.g. the assistant).
+
+        Returns a reference id that can be passed to ``refund_job`` on failure.
+        Raises ``PaymentRequiredError`` when the balance and free tier are gone.
+        """
+        ref = uuid.uuid4()
+        await self.charge_job(user=user, job_id=ref)
+        return ref

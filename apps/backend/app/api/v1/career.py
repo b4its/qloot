@@ -28,6 +28,7 @@ from app.schemas.career import (
 )
 from app.schemas.common import Message
 from app.services.career_service import CareerService
+from app.services.reward_engine import RewardEngine
 
 router = APIRouter(prefix="/career", tags=["career"])
 
@@ -196,5 +197,23 @@ async def resources(
 # --- assistant -------------------------------------------------------------
 @router.post("/assistant", response_model=ChatOut, dependencies=[Depends(rate_limit("ai"))])
 async def assistant(payload: ChatIn, user: CurrentUser, db: DbSession):
-    reply = await CareerService(db).assistant_reply(user, payload.message)
-    return ChatOut(answer=reply["answer"], confidence_bp=reply["confidence_bp"])
+    """Answer a study/career question. Costs 1 ORT (or a free-tier slot)."""
+    from app.services.ai_usage_service import AiUsageService
+
+    async with transaction(db):
+        usage = AiUsageService(db)
+        ref = await usage.charge_request(user=user)
+        try:
+            reply = await CareerService(db).assistant_reply(user, payload.message)
+        except Exception:
+            # Never charge for a failed request.
+            await usage.refund_job(user_id=user.id, job_id=ref)
+            raise
+        ort_balance = await RewardEngine(db).asset_balance(user.id, "ORT")
+        free_remaining = await usage.free_requests_remaining(user.id)
+    return ChatOut(
+        answer=reply["answer"],
+        confidence_bp=reply["confidence_bp"],
+        ort_balance=ort_balance,
+        free_requests_remaining=free_remaining,
+    )

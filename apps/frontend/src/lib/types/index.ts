@@ -614,4 +614,6 @@ export interface ResourceItem {
 export interface AssistantReply {
   answer: string;
   confidence_bp: number;
+  ort_balance?: number;
+  free_requests_remaining?: number;
 }

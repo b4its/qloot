@@ -20,6 +20,9 @@
   let busy = false;
   let error = "";
   let scroller: HTMLDivElement;
+  // AI credit meter (1 request = 1 ORT), refreshed from each reply.
+  let ortBalance: number | null = null;
+  let freeRemaining: number | null = null;
 
   const suggestions = [
     "Bedanya SNBP dan SNBT?",
@@ -45,9 +48,12 @@
     try {
       const reply = await api.post<AssistantReply>("/career/assistant", { message: q });
       messages = [...messages.slice(0, -1), { role: "bot", text: reply.answer }];
+      if (typeof reply.ort_balance === "number") ortBalance = reply.ort_balance;
+      if (typeof reply.free_requests_remaining === "number")
+        freeRemaining = reply.free_requests_remaining;
     } catch (e) {
       messages = messages.slice(0, -1);
-      error = e instanceof ApiError ? e.message : "The assistant is unavailable";
+      error = e instanceof ApiError ? e.message : "Asisten tidak tersedia";
     } finally {
       busy = false;
       await scroll();
@@ -73,8 +79,24 @@
         Asisten bimbingan belajar & karier untuk pertanyaan jurusan, kampus, dan prospek karier.
       </p>
     </div>
-    <a href="/career" class="btn-ghost">← Career home</a>
+    <div class="flex flex-col items-end gap-2">
+      <a href="/career" class="btn-ghost">← Halaman karier</a>
+      {#if ortBalance !== null || (freeRemaining !== null && freeRemaining > 0)}
+        <div class="card !py-2 !px-3 text-xs">
+          <span class="mono-label">Kredit AI</span>
+          <span class="ml-2 font-semibold">{ortBalance ?? 0} ORT</span>
+          {#if freeRemaining}
+            <span class="ml-2 muted"
+              >· {freeRemaining} gratis tersisa</span
+            >
+          {/if}
+        </div>
+      {/if}
+    </div>
   </div>
+  <p class="mt-2 text-xs muted">
+    Setiap permintaan menggunakan 1 ORT. Punya saldo 0? <a href="/wallet" class="text-primary hover:underline">Tukar OPT → ORT di dompet</a>.
+  </p>
 
   {#if error}
     <p class="alert-error mt-4">
