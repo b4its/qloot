@@ -48,6 +48,7 @@ from app.models.ranking import Leaderboard, LeaderboardEntry, RankingSnapshot
 from app.models.room import Room, RoomEvent, RoomInvitation, RoomMember
 from app.models.social import Badge, Notification, UserBadge
 from app.models.wallet import (
+    AiUsageCharge,
     BlockchainEvent,
     BlockchainTransaction,
     ContractDeployment,
@@ -62,6 +63,7 @@ from app.models.wallet import (
 __all__ = [
     "Base",
     "BP_SCALE",
+    "AiUsageCharge",
     "User",
     "Role",
     "UserRole",

@@ -58,6 +58,11 @@ class RateLimitedError(QLootError):
     code = "rate_limited"
 
 
+class PaymentRequiredError(QLootError):
+    status_code = status.HTTP_402_PAYMENT_REQUIRED
+    code = "payment_required"
+
+
 class ChainError(QLootError):
     status_code = status.HTTP_502_BAD_GATEWAY
     code = "chain_error"

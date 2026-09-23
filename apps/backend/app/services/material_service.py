@@ -160,6 +160,11 @@ class MaterialService:
         )
         self.session.add(job)
         await self.session.flush()
+        # Meter the AI request (1 ORT, or a free-tier slot). Insufficient ORT
+        # raises 402 and rolls back the job in the same transaction.
+        from app.services.ai_usage_service import AiUsageService
+
+        await AiUsageService(self.session).charge_job(user=user, job_id=job.id)
         log.info("generation_enqueued", job_id=str(job.id))
         return job
 

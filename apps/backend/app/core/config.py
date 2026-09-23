@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     ai_max_questions: int = 20
     # Display name of the built-in study/career assistant.
     assistant_name: str = "Asisten Qlo"
+    # Free AI requests granted per user before ORT is charged (1 request = 1 ORT).
+    # Tracked per user in Redis (degrades to "no free tier" if Redis is down).
+    ai_free_requests: int = 3
 
     # --- Blockchain --------------------------------------------------------
     chain_id: int = 31337

@@ -54,7 +54,38 @@ class GradingService:
         ).scalar_one_or_none()
         if existing is not None:
             return existing
-        return self.enqueue(attempt)
+        job = self.enqueue(attempt)
+        await self.session.flush()
+        await self._meter_grading_job(job, attempt)
+        return job
+
+    async def _meter_grading_job(self, job: GradingJob, attempt: ExamAttempt) -> None:
+        """Charge 1 ORT (or a free slot) for grading an essay attempt.
+
+        Only attempts with essay answers reach the AI provider; a pure
+        multiple-choice attempt is graded deterministically with no AI call, so
+        it is never charged.
+        """
+        from app.models.exam import Question, StudentAnswer
+
+        has_essay = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(StudentAnswer)
+                .join(Question, Question.id == StudentAnswer.question_id)
+                .where(StudentAnswer.attempt_id == attempt.id)
+                .where(Question.qtype != "multiple_choice")
+            )
+        ).scalar_one()
+        if not has_essay:
+            return
+        from app.models.identity import User
+        from app.services.ai_usage_service import AiUsageService
+
+        owner = await self.session.get(User, attempt.user_id)
+        if owner is None:
+            return
+        await AiUsageService(self.session).charge_job(user=owner, job_id=job.id)
 
     async def reopen_for_regrade(self, attempt: ExamAttempt) -> GradingJob | None:
         """Re-queue grading for a failed attempt (teacher/admin retry).
@@ -73,6 +104,7 @@ class GradingService:
             job = self.enqueue(attempt)
             await self.session.flush()
             attempt.status = "submitted"
+            await self._meter_grading_job(job, attempt)
             return job
         # Only a terminal/failed job is re-openable; a queued/running one is left
         # alone so we never double-grade.
@@ -342,6 +374,11 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
             job.status = "failed"
             job.finished_at = datetime.now(UTC)
             attempt.status = "grading_failed"
+            from app.services.ai_usage_service import AiUsageService
+
+            await AiUsageService(session).refund_job(
+                user_id=attempt.user_id, job_id=job.id
+            )
         else:
             # Exponential backoff, cap at 10 minutes.
             from datetime import timedelta
@@ -361,6 +398,9 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
         job.error_message = f"{type(exc).__name__}: {exc}"[:500]
         job.finished_at = datetime.now(UTC)
         attempt.status = "grading_failed"
+        from app.services.ai_usage_service import AiUsageService
+
+        await AiUsageService(session).refund_job(user_id=attempt.user_id, job_id=job.id)
         await session.flush()
         log.error("grading_job_failed", job_id=str(job.id), error=str(exc))
         return False

@@ -72,6 +72,34 @@ class WalletAssetBalance(Base, TimestampMixin):
     cached_balance: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
 
+class AiUsageCharge(Base):
+    """One row per AI job that consumes ORT (or a free-tier slot).
+
+    Makes metering idempotent and auditable: a job charges at most once
+    (``charged`` set) and refunds at most once (``refunded`` set), no matter how
+    often the worker retries. Also backs the "free AI requests remaining" query.
+    """
+
+    __tablename__ = "ai_usage_charges"
+    __table_args__ = (
+        UniqueConstraint("job_id", name="uq_ai_usage_job"),
+        Index("ix_ai_usage_user_created", "user_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    charged: Mapped[bool] = mapped_column(default=False, nullable=False)
+    refunded: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+
 class WalletLedgerEntry(Base):
     """Append-only double-entry rows. Never UPDATE; only INSERT."""
 

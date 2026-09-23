@@ -129,6 +129,10 @@ async def _run_generation(session, job_id) -> bool:
         if job.attempts >= job.max_attempts:
             job.status = "failed"
             job.finished_at = datetime.now(UTC)
+            # Terminal failure: return the ORT charged for this AI job.
+            from app.services.ai_usage_service import AiUsageService
+
+            await AiUsageService(session).refund_job(user_id=job.owner_id, job_id=job.id)
         else:
             from datetime import timedelta
 
