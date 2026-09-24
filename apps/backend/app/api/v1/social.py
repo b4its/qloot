@@ -11,12 +11,13 @@ from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.social import (
     BadgeOut,
+    FollowStatusOut,
     NotificationCreate,
     NotificationOut,
     UnreadCount,
     UserBadgeOut,
 )
-from app.services.social_service import BadgeService, NotificationService
+from app.services.social_service import BadgeService, FollowService, NotificationService
 
 router = APIRouter()
 
@@ -122,3 +123,26 @@ async def my_badges(
         UserBadgeOut(badge=BadgeOut.model_validate(badge), awarded_at=ub.awarded_at, meta=ub.meta)
         for ub, badge in rows
     ]
+
+
+# --- follow graph (COMM-06) ------------------------------------------------
+@router.get("/users/{user_id}/follow", response_model=FollowStatusOut)
+async def follow_status(user_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    return await FollowService(db).status(user.id, user_id)
+
+
+@router.post("/users/{user_id}/follow", response_model=FollowStatusOut)
+async def follow_user(user_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    async with transaction(db):
+        return await FollowService(db).follow(user, user_id)
+
+
+@router.delete("/users/{user_id}/follow", response_model=FollowStatusOut)
+async def unfollow_user(user_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    async with transaction(db):
+        return await FollowService(db).unfollow(user, user_id)
+
+
+@router.get("/me/following", response_model=list[uuid.UUID])
+async def my_following(user: CurrentUser, db: DbSession):
+    return await FollowService(db).following_ids(user.id)

@@ -57,6 +57,9 @@
   let activeTopic = "";
   // COMM-05: feed ranking — newest (default), hot (decayed engagement), top.
   let sort: "new" | "hot" | "top" = "new";
+  // COMM-06: restrict the feed to authors the viewer follows.
+  let followingOnly = false;
+  let followingIds: string[] = [];
   let openComments = new Set<string>();
   let commentDraft: Record<string, string> = {};
   let busy = "";
@@ -77,11 +80,15 @@
       });
       if (activeTopic) params.set("topic", activeTopic);
       params.set("sort", sort);
+      if (followingOnly) params.set("following", "true");
       [posts, topics, stats] = await Promise.all([
         api.get<Post[]>(`/community/posts?${params.toString()}`),
         api.get<Topic[]>("/community/topics"),
         api.get<typeof stats>("/community/stats"),
       ]);
+      if (user) {
+        followingIds = await api.get<string[]>("/me/following").catch(() => []);
+      }
       hasMore = posts.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat komunitas";
@@ -218,6 +225,22 @@
       await loadComments(p);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengubah komentar";
+    }
+  }
+
+  /** COMM-06: follow/unfollow a post author. */
+  async function toggleFollow(authorId: string) {
+    if (!user || authorId === user.id) return;
+    error = "";
+    try {
+      const status = followingIds.includes(authorId)
+        ? await api.delete<{ is_following: boolean }>(`/users/${authorId}/follow`)
+        : await api.post<{ is_following: boolean }>(`/users/${authorId}/follow`);
+      followingIds = status.is_following
+        ? [...followingIds, authorId]
+        : followingIds.filter((id) => id !== authorId);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui ikutan";
     }
   }
 
@@ -364,6 +387,20 @@
           {label}
         </button>
       {/each}
+      <span class="mx-1 muted">·</span>
+      <button
+        class="btn-pill !py-1"
+        class:!border-primary={followingOnly}
+        class:!text-primary={followingOnly}
+        aria-pressed={followingOnly}
+        on:click={() => {
+          followingOnly = !followingOnly;
+          page = 1;
+          load();
+        }}
+      >
+        <Icon name="user-check" size="11px" /> Mengikuti
+      </button>
     </div>
 
     {#if error}
@@ -416,6 +453,16 @@
                   {relativeTime(f.created_at)} · <span class="text-secondary">{f.topic}</span>
                 </p>
               </div>
+              {#if user && f.author_id !== user.id}
+                <button
+                  class="btn-pill !py-0.5 text-xs"
+                  class:!border-primary={followingIds.includes(f.author_id)}
+                  class:!text-primary={followingIds.includes(f.author_id)}
+                  on:click={() => toggleFollow(f.author_id)}
+                >
+                  {followingIds.includes(f.author_id) ? "Mengikuti" : "Ikuti"}
+                </button>
+              {/if}
             </div>
           </div>
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->

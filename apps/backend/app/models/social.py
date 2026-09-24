@@ -103,6 +103,29 @@ class NotificationPreference(Base):
     )
 
 
+class UserFollow(Base):
+    """A follow edge: follower_id follows followee_id (COMM-06)."""
+
+    __tablename__ = "user_follows"
+    __table_args__ = (
+        UniqueConstraint("follower_id", "followee_id", name="uq_user_follows_pair"),
+        Index("ix_user_follows_followee", "followee_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    follower_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    followee_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+
 class UserProgress(Base):
     """Small per-user marker row for progress notifications that must be
     idempotent across repeated reads (e.g. level-up) without storing the

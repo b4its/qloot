@@ -34,6 +34,7 @@ async def list_posts(
     db: DbSession,
     topic: str | None = None,
     sort: str = "new",
+    following: bool = False,
     limit: LimitParam = 30,
     offset: OffsetParam = 0,
 ):
@@ -43,6 +44,7 @@ async def list_posts(
         viewer_id=user.id,
         topic=topic,
         sort=sort,
+        following_only=following,
         limit=limit,
         offset=offset,
         include_hidden_for=user.id,

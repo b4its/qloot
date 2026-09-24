@@ -61,6 +61,7 @@ from app.models.social import (
     Notification,
     NotificationPreference,
     UserBadge,
+    UserFollow,
     UserProgress,
 )
 from app.models.wallet import (
@@ -119,6 +120,7 @@ __all__ = [
     "UserBadge",
     "UserProgress",
     "NotificationPreference",
+    "UserFollow",
     "AcademicGrade",
     "PersonalityResult",
     "CareerRecommendation",

@@ -301,3 +301,96 @@ class BadgeService:
         return list(
             (await self.session.execute(select(Badge).order_by(Badge.points))).scalars().all()
         )
+
+
+class FollowService:
+    """Follow graph: follow/unfollow with counts and a follow notification."""
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def follow(self, follower: User, followee_id: uuid.UUID) -> dict:
+        from app.models.social import UserFollow
+
+        if follower.id == followee_id:
+            from app.core.errors import ConflictError
+
+            raise ConflictError("You cannot follow yourself")
+        followee = await self.session.get(User, followee_id)
+        if followee is None:
+            raise NotFoundError("User not found")
+        existing = (
+            await self.session.execute(
+                select(UserFollow).where(
+                    UserFollow.follower_id == follower.id,
+                    UserFollow.followee_id == followee_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            self.session.add(UserFollow(follower_id=follower.id, followee_id=followee_id))
+            await self.session.flush()
+            await NotificationService(self.session).notify(
+                user_id=followee_id,
+                kind="community",
+                title=f"{follower.full_name} mulai mengikuti Anda",
+                data={"follower_id": str(follower.id)},
+            )
+        return await self.status(follower.id, followee_id)
+
+    async def unfollow(self, follower: User, followee_id: uuid.UUID) -> dict:
+        from app.models.social import UserFollow
+
+        existing = (
+            await self.session.execute(
+                select(UserFollow).where(
+                    UserFollow.follower_id == follower.id,
+                    UserFollow.followee_id == followee_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            await self.session.delete(existing)
+            await self.session.flush()
+        return await self.status(follower.id, followee_id)
+
+    async def status(self, viewer_id: uuid.UUID, user_id: uuid.UUID) -> dict:
+        from app.models.social import UserFollow
+
+        followers = int(
+            (
+                await self.session.execute(
+                    select(func.count())
+                    .select_from(UserFollow)
+                    .where(UserFollow.followee_id == user_id)
+                )
+            ).scalar_one()
+        )
+        following = int(
+            (
+                await self.session.execute(
+                    select(func.count())
+                    .select_from(UserFollow)
+                    .where(UserFollow.follower_id == user_id)
+                )
+            ).scalar_one()
+        )
+        is_following = (
+            await self.session.execute(
+                select(UserFollow).where(
+                    UserFollow.follower_id == viewer_id, UserFollow.followee_id == user_id
+                )
+            )
+        ).scalar_one_or_none() is not None
+        return {
+            "user_id": user_id,
+            "followers": followers,
+            "following": following,
+            "is_following": is_following,
+        }
+
+    async def following_ids(self, user_id: uuid.UUID) -> list[uuid.UUID]:
+        from app.models.social import UserFollow
+
+        stmt = select(UserFollow.followee_id).where(UserFollow.follower_id == user_id)
+        return list((await self.session.execute(stmt)).scalars().all())

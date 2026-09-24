@@ -200,6 +200,11 @@ POST /admin/notifications            (admin broadcast)
 
 GET  /badges
 GET  /me/badges
+
+GET    /users/{user_id}/follow        (follow status + counts)
+POST   /users/{user_id}/follow
+DELETE /users/{user_id}/follow
+GET    /me/following
 ```
 
 Every catalogued badge is earnable: the 7 curated gameplay badges plus XP
@@ -223,7 +228,7 @@ surname ("Budi Santoso" → "Budi S."); a revoked credential reports
 ## Community (social feed)
 
 ```
-GET    /community/posts                 (?topic=&sort=new|hot|top&limit=&offset=)
+GET    /community/posts                 (?topic=&sort=new|hot|top&following=&limit=&offset=)
 POST   /community/posts
 GET    /community/posts/{post_id}
 DELETE /community/posts/{post_id}       (author/admin)

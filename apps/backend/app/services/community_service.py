@@ -63,6 +63,7 @@ class CommunityService:
         viewer_id: uuid.UUID | None,
         topic: str | None = None,
         sort: str = "new",
+        following_only: bool = False,
         limit: int = 30,
         offset: int = 0,
         include_hidden_for: uuid.UUID | None = None,
@@ -79,6 +80,13 @@ class CommunityService:
             stmt = stmt.where(CommunityPost.hidden.is_(False))
         if topic:
             stmt = stmt.where(CommunityPost.topic == topic)
+        if following_only and viewer_id is not None:
+            # COMM-06: show only posts by people the viewer follows (plus own).
+            from app.services.social_service import FollowService
+
+            ids = await FollowService(self.session).following_ids(viewer_id)
+            ids = [*ids, viewer_id]
+            stmt = stmt.where(CommunityPost.author_id.in_(ids))
 
         engaged = CommunityPost.like_count * 2 + CommunityPost.comment_count
         if sort == "top":

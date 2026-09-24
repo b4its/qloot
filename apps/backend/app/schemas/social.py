@@ -46,3 +46,12 @@ class NotificationCreate(BaseModel):
     body: str | None = None
     kind: str = "system"
     user_ids: list[uuid.UUID] | None = None  # None = all active users
+
+
+class FollowStatusOut(BaseModel):
+    """Follow relationship between the viewer and a target user (COMM-06)."""
+
+    user_id: uuid.UUID
+    followers: int
+    following: int
+    is_following: bool
