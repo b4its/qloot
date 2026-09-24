@@ -670,3 +670,50 @@ async def test_material_delete_blocked_with_pending_drafts(client):
         ).scalars().all():
             await s.delete(q)
         await s.commit()
+
+
+async def test_course_progress_aggregate_and_resume(client):
+    """C37: course progress aggregates lessons and points to the next one."""
+    await _register(client, "prog_t@ex.com", "teacher")
+    course = await client.post(
+        "/api/v1/courses", json={"title": "Progres 1B", "class_code": "1B", "class_type": "IPA", "is_published": True}
+    )
+    course_id = course.json()["id"]
+    lids = []
+    for i in range(3):
+        lesson = await client.post(
+            f"/api/v1/courses/{course_id}/lessons",
+            json={"title": f"L{i}", "position": i, "is_published": True},
+        )
+        lids.append(lesson.json()["id"])
+    await client.post("/api/v1/auth/logout")
+
+    from tests.helpers import register_actor
+
+    await register_actor(client, "prog_s@ex.com", "student", class_code="1B", class_type="IPA")
+    empty = await client.get(f"/api/v1/courses/{course_id}/progress")
+    assert empty.status_code == 200, empty.text
+    body = empty.json()
+    assert body["total_lessons"] == 3
+    assert body["completed_lessons"] == 0
+    assert body["next_lesson_id"] == lids[0]
+
+    # Partial progress (1–99) is stored and is monotonic.
+    p = await client.post(
+        f"/api/v1/lessons/{lids[0]}/progress", json={"progress_percent": 40}
+    )
+    assert p.status_code == 200, p.text
+    assert p.json()["progress_percent"] == 40
+    p2 = await client.post(
+        f"/api/v1/lessons/{lids[0]}/progress", json={"progress_percent": 20}
+    )
+    assert p2.json()["progress_percent"] == 40  # never decreases
+
+    await client.post(
+        f"/api/v1/lessons/{lids[0]}/progress",
+        json={"progress_percent": 100, "completed": True},
+    )
+    after = (await client.get(f"/api/v1/courses/{course_id}/progress")).json()
+    assert after["completed_lessons"] == 1
+    assert after["percent"] == 33
+    assert after["next_lesson_id"] == lids[1]

@@ -260,6 +260,42 @@ class CourseService:
         await self.session.flush()
         return [lessons[lid] for lid in lesson_ids]
 
+    async def course_progress(self, course_id: uuid.UUID, user: User) -> dict:
+        """Aggregate lesson progress for a course + a resume pointer.
+
+        Returns total/completed lessons, an overall percentage, and the first
+        not-yet-completed lesson (the "continue" target) in position order.
+        """
+        course = await self.get(course_id)
+        if not self.can_view(course, user):
+            raise ForbiddenError("Anda tidak memiliki akses ke materi ini")
+        lessons = await self.list_lessons(course_id, limit=1000)
+        lesson_ids = [lesson.id for lesson in lessons]
+        completed_ids: set[uuid.UUID] = set()
+        if lesson_ids:
+            rows = (
+                await self.session.execute(
+                    select(LessonProgress.lesson_id).where(
+                        LessonProgress.user_id == user.id,
+                        LessonProgress.lesson_id.in_(lesson_ids),
+                        LessonProgress.completed.is_(True),
+                    )
+                )
+            ).scalars().all()
+            completed_ids = set(rows)
+        total = len(lessons)
+        completed = len(completed_ids)
+        percent = int(round(completed / total * 100)) if total else 0
+        next_lesson = next((lesson for lesson in lessons if lesson.id not in completed_ids), None)
+        return {
+            "course_id": course.id,
+            "total_lessons": total,
+            "completed_lessons": completed,
+            "percent": percent,
+            "next_lesson_id": next_lesson.id if next_lesson else None,
+            "next_lesson_title": next_lesson.title if next_lesson else None,
+        }
+
     async def set_progress(
         self, lesson_id: uuid.UUID, user: User, *, progress_percent: int, completed: bool
     ) -> LessonProgress:

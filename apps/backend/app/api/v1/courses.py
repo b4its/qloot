@@ -150,6 +150,12 @@ async def reorder_lessons(
     return lessons
 
 
+@router.get("/courses/{course_id}/progress")
+async def course_progress(course_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    """Aggregate a student's progress through a course + a resume pointer."""
+    return await CourseService(db).course_progress(course_id, user)
+
+
 @router.post("/lessons/{lesson_id}/progress", response_model=ProgressOut)
 async def set_progress(
     lesson_id: uuid.UUID, payload: ProgressUpdate, user: CurrentUser, db: DbSession
