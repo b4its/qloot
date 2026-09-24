@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.core.errors import ConflictError, ForbiddenError
 from app.db.session import transaction
+from app.middleware.rate_limit import rate_limit
 from app.models.identity import AuditLog
 from app.schemas.exam import (
     AnswerOut,
     AnswerUpsert,
+    AttemptEventsIn,
     AttemptOut,
     AttemptResultOut,
     ExamCreate,
@@ -319,6 +321,32 @@ async def override_answer(
     return answer
 
 
+@router.post(
+    "/attempts/{attempt_id}/events",
+    dependencies=[Depends(rate_limit("ai", limit=120, window=60))],
+)
+async def record_attempt_events(
+    attempt_id: uuid.UUID,
+    payload: AttemptEventsIn,
+    user: CurrentUser,
+    db: DbSession,
+):
+    """Record proctoring telemetry (best-effort, rate-limited, never blocks).
+
+    The client fires tab-blur/focus-loss/dwell events here; enough violations
+    flag the attempt for the teacher. Errors are swallowed so telemetry can
+    never break the exam flow.
+    """
+    async with transaction(db):
+        try:
+            n = await ExamService(db).record_events(
+                attempt_id, user, [e.model_dump() for e in payload.events]
+            )
+        except Exception:  # noqa: BLE001 - telemetry must never break the flow
+            n = 0
+    return {"recorded": n}
+
+
 @router.get("/attempts/{attempt_id}/result", response_model=AttemptResultOut)
 async def attempt_result(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession):
     service = ExamService(db)
@@ -378,11 +406,15 @@ async def exam_results_review(
     results: list[ExamResultReviewRow] = []
     for attempt, name, review in rows:
         base = AttemptOut.model_validate(attempt)
+        flagged, reason, violations = await service.attempt_flag(attempt.id)
         results.append(
             ExamResultReviewRow(
                 **base.model_dump(),
                 display_name=name,
                 answers=[ReviewAnswerOut(**payload) for payload in review.values()],
+                is_flagged=flagged,
+                flag_reason=reason,
+                violation_count=violations,
             )
         )
     return ExamResultsReviewOut(exam=ExamOut.model_validate(exam), results=results)

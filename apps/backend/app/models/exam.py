@@ -182,6 +182,31 @@ class StudentAnswer(Base, TimestampMixin):
     attempt: Mapped[ExamAttempt] = relationship(back_populates="answers")
 
 
+class AttemptEvent(Base, TimestampMixin):
+    """Proctoring telemetry for an attempt (tab blur, focus loss, dwell time).
+
+    Best-effort and rate-limited by the client; never blocks a submit. Enough
+    events of a "violation" kind flag the attempt (``is_flagged``).
+    """
+
+    __tablename__ = "attempt_events"
+    __table_args__ = (Index("ix_attempt_events_attempt", "attempt_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    attempt_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("exam_attempts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # e.g. "blur", "visibility_hidden", "focus", "dwell", "paste".
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    question_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    # Free-form payload (dwell seconds, etc.).
+    detail: Mapped[dict | None] = mapped_column(JSONB)
+
+
 class GradingJob(Base, TimestampMixin):
     """Generic AI job (generation or grading). attempt_id is nullable so the
     same table also backs question-generation jobs."""

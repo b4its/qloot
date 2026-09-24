@@ -172,6 +172,11 @@
               <span class="font-mono text-sm">
                 {a.score_bp !== null && a.score_bp !== undefined ? bpToPercent(a.score_bp) : "—"}
               </span>
+              {#if a.is_flagged}
+                <span class="badge badge-magenta" title={a.flag_reason ?? ""}>
+                  <Icon name="triangle-exclamation" size="10px" /> Terindikasi
+                </span>
+              {/if}
             </span>
           </button>
 

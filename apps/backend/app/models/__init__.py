@@ -13,6 +13,7 @@ from app.models.certificate import Certificate
 from app.models.community import CommunityComment, CommunityLike, CommunityPost
 from app.models.exam import (
     BP_SCALE,
+    AttemptEvent,
     Exam,
     ExamAttempt,
     GradingJob,
@@ -63,6 +64,7 @@ from app.models.wallet import (
 __all__ = [
     "Base",
     "BP_SCALE",
+    "AttemptEvent",
     "AiUsageCharge",
     "User",
     "Role",

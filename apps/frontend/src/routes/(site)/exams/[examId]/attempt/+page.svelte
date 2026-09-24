@@ -116,14 +116,36 @@
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
 
+  // --- proctoring telemetry (best-effort; never blocks the exam) ---
+  function reportEvent(kind: string, detail?: Record<string, unknown>) {
+    if (!attemptId || finished) return;
+    api
+      .post(`/attempts/${attemptId}/events`, {
+        events: [{ kind, detail: detail ?? null }],
+      })
+      .catch(() => {
+        /* telemetry is best-effort */
+      });
+  }
+  function onVisibility() {
+    reportEvent(document.hidden ? "visibility_hidden" : "focus");
+  }
+  function onBlur() {
+    reportEvent("blur");
+  }
+
   onMount(() => {
     window.addEventListener("beforeunload", warnBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
     load();
   });
   onDestroy(() => {
     if (ticker) clearInterval(ticker);
     for (const qid of Object.keys(autosaveTimers)) clearTimeout(autosaveTimers[qid]);
     window.removeEventListener("beforeunload", warnBeforeUnload);
+    document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("blur", onBlur);
   });
 </script>
 

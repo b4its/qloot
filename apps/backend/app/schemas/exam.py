@@ -183,6 +183,18 @@ class OverrideAnswerIn(BaseModel):
     feedback: str | None = Field(default=None, max_length=2000)
 
 
+class AttemptEventIn(BaseModel):
+    """One proctoring telemetry sample from the client."""
+
+    kind: str = Field(min_length=1, max_length=32)
+    question_id: uuid.UUID | None = None
+    detail: dict | None = None
+
+
+class AttemptEventsIn(BaseModel):
+    events: list[AttemptEventIn] = Field(default_factory=list, max_length=50)
+
+
 class AnswerOut(ORMModel):
     id: uuid.UUID
     question_id: uuid.UUID
@@ -229,6 +241,9 @@ class ExamResultReviewRow(ExamResultRow):
     """An attempt, the student's name, and their per-question answers."""
 
     answers: list[ReviewAnswerOut] = Field(default_factory=list)
+    is_flagged: bool = False
+    flag_reason: str | None = None
+    violation_count: int = 0
 
 
 class ExamResultsReviewOut(BaseModel):

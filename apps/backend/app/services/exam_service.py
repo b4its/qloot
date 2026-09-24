@@ -444,6 +444,84 @@ class ExamService:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    # Violation kinds that contribute to flagging an attempt.
+    _VIOLATION_KINDS = frozenset({"blur", "visibility_hidden", "paste"})
+    # How many violations before an attempt is flagged.
+    FLAG_THRESHOLD = 5
+
+    async def record_events(
+        self, attempt_id: uuid.UUID, user: User, events: list[dict]
+    ) -> int:
+        """Persist proctoring telemetry for an attempt.
+
+        Best-effort: never raises on weird input and never blocks a submit. After
+        recording, re-counts the attempt's violation events and flags it once the
+        threshold is crossed (``is_flagged`` / ``flag_reason``).
+        """
+        attempt = await self._get_own_attempt(attempt_id, user)
+        if attempt.user_id != user.id:
+            raise ForbiddenError("You cannot report events for this attempt")
+        from app.models.exam import AttemptEvent
+
+        saved = 0
+        for ev in events[:50]:
+            kind = str(ev.get("kind", ""))[:32]
+            if not kind:
+                continue
+            qid = ev.get("question_id")
+            try:
+                question_uuid = uuid.UUID(str(qid)) if qid else None
+            except (ValueError, TypeError):
+                question_uuid = None
+            self.session.add(
+                AttemptEvent(
+                    attempt_id=attempt.id,
+                    kind=kind,
+                    question_id=question_uuid,
+                    detail=ev.get("detail") if isinstance(ev.get("detail"), dict) else None,
+                )
+            )
+            saved += 1
+        await self.session.flush()
+
+        # Flag the attempt once enough violations accumulate.
+        violations = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(AttemptEvent)
+                .where(
+                    AttemptEvent.attempt_id == attempt.id,
+                    AttemptEvent.kind.in_(self._VIOLATION_KINDS),
+                )
+            )
+        ).scalar_one()
+        if int(violations) >= self.FLAG_THRESHOLD and not attempt.is_flagged:
+            attempt.is_flagged = True
+            attempt.flag_reason = (
+                f"{int(violations)} proctoring violations (tab switch / focus loss)"
+            )
+            await self.session.flush()
+        return saved
+
+    async def attempt_flag(self, attempt_id: uuid.UUID) -> tuple[bool, str | None, int]:
+        """(is_flagged, reason, violation_count) for the results view."""
+        attempt = await self.session.get(ExamAttempt, attempt_id)
+        if attempt is None:
+            return False, None, 0
+        from app.models.exam import AttemptEvent
+
+        count = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(AttemptEvent)
+                .where(
+                    AttemptEvent.attempt_id == attempt_id,
+                    AttemptEvent.kind.in_(self._VIOLATION_KINDS),
+                )
+            )
+        ).scalar_one()
+        return bool(attempt.is_flagged), attempt.flag_reason, int(count)
+
     async def sweep_expired_attempts(self, *, limit: int = 50) -> int:
         """Auto-submit in-progress attempts whose server deadline has passed.
 

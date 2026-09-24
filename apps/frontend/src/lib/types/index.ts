@@ -521,6 +521,9 @@ export interface ExamResultRow {
 
 export interface ExamResultReviewRow extends ExamResultRow {
   answers: ReviewAnswer[];
+  is_flagged?: boolean;
+  flag_reason?: string | null;
+  violation_count?: number;
 }
 
 export interface ExamResultsReview {
