@@ -91,6 +91,18 @@ class CommunityService:
         self.session.add(comment)
         post.comment_count = (post.comment_count or 0) + 1
         await self.session.flush()
+        # COMM-03: notify the post author (never yourself); the notification
+        # service honours the author's per-kind preference (C54).
+        if post.author_id != user.id:
+            from app.services.social_service import NotificationService
+
+            await NotificationService(self.session).notify(
+                user_id=post.author_id,
+                kind="community",
+                title=f"{user.full_name} mengomentari pos Anda",
+                body=body[:140],
+                data={"post_id": str(post_id), "comment_id": str(comment.id)},
+            )
         return comment
 
     async def toggle_like(self, user: User, post_id: uuid.UUID) -> tuple[CommunityPost, bool]:
@@ -112,6 +124,18 @@ class CommunityService:
             self.session.add(CommunityLike(post_id=post_id, user_id=user.id))
             post.like_count = (post.like_count or 0) + 1
             liked = True
+            # COMM-03: notify the author (never yourself). Unlike/Unlike does
+            # not notify; dedup is inherent (one like per user per post).
+            if post.author_id != user.id:
+                from app.services.social_service import NotificationService
+
+                await NotificationService(self.session).notify(
+                    user_id=post.author_id,
+                    kind="community",
+                    title=f"{user.full_name} menyukai pos Anda",
+                    body=(post.body or "")[:140],
+                    data={"post_id": str(post_id)},
+                )
         await self.session.flush()
         return post, liked
 

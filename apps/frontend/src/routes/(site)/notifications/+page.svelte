@@ -23,6 +23,7 @@
     room: { name: "bullseye", klass: "text-tertiary" },
     system: { name: "bell", klass: "text-primary" },
     level: { name: "arrow-up", klass: "text-highlight" },
+    community: { name: "comments", klass: "text-secondary" },
   };
 
   const kindLabel: Record<string, string> = {
@@ -32,6 +33,7 @@
     room: "Ruang",
     system: "Sistem",
     level: "Naik level",
+    community: "Komunitas",
   };
   let mutedKinds: string[] = [];
   let prefsLoading = true;
