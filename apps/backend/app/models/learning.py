@@ -9,12 +9,14 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -129,6 +131,34 @@ class LearningMaterial(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), default="uploaded", nullable=False)
 
     lesson: Mapped[Lesson | None] = relationship(back_populates="materials")
+
+
+class MaterialChunk(Base):
+    """A retrieval chunk of a material's text plus its embedding vector.
+
+    Chunks are built at upload and embedded via the active provider so
+    ``summarize``/``ask`` can retrieve the most relevant passages (RAG) instead
+    of truncating the document to the first 20k characters.
+    """
+
+    __tablename__ = "material_chunks"
+    __table_args__ = (Index("ix_material_chunks_material", "material_id", "position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    material_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("learning_materials.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    # Embedding vector (JSON list of floats). JSONB keeps it dependency-free.
+    embedding: Mapped[list | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
 
 
 class LessonProgress(Base):

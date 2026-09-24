@@ -36,6 +36,7 @@ from app.models.learning import (
     LearningMaterial,
     Lesson,
     LessonProgress,
+    MaterialChunk,
 )
 from app.models.quest import (
     Quest,
@@ -77,6 +78,7 @@ __all__ = [
     "Lesson",
     "LearningMaterial",
     "LessonProgress",
+    "MaterialChunk",
     "Room",
     "RoomMember",
     "RoomEvent",

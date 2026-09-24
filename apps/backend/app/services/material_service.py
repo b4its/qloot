@@ -7,16 +7,50 @@ import uuid
 from pypdf import PdfReader
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.provider import GenerationContext, QAContext, SummaryContext, get_ai_provider
+from app.ai.provider import (
+    GenerationContext,
+    QAContext,
+    SummaryContext,
+    cosine_similarity,
+    get_ai_provider,
+)
 from app.core.config import settings
 from app.core.errors import ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.models.exam import GradingJob, Question
 from app.models.identity import User
-from app.models.learning import LearningMaterial
+from app.models.learning import LearningMaterial, MaterialChunk
 from app.services.storage import build_key, sha256_hex, sniff_pdf, storage
 
 log = get_logger("materials")
+
+
+def _chunk_text(text: str, *, size: int = 1200, overlap: int = 200) -> list[str]:
+    """Split text into overlapping character chunks on word boundaries.
+
+    Deterministic and provider-agnostic: chunks are stable for the same input,
+    so the RAG index is reproducible.
+    """
+    text = text.strip()
+    if not text:
+        return []
+    size = max(200, size)
+    overlap = max(0, min(overlap, size // 2))
+    chunks: list[str] = []
+    start = 0
+    n = len(text)
+    while start < n:
+        end = min(n, start + size)
+        # Prefer to break on the last whitespace within the window.
+        if end < n and " " in text[start:end]:
+            end = start + text.rfind(" ", start, end)
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        if end >= n:
+            break
+        start = max(end - overlap, start + 1)
+    return chunks
 
 
 def extract_pdf_text(data: bytes) -> str:
@@ -69,8 +103,84 @@ class MaterialService:
         )
         self.session.add(material)
         await self.session.flush()
+        # Build the RAG index (chunks + embeddings) so summary/Q&A can retrieve
+        # relevant passages instead of truncating the document.
+        await self._index_material(material)
         log.info("material_uploaded", material_id=str(material.id), size=len(content))
         return material
+
+    async def _index_material(self, material: LearningMaterial) -> int:
+        """Chunk the extracted text and store an embedding per chunk.
+
+        Idempotent: any existing chunks are replaced. Returns the chunk count.
+        """
+        from sqlalchemy import delete
+
+        text = (material.extracted_text or "").strip()
+        await self.session.execute(
+            delete(MaterialChunk).where(MaterialChunk.material_id == material.id)
+        )
+        if not text:
+            await self.session.flush()
+            return 0
+        chunks = _chunk_text(text, size=settings.material_chunk_chars)
+        try:
+            vectors = await get_ai_provider().embed(chunks)
+        except Exception as exc:  # noqa: BLE001 - retrieval degrades, upload works
+            log.warning("material_embedding_failed", material_id=str(material.id), error=str(exc))
+            vectors = [None] * len(chunks)  # type: ignore[list-item]
+        for i, chunk in enumerate(chunks):
+            self.session.add(
+                MaterialChunk(
+                    material_id=material.id,
+                    position=i,
+                    text=chunk,
+                    embedding=vectors[i] if i < len(vectors) else None,
+                )
+            )
+        await self.session.flush()
+        return len(chunks)
+
+    async def _retrieve_chunks(
+        self, material: LearningMaterial, query: str, *, top_k: int | None = None
+    ) -> list[str]:
+        """Return the top-k most relevant chunk texts for a query.
+
+        Deterministic: embeds the query with the same provider and ranks chunks
+        by cosine similarity, breaking ties by chunk position. Falls back to the
+        first chunks (and finally the raw text prefix) when no embeddings exist.
+        """
+        from sqlalchemy import select
+
+        top_k = top_k or settings.material_rag_top_k
+        stmt = (
+            select(MaterialChunk)
+            .where(MaterialChunk.material_id == material.id)
+            .order_by(MaterialChunk.position)
+        )
+        chunks = list((await self.session.execute(stmt)).scalars().all())
+        if not chunks:
+            # No index yet: fall back to a plain prefix of the raw text.
+            return [(material.extracted_text or "")[: settings.material_rag_max_chars]]
+
+        try:
+            (qvec,) = await get_ai_provider().embed([query or material.filename])
+        except Exception:  # noqa: BLE001
+            qvec = None
+        if not qvec or all(c.embedding is None for c in chunks):
+            return [c.text for c in chunks[:top_k]]
+
+        scored: list[tuple[float, int, str]] = []
+        for c in chunks:
+            sim = cosine_similarity(qvec, c.embedding) if c.embedding else 0.0
+            scored.append((sim, -c.position, c.text))
+        scored.sort(reverse=True)
+        return [t for _s, _p, t in scored[:top_k]]
+
+    async def _grounded_text(self, material: LearningMaterial, query: str) -> str:
+        chunks = await self._retrieve_chunks(material, query)
+        return "\n\n".join(c for c in chunks if c)[: settings.material_rag_max_chars]
+
 
     async def get(self, material_id: uuid.UUID) -> LearningMaterial:
         m = await self.session.get(LearningMaterial, material_id)
@@ -299,10 +409,11 @@ class MaterialService:
         material = await self.get(material_id)
         await self._authorize_view(material, user)
         provider = get_ai_provider()
+        # Retrieve a broad, representative window (query = filename + opening)
+        # via RAG, so a long document is summarised from relevant chunks.
+        grounded = await self._grounded_text(material, (material.filename or "ringkasan"))
         return await provider.summarize(
-            SummaryContext(
-                text=material.extracted_text or "", language=language, max_words=max_words
-            )
+            SummaryContext(text=grounded, language=language, max_words=max_words)
         )
 
     async def ask(self, material_id: uuid.UUID, user: User, *, question: str, language: str = "id"):
@@ -310,8 +421,9 @@ class MaterialService:
         material = await self.get(material_id)
         await self._authorize_view(material, user)
         provider = get_ai_provider()
+        grounded = await self._grounded_text(material, question)
         return await provider.answer(
-            QAContext(text=material.extracted_text or "", question=question, language=language)
+            QAContext(text=grounded, question=question, language=language)
         )
 
     def _authorize(self, material: LearningMaterial, user: User) -> None:

@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     # providers fail fast if the embedding model is not configured.
     ai_embedding_model: str = "text-embedding-3-small"
     ai_embedding_dim: int = 256
+    # Material RAG: chunk size (chars), top-k retrieved, and the cap on the
+    # grounded context passed to the provider.
+    material_chunk_chars: int = 1200
+    material_rag_top_k: int = 8
+    material_rag_max_chars: int = 20_000
     ai_http_timeout_seconds: int = 60
     ai_max_upload_bytes: int = 10 * 1024 * 1024
     ai_max_questions: int = 20
