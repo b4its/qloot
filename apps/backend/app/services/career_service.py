@@ -317,6 +317,9 @@ _SUBJECT_CLUSTER: dict[str, str] = {
 class CareerService:
     def __init__(self, session: AsyncSession):
         self.session = session
+        # Set by assistant_reply_stream so the SSE endpoint can report which
+        # conversation the streamed turn belongs to (CARE-04).
+        self.last_conversation_id: uuid.UUID | None = None
 
     # --- grades ------------------------------------------------------------
     async def list_grades(
@@ -1109,16 +1112,9 @@ class CareerService:
         reply["conversation_id"] = conv.id
         return reply
 
-    async def _ai_assistant_reply(
-        self, user: User, question: str, *, history: list[AssistantMessage] | None = None
-    ) -> dict | None:
-        """Try the configured LLM provider; return None to use the KB fallback."""
-        from app.ai.provider import QAContext, get_ai_provider
+    async def _ai_context(self, user: User, history: list[AssistantMessage] | None) -> str:
         from app.core.config import settings
 
-        if settings.ai_provider == "mock":
-            return None
-        provider = get_ai_provider()
         context = (
             f'Nama kamu adalah "{settings.assistant_name}". '
             "Kamu adalah asisten bimbingan belajar & karier untuk pelajar Indonesia: "
@@ -1134,6 +1130,19 @@ class CareerService:
         history_text = self._history_text(history or [])
         if history_text:
             context = f"{context}\n\nPercakapan sebelumnya:\n{history_text}"
+        return context
+
+    async def _ai_assistant_reply(
+        self, user: User, question: str, *, history: list[AssistantMessage] | None = None
+    ) -> dict | None:
+        """Try the configured LLM provider; return None to use the KB fallback."""
+        from app.ai.provider import QAContext, get_ai_provider
+        from app.core.config import settings
+
+        if settings.ai_provider == "mock":
+            return None
+        provider = get_ai_provider()
+        context = await self._ai_context(user, history)
         try:
             result = await provider.answer(
                 QAContext(text=context, question=question, language="id")
@@ -1145,6 +1154,60 @@ class CareerService:
         if not answer:
             return None
         return {"answer": answer, "confidence_bp": result.confidence_bp}
+
+    async def assistant_reply_stream(
+        self, user: User, question: str, *, conversation_id: uuid.UUID | None = None
+    ):
+        """Yield the assistant reply incrementally (CARE-04).
+
+        Persists the turn once the stream completes. The concatenation of the
+        yielded text chunks equals the answer that ``assistant_reply`` would
+        return, so the JSON fallback and the SSE path never diverge.
+        """
+        from app.ai.provider import QAContext, get_ai_provider
+        from app.core.config import settings
+
+        conv = await self._get_or_create_conversation(user, conversation_id)
+        history = await self._recent_turns(conv.id)
+        if conv.title == "Percakapan baru":
+            conv.title = question[:80]
+        self.last_conversation_id = conv.id
+
+        chunks: list[str] = []
+        if settings.ai_provider != "mock":
+            provider = get_ai_provider()
+            context = await self._ai_context(user, history)
+            try:
+                async for chunk in provider.answer_stream(
+                    QAContext(text=context, question=question, language="id")
+                ):
+                    chunks.append(chunk)
+                    yield chunk
+            except Exception as exc:  # noqa: BLE001 - fall back mid-stream
+                log.warning("assistant_stream_failed", error=str(exc))
+                chunks = []
+        if not chunks:
+            # KB fallback (mock provider, or AI failure): stream the KB answer
+            # in word-sized chunks so the client renders it progressively too.
+            reply = await self._kb_assistant_reply(user, question)
+            answer = reply["answer"]
+            step = 12
+            for i in range(0, len(answer), step):
+                piece = answer[i : i + step]
+                chunks.append(piece)
+                yield piece
+
+        answer = "".join(chunks)
+        self.session.add(
+            AssistantMessage(conversation_id=conv.id, role="user", content=question)
+        )
+        self.session.add(
+            AssistantMessage(conversation_id=conv.id, role="assistant", content=answer)
+        )
+        from app.db.base import utcnow
+
+        conv.updated_at = utcnow()
+        await self.session.flush()
 
     async def _kb_assistant_reply(self, user: User, question: str) -> dict:
         """Rule-based fallback: score every KB entry and return the best match.

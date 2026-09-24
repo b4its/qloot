@@ -1,13 +1,12 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
   import { onMount, tick } from "svelte";
-  import { api, ApiError } from "$lib/api/client";
+  import { API_BASE, API_PREFIX, api, ApiError } from "$lib/api/client";
   import type { AssistantConversation, AssistantReply } from "$lib/types";
 
   interface Msg {
     role: "user" | "bot";
     text: string;
-    typing?: boolean;
   }
 
   const GREETING: Msg = {
@@ -72,33 +71,87 @@
     error = "";
   }
 
+  /**
+   * Stream the assistant reply via SSE (CARE-04). Falls back to the JSON
+   * endpoint if the stream cannot be established.
+   */
   async function send(text?: string) {
     const q = (text ?? input).trim();
     if (!q || busy) return;
     input = "";
     error = "";
-    messages = [...messages, { role: "user", text: q }];
-    messages = [...messages, { role: "bot", text: "", typing: true }];
+    messages = [...messages, { role: "user", text: q }, { role: "bot", text: "" }];
     await scroll();
     busy = true;
+    const botIndex = messages.length - 1;
     try {
-      const reply = await api.post<AssistantReply>("/career/assistant", {
-        message: q,
-        conversation_id: conversationId,
+      const res = await fetch(`${API_BASE}${API_PREFIX}/career/assistant/stream`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          ...csrfHeader(),
+        },
+        body: JSON.stringify({ message: q, conversation_id: conversationId }),
       });
-      messages = [...messages.slice(0, -1), { role: "bot", text: reply.answer }];
-      if (reply.conversation_id) conversationId = reply.conversation_id;
-      if (typeof reply.ort_balance === "number") ortBalance = reply.ort_balance;
-      if (typeof reply.free_requests_remaining === "number")
-        freeRemaining = reply.free_requests_remaining;
+      if (!res.ok || !res.body) throw new Error(`stream failed (${res.status})`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let acc = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const frames = buffer.split("\n\n");
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          const dataLine = frame.split("\n").find((l) => l.startsWith("data:"));
+          if (!dataLine) continue;
+          try {
+            const parsed = JSON.parse(dataLine.slice(5).trim());
+            if (parsed.delta) {
+              acc += parsed.delta;
+              messages = messages.map((m, i) => (i === botIndex ? { ...m, text: acc } : m));
+              await scroll();
+            }
+            if (parsed.conversation_id) conversationId = parsed.conversation_id;
+          } catch {
+            /* ignore malformed frame */
+          }
+        }
+      }
+      if (!acc) throw new Error("empty stream");
       await loadHistory();
-    } catch (e) {
-      messages = messages.slice(0, -1);
-      error = e instanceof ApiError ? e.message : "Asisten tidak tersedia";
+    } catch {
+      // JSON fallback (negotiated failure): fetch the whole answer at once.
+      try {
+        const reply = await api.post<AssistantReply>("/career/assistant", {
+          message: q,
+          conversation_id: conversationId,
+        });
+        messages = messages.map((m, i) => (i === botIndex ? { ...m, text: reply.answer } : m));
+        if (reply.conversation_id) conversationId = reply.conversation_id;
+        if (typeof reply.ort_balance === "number") ortBalance = reply.ort_balance;
+        if (typeof reply.free_requests_remaining === "number")
+          freeRemaining = reply.free_requests_remaining;
+        await loadHistory();
+      } catch (e) {
+        messages = messages.slice(0, -1);
+        error = e instanceof ApiError ? e.message : "Asisten tidak tersedia";
+      }
     } finally {
       busy = false;
       await scroll();
     }
+  }
+
+  function csrfHeader(): Record<string, string> {
+    if (typeof document === "undefined") return {};
+    const m = document.cookie.match(/(?:^|;\s*)qloot_csrf=([^;]+)/);
+    return m ? { "X-CSRF-Token": decodeURIComponent(m[1]) } : {};
   }
 
   async function scroll() {
@@ -170,7 +223,17 @@
   {/if}
 
   <div class="card mt-6 flex h-[60vh] min-h-[420px] flex-col !p-0">
-    <div class="flex-1 space-y-3 overflow-y-auto p-5" bind:this={scroller}>
+    <!--
+      UIX-02: the transcript is a live log so screen readers announce new
+      messages; the assistant text is exposed as it streams in.
+    -->
+    <div
+      class="flex-1 space-y-3 overflow-y-auto p-5"
+      bind:this={scroller}
+      role="log"
+      aria-live="polite"
+      aria-label="Percakapan dengan Asisten Qlo"
+    >
       {#each messages as m}
         <div class="flex items-start gap-3" class:flex-row-reverse={m.role === "user"}>
           <div class="tile-neutral h-7 w-7">
@@ -187,28 +250,16 @@
             class:tone-ink-soft={m.role === "bot"}
             class:dark:bg-surface={m.role === "bot"}
           >
-            {#if m.typing}
-              <span class="inline-flex gap-1">
-                <span class="h-1.5 w-1.5 animate-bounce rounded-sm bg-current"></span>
-                <span
-                  class="h-1.5 w-1.5 animate-bounce rounded-sm bg-current [animation-delay:0.15s]"
-                ></span>
-                <span
-                  class="h-1.5 w-1.5 animate-bounce rounded-sm bg-current [animation-delay:0.3s]"
-                ></span>
-              </span>
-            {:else}
-              <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-              <span>{@html render(m.text)}</span>
-            {/if}
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            <span>{@html render(m.text)}</span>
           </div>
         </div>
       {/each}
     </div>
 
     <div class="border-t px-5 py-3">
-      <p class="mono-label">Popular questions</p>
-      <div class="mt-2 flex flex-wrap gap-2">
+      <p class="mono-label" id="suggestions-label">Pertanyaan populer</p>
+      <div class="mt-2 flex flex-wrap gap-2" aria-labelledby="suggestions-label">
         {#each suggestions as s}
           <button class="btn-ghost !py-1 text-xs" on:click={() => send(s)} disabled={busy}
             >{s}</button
@@ -218,7 +269,9 @@
     </div>
 
     <div class="flex items-center gap-2 border-t p-4">
+      <label class="sr-only" for="assistant-input">Pertanyaan untuk Asisten Qlo</label>
       <input
+        id="assistant-input"
         class="input"
         placeholder="Tanyakan jurusan, kampus, atau karier…"
         bind:value={input}
@@ -226,7 +279,7 @@
         disabled={busy}
       />
       <button class="btn-primary" on:click={() => send()} disabled={busy || !input.trim()}
-        >Send</button
+        >Kirim</button
       >
     </div>
   </div>

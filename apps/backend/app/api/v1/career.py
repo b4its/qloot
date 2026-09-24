@@ -225,7 +225,46 @@ async def assistant(payload: ChatIn, user: CurrentUser, db: DbSession):
     )
 
 
-# --- assistant history -----------------------------------------------------
+@router.post("/assistant/stream", dependencies=[Depends(rate_limit("ai"))])
+async def assistant_stream(payload: ChatIn, user: CurrentUser, db: DbSession):
+    """Stream the assistant reply as Server-Sent Events (CARE-04).
+
+    Charges ORT up front (refunded if the request fails to start), then streams
+    ``data:`` frames with the incremental text and a final ``event: done`` frame
+    carrying the conversation id. The non-streaming ``/assistant`` endpoint
+    remains the JSON fallback for clients that do not opt in.
+    """
+    import json as _json
+
+    from fastapi.responses import StreamingResponse
+
+    from app.db.session import session_factory
+    from app.services.ai_usage_service import AiUsageService
+
+    async with transaction(db):
+        usage = AiUsageService(db)
+        await usage.charge_request(user=user)
+
+    async def _events():
+        try:
+            async with session_factory() as session:
+                service = CareerService(session)
+                async with session.begin():
+                    async for chunk in service.assistant_reply_stream(
+                        user, payload.message, conversation_id=payload.conversation_id
+                    ):
+                        yield f"data: {_json.dumps({'delta': chunk})}\n\n"
+                last = service.last_conversation_id
+                conv_id = str(last) if last else None
+                yield f"event: done\ndata: {_json.dumps({'conversation_id': conv_id})}\n\n"
+        except Exception as exc:  # noqa: BLE001 - surface, do not hang the stream
+            yield f"event: error\ndata: {_json.dumps({'message': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        _events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 @router.get("/assistant/conversations", response_model=list[AssistantConversationOut])
 async def list_assistant_conversations(
     user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0

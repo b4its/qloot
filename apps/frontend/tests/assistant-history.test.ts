@@ -22,6 +22,8 @@ beforeEach(() => {
   get.mockReset();
   post.mockReset();
   get.mockResolvedValue([]);
+  // Force the JSON fallback path by making the SSE fetch fail.
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("no stream")));
 });
 
 describe("assistant conversation history (CARE-01)", () => {

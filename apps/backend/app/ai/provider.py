@@ -369,6 +369,23 @@ class AIProvider:
     async def answer(self, ctx: QAContext) -> AnswerResult:  # pragma: no cover
         raise NotImplementedError
 
+    async def answer_stream(self, ctx: QAContext):
+        """Yield the answer incrementally as text chunks (CARE-04).
+
+        The default implementation calls ``answer`` and yields the result in
+        word-sized chunks so *every* provider supports streaming without a
+        provider-specific token API. Providers with a native streaming
+        endpoint may override this for real token-by-token output. The stream
+        always yields the same final text as ``answer`` would return.
+        """
+        result = await self.answer(ctx)
+        text = result.answer or ""
+        # Yield progressively larger slices so the client renders a growing
+        # message; the concatenation of all chunks equals the full answer.
+        step = 12
+        for i in range(0, len(text), step):
+            yield text[i : i + step]
+
     async def embed(self, texts: list[str]) -> list[list[float]]:  # pragma: no cover
         """Return one embedding vector per input text (same order).
 
