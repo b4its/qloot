@@ -25,6 +25,10 @@ class EventBus:
     def __init__(self) -> None:
         self._redis: aioredis.Redis | None = None
         self._local_subscribers: dict[str, set[asyncio.Queue]] = {}
+        # In-process fallback for incr/decr_connection when Redis is
+        # unavailable (dev/test single-process). Redis-backed values live
+        # under a "presence:" key prefix instead of a local dict.
+        self._local_presence: dict[str, int] = {}
 
     async def connect(self) -> None:
         try:
@@ -78,6 +82,38 @@ class EventBus:
                 yield await queue.get()
         finally:
             self._local_subscribers.get(channel, set()).discard(queue)
+
+    async def incr_connection(self, key: str) -> int:
+        """Increment a live-socket counter for ``key`` (e.g. ``room:user``)
+        and return the new count. Backed by Redis when available (accurate
+        across replicas); falls back to an in-process counter otherwise.
+        """
+        if self._redis is not None:
+            try:
+                return int(await self._redis.incr(f"presence:{key}"))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("realtime_presence_incr_failed", error=str(exc))
+        self._local_presence[key] = self._local_presence.get(key, 0) + 1
+        return self._local_presence[key]
+
+    async def decr_connection(self, key: str) -> int:
+        """Decrement the counter from :meth:`incr_connection`, floored at 0."""
+        if self._redis is not None:
+            try:
+                new = int(await self._redis.decr(f"presence:{key}"))
+                if new <= 0:
+                    with contextlib.suppress(Exception):
+                        await self._redis.delete(f"presence:{key}")
+                    return 0
+                return new
+            except Exception as exc:  # noqa: BLE001
+                log.warning("realtime_presence_decr_failed", error=str(exc))
+        current = self._local_presence.get(key, 0) - 1
+        if current <= 0:
+            self._local_presence.pop(key, None)
+            return 0
+        self._local_presence[key] = current
+        return current
 
 
 event_bus = EventBus()

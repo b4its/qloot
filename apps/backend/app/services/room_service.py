@@ -164,6 +164,34 @@ class RoomService:
             await self._emit(room_id, "left", {"user_id": str(user.id)})
             await self.session.flush()
 
+    async def mark_present(self, room_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Flip ``is_present`` on WS connect, without the HTTP ``join`` side
+        effects (badge, capacity check, joined-event). A user must already be
+        a member (or owner) to have reached the socket in the first place.
+        """
+        stmt = select(RoomMember).where(
+            RoomMember.room_id == room_id, RoomMember.user_id == user_id
+        )
+        member = (await self.session.execute(stmt)).scalar_one_or_none()
+        if member is not None:
+            member.is_present = True
+            member.left_at = None
+            await self.session.flush()
+
+    async def mark_absent(self, room_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Flip ``is_present`` off on WS disconnect (last socket for this
+        user/room only — callers must have already checked the connection
+        count reached zero).
+        """
+        stmt = select(RoomMember).where(
+            RoomMember.room_id == room_id, RoomMember.user_id == user_id
+        )
+        member = (await self.session.execute(stmt)).scalar_one_or_none()
+        if member is not None:
+            member.is_present = False
+            member.left_at = datetime.now(UTC)
+            await self.session.flush()
+
     async def participants(
         self, room_id: uuid.UUID, *, limit: int = 200, offset: int = 0
     ) -> list[tuple[RoomMember, str | None]]:

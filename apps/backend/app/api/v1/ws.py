@@ -73,8 +73,19 @@ async def room_ws(websocket: WebSocket, room_id: uuid.UUID) -> None:
 
     await websocket.accept()
     channel = room_channel(str(room_id))
-    await event_bus.publish(channel, {"type": "presence.join", "user_id": str(user.id)})
-    log.info("ws_connected", room_id=str(room_id), user_id=str(user.id))
+    presence_key = f"{room_id}:{user.id}"
+    live_sockets = await event_bus.incr_connection(presence_key)
+    if live_sockets == 1:
+        # First socket for this user in this room: flip is_present on and
+        # tell everyone else. A second tab from the same user is already
+        # "present" — no duplicate event, no duplicate DB write.
+        async with sm() as db:
+            from app.services.room_service import RoomService
+
+            await RoomService(db).mark_present(room_id, user.id)
+            await db.commit()
+        await event_bus.publish(channel, {"type": "presence.join", "user_id": str(user.id)})
+    log.info("ws_connected", room_id=str(room_id), user_id=str(user.id), sockets=live_sockets)
 
     async def pump_events() -> None:
         async for message in event_bus.subscribe(channel):
@@ -100,5 +111,14 @@ async def room_ws(websocket: WebSocket, room_id: uuid.UUID) -> None:
             await pump_task
         except (asyncio.CancelledError, Exception):  # noqa: BLE001 - best-effort cleanup
             pass
-        await event_bus.publish(channel, {"type": "presence.leave", "user_id": str(user.id)})
-        log.info("ws_disconnected", room_id=str(room_id), user_id=str(user.id))
+        remaining = await event_bus.decr_connection(presence_key)
+        if remaining == 0:
+            # Last socket for this user in this room closed: flip is_present
+            # off (covers a browser tab close, not just an explicit "leave").
+            async with sm() as db:
+                from app.services.room_service import RoomService
+
+                await RoomService(db).mark_absent(room_id, user.id)
+                await db.commit()
+            await event_bus.publish(channel, {"type": "presence.leave", "user_id": str(user.id)})
+        log.info("ws_disconnected", room_id=str(room_id), user_id=str(user.id), sockets=remaining)
