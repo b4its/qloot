@@ -10,6 +10,9 @@ from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, Teache
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit
 from app.schemas.career import (
+    AssistantConversationDetailOut,
+    AssistantConversationOut,
+    AssistantMessageOut,
     ChatIn,
     ChatOut,
     ConsultationIn,
@@ -204,7 +207,9 @@ async def assistant(payload: ChatIn, user: CurrentUser, db: DbSession):
         usage = AiUsageService(db)
         ref = await usage.charge_request(user=user)
         try:
-            reply = await CareerService(db).assistant_reply(user, payload.message)
+            reply = await CareerService(db).assistant_reply(
+                user, payload.message, conversation_id=payload.conversation_id
+            )
         except Exception:
             # Never charge for a failed request.
             await usage.refund_job(user_id=user.id, job_id=ref)
@@ -216,4 +221,37 @@ async def assistant(payload: ChatIn, user: CurrentUser, db: DbSession):
         confidence_bp=reply["confidence_bp"],
         ort_balance=ort_balance,
         free_requests_remaining=free_remaining,
+        conversation_id=reply.get("conversation_id"),
     )
+
+
+# --- assistant history -----------------------------------------------------
+@router.get("/assistant/conversations", response_model=list[AssistantConversationOut])
+async def list_assistant_conversations(
+    user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+):
+    """The caller's assistant conversations, most recently active first."""
+    rows = await CareerService(db).list_conversations(user.id, limit=limit, offset=offset)
+    return [AssistantConversationOut.model_validate(r) for r in rows]
+
+
+@router.get(
+    "/assistant/conversations/{conversation_id}",
+    response_model=AssistantConversationDetailOut,
+)
+async def get_assistant_conversation(
+    conversation_id: uuid.UUID, user: CurrentUser, db: DbSession
+):
+    conv, messages = await CareerService(db).get_conversation(user.id, conversation_id)
+    detail = AssistantConversationDetailOut.model_validate(conv)
+    detail.messages = [AssistantMessageOut.model_validate(m) for m in messages]
+    return detail
+
+
+@router.delete("/assistant/conversations/{conversation_id}", response_model=Message)
+async def delete_assistant_conversation(
+    conversation_id: uuid.UUID, user: CurrentUser, db: DbSession
+):
+    async with transaction(db):
+        await CareerService(db).delete_conversation(user.id, conversation_id)
+    return Message(message="Conversation deleted")

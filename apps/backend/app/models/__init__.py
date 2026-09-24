@@ -1,6 +1,7 @@
 """Import all models so SQLAlchemy metadata is fully populated (Alembic)."""
 
 from app.db.base import Base
+from app.models.assistant import AssistantConversation, AssistantMessage
 from app.models.career import (
     AcademicGrade,
     CareerRecommendation,
@@ -122,6 +123,8 @@ __all__ = [
     "CommunityPost",
     "CommunityComment",
     "CommunityLike",
+    "AssistantConversation",
+    "AssistantMessage",
     "WalletAccount",
     "WalletAssetBalance",
     "WalletLedgerEntry",

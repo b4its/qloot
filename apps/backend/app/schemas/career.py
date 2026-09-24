@@ -130,6 +130,8 @@ class ResourceOut(ORMModel):
 
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
+    # Optional conversation to continue; omitted to start a new one (CARE-01).
+    conversation_id: uuid.UUID | None = None
 
 
 class ChatOut(BaseModel):
@@ -138,3 +140,24 @@ class ChatOut(BaseModel):
     # Remaining ORT credit and free requests so the UI can show the meter.
     ort_balance: int = 0
     free_requests_remaining: int = 0
+    # The conversation this turn belongs to (created if none was supplied).
+    conversation_id: uuid.UUID | None = None
+
+
+class AssistantMessageOut(ORMModel):
+    id: uuid.UUID
+    role: str
+    content: str
+    confidence_bp: int | None = None
+    created_at: datetime
+
+
+class AssistantConversationOut(ORMModel):
+    id: uuid.UUID
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssistantConversationDetailOut(AssistantConversationOut):
+    messages: list[AssistantMessageOut] = Field(default_factory=list)

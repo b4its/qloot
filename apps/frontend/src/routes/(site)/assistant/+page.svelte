@@ -2,7 +2,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import { onMount, tick } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { AssistantReply } from "$lib/types";
+  import type { AssistantConversation, AssistantReply } from "$lib/types";
 
   interface Msg {
     role: "user" | "bot";
@@ -10,12 +10,12 @@
     typing?: boolean;
   }
 
-  let messages: Msg[] = [
-    {
-      role: "bot",
-      text: "Hai! Saya **Asisten Qlo**. Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
-    },
-  ];
+  const GREETING: Msg = {
+    role: "bot",
+    text: "Hai! Saya **Asisten Qlo**. Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
+  };
+
+  let messages: Msg[] = [GREETING];
   let input = "";
   let busy = false;
   let error = "";
@@ -23,6 +23,9 @@
   // AI credit meter (1 request = 1 ORT), refreshed from each reply.
   let ortBalance: number | null = null;
   let freeRemaining: number | null = null;
+  // CARE-01: the active conversation; follow-ups are answered with context.
+  let conversationId: string | null = null;
+  let history: AssistantConversation[] = [];
 
   const suggestions = [
     "Bedanya SNBP dan SNBT?",
@@ -36,6 +39,39 @@
     return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
   }
 
+  async function loadHistory() {
+    try {
+      const rows = await api.get<AssistantConversation[]>("/career/assistant/conversations");
+      history = Array.isArray(rows) ? rows : [];
+    } catch {
+      history = [];
+    }
+  }
+
+  async function openConversation(id: string) {
+    if (busy) return;
+    try {
+      const detail = await api.get<AssistantConversation>(
+        `/career/assistant/conversations/${id}`,
+      );
+      conversationId = id;
+      messages = (detail.messages ?? []).map((m) => ({
+        role: m.role === "user" ? "user" : "bot",
+        text: m.content,
+      }));
+      if (messages.length === 0) messages = [GREETING];
+      await scroll();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat percakapan";
+    }
+  }
+
+  function newConversation() {
+    conversationId = null;
+    messages = [GREETING];
+    error = "";
+  }
+
   async function send(text?: string) {
     const q = (text ?? input).trim();
     if (!q || busy) return;
@@ -46,11 +82,16 @@
     await scroll();
     busy = true;
     try {
-      const reply = await api.post<AssistantReply>("/career/assistant", { message: q });
+      const reply = await api.post<AssistantReply>("/career/assistant", {
+        message: q,
+        conversation_id: conversationId,
+      });
       messages = [...messages.slice(0, -1), { role: "bot", text: reply.answer }];
+      if (reply.conversation_id) conversationId = reply.conversation_id;
       if (typeof reply.ort_balance === "number") ortBalance = reply.ort_balance;
       if (typeof reply.free_requests_remaining === "number")
         freeRemaining = reply.free_requests_remaining;
+      await loadHistory();
     } catch (e) {
       messages = messages.slice(0, -1);
       error = e instanceof ApiError ? e.message : "Asisten tidak tersedia";
@@ -62,10 +103,13 @@
 
   async function scroll() {
     await tick();
-    scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
+    // `scrollTo` is absent in non-DOM test environments; guard it.
+    scroller?.scrollTo?.({ top: scroller.scrollHeight, behavior: "smooth" });
   }
 
-  onMount(() => {});
+  onMount(() => {
+    loadHistory();
+  });
 </script>
 
 <svelte:head><title>Asisten Qlo — QLoot</title></svelte:head>
@@ -80,7 +124,10 @@
       </p>
     </div>
     <div class="flex flex-col items-end gap-2">
-      <a href="/career" class="btn-ghost">← Halaman karier</a>
+      <div class="flex items-center gap-2">
+        <button class="btn-ghost" on:click={newConversation} disabled={busy}>+ Percakapan baru</button>
+        <a href="/career" class="btn-ghost">← Halaman karier</a>
+      </div>
       {#if ortBalance !== null || (freeRemaining !== null && freeRemaining > 0)}
         <div class="card !py-2 !px-3 text-xs">
           <span class="mono-label">Kredit AI</span>
@@ -102,6 +149,24 @@
     <p class="alert-error mt-4">
       {error}
     </p>
+  {/if}
+
+  {#if history.length > 0}
+    <div class="mt-4">
+      <p class="mono-label">Riwayat percakapan</p>
+      <div class="mt-2 flex flex-wrap gap-2">
+        {#each history as c (c.id)}
+          <button
+            class="btn-ghost !py-1 text-xs"
+            class:!border-primary={c.id === conversationId}
+            on:click={() => openConversation(c.id)}
+            disabled={busy}
+          >
+            {c.title}
+          </button>
+        {/each}
+      </div>
+    </div>
   {/if}
 
   <div class="card mt-6 flex h-[60vh] min-h-[420px] flex-col !p-0">

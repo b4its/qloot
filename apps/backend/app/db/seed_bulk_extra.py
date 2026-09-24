@@ -868,6 +868,50 @@ async def seed_misc(session: AsyncSession, students, teachers) -> None:
                 )
             )
         await session.flush()
+
+    # CARE-01: give students assistant conversations with a couple of turns so
+    # the history UI has demo data.
+    from app.models.assistant import AssistantConversation, AssistantMessage
+
+    if await _count(session, AssistantConversation) < TARGET and students:
+        prompts = [
+            ("Bedanya SNBP dan SNBT?", "SNBP tanpa tes, SNBT lewat UTBK."),
+            ("Prospek Ilmu Komputer?", "Software Engineer, Data Scientist, AI Engineer."),
+            ("Jurusan untuk IPA?", "Teknik, Kedokteran, atau Sains murni."),
+        ]
+        for i in range(1, TARGET + 1):
+            student = students[i % len(students)]
+            q, a = prompts[i % len(prompts)]
+            conv_id = det_uuid("aconv", str(student.id), str(i))
+            session.add(
+                AssistantConversation(
+                    id=conv_id,
+                    user_id=student.id,
+                    title=q,
+                    created_at=datetime.now(UTC) - timedelta(hours=i),
+                    updated_at=datetime.now(UTC) - timedelta(hours=i),
+                )
+            )
+            session.add(
+                AssistantMessage(
+                    id=det_uuid("amsg", "u", str(i)),
+                    conversation_id=conv_id,
+                    role="user",
+                    content=q,
+                    created_at=datetime.now(UTC) - timedelta(hours=i),
+                )
+            )
+            session.add(
+                AssistantMessage(
+                    id=det_uuid("amsg", "a", str(i)),
+                    conversation_id=conv_id,
+                    role="assistant",
+                    content=a,
+                    confidence_bp=8000,
+                    created_at=datetime.now(UTC) - timedelta(hours=i) + timedelta(seconds=1),
+                )
+            )
+        await session.flush()
     log.info("bulk_misc_ready")
 
 

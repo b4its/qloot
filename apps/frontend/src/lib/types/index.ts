@@ -647,4 +647,21 @@ export interface AssistantReply {
   confidence_bp: number;
   ort_balance?: number;
   free_requests_remaining?: number;
+  conversation_id?: string | null;
+}
+
+export interface AssistantMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  confidence_bp?: number | null;
+  created_at: string;
+}
+
+export interface AssistantConversation {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages?: AssistantMessage[];
 }

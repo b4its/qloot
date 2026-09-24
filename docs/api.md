@@ -268,7 +268,10 @@ POST  /career/consultations
 POST  /career/consultations/{consultation_id}/cancel
 
 GET   /career/resources            (?category=course|extracurricular|material)
-POST  /career/assistant
+POST  /career/assistant            (body may carry conversation_id to continue)
+GET   /career/assistant/conversations
+GET   /career/assistant/conversations/{conversation_id}
+DELETE /career/assistant/conversations/{conversation_id}
 ```
 
 ## Learning extras

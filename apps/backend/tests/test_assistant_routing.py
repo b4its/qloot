@@ -26,10 +26,21 @@ class _FakeProvider:
         return AnswerResult(answer=self.answer_text, confidence_bp=8100)
 
 
-class _User:
-    """Minimal stand-in for the fields the KB branch reads."""
+async def _persisted_user(session):
+    """assistant_reply now persists turns (CARE-01), so the caller must be a
+    real, committed user for the conversation FK to hold."""
+    from app.core.security import hash_password
+    from app.models.identity import User
 
-    id = uuid.uuid4()
+    user = User(
+        email=f"routing_{uuid.uuid4().hex[:8]}@ex.com",
+        full_name="Routing User",
+        password_hash=hash_password("Password123!"),
+        chain_user_ref="0x" + uuid.uuid4().hex,
+    )
+    session.add(user)
+    await session.flush()
+    return user
 
 
 @pytest.mark.asyncio
@@ -37,8 +48,9 @@ async def test_assistant_uses_ai_provider_when_configured(session, monkeypatch):
     fake = _FakeProvider(answer="ITB dan UI adalah kampus terbaik.")
     monkeypatch.setattr(settings, "ai_provider", "openai")
     monkeypatch.setattr("app.ai.provider.get_ai_provider", lambda: fake)
+    user = await _persisted_user(session)
 
-    reply = await CareerService(session).assistant_reply(_User(), "kampus terbaik?")
+    reply = await CareerService(session).assistant_reply(user, "kampus terbaik?")
 
     assert fake.calls == 1
     assert reply["answer"] == "ITB dan UI adalah kampus terbaik."
@@ -50,8 +62,9 @@ async def test_assistant_falls_back_to_kb_on_ai_failure(session, monkeypatch):
     fake = _FakeProvider(boom=True)
     monkeypatch.setattr(settings, "ai_provider", "openai")
     monkeypatch.setattr("app.ai.provider.get_ai_provider", lambda: fake)
+    user = await _persisted_user(session)
 
-    reply = await CareerService(session).assistant_reply(_User(), "Bedanya SNBP dan SNBT?")
+    reply = await CareerService(session).assistant_reply(user, "Bedanya SNBP dan SNBT?")
 
     assert fake.calls == 1
     # KB answer mentions SNBP deterministically.
@@ -63,8 +76,9 @@ async def test_assistant_skips_ai_for_mock_provider(session, monkeypatch):
     fake = _FakeProvider()
     monkeypatch.setattr(settings, "ai_provider", "mock")
     monkeypatch.setattr("app.ai.provider.get_ai_provider", lambda: fake)
+    user = await _persisted_user(session)
 
-    reply = await CareerService(session).assistant_reply(_User(), "siapa kamu?")
+    reply = await CareerService(session).assistant_reply(user, "siapa kamu?")
 
     assert fake.calls == 0
     assert "Asisten Qlo" in reply["answer"]
@@ -76,6 +90,7 @@ async def test_assistant_skips_ai_for_mock_provider(session, monkeypatch):
 async def test_assistant_kb_uses_configured_name(session, monkeypatch):
     monkeypatch.setattr(settings, "ai_provider", "mock")
     monkeypatch.setattr(settings, "assistant_name", "Asisten Qlo")
-    reply = await CareerService(session).assistant_reply(_User(), "siapa kamu?")
+    user = await _persisted_user(session)
+    reply = await CareerService(session).assistant_reply(user, "siapa kamu?")
     assert "Asisten Qlo" in reply["answer"]
     assert "Kulo" not in reply["answer"]

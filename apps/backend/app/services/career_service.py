@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
 from app.core.logging import get_logger
+from app.models.assistant import AssistantConversation, AssistantMessage
 from app.models.career import (
     AcademicGrade,
     CareerRecommendation,
@@ -949,6 +950,80 @@ class CareerService:
         return items[offset : offset + limit]
 
     # --- assistant ---------------------------------------------------------
+    async def _get_or_create_conversation(
+        self, user: User, conversation_id: uuid.UUID | None
+    ) -> AssistantConversation:
+
+        if conversation_id is not None:
+            conv = await self.session.get(AssistantConversation, conversation_id)
+            if conv is None or conv.user_id != user.id:
+                raise NotFoundError("Conversation not found")
+            return conv
+        conv = AssistantConversation(user_id=user.id, title="Percakapan baru")
+        self.session.add(conv)
+        await self.session.flush()
+        return conv
+
+    async def list_conversations(
+        self, user_id: uuid.UUID, *, limit: int = 50, offset: int = 0
+    ) -> list[AssistantConversation]:
+
+        stmt = (
+            select(AssistantConversation)
+            .where(AssistantConversation.user_id == user_id)
+            .order_by(AssistantConversation.updated_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def get_conversation(
+        self, user_id: uuid.UUID, conversation_id: uuid.UUID
+    ) -> tuple[AssistantConversation, list[AssistantMessage]]:
+
+        conv = await self.session.get(AssistantConversation, conversation_id)
+        if conv is None or conv.user_id != user_id:
+            raise NotFoundError("Conversation not found")
+        stmt = (
+            select(AssistantMessage)
+            .where(AssistantMessage.conversation_id == conversation_id)
+            .order_by(AssistantMessage.created_at, AssistantMessage.id)
+        )
+        messages = list((await self.session.execute(stmt)).scalars().all())
+        return conv, messages
+
+    async def delete_conversation(self, user_id: uuid.UUID, conversation_id: uuid.UUID) -> None:
+
+        conv = await self.session.get(AssistantConversation, conversation_id)
+        if conv is None or conv.user_id != user_id:
+            raise NotFoundError("Conversation not found")
+        await self.session.delete(conv)
+        await self.session.flush()
+
+    async def _recent_turns(
+        self, conversation_id: uuid.UUID, *, limit: int = 6
+    ) -> list[AssistantMessage]:
+        """The most recent turns, oldest-first, capped so the provider context
+        cannot grow unbounded (CARE-01)."""
+
+        stmt = (
+            select(AssistantMessage)
+            .where(AssistantMessage.conversation_id == conversation_id)
+            .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id.desc())
+            .limit(limit)
+        )
+        rows = list((await self.session.execute(stmt)).scalars().all())
+        return list(reversed(rows))
+
+    def _history_text(self, turns: list[AssistantMessage]) -> str:
+        if not turns:
+            return ""
+        lines = []
+        for m in turns:
+            speaker = "Siswa" if m.role == "user" else "Asisten"
+            lines.append(f"{speaker}: {m.content}")
+        return "\n".join(lines)
+
     async def student_profile_context(self, user: User) -> str:
         """A compact, factual summary of the student's own career data (CARE-02).
 
@@ -992,20 +1067,51 @@ class CareerService:
             return ""
         return "; ".join(parts) + "."
 
-    async def assistant_reply(self, user: User, question: str) -> dict:
-        """Answer a career/study question.
+    async def assistant_reply(
+        self, user: User, question: str, *, conversation_id: uuid.UUID | None = None
+    ) -> dict:
+        """Answer a career/study question, persisting the turn (CARE-01).
 
         When a real AI provider is configured (``AI_PROVIDER=openai``/``gemini``)
         we ask the model first; any failure or a mock provider falls back to the
         deterministic rule-based knowledge base below, so the assistant always
         answers offline too.
-        """
-        ai = await self._ai_assistant_reply(user, question)
-        if ai is not None:
-            return ai
-        return await self._kb_assistant_reply(user, question)
 
-    async def _ai_assistant_reply(self, user: User, question: str) -> dict | None:
+        The question and answer are stored as turns of a conversation so a
+        follow-up can be answered with the recent context, and the caller
+        receives the conversation id to continue it.
+        """
+        conv = await self._get_or_create_conversation(user, conversation_id)
+        history = await self._recent_turns(conv.id)
+
+        if conv.title == "Percakapan baru":
+            conv.title = question[:80]
+
+        ai = await self._ai_assistant_reply(user, question, history=history)
+        reply = ai if ai is not None else await self._kb_assistant_reply(user, question)
+
+        self.session.add(
+            AssistantMessage(conversation_id=conv.id, role="user", content=question)
+        )
+        self.session.add(
+            AssistantMessage(
+                conversation_id=conv.id,
+                role="assistant",
+                content=reply["answer"],
+                confidence_bp=reply.get("confidence_bp"),
+            )
+        )
+        # Touch the conversation so listings order by recency.
+        from app.db.base import utcnow
+
+        conv.updated_at = utcnow()
+        await self.session.flush()
+        reply["conversation_id"] = conv.id
+        return reply
+
+    async def _ai_assistant_reply(
+        self, user: User, question: str, *, history: list[AssistantMessage] | None = None
+    ) -> dict | None:
         """Try the configured LLM provider; return None to use the KB fallback."""
         from app.ai.provider import QAContext, get_ai_provider
         from app.core.config import settings
@@ -1024,6 +1130,10 @@ class CareerService:
         profile = await self.student_profile_context(user)
         if profile:
             context = f"{context}\n\nData siswa ini (gunakan bila relevan): {profile}"
+        # CARE-01: replay recent turns so follow-ups keep their referents.
+        history_text = self._history_text(history or [])
+        if history_text:
+            context = f"{context}\n\nPercakapan sebelumnya:\n{history_text}"
         try:
             result = await provider.answer(
                 QAContext(text=context, question=question, language="id")
