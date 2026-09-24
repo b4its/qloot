@@ -263,6 +263,16 @@ security: ## Security scans (bandit, npm audit, hardhat compile)
 .PHONY: ci
 ci: lint typecheck test-unit test-contracts ## Full CI pipeline
 
+.PHONY: ci-e2e
+ci-e2e: ## End-to-end gate: bring up the stack, seed, then run Playwright
+	$(MAKE) up
+	$(MAKE) db-migrate
+	$(MAKE) db-seed
+	$(MAKE) test-e2e
+
+.PHONY: ci-full
+ci-full: ci ci-e2e ## CI pipeline including the Playwright e2e gate
+
 # ----------------------------------------------------------------------------
 # Database
 # ----------------------------------------------------------------------------
