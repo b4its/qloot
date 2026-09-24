@@ -308,3 +308,90 @@ async def test_admin_can_still_create_teacher(client):
     )
     assert resp.status_code == 201, resp.text
     assert "teacher" in resp.json()["roles"]
+
+
+async def test_update_profile_changes_full_name(client):
+    await _register(client, "profile_name@example.com")
+    r = await client.patch("/api/v1/auth/profile", json={"full_name": "Nama Baru"})
+    assert r.status_code == 200, r.text
+    assert r.json()["full_name"] == "Nama Baru"
+
+    me = await client.get("/api/v1/auth/me")
+    assert me.json()["full_name"] == "Nama Baru"
+
+
+async def test_upload_avatar_sets_avatar_url_and_is_served(client):
+    """AUTH-04: avatar_url is a dead column until an upload actually writes it."""
+    await _register(client, "avatar_user@example.com")
+    # A minimal valid PNG (8-byte signature + IHDR is enough for our sniffer,
+    # which only checks the magic bytes).
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    r = await client.post(
+        "/api/v1/auth/profile/avatar",
+        files={"file": ("avatar.png", png_bytes, "image/png")},
+    )
+    assert r.status_code == 200, r.text
+    avatar_url = r.json()["avatar_url"]
+    assert avatar_url, "avatar_url must no longer be null after upload"
+
+    me = await client.get("/api/v1/auth/me")
+    assert me.json()["avatar_url"] == avatar_url
+
+    served = await client.get(f"/api/v1/auth/avatars/{me.json()['id']}")
+    assert served.status_code == 200
+    assert served.headers["content-type"].startswith("image/")
+
+
+async def test_upload_avatar_rejects_non_image_content(client):
+    await _register(client, "avatar_bad@example.com")
+    r = await client.post(
+        "/api/v1/auth/profile/avatar",
+        files={"file": ("fake.png", b"not an image at all", "image/png")},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_change_email_full_flow(client):
+    await _register(client, "old_email@example.com", password="Password123!")
+    request = await client.post(
+        "/api/v1/auth/change-email/request", json={"new_email": "new_email@example.com"}
+    )
+    assert request.status_code == 200, request.text
+    token = request.json()["change_token"]
+    assert token, "dev/test mode must return the raw token"
+
+    # The email is NOT changed yet — a pending request must not affect login.
+    me_before = await client.get("/api/v1/auth/me")
+    assert me_before.json()["email"] == "old_email@example.com"
+
+    confirm = await client.post("/api/v1/auth/change-email/confirm", json={"token": token})
+    assert confirm.status_code == 200, confirm.text
+    assert confirm.json()["email"] == "new_email@example.com"
+
+    me_after = await client.get("/api/v1/auth/me")
+    assert me_after.json()["email"] == "new_email@example.com"
+
+    # Logging in with the new email now works.
+    await client.post("/api/v1/auth/logout")
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "new_email@example.com", "password": "Password123!"},
+    )
+    assert login.status_code == 200
+
+
+async def test_change_email_rejects_an_address_already_in_use(client):
+    await _register(client, "taken@example.com", password="Password123!")
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "wants_taken@example.com", password="Password123!")
+
+    r = await client.post(
+        "/api/v1/auth/change-email/request", json={"new_email": "taken@example.com"}
+    )
+    assert r.status_code == 409, r.text
+
+
+async def test_change_email_confirm_rejects_invalid_token(client):
+    await _register(client, "invalid_token_user@example.com")
+    r = await client.post("/api/v1/auth/change-email/confirm", json={"token": "not-a-real-token"})
+    assert r.status_code == 422

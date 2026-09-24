@@ -24,6 +24,7 @@ from app.models.exam import (
 )
 from app.models.identity import (
     AuditLog,
+    EmailChangeToken,
     PasswordResetToken,
     Role,
     Session,
@@ -78,6 +79,7 @@ __all__ = [
     "UserRole",
     "Session",
     "PasswordResetToken",
+    "EmailChangeToken",
     "AuditLog",
     "Course",
     "CourseMember",

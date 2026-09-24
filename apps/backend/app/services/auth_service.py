@@ -21,7 +21,7 @@ from app.core.security import (
     needs_rehash,
     verify_password,
 )
-from app.models.identity import PasswordResetToken, User
+from app.models.identity import EmailChangeToken, PasswordResetToken, User
 from app.models.identity import Session as SessionModel
 from app.models.wallet import WalletAccount
 from app.repositories.users import SessionRepository, UserRepository
@@ -225,10 +225,68 @@ class AuthService:
         if not verify_password(current_password, user.password_hash):
             raise AuthError("Current password is incorrect")
         user.password_hash = hash_password(new_password)
-        await self.sessions.revoke_all_for_user(
-            user.id, except_token_hash=keep_session_token_hash
+        await self.sessions.revoke_all_for_user(user.id, except_token_hash=keep_session_token_hash)
+        await self.session.flush()
+
+    async def update_profile(
+        self, user: User, *, full_name: str | None = None, avatar_url: str | None = None
+    ) -> User:
+        """PATCH-style profile update (AUTH-04): only touches the fields
+        actually passed. ``avatar_url`` is populated by the caller after
+        uploading the image via Storage (see api/v1/auth.py).
+        """
+        if full_name is not None:
+            user.full_name = full_name
+        if avatar_url is not None:
+            user.avatar_url = avatar_url
+        await self.session.flush()
+        return user
+
+    async def request_email_change(self, user: User, new_email: str) -> str:
+        """Issue a verification token for a pending email change.
+
+        The new address is not written to ``users.email`` until confirmed —
+        a half-finished change must never affect login or display anywhere.
+        """
+        normalized = new_email.strip().lower()
+        existing = await self.users.get_by_email(normalized)
+        if existing is not None and existing.id != user.id:
+            raise ConflictError("Email already registered")
+        raw = secrets.token_urlsafe(32)
+        token_hash = hash_session_token(raw, settings.session_secret)
+        self.session.add(
+            EmailChangeToken(
+                user_id=user.id,
+                new_email=normalized,
+                token_hash=token_hash,
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
         )
         await self.session.flush()
+        return raw
+
+    async def confirm_email_change(self, raw_token: str) -> User:
+        token_hash = hash_session_token(raw_token, settings.session_secret)
+        stmt = select(EmailChangeToken).where(
+            EmailChangeToken.token_hash == token_hash,
+            EmailChangeToken.used_at.is_(None),
+            EmailChangeToken.expires_at > datetime.now(UTC),
+        )
+        token = (await self.session.execute(stmt)).scalar_one_or_none()
+        if token is None:
+            raise ValidationError("Invalid or expired email-change token")
+        # Re-check uniqueness at confirm time (another account may have taken
+        # the address between request and confirm).
+        existing = await self.users.get_by_email(token.new_email)
+        if existing is not None and existing.id != token.user_id:
+            raise ConflictError("Email already registered")
+        user = await self.session.get(User, token.user_id)
+        if user is None:
+            raise NotFoundError("User not found")
+        user.email = token.new_email
+        token.used_at = datetime.now(UTC)
+        await self.session.flush()
+        return user
 
     async def _issue_session(
         self, user: User, *, user_agent: str | None, ip_address: str | None

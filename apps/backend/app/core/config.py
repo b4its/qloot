@@ -108,6 +108,8 @@ class Settings(BaseSettings):
     ai_http_timeout_seconds: int = 60
     ai_max_upload_bytes: int = 10 * 1024 * 1024
     ai_max_questions: int = 20
+    # Avatar image upload cap (AUTH-04) — much smaller than material PDFs.
+    avatar_max_bytes: int = 2 * 1024 * 1024
     # Display name of the built-in study/career assistant.
     assistant_name: str = "Asisten Qlo"
     # Free AI requests granted per user before ORT is charged (1 request = 1 ORT).

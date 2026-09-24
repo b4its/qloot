@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { api, ApiError } from "$lib/api/client";
+  import { api, ApiError, API_BASE } from "$lib/api/client";
   import type { GamificationProfile, SessionInfo } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import { formatDate, formatNumber } from "$lib/utils/format";
@@ -19,6 +19,15 @@
   let changingPassword = false;
   let passwordMessage = "";
   let passwordError = "";
+  let editingName = false;
+  let nameDraft = "";
+  let savingName = false;
+  let uploadingAvatar = false;
+  let avatarError = "";
+  let newEmail = "";
+  let emailMessage = "";
+  let emailError = "";
+  let requestingEmailChange = false;
   $: user = $auth.user;
 
   async function load() {
@@ -87,6 +96,66 @@
     }
   }
 
+  function startEditName() {
+    nameDraft = user?.full_name ?? "";
+    editingName = true;
+  }
+
+  async function saveName() {
+    if (nameDraft.trim().length < 1) return;
+    savingName = true;
+    error = "";
+    try {
+      const updated = await api.patch<{ full_name: string }>("/auth/profile", {
+        full_name: nameDraft.trim(),
+      });
+      auth.setUser({ ...user, full_name: updated.full_name } as typeof user & object);
+      editingName = false;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui nama";
+    } finally {
+      savingName = false;
+    }
+  }
+
+  async function uploadAvatar(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    avatarError = "";
+    uploadingAvatar = true;
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const updated = await api.post<{ avatar_url: string | null }>("/auth/profile/avatar", form);
+      auth.setUser({ ...user, avatar_url: updated.avatar_url } as typeof user & object);
+    } catch (err) {
+      avatarError = err instanceof ApiError ? err.message : "Gagal mengunggah avatar";
+    } finally {
+      uploadingAvatar = false;
+      input.value = "";
+    }
+  }
+
+  async function requestEmailChange() {
+    emailError = "";
+    emailMessage = "";
+    if (!newEmail.includes("@")) {
+      emailError = "Masukkan alamat email yang valid.";
+      return;
+    }
+    requestingEmailChange = true;
+    try {
+      await api.post("/auth/change-email/request", { new_email: newEmail });
+      emailMessage = "Tautan verifikasi telah dikirim ke email baru.";
+      newEmail = "";
+    } catch (e) {
+      emailError = e instanceof ApiError ? e.message : "Gagal meminta perubahan email";
+    } finally {
+      requestingEmailChange = false;
+    }
+  }
+
   onMount(load);
 </script>
 
@@ -103,22 +172,66 @@
       <div class="card">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-4">
-            <span
-              class="brand-mark grid h-14 w-14 place-items-center rounded-sm font-display text-lg font-bold"
-            >
-              {user.full_name
-                .split(" ")
-                .map((n) => n[0])
-                .slice(0, 2)
-                .join("")}
-            </span>
+            <label class="group relative cursor-pointer" title="Ganti avatar">
+              {#if user.avatar_url}
+                <img
+                  src={`${API_BASE}/api/v1/auth/avatars/${user.id}`}
+                  alt="Avatar"
+                  class="h-14 w-14 rounded-sm object-cover"
+                />
+              {:else}
+                <span
+                  class="brand-mark grid h-14 w-14 place-items-center rounded-sm font-display text-lg font-bold"
+                >
+                  {user.full_name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join("")}
+                </span>
+              {/if}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                class="sr-only"
+                on:change={uploadAvatar}
+                disabled={uploadingAvatar}
+              />
+              <span
+                class="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-primary text-white opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <Icon name="camera" size="9px" />
+              </span>
+            </label>
             <div>
-              <p class="font-display text-xl font-bold">{user.full_name}</p>
+              {#if editingName}
+                <div class="flex items-center gap-2">
+                  <input class="input !py-1 text-sm" bind:value={nameDraft} />
+                  <button class="btn-ghost !py-1" on:click={saveName} disabled={savingName}>
+                    <Icon name="check" size="11px" />
+                  </button>
+                  <button class="btn-ghost !py-1" on:click={() => (editingName = false)}>
+                    <Icon name="xmark" size="11px" />
+                  </button>
+                </div>
+              {:else}
+                <button
+                  type="button"
+                  class="flex items-center gap-2 font-display text-xl font-bold"
+                  on:click={startEditName}
+                >
+                  {user.full_name}
+                  <Icon name="pen" size="10px" class="text-tertiary" />
+                </button>
+              {/if}
               <p class="text-sm muted">{user.email}</p>
             </div>
           </div>
           <WalletChip address={user.chain_user_ref} label="Wallet address" size={34} />
         </div>
+        {#if avatarError}
+          <p class="alert-error mt-2 text-xs">{avatarError}</p>
+        {/if}
 
         <div class="mt-5 flex flex-wrap gap-2 border-t pt-5">
           {#each user.roles as r}
@@ -192,6 +305,32 @@
         </div>
       </div>
     {/if}
+
+    <div class="mt-6 card">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold">Ganti email</h2>
+        <Icon name="envelope" size="14px" class="text-primary" />
+      </div>
+      {#if emailError}
+        <p class="alert-error mt-3">{emailError}</p>
+      {/if}
+      {#if emailMessage}
+        <p class="alert-ok mt-3">{emailMessage}</p>
+      {/if}
+      <div class="mt-3 flex flex-wrap items-end gap-2">
+        <label class="block flex-1">
+          <span class="mono-label">Email baru</span>
+          <input class="input mt-1" type="email" bind:value={newEmail} />
+        </label>
+        <button
+          class="btn-primary"
+          on:click={requestEmailChange}
+          disabled={requestingEmailChange || !newEmail}
+        >
+          {requestingEmailChange ? "Mengirim…" : "Kirim tautan verifikasi"}
+        </button>
+      </div>
+    </div>
 
     <div class="mt-6 card">
       <div class="flex items-center justify-between">

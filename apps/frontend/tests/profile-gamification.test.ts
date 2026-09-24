@@ -91,4 +91,20 @@ describe("profile gamification card", () => {
 
     await waitFor(() => expect(post).toHaveBeenCalledWith("/auth/logout-all"));
   });
+
+  it("requests an email change (AUTH-04)", async () => {
+    post.mockResolvedValue({ message: "sent", change_token: null });
+    render(ProfilePage);
+    await waitFor(() => expect(screen.getByText("Ganti email")).toBeTruthy());
+
+    const input = screen.getByLabelText("Email baru");
+    await fireEvent.input(input, { target: { value: "new@example.com" } });
+    await fireEvent.click(screen.getByRole("button", { name: /kirim tautan verifikasi/i }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/auth/change-email/request", {
+        new_email: "new@example.com",
+      }),
+    );
+  });
 });

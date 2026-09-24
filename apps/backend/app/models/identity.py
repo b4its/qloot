@@ -126,6 +126,30 @@ class PasswordResetToken(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class EmailChangeToken(Base):
+    """Verification token for AUTH-04's change-email flow.
+
+    ``new_email`` is stored on the token (not on the user) until confirmed,
+    so a pending, unconfirmed change never affects login/display anywhere.
+    """
+
+    __tablename__ = "email_change_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    new_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     __table_args__ = (Index("ix_audit_logs_actor_created", "actor_id", "created_at"),)

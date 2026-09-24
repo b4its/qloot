@@ -4,18 +4,22 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
 from app.core.config import settings
-from app.core.errors import AuthError
+from app.core.errors import AuthError, ValidationError
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit
 from app.schemas.auth import (
+    ChangeEmailOut,
+    ChangeEmailRequest,
     ChangePasswordRequest,
+    ConfirmEmailChangeRequest,
     ForgotPasswordOut,
     ForgotPasswordRequest,
     LoginRequest,
+    ProfileUpdateRequest,
     RegisterRequest,
     ResetPasswordRequest,
     SessionOut,
@@ -23,6 +27,7 @@ from app.schemas.auth import (
 )
 from app.schemas.common import Message
 from app.services.auth_service import AuthService
+from app.services.storage import sniff_image, storage
 
 router = APIRouter()
 
@@ -159,6 +164,91 @@ async def _user_from_token(service: AuthService, token: str):
 
 @router.get("/me", response_model=UserOut)
 async def me(user: CurrentUser) -> UserOut:
+    return _user_out(user)
+
+
+@router.patch("/profile", response_model=UserOut)
+async def update_profile(
+    payload: ProfileUpdateRequest, user: CurrentUser, db: DbSession
+) -> UserOut:
+    async with transaction(db):
+        updated = await AuthService(db).update_profile(user, full_name=payload.full_name)
+    return _user_out(updated)
+
+
+@router.post("/profile/avatar", response_model=UserOut)
+async def upload_avatar(user: CurrentUser, db: DbSession, file: UploadFile = File(...)) -> UserOut:
+    """Upload/replace the caller's avatar image (AUTH-04).
+
+    Reused validation posture from material uploads: size-capped read, magic-
+    byte sniff (not just the client Content-Type), and a hardened storage key
+    the caller cannot influence beyond the extension.
+    """
+    content = await file.read(settings.avatar_max_bytes + 1)
+    if len(content) > settings.avatar_max_bytes:
+        raise ValidationError(f"Avatar exceeds the {settings.avatar_max_bytes} byte limit")
+    content_type = sniff_image(content)
+    if content_type is None:
+        raise ValidationError("File is not a recognised image (png/jpeg/webp)")
+    key = f"avatars/{user.id}/{uuid.uuid4().hex}.{content_type.split('/')[-1]}"
+    storage.put(key, content, content_type)
+    async with transaction(db):
+        updated = await AuthService(db).update_profile(user, avatar_url=key)
+    return _user_out(updated)
+
+
+@router.get("/avatars/{user_id}")
+async def get_avatar(user_id: uuid.UUID, db: DbSession):
+    """Serve a user's avatar image (public — avatars are not sensitive).
+
+    302s to a presigned URL when using object storage; streams directly for
+    local storage, mirroring the materials download endpoint's fallback.
+    """
+    from fastapi import Response
+    from fastapi.responses import RedirectResponse
+
+    from app.core.errors import NotFoundError
+    from app.models.identity import User
+
+    user = await db.get(User, user_id)
+    if user is None or not user.avatar_url:
+        raise NotFoundError("Avatar not found")
+    key = user.avatar_url
+    presigned = storage.presigned_get_url(key, expires_seconds=300)
+    if presigned is not None:
+        return RedirectResponse(url=presigned, status_code=302)
+    data = storage.get(key)
+    ext = key.rsplit(".", 1)[-1].lower()
+    content_types = {
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "webp": "image/webp",
+    }
+    content_type = content_types.get(ext, "application/octet-stream")
+    return Response(content=data, media_type=content_type)
+
+
+@router.post(
+    "/change-email/request",
+    response_model=ChangeEmailOut,
+    dependencies=[Depends(rate_limit("password_reset"))],
+)
+async def request_change_email(
+    payload: ChangeEmailRequest, user: CurrentUser, db: DbSession
+) -> ChangeEmailOut:
+    async with transaction(db):
+        token = await AuthService(db).request_email_change(user, payload.new_email)
+    return ChangeEmailOut(
+        message="Verification link sent to the new address",
+        change_token=None if settings.is_production else token,
+    )
+
+
+@router.post("/change-email/confirm", response_model=UserOut)
+async def confirm_change_email(payload: ConfirmEmailChangeRequest, db: DbSession) -> UserOut:
+    async with transaction(db):
+        user = await AuthService(db).confirm_email_change(payload.token)
     return _user_out(user)
 
 

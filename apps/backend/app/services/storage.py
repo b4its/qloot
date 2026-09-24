@@ -150,3 +150,16 @@ def sha256_hex(data: bytes) -> str:
 def sniff_pdf(data: bytes) -> bool:
     """Validate MIME by content, not by the client-provided header."""
     return data[:5] == b"%PDF-"
+
+
+def sniff_image(data: bytes) -> str | None:
+    """Validate an avatar upload by magic bytes; returns the sniffed MIME
+    type or None if it isn't a recognised image (AUTH-04).
+    """
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
