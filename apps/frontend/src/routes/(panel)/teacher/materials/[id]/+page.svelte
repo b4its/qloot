@@ -207,6 +207,40 @@
     }
   }
 
+  async function reject(q: Question) {
+    try {
+      await api.patch(`/questions/${q.id}`, { review_status: "rejected" });
+      generated = generated.map((g) => (g.id === q.id ? { ...g, review_status: "rejected" } : g));
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menolak";
+    }
+  }
+
+  let bulkBusy = false;
+
+  /** Approve every still-pending draft in one pass. */
+  async function approveAllDrafts() {
+    const pending = generated.filter((g) => (g.review_status ?? "pending") === "pending");
+    if (pending.length === 0) return;
+    bulkBusy = true;
+    error = "";
+    message = "";
+    try {
+      for (const q of pending) {
+        await api.patch(`/questions/${q.id}`, { review_status: "approved" });
+      }
+      const approved = new Set(pending.map((q) => q.id));
+      generated = generated.map((g) =>
+        approved.has(g.id) ? { ...g, review_status: "approved" } : g,
+      );
+      message = `${pending.length} soal disetujui.`;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menyetujui semua";
+    } finally {
+      bulkBusy = false;
+    }
+  }
+
   async function loadSummary() {
     summaryLoading = true;
     summary = null;
@@ -318,6 +352,13 @@
       {/if}
 
       {#if generated.length}
+        {#if generated.some((g) => (g.review_status ?? "pending") === "pending")}
+          <div class="mt-3 flex justify-end">
+            <button class="btn-secondary !py-1 text-xs" on:click={approveAllDrafts} disabled={bulkBusy}>
+              <Icon name="check-double" size="11px" /> Setujui semua draf
+            </button>
+          </div>
+        {/if}
         <ol class="mt-3 space-y-3">
           {#each generated as q, i}
             <li class="border-t pt-2">
@@ -333,6 +374,9 @@
               <div class="mt-2 flex gap-2">
                 {#if q.review_status !== "approved"}
                   <button class="btn-ghost" on:click={() => approve(q)}>Setujui</button>
+                {/if}
+                {#if q.review_status !== "rejected"}
+                  <button class="btn-ghost !text-tertiary" on:click={() => reject(q)}>Tolak</button>
                 {/if}
                 <button
                   class="btn-ghost"

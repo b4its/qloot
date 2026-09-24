@@ -4,6 +4,7 @@ import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/sv
 
 const get = vi.fn();
 const post = vi.fn();
+const patch = vi.fn();
 vi.mock("../src/lib/api/client", () => ({
   API_BASE: "http://localhost:8000",
   ApiError: class ApiError extends Error {
@@ -13,7 +14,7 @@ vi.mock("../src/lib/api/client", () => ({
     get: (...a: unknown[]) => get(...a),
     post: (...a: unknown[]) => post(...a),
     put: vi.fn(),
-    patch: vi.fn().mockResolvedValue({}),
+    patch: (...a: unknown[]) => patch(...a),
     delete: vi.fn(),
   },
 }));
@@ -58,6 +59,8 @@ describe("teacher materials — AI question generation", () => {
     cleanup();
     get.mockReset();
     post.mockReset();
+    patch.mockReset();
+    patch.mockResolvedValue({});
     auth.setUser(teacher);
     get.mockImplementation((path: string) => {
       if (path === "/materials/m1") return Promise.resolve(material);
@@ -106,5 +109,26 @@ describe("teacher materials — AI question generation", () => {
     // The enqueue goes to the async endpoint (no -sync suffix).
     const enqueued = post.mock.calls[0][0] as string;
     expect(enqueued).toBe("/materials/m1/generate-questions");
+  });
+
+  it("offers bulk approve for pending drafts", async () => {
+    post.mockResolvedValue([
+      { id: "q1", prompt: "Soal satu?", correct_answer: "A", review_status: "pending" },
+      { id: "q2", prompt: "Soal dua?", correct_answer: "B", review_status: "pending" },
+    ]);
+    render(MaterialsPage);
+    await screen.findByText("Buat soal dengan AI");
+    await fireEvent.click(screen.getByRole("button", { name: /buat soal/i }));
+    await screen.findByText(/Soal satu\?/);
+    const bulk = await screen.findByRole("button", { name: /setujui semua draf/i });
+    await fireEvent.click(bulk);
+    await waitFor(() => expect(patch).toHaveBeenCalled());
+    // Each pending draft was approved.
+    expect(patch.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(
+      patch.mock.calls.every(
+        (c) => (c[1] as { review_status: string }).review_status === "approved",
+      ),
+    ).toBe(true);
   });
 });
