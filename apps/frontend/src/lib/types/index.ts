@@ -105,6 +105,8 @@ export interface Exam {
   max_attempts?: number;
   shuffle_questions?: boolean;
   shuffle_options?: boolean;
+  grace_seconds?: number;
+  late_penalty_bp?: number;
   status: string;
   is_active: boolean;
   passing_score_bp: number;

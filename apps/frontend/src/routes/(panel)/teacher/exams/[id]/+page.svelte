@@ -26,6 +26,8 @@
     max_attempts: 1,
     shuffle_questions: false,
     shuffle_options: false,
+    grace_seconds: 0,
+    late_penalty_bp: 0,
   };
 
   let questions: Question[] = [];
@@ -74,6 +76,8 @@
         max_attempts: exam.max_attempts ?? 1,
         shuffle_questions: exam.shuffle_questions ?? false,
         shuffle_options: exam.shuffle_options ?? false,
+        grace_seconds: exam.grace_seconds ?? 0,
+        late_penalty_bp: exam.late_penalty_bp ?? 0,
       };
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
@@ -317,6 +321,28 @@
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" bind:checked={form.shuffle_options} />
           <span>Acak urutan opsi jawaban</span>
+        </label>
+      </div>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <label class="block">
+          <span class="mono-label">Toleransi keterlambatan (detik)</span>
+          <input
+            class="input mt-1"
+            type="number"
+            min="0"
+            max="3600"
+            bind:value={form.grace_seconds}
+          />
+        </label>
+        <label class="block">
+          <span class="mono-label">Penalti telat (bp, mis. 2000 = -20%)</span>
+          <input
+            class="input mt-1"
+            type="number"
+            min="0"
+            max="10000"
+            bind:value={form.late_penalty_bp}
+          />
         </label>
       </div>
       <div class="mt-3 flex items-center justify-between">

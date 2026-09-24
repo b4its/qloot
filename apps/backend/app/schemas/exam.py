@@ -98,6 +98,8 @@ class ExamCreate(BaseModel):
     max_attempts: int = Field(default=1, ge=0, le=100)
     shuffle_questions: bool = False
     shuffle_options: bool = False
+    grace_seconds: int = Field(default=0, ge=0, le=3600)
+    late_penalty_bp: int = Field(default=0, ge=0, le=10_000)
     instructions: str | None = Field(default=None, max_length=20_000)
     # Optional scheduling window. When set, attempts can only start within it
     # (students see 409 before `opens_at` / the deadline enforced at submit).
@@ -112,6 +114,8 @@ class ExamUpdate(BaseModel):
     max_attempts: int | None = Field(default=None, ge=0, le=100)
     shuffle_questions: bool | None = None
     shuffle_options: bool | None = None
+    grace_seconds: int | None = Field(default=None, ge=0, le=3600)
+    late_penalty_bp: int | None = Field(default=None, ge=0, le=10_000)
     instructions: str | None = Field(default=None, max_length=20_000)
     is_active: bool | None = None
     opens_at: datetime | None = None
@@ -128,6 +132,8 @@ class ExamOut(ORMModel):
     max_attempts: int = 1
     shuffle_questions: bool = False
     shuffle_options: bool = False
+    grace_seconds: int = 0
+    late_penalty_bp: int = 0
     status: str
     is_active: bool
     passing_score_bp: int

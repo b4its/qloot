@@ -167,6 +167,17 @@ class GradingService:
         ).scalar_one()
         attempt.score_bp = int(round(total_score * BP_SCALE / full_max)) if full_max else 0
         exam = await self.session.get(Exam, attempt.exam_id)
+        # Late-submission penalty: a submit after the attempt's deadline (but
+        # inside the grace window) loses `late_penalty_bp` basis points.
+        if (
+            exam is not None
+            and exam.late_penalty_bp > 0
+            and attempt.expires_at is not None
+            and attempt.submitted_at is not None
+            and attempt.submitted_at > attempt.expires_at
+        ):
+            factor = max(0, BP_SCALE - exam.late_penalty_bp)
+            attempt.score_bp = attempt.score_bp * factor // BP_SCALE
         threshold = exam.passing_score_bp if exam else 6000
         attempt.passed = attempt.score_bp >= threshold
         attempt.graded_at = datetime.now(UTC)

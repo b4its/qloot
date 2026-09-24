@@ -54,6 +54,11 @@ class Exam(Base, TimestampMixin):
     # attempt id) so two students do not see an identical paper.
     shuffle_questions: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     shuffle_options: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Late-submission policy: a submit within `grace_seconds` past the deadline is
+    # accepted (rather than 409) and the final score is reduced by
+    # `late_penalty_bp` basis points.
+    grace_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    late_penalty_bp: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="draft", nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     passing_score_bp: Mapped[int] = mapped_column(Integer, default=6000, nullable=False)

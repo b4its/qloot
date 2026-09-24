@@ -290,3 +290,101 @@ async def test_expires_at_capped_by_closes_at(client):
     expires = datetime.fromisoformat(attempt.json()["expires_at"])
     # 120-minute duration but the exam closes in ~5 minutes -> capped.
     assert expires <= datetime.now(UTC) + timedelta(minutes=6)
+
+
+async def test_grace_period_and_late_penalty(client, engine):
+    """C22: a submit inside the grace window is accepted and penalised."""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import update
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.exam import ExamAttempt
+
+    await _register(client, "grace_teacher@ex.com", "teacher")
+    exam = await client.post(
+        "/api/v1/exams",
+        json={
+            "title": "Grace",
+            "duration_minutes": 30,
+            "max_attempts": 5,
+            "grace_seconds": 60,
+            "late_penalty_bp": 2000,  # 20% penalty
+        },
+    )
+    exam_id = exam.json()["id"]
+    q = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={
+            "prompt": "Ibu kota?",
+            "qtype": "multiple_choice",
+            "position": 0,
+            "options": [
+                {"text": "Jakarta", "is_correct": True},
+                {"text": "Bandung", "is_correct": False},
+            ],
+        },
+    )
+    qid = q.json()["id"]
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "grace_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.put(f"/api/v1/attempts/{attempt_id}/answers/{qid}", json={"answer_text": "A"})
+
+    # Push the deadline 30s into the past (inside the 60s grace window).
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        await s.execute(
+            update(ExamAttempt)
+            .where(ExamAttempt.id == _uuid.UUID(attempt_id))
+            .values(expires_at=datetime.now(UTC) - timedelta(seconds=30))
+        )
+        await s.commit()
+
+    submit = await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    assert submit.status_code == 200, submit.text  # accepted within grace
+
+    # Grading (MC-only -> inline) reflects the 20% late penalty: 10000 -> 8000.
+    assert submit.json()["score_bp"] == 8000
+
+
+async def test_submit_beyond_grace_is_rejected(client, engine):
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import update
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.exam import ExamAttempt
+
+    await _register(client, "late_teacher@ex.com", "teacher")
+    exam = await client.post(
+        "/api/v1/exams",
+        json={"title": "Late", "duration_minutes": 30, "max_attempts": 5, "grace_seconds": 5},
+    )
+    exam_id = exam.json()["id"]
+    q = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={"prompt": "Soal?", "correct_answer": "x", "position": 0},
+    )
+    assert q.status_code == 201, q.text
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "late_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        await s.execute(
+            update(ExamAttempt)
+            .where(ExamAttempt.id == _uuid.UUID(attempt_id))
+            .values(expires_at=datetime.now(UTC) - timedelta(seconds=120))
+        )
+        await s.commit()
+
+    submit = await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    assert submit.status_code == 409, submit.text

@@ -407,9 +407,17 @@ class ExamService:
             return attempt
         exam = await self.session.get(Exam, attempt.exam_id)
         now = datetime.now(UTC)
-        # Server-side deadline: an in-progress attempt past its own expiry cannot
-        # be submitted (the sweeper auto-submits it instead).
-        self._ensure_not_expired(attempt, now)
+        # Server-side deadline. A submit after the deadline is rejected unless it
+        # falls inside the configured grace window (late penalty then applies at
+        # grading). The sweeper auto-submits truly expired attempts.
+        if (
+            attempt.status == "in_progress"
+            and attempt.expires_at is not None
+            and now > attempt.expires_at
+        ):
+            grace = exam.grace_seconds if exam else 0
+            if now > attempt.expires_at + timedelta(seconds=grace):
+                raise ConflictError("Waktu ujian telah habis")
         if exam and exam.closes_at and now > exam.closes_at:
             raise ConflictError("The exam deadline has passed")
         attempt.submitted_at = now
