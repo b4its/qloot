@@ -158,3 +158,23 @@ async def my_progress(
     user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
 ):
     return await CourseService(db).my_progress(user, limit=limit, offset=offset)
+
+
+@router.get("/lessons/{lesson_id}/materials")
+async def lesson_materials(
+    lesson_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
+    """Materials attached to a lesson (visible to the lesson's course members).
+
+    Students see the PDFs/notes for their own class; teachers and admins see
+    everything. A lesson outside the caller's class returns 403.
+    """
+    from app.schemas.material import MaterialOut
+    from app.services.material_service import MaterialService
+
+    rows = await MaterialService(db).list_for_lesson(lesson_id, user, limit=limit, offset=offset)
+    return [MaterialOut.model_validate(m) for m in rows]

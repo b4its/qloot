@@ -129,6 +129,48 @@ class MaterialService:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def list_for_lesson(
+        self, lesson_id: uuid.UUID, user: User, *, limit: int = 100, offset: int = 0
+    ) -> list[LearningMaterial]:
+        """Materials attached to a lesson, visible to its course's members.
+
+        A student may list materials only for a lesson whose course they belong
+        to; the owning teacher and admins see everything. A lesson with no
+        course (or a non-member) is refused with 403.
+        """
+        from sqlalchemy import select
+
+        from app.models.learning import Lesson
+
+        lesson = await self.session.get(Lesson, lesson_id)
+        if lesson is None:
+            raise NotFoundError("Lesson not found")
+        # Owner/admin of any material on this lesson may list it.
+        if not user.has_role("admin"):
+            is_member = lesson.course_id is not None and await self._is_course_member(
+                lesson.course_id, user.id
+            )
+            owns_material = (
+                await self.session.execute(
+                    select(LearningMaterial.id)
+                    .where(
+                        LearningMaterial.lesson_id == lesson_id,
+                        LearningMaterial.owner_id == user.id,
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none() is not None
+            if not is_member and not owns_material:
+                raise ForbiddenError("You are not enrolled in this lesson's course")
+        stmt = (
+            select(LearningMaterial)
+            .where(LearningMaterial.lesson_id == lesson_id)
+            .order_by(LearningMaterial.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def enqueue_generation(
         self,
         material_id: uuid.UUID,
