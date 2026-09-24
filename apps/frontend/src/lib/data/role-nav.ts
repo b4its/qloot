@@ -66,6 +66,12 @@ export const teacherNav: RoleNavItem[] = [
     icon: "comments",
     desc: "Terima, jadwalkan ulang, dan balas konsultasi siswa",
   },
+  {
+    href: "/teacher/resources",
+    label: "Sumber Daya",
+    icon: "book-open",
+    desc: "Kelola katalog kursus, ekstrakurikuler, dan materi",
+  },
 ];
 
 export const adminNav: RoleNavItem[] = [

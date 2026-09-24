@@ -1234,12 +1234,20 @@ class CareerService:
         category: str | None = None,
         major: str | None = None,
         *,
+        q: str | None = None,
         limit: int = 200,
         offset: int = 0,
     ) -> list[ResourceItem]:
         stmt = select(ResourceItem).order_by(ResourceItem.category, ResourceItem.title)
         if category:
             stmt = stmt.where(ResourceItem.category == category)
+        if q:
+            # CARE-07: search title + description (case-insensitive).
+            term = f"%{q.strip().lower()}%"
+            stmt = stmt.where(
+                func.lower(ResourceItem.title).like(term)
+                | func.lower(ResourceItem.description).like(term)
+            )
         items = list((await self.session.execute(stmt)).scalars().all())
         if major:
             # Relevant-first ordering: resources tagged with the student's major
@@ -1253,6 +1261,83 @@ class CareerService:
             items.sort(key=_rank)
         # Page the (sorted) result so the major-relevant ordering is preserved.
         return items[offset : offset + limit]
+
+    async def create_resource(
+        self,
+        actor: User,
+        *,
+        code: str,
+        category: str,
+        title: str,
+        description: str | None,
+        provider: str | None,
+        is_free: bool,
+        tags: list[str] | None,
+    ) -> ResourceItem:
+        """Teacher/admin creates a resource-library entry (CARE-07)."""
+        if not (actor.has_role("teacher") or actor.has_role("admin")):
+            raise ForbiddenError("Teacher or admin only")
+        if category not in ("course", "extracurricular", "material"):
+            raise ValidationError("category must be course|extracurricular|material")
+        existing = (
+            await self.session.execute(select(ResourceItem).where(ResourceItem.code == code))
+        ).scalar_one_or_none()
+        if existing is not None:
+            raise ConflictError("Resource code already exists")
+        item = ResourceItem(
+            code=code,
+            category=category,
+            title=title,
+            description=description,
+            provider=provider,
+            is_free=is_free,
+            tags=tags,
+        )
+        self.session.add(item)
+        await self.session.flush()
+        return item
+
+    async def update_resource(
+        self,
+        actor: User,
+        code: str,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        provider: str | None = None,
+        is_free: bool | None = None,
+        tags: list[str] | None = None,
+    ) -> ResourceItem:
+        if not (actor.has_role("teacher") or actor.has_role("admin")):
+            raise ForbiddenError("Teacher or admin only")
+        item = (
+            await self.session.execute(select(ResourceItem).where(ResourceItem.code == code))
+        ).scalar_one_or_none()
+        if item is None:
+            raise NotFoundError("Resource not found")
+        if title is not None:
+            item.title = title
+        if description is not None:
+            item.description = description
+        if provider is not None:
+            item.provider = provider
+        if is_free is not None:
+            item.is_free = is_free
+        if tags is not None:
+            item.tags = tags
+        await self.session.flush()
+        return item
+
+    async def delete_resource(self, actor: User, code: str) -> None:
+        if not (actor.has_role("teacher") or actor.has_role("admin")):
+            raise ForbiddenError("Teacher or admin only")
+        item = (
+            await self.session.execute(select(ResourceItem).where(ResourceItem.code == code))
+        ).scalar_one_or_none()
+        if item is None:
+            raise NotFoundError("Resource not found")
+        await self.session.delete(item)
+        await self.session.flush()
 
     # --- assistant ---------------------------------------------------------
     async def _get_or_create_conversation(

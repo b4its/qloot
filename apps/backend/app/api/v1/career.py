@@ -31,7 +31,9 @@ from app.schemas.career import (
     PersonalityIn,
     PersonalityOut,
     RecommendationOut,
+    ResourceCreate,
     ResourceOut,
+    ResourceUpdate,
     RoadmapReorder,
 )
 from app.schemas.common import Message
@@ -305,13 +307,55 @@ async def resources(
     db: DbSession,
     category: str | None = None,
     major: str | None = None,
+    q: str | None = None,
     limit: LimitParam = 100,
     offset: OffsetParam = 0,
 ):
     async with transaction(db):
         service = CareerService(db)
         await service.ensure_resources()
-        return await service.list_resources(category, major, limit=limit, offset=offset)
+        return await service.list_resources(
+            category, major, q=q, limit=limit, offset=offset
+        )
+
+
+@router.post("/resources", response_model=ResourceOut, status_code=201)
+async def create_resource(payload: ResourceCreate, teacher: TeacherUser, db: DbSession):
+    """Teacher/admin creates a resource-library entry (CARE-07)."""
+    async with transaction(db):
+        return await CareerService(db).create_resource(
+            teacher,
+            code=payload.code,
+            category=payload.category,
+            title=payload.title,
+            description=payload.description,
+            provider=payload.provider,
+            is_free=payload.is_free,
+            tags=payload.tags,
+        )
+
+
+@router.patch("/resources/{code}", response_model=ResourceOut)
+async def update_resource(
+    code: str, payload: ResourceUpdate, teacher: TeacherUser, db: DbSession
+):
+    async with transaction(db):
+        return await CareerService(db).update_resource(
+            teacher,
+            code,
+            title=payload.title,
+            description=payload.description,
+            provider=payload.provider,
+            is_free=payload.is_free,
+            tags=payload.tags,
+        )
+
+
+@router.delete("/resources/{code}", response_model=Message)
+async def delete_resource(code: str, teacher: TeacherUser, db: DbSession):
+    async with transaction(db):
+        await CareerService(db).delete_resource(teacher, code)
+    return Message(message="Resource deleted")
 
 
 # --- assistant -------------------------------------------------------------

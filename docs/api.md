@@ -277,7 +277,10 @@ POST  /career/consultations/{consultation_id}/reschedule (teacher)
 GET   /career/consultations/{consultation_id}/messages
 POST  /career/consultations/{consultation_id}/messages
 
-GET   /career/resources            (?category=course|extracurricular|material)
+GET   /career/resources            (?category=…&q=…&major=…)
+POST  /career/resources            (teacher/admin)
+PATCH /career/resources/{code}     (teacher/admin)
+DELETE /career/resources/{code}    (teacher/admin)
 POST  /career/assistant            (body may carry conversation_id to continue)
 POST  /career/assistant/stream     (Server-Sent Events; JSON endpoint is the fallback)
 GET   /career/assistant/conversations

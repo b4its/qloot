@@ -12,6 +12,8 @@
   let loading = true;
   let error = "";
   let currentPage = 1;
+  // CARE-07: free-text search over the catalog.
+  let query = "";
   // The student's top recommended major (from their analysis), if any.
   let topMajor: string | null = null;
   let recommendForMajor = false;
@@ -29,6 +31,7 @@
     loading = true;
     try {
       const qs = new URLSearchParams({ category, limit: "200" });
+      if (query.trim()) qs.set("q", query.trim());
       if (recommendForMajor && topMajor) qs.set("major", topMajor);
       items = await api.get<ResourceItem[]>(`/career/resources?${qs.toString()}`);
     } catch (e) {
@@ -36,6 +39,11 @@
     } finally {
       loading = false;
     }
+  }
+
+  function search() {
+    currentPage = 1;
+    load();
   }
 
   async function pick(key: string) {
@@ -106,6 +114,14 @@
     </div>
   {/if}
 
+  <form class="mt-4 flex flex-wrap items-end gap-2" on:submit|preventDefault={search}>
+    <label class="flex flex-1 flex-col text-xs">
+      <span class="muted mb-1">Cari sumber daya</span>
+      <input class="input" bind:value={query} placeholder="mis. matematika, olimpiade…" />
+    </label>
+    <button class="btn-primary !py-1.5" type="submit" disabled={loading}>Cari</button>
+  </form>
+
   {#if error}
     <p class="alert-error mt-4">
       {error}
@@ -116,7 +132,7 @@
     <p class="mt-6 muted">Memuat …</p>
   {:else if !items.length}
     <div class="card mt-4 text-center">
-      <p class="muted">Belum ada sumber daya di kategori ini.</p>
+      <p class="muted">Belum ada sumber daya yang cocok.</p>
     </div>
   {:else}
     <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
