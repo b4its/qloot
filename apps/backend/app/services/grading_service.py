@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.provider import GradeItem, GradingContext, get_ai_provider
-from app.core.errors import AIProviderError
+from app.core.errors import AIProviderError, NotFoundError
 from app.core.logging import get_logger
 from app.models.exam import (
     BP_SCALE,
@@ -185,6 +185,72 @@ class GradingService:
         await self.session.flush()
         await self._maybe_award_badges(attempt)
         await self._notify_graded(attempt, exam)
+
+    async def override_answer(
+        self,
+        *,
+        attempt: ExamAttempt,
+        question_id: uuid.UUID,
+        score_bp: int,
+        feedback: str | None,
+    ) -> StudentAnswer:
+        """Teacher/admin manual score override for one answer.
+
+        Sets the answer's score (clamped to the question's max), recomputes the
+        attempt total/status, and — if the attempt is no longer flawless —
+        reverses the idempotent "perfect exam" reward that C08 paid. Audited by
+        the caller.
+        """
+        answer = (
+            await self.session.execute(
+                select(StudentAnswer).where(
+                    StudentAnswer.attempt_id == attempt.id,
+                    StudentAnswer.question_id == question_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if answer is None:
+            raise NotFoundError("Answer not found for this attempt")
+        question = await self.session.get(Question, question_id)
+        max_bp = question.max_score_bp if question else BP_SCALE
+        answer.score_bp = max(0, min(int(score_bp), max_bp))
+        answer.max_score_bp = max_bp
+        answer.feedback = feedback if feedback is not None else answer.feedback
+        answer.graded_at = datetime.now(UTC)
+        await self.session.flush()
+
+        # Recompute the attempt total using the same denominator as grading.
+        await self._finalize_score(attempt)
+
+        # If the perfect-exam reward was paid but the attempt is no longer
+        # perfect, reverse it (idempotent on the deterministic reward key).
+        if (attempt.score_bp or 0) < BP_SCALE:
+            await self._revoke_perfect_exam_reward(attempt)
+        return answer
+
+    async def _revoke_perfect_exam_reward(self, attempt: ExamAttempt) -> None:
+        from app.models.wallet import RewardAllocation
+        from app.services.keys import exam_reward_key
+        from app.services.reward_engine import RewardEngine
+
+        rkey = exam_reward_key(attempt.id, "perfect_exam")
+        allocation = (
+            await self.session.execute(
+                select(RewardAllocation).where(RewardAllocation.reward_key == rkey)
+            )
+        ).scalar_one_or_none()
+        if allocation is None or allocation.status == "cancelled":
+            return
+        # Only compensate a reward that was actually credited off-chain.
+        if allocation.status in ("pending", "confirmed", "failed"):
+            await RewardEngine(self.session).refund_reward(
+                user_id=allocation.user_id,
+                amount=allocation.amount,
+                allocation_id=allocation.id,
+            )
+        allocation.status = "cancelled"
+        allocation.error_message = "Exam score overridden by a teacher"
+        await self.session.flush()
 
     async def _notify_graded(self, attempt: ExamAttempt, exam: Exam | None) -> None:
         """Tell the student their exam was graded (best-effort)."""

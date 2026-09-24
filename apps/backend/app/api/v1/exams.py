@@ -9,6 +9,7 @@ from fastapi import APIRouter, status
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.core.errors import ConflictError, ForbiddenError
 from app.db.session import transaction
+from app.models.identity import AuditLog
 from app.schemas.exam import (
     AnswerOut,
     AnswerUpsert,
@@ -22,6 +23,7 @@ from app.schemas.exam import (
     ExamResultsReviewOut,
     ExamUpdate,
     OptionOut,
+    OverrideAnswerIn,
     QuestionCreate,
     QuestionOut,
     QuestionUpdate,
@@ -278,6 +280,43 @@ async def regrade_attempt(attempt_id: uuid.UUID, user: TeacherUser, db: DbSessio
         if not await service.exam_has_essay(attempt.exam_id):
             attempt = await grading.grade_attempt(attempt)
     return attempt
+
+
+@router.post("/attempts/{attempt_id}/answers/{question_id}/override", response_model=AnswerOut)
+async def override_answer(
+    attempt_id: uuid.UUID,
+    question_id: uuid.UUID,
+    payload: OverrideAnswerIn,
+    user: TeacherUser,
+    db: DbSession,
+):
+    """Manually override one answer's score (teacher/admin of the exam).
+
+    Recomputes the attempt total and status, reverses the perfect-exam reward if
+    the override makes the attempt non-flawless, and writes an AuditLog row.
+    """
+    async with transaction(db):
+        service = ExamService(db)
+        attempt = await service.get_attempt(attempt_id, user)
+        exam = await service.get(attempt.exam_id)
+        if not user.has_role("admin") and exam.owner_id != user.id:
+            raise ForbiddenError("You do not own this exam")
+        answer = await GradingService(db).override_answer(
+            attempt=attempt,
+            question_id=question_id,
+            score_bp=payload.score_bp,
+            feedback=payload.feedback,
+        )
+        db.add(
+            AuditLog(
+                actor_id=user.id,
+                action="exam.answer_override",
+                entity_type="exam_attempt",
+                entity_id=str(attempt.id),
+                data={"question_id": str(question_id), "score_bp": answer.score_bp},
+            )
+        )
+    return answer
 
 
 @router.get("/attempts/{attempt_id}/result", response_model=AttemptResultOut)

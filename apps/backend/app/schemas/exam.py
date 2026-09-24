@@ -176,6 +176,13 @@ class AnswerUpsert(BaseModel):
     answer_text: str = Field(max_length=20_000)
 
 
+class OverrideAnswerIn(BaseModel):
+    """Teacher/admin manual score override for a single answer."""
+
+    score_bp: int = Field(ge=0, le=10_000)
+    feedback: str | None = Field(default=None, max_length=2000)
+
+
 class AnswerOut(ORMModel):
     id: uuid.UUID
     question_id: uuid.UUID
