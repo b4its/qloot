@@ -25,6 +25,25 @@ log = get_logger("exams")
 _OPTION_LABELS = "ABCDEFGH"
 
 
+def _point_biserial(xs: list[float], ys: list[float]) -> float:
+    """Point-biserial / Pearson correlation; 0.0 when undefined.
+
+    Used as the item-discrimination index: how strongly a question's score
+    ratio correlates with the overall attempt score. Deterministic (no AI).
+    """
+    n = len(xs)
+    if n < 2 or len(ys) != n:
+        return 0.0
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys, strict=False))
+    vx = sum((x - mx) ** 2 for x in xs)
+    vy = sum((y - my) ** 2 for y in ys)
+    if vx <= 0 or vy <= 0:
+        return 0.0
+    return cov / (vx**0.5 * vy**0.5)
+
+
 class ExamService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -603,6 +622,114 @@ class ExamService:
             )
             await self.session.flush()
         return saved
+
+    async def analytics_report(self, exam_id: uuid.UUID, user: User) -> dict:
+        """Score distribution, per-question difficulty and discrimination.
+
+        - histogram of attempt scores in 10% buckets;
+        - difficulty (p-value) = mean score ratio per question;
+        - discrimination = point-biserial correlation of a question's score
+          ratio against the attempt total (deterministic, no AI).
+        """
+        await self._get_owned_exam(exam_id, user)
+        attempts = (
+            await self.session.execute(
+                select(ExamAttempt).where(
+                    ExamAttempt.exam_id == exam_id,
+                    ExamAttempt.score_bp.is_not(None),
+                )
+            )
+        ).scalars().all()
+        scores = [int(a.score_bp or 0) for a in attempts]
+        n = len(scores)
+
+        histogram = [0] * 10
+        for s in scores:
+            histogram[min(9, max(0, s // 1000))] += 1
+
+        questions = await self.list_questions(exam_id)
+        qstats: list[dict] = []
+        if n and questions:
+            answer_rows = (
+                await self.session.execute(
+                    select(StudentAnswer).where(
+                        StudentAnswer.attempt_id.in_([a.id for a in attempts])
+                    )
+                )
+            ).scalars().all()
+            by_q: dict[uuid.UUID, dict[uuid.UUID, float]] = {}
+            total_by_attempt = {a.id: int(a.score_bp or 0) for a in attempts}
+            for sa in answer_rows:
+                if sa.graded_at is None or not sa.max_score_bp:
+                    continue
+                ratio = (sa.score_bp or 0) / sa.max_score_bp
+                by_q.setdefault(sa.question_id, {})[sa.attempt_id] = ratio
+
+            for q in questions:
+                ratios = by_q.get(q.id, {})
+                answered = len(ratios)
+                if answered == 0:
+                    qstats.append(
+                        {
+                            "question_id": str(q.id),
+                            "prompt": q.prompt,
+                            "qtype": q.qtype,
+                            "answered": 0,
+                            "difficulty_bp": None,
+                            "discrimination": None,
+                        }
+                    )
+                    continue
+                p = sum(ratios.values()) / answered
+                xs = list(ratios.values())
+                ys = [total_by_attempt[a_id] for a_id in ratios]
+                disc = _point_biserial(xs, ys)
+                qstats.append(
+                    {
+                        "question_id": str(q.id),
+                        "prompt": q.prompt,
+                        "qtype": q.qtype,
+                        "answered": answered,
+                        "difficulty_bp": int(round(p * 10_000)),
+                        "discrimination": round(disc, 3),
+                    }
+                )
+
+        mean = round(sum(scores) / n, 1) if n else 0
+        return {
+            "exam_id": str(exam_id),
+            "attempts": n,
+            "mean_score_bp": mean,
+            "pass_rate_bp": (
+                int(round(10000 * sum(1 for a in attempts if a.passed) / n)) if n else 0
+            ),
+            "histogram": histogram,
+            "questions": qstats,
+        }
+
+    async def analytics_csv(self, exam_id: uuid.UUID, user: User) -> str:
+        """CSV export of the per-question analytics."""
+        report = await self.analytics_report(exam_id, user)
+        import csv
+        import io
+
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(
+            ["question_id", "qtype", "answered", "difficulty_bp", "discrimination", "prompt"]
+        )
+        for row in report["questions"]:
+            w.writerow(
+                [
+                    row["question_id"],
+                    row["qtype"],
+                    row["answered"],
+                    row["difficulty_bp"] if row["difficulty_bp"] is not None else "",
+                    row["discrimination"] if row["discrimination"] is not None else "",
+                    (row["prompt"] or "").replace("\n", " "),
+                ]
+            )
+        return buf.getvalue()
 
     async def plagiarism_report(
         self, exam_id: uuid.UUID, user: User, *, threshold_bp: int = 7000

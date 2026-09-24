@@ -417,6 +417,28 @@ async def exam_results(
     return out
 
 
+@router.get("/exams/{exam_id}/analytics")
+async def exam_analytics(exam_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    """Score distribution, per-question difficulty and discrimination (owner)."""
+    async with transaction(db):
+        report = await ExamService(db).analytics_report(exam_id, user)
+    return report
+
+
+@router.get("/exams/{exam_id}/analytics.csv")
+async def exam_analytics_csv(exam_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    """CSV export of the per-question analytics (owner only)."""
+    from fastapi.responses import PlainTextResponse
+
+    async with transaction(db):
+        csv_text = await ExamService(db).analytics_csv(exam_id, user)
+    return PlainTextResponse(
+        csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="exam-{exam_id}-analytics.csv"'},
+    )
+
+
 @router.get("/exams/{exam_id}/plagiarism")
 async def plagiarism_report(
     exam_id: uuid.UUID, user: TeacherUser, db: DbSession, threshold_bp: int = 7000

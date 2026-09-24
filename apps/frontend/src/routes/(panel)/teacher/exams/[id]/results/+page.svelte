@@ -130,8 +130,33 @@
     }
   }
 
+  interface AnalyticsQuestion {
+    prompt: string;
+    qtype: string;
+    answered: number;
+    difficulty_bp: number | null;
+    discrimination: number | null;
+  }
+  interface Analytics {
+    attempts: number;
+    mean_score_bp: number;
+    pass_rate_bp: number;
+    histogram: number[];
+    questions: AnalyticsQuestion[];
+  }
+  let analytics: Analytics | null = null;
+
+  async function loadAnalytics() {
+    try {
+      analytics = await api.get<Analytics>(`/exams/${examId}/analytics`);
+    } catch {
+      analytics = null;
+    }
+  }
+
   onMount(load);
   onMount(loadPlagiarism);
+  onMount(loadAnalytics);
 </script>
 
 <svelte:head><title>Hasil Ujian — Panel Guru — QLoot</title></svelte:head>
@@ -146,6 +171,68 @@
   />
 
   <PageAlerts {error} {message} />
+
+  {#if analytics && analytics.attempts}
+    <div class="card mt-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="mono-label">Analitik ujian</p>
+        <a class="btn-ghost !py-1 text-xs" href={`/api/v1/exams/${examId}/analytics.csv`} download
+          ><Icon name="download" size="11px" /> Ekspor CSV</a
+        >
+      </div>
+      <div class="mt-3 grid gap-3 sm:grid-cols-3 text-sm">
+        <div>
+          <span class="muted">Peserta</span>
+          <p class="font-semibold">{analytics.attempts}</p>
+        </div>
+        <div>
+          <span class="muted">Rata-rata</span>
+          <p class="font-semibold">{bpToPercent(analytics.mean_score_bp)}</p>
+        </div>
+        <div>
+          <span class="muted">Tingkat lulus</span>
+          <p class="font-semibold">{bpToPercent(analytics.pass_rate_bp)}</p>
+        </div>
+      </div>
+      <p class="mono-label mt-4 mb-2">Distribusi nilai (per 10%)</p>
+      <div class="flex h-24 items-end gap-1">
+        {#each analytics.histogram as count, i}
+          <div class="flex flex-1 flex-col items-center gap-1">
+            <div
+              class="w-full rounded-t bg-primary/60"
+              style={`height: ${analytics.attempts ? (count / analytics.attempts) * 80 : 0}px`}
+              title={`${i * 10}–${i * 10 + 10}%: ${count}`}
+            ></div>
+            <span class="text-[10px] muted">{i * 10}</span>
+          </div>
+        {/each}
+      </div>
+      {#if analytics.questions.length}
+        <table class="mt-4 w-full text-xs">
+          <thead class="text-left muted">
+            <tr
+              ><th class="py-1">Soal</th><th class="text-right">Kesukaran</th><th class="text-right"
+                >Daya beda</th
+              ></tr
+            >
+          </thead>
+          <tbody>
+            {#each analytics.questions as q}
+              <tr class="border-t">
+                <td class="max-w-[280px] truncate py-1" title={q.prompt}>{q.prompt}</td>
+                <td class="text-right font-mono">
+                  {q.difficulty_bp !== null ? bpToPercent(q.difficulty_bp) : "—"}
+                </td>
+                <td class="text-right font-mono">
+                  {q.discrimination !== null ? q.discrimination.toFixed(2) : "—"}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+    </div>
+  {/if}
 
   {#if plagiarismChecked && plagiarism.length}
     <div class="card mt-4 border-tertiary">
