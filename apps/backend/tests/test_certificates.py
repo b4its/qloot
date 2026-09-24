@@ -220,3 +220,35 @@ async def test_certificate_anchor_end_to_end_confirms(client, engine):
             )
         ).scalars().all()
     assert len(rows) == 1
+
+
+async def test_render_certificate_document_with_verify_and_anchor(client, engine):
+    """C42: a printable certificate document embeds the verify ref + anchor."""
+    cert, me = await _issue_cert(client, engine, tag="render")
+    cid = cert["credential_id"]
+
+    r = await client.get(f"/api/v1/certificates/{cid}/render")
+    assert r.status_code == 200, r.text
+    assert "text/html" in r.headers["content-type"]
+    body = r.text
+    assert cid in body
+    assert "/verify/" in body
+    assert "Status on-chain" in body
+    # The visual verification mark is present.
+    assert "<svg" in body
+
+
+async def test_render_unknown_certificate_is_404(client):
+    r = await client.get("/api/v1/certificates/QLT-NOPE/render")
+    assert r.status_code == 404, r.text
+
+
+async def test_render_revoked_certificate_is_refused(client, engine):
+    cert, me = await _issue_cert(client, engine, tag="revrender")
+    cid = cert["credential_id"]
+    # Admin revokes it.
+    await _register(client, "rev_admin@ex.com", "admin")
+    rev = await client.post(f"/api/v1/certificates/{cid}/revoke", json={"reason": "test"})
+    assert rev.status_code == 200, rev.text
+    r = await client.get(f"/api/v1/certificates/{cid}/render")
+    assert r.status_code == 409, r.text

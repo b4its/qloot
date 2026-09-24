@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam, OptionalUser
 from app.db.session import transaction
@@ -66,6 +66,26 @@ async def sync(user: CurrentUser, db: DbSession):
     async with transaction(db):
         certs = await CertificateService(db).sync_for_user(user)
     return [CertificateService.out(c) for c in certs]
+
+
+@router.get("/{credential_id}/render")
+async def render_certificate(credential_id: str, request: Request, db: DbSession):
+    """Render a printable certificate document (HTML) with a verification mark.
+
+    Public (a certificate holder may print it), but a revoked certificate is
+    refused. The document embeds the verify URL and QTC anchoring status.
+    """
+    from fastapi.responses import HTMLResponse
+
+    from app.core.config import settings
+    from app.core.errors import NotFoundError
+    from app.services.certificate_service import CertificateService
+
+    base_url = settings.app_url or str(request.base_url)
+    html = await CertificateService(db).render_document(credential_id, base_url=base_url)
+    if html is None:
+        raise NotFoundError("Certificate not found")
+    return HTMLResponse(html)
 
 
 @router.post("/{credential_id}/anchor", response_model=CertificateOut)

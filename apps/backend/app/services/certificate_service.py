@@ -41,6 +41,31 @@ def _verification_hash(credential_id: str) -> str:
     return hashlib.sha256(f"qloot-cert|{credential_id}".encode()).hexdigest()[:32]
 
 
+def _verification_mark_svg(payload: str, *, size: int = 21, cell: int = 6) -> str:
+    """A deterministic, offline 2D verification mark (not a QR code).
+
+    Derived purely from a hash of ``payload`` so it is stable and needs no
+    network or extra dependency. It is rendered beside the human-readable verify
+    URL; scanners are pointed at the URL text, not this mark.
+    """
+    digest = hashlib.sha256(payload.encode()).digest()
+    bits = "".join(f"{b:08b}" for b in digest)
+    rects: list[str] = []
+    for r in range(size):
+        for c in range(size):
+            bit = bits[(r * size + c) % len(bits)]
+            if bit == "1":
+                rects.append(
+                    f'<rect x="{c * cell}" y="{r * cell}" width="{cell}" height="{cell}"/>'
+                )
+    w = size * cell
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{w}" '
+        f'viewBox="0 0 {w} {w}" role="img" aria-label="Verification mark" '
+        f'style="background:#fff"><g fill="#0f172a">{"".join(rects)}</g></svg>'
+    )
+
+
 class CertificateService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -290,6 +315,77 @@ class CertificateService:
             )
         except Exception as exc:  # noqa: BLE001 - never block revoke on notify
             log.warning("certificate_revoke_notify_failed", error=str(exc))
+
+    async def render_document(
+        self, credential_id: str, *, base_url: str
+    ) -> str | None:
+        """Return a self-contained, printable HTML certificate document.
+
+        Includes the credential id, the visual verification mark, the verify URL
+        and the QTC on-chain anchoring status. Returns None for an unknown
+        credential, and raises ConflictError for a revoked one (never render a
+        revoked certificate).
+        """
+        from app.core.errors import ConflictError
+
+        cert = await self.get_by_credential(credential_id)
+        if cert is None:
+            return None
+        if cert.revoked_at is not None:
+            raise ConflictError("A revoked certificate cannot be rendered")
+        verify_url = f"{base_url.rstrip('/')}/verify/{cert.credential_id}"
+        mark = _verification_mark_svg(
+            f"{cert.credential_id}|{cert.verification_hash}"
+        )
+        anchor = (
+            "Ter-anchor di jaringan (QTC)"
+            if cert.anchor_status == "anchored"
+            else "Belum di-anchor on-chain"
+        )
+        issued = cert.issued_at.strftime("%d %B %Y") if cert.issued_at else ""
+        return f"""<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Sertifikat {cert.credential_id}</title>
+<style>
+  body {{ font-family: Georgia, 'Times New Roman', serif; margin: 0; padding: 40px;
+          background: #f8fafc; color: #0f172a; }}
+  .cert {{ max-width: 820px; margin: 0 auto; background: #fff; border: 8px double #0f172a;
+           padding: 48px 56px; }}
+  .eyebrow {{ letter-spacing: .3em; text-transform: uppercase; font-size: 12px;
+              color: #64748b; }}
+  h1 {{ font-size: 34px; margin: 8px 0 0; }}
+  .name {{ font-size: 28px; margin: 24px 0 4px; }}
+  .muted {{ color: #64748b; font-size: 14px; }}
+  .grid {{ display: flex; gap: 32px; align-items: center; margin-top: 28px; }}
+  .meta {{ font-size: 13px; line-height: 1.7; }}
+  code {{ font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }}
+  @media print {{ body {{ background: #fff; padding: 0; }} .cert {{ border-width: 4px; }} }}
+</style>
+</head>
+<body>
+  <div class="cert">
+    <div class="eyebrow">{cert.issued_by}</div>
+    <h1>Sertifikat Penyelesaian</h1>
+    <p class="muted">Diberikan kepada</p>
+    <div class="name">{cert.recipient_name}</div>
+    <p class="muted">atas penyelesaian</p>
+    <h2>{cert.course_title}</h2>
+    <div class="grid">
+      {mark}
+      <div class="meta">
+        <div><b>ID Kredensial:</b> <code>{cert.credential_id}</code></div>
+        <div><b>Diterbitkan:</b> {issued} · Edisi {cert.edition_number}/{cert.edition_total}</div>
+        <div><b>Status on-chain:</b> {anchor}</div>
+        <div><b>Verifikasi:</b> <a href="{verify_url}">{verify_url}</a></div>
+        <div class="muted"><code>{cert.verification_hash}</code></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
 
     @staticmethod
     def out(cert: Certificate) -> dict:

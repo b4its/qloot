@@ -278,6 +278,14 @@
           <button class="btn-primary w-full" on:click={download}>
             <Icon name="download" size="12px" /> Unduh
           </button>
+          <a
+            class="btn-secondary w-full"
+            href={`/api/v1/certificates/${active.credential_id}/render`}
+            target="_blank"
+            rel="noopener"
+          >
+            <Icon name="print" size="12px" /> Cetak dokumen resmi
+          </a>
           <button class="btn-secondary w-full" on:click={share}>
             <Icon name="share-nodes" size="12px" /> Bagikan
           </button>
