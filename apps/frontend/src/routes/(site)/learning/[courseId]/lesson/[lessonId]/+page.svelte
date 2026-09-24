@@ -4,6 +4,7 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Lesson } from "$lib/types";
   import Icon from "$lib/components/Icon.svelte";
+  import MaterialPanel from "$lib/components/MaterialPanel.svelte";
 
   let lesson: Lesson | null = null;
   let loading = true;
@@ -73,7 +74,11 @@
       {#if error}
         <p class="alert-error mt-4">{error}</p>
       {/if}
+    </article>
 
+    <MaterialPanel lessonId={lesson.id} />
+
+    <article class="card mt-4">
       {#if saved}
         <p class="alert-ok mt-6">
           <Icon name="circle-check" size="12px" /> Materi ditandai selesai.
