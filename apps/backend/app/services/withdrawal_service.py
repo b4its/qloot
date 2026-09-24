@@ -201,6 +201,14 @@ class WithdrawalService:
         stmt = stmt.limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def count_for_admin(self, *, status: str | None = None) -> int:
+        from sqlalchemy import func
+
+        stmt = select(func.count()).select_from(WithdrawalRequest)
+        if status:
+            stmt = stmt.where(WithdrawalRequest.status == status)
+        return int((await self.session.execute(stmt)).scalar_one())
+
     def ensure_reviewable(self, wd: WithdrawalRequest, admin: User) -> None:
         if not admin.has_role("admin"):
             raise ForbiddenError("Admin only")

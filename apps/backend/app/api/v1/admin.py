@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import AdminUser, DbSession, LimitParam, OffsetParam
 from app.blockchain.worker_logic import process_outbox_item
@@ -67,10 +67,18 @@ class AuditLogOut(BaseModel):
 
 @router.get("/users", response_model=list[UserOut])
 async def list_users(
-    admin: AdminUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+    admin: AdminUser,
+    db: DbSession,
+    response: Response,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
 ):
+    total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
     stmt = select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
     users = (await db.execute(stmt)).scalars().all()
+    # AUTH-11: expose the total so the UI can paginate with real counts
+    # instead of guessing "did we get a full page?".
+    response.headers["X-Total-Count"] = str(total)
     return [
         UserOut(
             id=u.id,
@@ -205,8 +213,16 @@ async def set_user_active(
 
 @router.get("/rewards")
 async def list_rewards(
-    admin: AdminUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+    admin: AdminUser,
+    db: DbSession,
+    response: Response,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
 ):
+    total = (
+        await db.execute(select(func.count()).select_from(RewardAllocation))
+    ).scalar_one()
+    response.headers["X-Total-Count"] = str(total)
     stmt = (
         select(RewardAllocation)
         .order_by(RewardAllocation.created_at.desc())
@@ -433,13 +449,18 @@ async def blockchain_unpause(admin: AdminUser, db: DbSession, asset: str = "OPT"
 async def audit_logs(
     admin: AdminUser,
     db: DbSession,
+    response: Response,
     action: str | None = None,
     limit: LimitParam = 100,
     offset: OffsetParam = 0,
 ):
+    count_stmt = select(func.count()).select_from(AuditLog)
     stmt = select(AuditLog).order_by(AuditLog.created_at.desc())
     if action:
+        count_stmt = count_stmt.where(AuditLog.action == action)
         stmt = stmt.where(AuditLog.action == action)
+    total = (await db.execute(count_stmt)).scalar_one()
+    response.headers["X-Total-Count"] = str(total)
     stmt = stmt.limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     return [
@@ -459,7 +480,11 @@ async def audit_logs(
 
 @router.get("/config")
 async def show_config(admin: AdminUser):
-    """Non-secret configuration summary."""
+    """Non-secret configuration summary (AUTH-11).
+
+    Deliberately excludes every secret-bearing setting (keys, URLs with
+    credentials, contract addresses). Only booleans, enums and public numbers.
+    """
     return {
         "env": settings.app_env,
         "ai_provider": settings.ai_provider,
@@ -467,6 +492,14 @@ async def show_config(admin: AdminUser):
         "dry_run": settings.blockchain_dry_run,
         "reward_ranks": settings.reward_ranks,
         "confirmations": settings.opc_confirmations,
+        "opc_max_reward_per_tx": settings.opc_max_reward_per_tx,
+        "rate_limit_enabled": settings.rate_limit_enabled,
+        "csrf_enabled": settings.csrf_enabled,
+        "readiness_check_redis": settings.readiness_check_redis,
+        "readiness_check_storage": settings.readiness_check_storage,
+        "use_local_storage": settings.use_local_storage,
+        "session_ttl_seconds": settings.session_ttl_seconds,
+        "platform_timezone": settings.platform_timezone,
     }
 
 
@@ -478,6 +511,7 @@ async def show_config(admin: AdminUser):
 async def list_withdrawals(
     admin: AdminUser,
     db: DbSession,
+    response: Response,
     status_filter: str | None = None,
     limit: LimitParam = 100,
     offset: OffsetParam = 0,
@@ -485,9 +519,10 @@ async def list_withdrawals(
     """Admin queue of withdrawal requests (optionally filtered by status)."""
     from app.services.withdrawal_service import WithdrawalService
 
-    rows = await WithdrawalService(db).list_for_admin(
-        status=status_filter, limit=limit, offset=offset
-    )
+    service = WithdrawalService(db)
+    total = await service.count_for_admin(status=status_filter)
+    response.headers["X-Total-Count"] = str(total)
+    rows = await service.list_for_admin(status=status_filter, limit=limit, offset=offset)
     return [
         {
             "id": str(w.id),

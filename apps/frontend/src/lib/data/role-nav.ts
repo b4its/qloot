@@ -111,4 +111,10 @@ export const adminNav: RoleNavItem[] = [
     icon: "scroll",
     desc: "Setiap tindakan istimewa tercatat",
   },
+  {
+    href: "/admin/config",
+    label: "Konfigurasi",
+    icon: "sliders",
+    desc: "Ringkasan runtime non-rahasia platform",
+  },
 ];

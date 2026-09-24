@@ -60,6 +60,45 @@ async function request<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   return data as T;
 }
 
+/**
+ * Like `api.get`, but also returns the backend's `X-Total-Count` header so a
+ * paginated view can show real totals (AUTH-11) rather than guessing from a
+ * full page.
+ */
+export async function apiGetPaged<T>(
+  path: string,
+  opts?: FetchOpts,
+): Promise<{ data: T; total: number | undefined }> {
+  const { body, headers, ...rest } = opts ?? {};
+  const isForm = body instanceof FormData;
+  const method = ((rest.method as string | undefined) ?? "GET").toUpperCase();
+  const csrf = UNSAFE_METHODS.has(method) ? csrfToken() : null;
+  const res = await fetch(`${API_BASE}${API_PREFIX}${path}`, {
+    ...rest,
+    credentials: "include",
+    headers: {
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+      ...(headers ?? {}),
+    },
+    body: isForm ? (body as FormData) : body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  const data = text ? safeJson(text) : null;
+  if (!res.ok) {
+    const err = (data as { error?: { code: string; message: string; detail?: unknown } })?.error;
+    throw new ApiError(
+      res.status,
+      err?.code ?? "error",
+      err?.message ?? `Request failed (${res.status})`,
+      err?.detail,
+    );
+  }
+  const raw = res.headers.get("X-Total-Count");
+  const total = raw === null ? undefined : Number(raw);
+  return { data: data as T, total: Number.isFinite(total) ? total : undefined };
+}
+
 function safeJson(text: string): unknown {
   try {
     return JSON.parse(text);

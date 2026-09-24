@@ -539,3 +539,30 @@ async def test_admin_mutations_carry_request_id(client):
         ).scalar_one_or_none()
     assert row is not None
     assert row.request_id, "admin audit row must carry a request_id"
+
+
+async def test_admin_list_endpoints_report_total_count(client):
+    """AUTH-11: paginated admin lists expose X-Total-Count so the UI can show
+    real totals instead of guessing from a full page."""
+    await _register(client, "total_admin@ex.com", "admin")
+    for path in ("/api/v1/admin/users?limit=1", "/api/v1/admin/audit-logs?limit=1"):
+        resp = await client.get(path)
+        assert resp.status_code == 200, resp.text
+        total = resp.headers.get("X-Total-Count")
+        assert total is not None and int(total) >= 1, f"missing total for {path}"
+
+    filtered = await client.get("/api/v1/admin/audit-logs?limit=1&action=auth.login")
+    assert filtered.status_code == 200
+    assert int(filtered.headers["X-Total-Count"]) >= 1
+
+
+async def test_admin_config_summary_excludes_secrets(client):
+    """AUTH-11: /admin/config returns a non-secret runtime summary."""
+    await _register(client, "cfg_admin@ex.com", "admin")
+    resp = await client.get("/api/v1/admin/config")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert {"env", "ai_provider", "blockchain", "reward_ranks"} <= set(body)
+    # No secret-bearing keys leak into the summary.
+    leaked = {"session_secret", "database_url", "redis_url", "rpc_url", "minio_secret_key"}
+    assert not (leaked & set(body))

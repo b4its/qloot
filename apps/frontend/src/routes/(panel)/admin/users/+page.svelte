@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { api, ApiError } from "$lib/api/client";
+  import { api, apiGetPaged, ApiError } from "$lib/api/client";
   import type { User } from "$lib/types";
   import { formatDate } from "$lib/utils/format";
   import { auth, hasRole } from "$lib/stores/auth";
@@ -19,14 +19,19 @@
   let loading = true;
   let busy = "";
   let page = 1;
-  let hasMore = false;
+  let total: number | undefined = undefined;
 
   async function load() {
     loading = true;
     error = "";
     try {
-      users = await api.get<User[]>(`/admin/users?limit=${PAGE}&offset=${(page - 1) * PAGE}`);
-      hasMore = users.length === PAGE;
+      // AUTH-11: the backend returns X-Total-Count so pagination shows real
+      // totals instead of guessing from a full page.
+      const { data, total: count } = await apiGetPaged<User[]>(
+        `/admin/users?limit=${PAGE}&offset=${(page - 1) * PAGE}`,
+      );
+      users = data;
+      total = count;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pengguna";
     } finally {
@@ -36,7 +41,7 @@
 
   function go(delta: number) {
     const next = page + delta;
-    if (next < 1 || (delta > 0 && !hasMore)) return;
+    if (next < 1 || (delta > 0 && total !== undefined && next > Math.ceil(total / PAGE))) return;
     page = next;
     load();
   }
@@ -171,7 +176,7 @@
   <Pagination
     {page}
     pageSize={PAGE}
-    {hasMore}
+    {total}
     {loading}
     label="pengguna"
     onPrev={() => go(-1)}
