@@ -9,7 +9,11 @@ import asyncio
 import contextlib
 import signal
 
-from app.blockchain.worker_logic import refresh_confirmations, resubmit_stuck_transactions
+from app.blockchain.worker_logic import (
+    refresh_confirmations,
+    resubmit_stuck_transactions,
+    revalidate_confirmed_transactions,
+)
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import session_scope
@@ -33,6 +37,8 @@ async def run() -> None:
     while not _shutdown.is_set():
         try:
             async with session_scope() as session:
+                # WEB3-07: roll back confirmed txs dropped by a reorg first.
+                await revalidate_confirmed_transactions(session)
                 # WEB3-06b: resubmit stuck txs before refreshing confirmations so
                 # a replacement has a chance to be mined in the same cycle.
                 await resubmit_stuck_transactions(session)

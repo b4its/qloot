@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.blockchain.client import get_chain_client
@@ -394,34 +394,117 @@ async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
 
 
 async def _record_event(session: AsyncSession, tx: BlockchainTransaction) -> None:
-    """Persist an indexer event row so /blockchain/events is populated.
+    """Persist the transaction's real event logs (WEB3-07).
 
-    log_index is derived deterministically (0 for a tx's single log) and the
-    (transaction_hash, log_index) pair is unique, so re-indexing is idempotent.
+    In dry-run there are no real logs, so a single deterministic marker is
+    recorded (keeping the demo populated). In live mode the real logs from
+    ``eth_getLogs``/receipt are ingested with their true ``log_index``, and
+    the (transaction_hash, log_index) unique key makes re-indexing idempotent.
     """
     from app.models.wallet import BlockchainEvent
 
     if not tx.transaction_hash:
         return
-    exists = (
-        await session.execute(
-            select(BlockchainEvent).where(BlockchainEvent.transaction_hash == tx.transaction_hash)
-        )
-    ).scalar_one_or_none()
-    if exists is not None:
+    client = get_chain_client()
+    logs = client.get_logs_for_tx(tx.transaction_hash)
+    if not logs:
+        # Dry-run (or a receipt with no logs): one synthetic marker.
+        exists = (
+            await session.execute(
+                select(BlockchainEvent).where(
+                    BlockchainEvent.transaction_hash == tx.transaction_hash,
+                    BlockchainEvent.log_index == 0,
+                )
+            )
+        ).scalar_one_or_none()
+        if exists is None:
+            session.add(
+                BlockchainEvent(
+                    contract_address=tx.contract_address or "",
+                    event_name=f"{tx.method}Confirmed" if client.dry_run else "NoLogs",
+                    transaction_hash=tx.transaction_hash,
+                    log_index=0,
+                    block_number=tx.block_number or 0,
+                    args={"method": tx.method, "arguments": tx.arguments},
+                    processed=True,
+                )
+            )
+        await session.flush()
         return
-    session.add(
-        BlockchainEvent(
-            contract_address=tx.contract_address or "",
-            event_name=f"{tx.method}Confirmed",
-            transaction_hash=tx.transaction_hash,
-            log_index=0,
-            block_number=tx.block_number or 0,
-            args={"method": tx.method, "arguments": tx.arguments},
-            processed=True,
+    for entry in logs:
+        exists = (
+            await session.execute(
+                select(BlockchainEvent).where(
+                    BlockchainEvent.transaction_hash == tx.transaction_hash,
+                    BlockchainEvent.log_index == entry["log_index"],
+                )
+            )
+        ).scalar_one_or_none()
+        if exists is not None:
+            continue
+        session.add(
+            BlockchainEvent(
+                contract_address=entry.get("address") or tx.contract_address or "",
+                event_name=entry["event_name"],
+                transaction_hash=tx.transaction_hash,
+                log_index=entry["log_index"],
+                block_number=entry.get("block_number") or tx.block_number or 0,
+                args={"method": tx.method},
+                processed=True,
+            )
         )
-    )
     await session.flush()
+
+
+async def revalidate_confirmed_transactions(session: AsyncSession, limit: int = 50) -> int:
+    """Re-check recently-confirmed txs for reorgs and roll them back (WEB3-07).
+
+    A transaction confirmed within the last ``opc_confirmations`` window may
+    still be dropped by a reorg. If its receipt is no longer canonical, the tx
+    is reverted (financial effect compensated) and its synthetic/live event
+    rows are removed so they are re-ingested if it is re-mined.
+    """
+    from datetime import timedelta
+
+    from app.core import metrics
+    from app.models.wallet import BlockchainEvent
+
+    client = get_chain_client()
+    if client.dry_run:
+        return 0
+    cutoff = datetime.now(UTC) - timedelta(seconds=settings.blockchain_poll_seconds * 10)
+    stmt = (
+        select(BlockchainTransaction)
+        .where(BlockchainTransaction.status == "confirmed")
+        .where(BlockchainTransaction.confirmed_at.is_not(None))
+        .where(BlockchainTransaction.confirmed_at > cutoff)
+        .order_by(BlockchainTransaction.confirmed_at)
+        .limit(limit)
+        .with_for_update(skip_locked=True)
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    rolled_back = 0
+    for tx in rows:
+        if tx.transaction_hash is None:
+            continue
+        if client.receipt_is_canonical(tx.transaction_hash):
+            continue
+        tx.status = "failed"
+        tx.error_code = "reorged"
+        tx.error_message = "Transaction dropped by a chain reorg"
+        await _mark_reverted(session, tx)
+        # Remove stale event rows so a re-mine re-ingests them.
+        await session.execute(
+            delete(BlockchainEvent).where(
+                BlockchainEvent.transaction_hash == tx.transaction_hash
+            )
+        )
+        metrics.incr("blockchain_terminal_failures_total", topic=tx.method)
+        rolled_back += 1
+    if rolled_back:
+        await session.flush()
+        log.warning("reorg_rollbacks", count=rolled_back)
+    return rolled_back
 
 
 async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> None:

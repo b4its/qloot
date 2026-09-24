@@ -496,6 +496,59 @@ class ChainClient:
         except Exception:  # noqa: BLE001
             return 0
 
+    def get_logs_for_tx(self, tx_hash: str) -> list[dict]:
+        """Fetch the real event logs of a mined transaction (WEB3-07).
+
+        Returns a list of {log_index, event_name, args, block_number} derived
+        from the receipt. Dry-run has no real logs, so it returns an empty
+        list (the indexer then records a synthetic dry-run marker only).
+        """
+        if self.dry_run:
+            return []
+        assert self._w3 is not None
+        try:
+            receipt = self._w3.eth.get_transaction_receipt(tx_hash)
+            if receipt is None:
+                return []
+            logs = []
+            for entry in receipt.get("logs", []):
+                try:
+                    event_name = (
+                        entry["topics"][0].hex() if entry.get("topics") else "Event"
+                    )
+                except Exception:  # noqa: BLE001
+                    event_name = "Event"
+                logs.append(
+                    {
+                        "log_index": int(entry.get("logIndex", 0)),
+                        "event_name": event_name,
+                        "block_number": int(entry.get("blockNumber", 0)),
+                        "address": entry.get("address", ""),
+                    }
+                )
+            return logs
+        except Exception as exc:  # noqa: BLE001
+            log.warning("get_logs_failed", tx_hash=tx_hash, error=str(exc))
+            return []
+
+    def receipt_is_canonical(self, tx_hash: str) -> bool:
+        """True if the tx is still mined on the canonical chain (WEB3-07).
+
+        A reorg can drop a previously-confirmed tx; comparing the receipt's
+        block hash against the canonical block at the same height detects it.
+        """
+        if self.dry_run:
+            return True
+        assert self._w3 is not None
+        try:
+            receipt = self._w3.eth.get_transaction_receipt(tx_hash)
+            if receipt is None:
+                return False
+            canonical = self._w3.eth.get_block(receipt["blockNumber"])
+            return canonical["hash"] == receipt["blockHash"]
+        except Exception:  # noqa: BLE001
+            return False
+
     def get_receipt(self, tx_hash: str) -> TxReceipt | None:
         if self.dry_run:
             return TxReceipt(tx_hash=tx_hash, status=1, dry_run=True)

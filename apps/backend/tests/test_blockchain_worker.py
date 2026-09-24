@@ -483,3 +483,94 @@ async def test_stuck_transaction_is_dropped_after_max_and_compensated(session, m
     assert balance_before == 100
     refreshed_alloc = await session.get(RewardAllocation, alloc.id)
     assert refreshed_alloc.status == "failed"
+
+
+class _LogsClient:
+    """Chain client stub returning real-looking logs and a non-canonical tx."""
+
+    def __init__(self, *, canonical=True, logs=None):
+        self.dry_run = False
+        self._canonical = canonical
+        self._logs = logs
+        self._w3 = None
+
+    def get_logs_for_tx(self, _tx_hash):
+        return self._logs or []
+
+    def receipt_is_canonical(self, _tx_hash):
+        return self._canonical
+
+
+async def test_record_event_ingests_real_logs_with_log_index(session, monkeypatch):
+    from app.blockchain import worker_logic
+    from app.models.wallet import BlockchainEvent
+
+    student = await _mk_user(session, "evt1@q.com")
+    tx = await _make_stuck_tx(session, student)
+    tx.transaction_hash = "0x" + "12" * 32
+    tx.block_number = 123
+    stub = _LogsClient(
+        logs=[
+            {"log_index": 1, "event_name": "RewardPaid", "block_number": 123, "address": "0xA"},
+            {"log_index": 3, "event_name": "Transfer", "block_number": 123, "address": "0xA"},
+        ]
+    )
+    monkeypatch.setattr(worker_logic, "get_chain_client", lambda: stub)
+
+    await worker_logic._record_event(session, tx)
+    from sqlalchemy import select
+
+    rows = (
+        await session.execute(
+            select(BlockchainEvent).where(
+                BlockchainEvent.transaction_hash == tx.transaction_hash
+            )
+        )
+    ).scalars().all()
+    assert {r.log_index for r in rows} == {1, 3}
+    assert {r.event_name for r in rows} == {"RewardPaid", "Transfer"}
+
+
+async def test_reorg_rolls_back_a_confirmed_transaction(session, monkeypatch):
+    from datetime import UTC, datetime
+
+    from app.blockchain import worker_logic
+    from app.core.config import settings
+
+    owner = await _mk_user(session, "reorg_owner@q.com")
+    student = await _mk_user(session, "reorg_student@q.com")
+    quest = Quest(title="ReorgQuest", owner_id=owner.id, status="open")
+    session.add(quest)
+    await session.flush()
+    engine = RewardEngine(session)
+    alloc = await engine.allocate_quest_reward(
+        quest=quest, user=student, rank=1, amount=100, score_bp=9000
+    )
+    assert await engine.balance(student.id) == 100
+
+    tx = BlockchainTransaction(
+        idempotency_key="0x" + uuid.uuid4().hex + uuid.uuid4().hex[:2],
+        network="localhost",
+        chain_id=31337,
+        from_address="0x" + "0" * 40,
+        method="rewardUser",
+        arguments={"allocation_id": str(alloc.id), "amount": 100, "reward_key": "0x0"},
+        status="confirmed",
+        transaction_hash="0x" + "34" * 32,
+        block_number=200,
+        confirmed_at=datetime.now(UTC),
+    )
+    session.add(tx)
+    await session.flush()
+
+    stub = _LogsClient(canonical=False)
+    monkeypatch.setattr(worker_logic, "get_chain_client", lambda: stub)
+    monkeypatch.setattr(settings, "blockchain_poll_seconds", 5)
+
+    n = await worker_logic.revalidate_confirmed_transactions(session)
+    assert n >= 1
+    refreshed = await session.get(BlockchainTransaction, tx.id)
+    assert refreshed.status == "failed"
+    assert refreshed.error_code == "reorged"
+    # Compensation applied.
+    assert await engine.balance(student.id) == 0
