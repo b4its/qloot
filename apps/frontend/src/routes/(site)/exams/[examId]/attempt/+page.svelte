@@ -71,6 +71,15 @@
     ticker = setInterval(update, 1000);
   }
 
+  function multiSelections(qid: string): string[] {
+    try {
+      const raw = JSON.parse(answers[qid] ?? "[]");
+      return Array.isArray(raw) ? raw.map((x) => String(x)) : [];
+    } catch {
+      return [];
+    }
+  }
+
   function onInput(qid: string) {
     saved[qid] = "idle";
     if (autosaveTimers[qid]) clearTimeout(autosaveTimers[qid]);
@@ -228,6 +237,62 @@
                     </label>
                   {/each}
                 </div>
+              {:else if q.qtype === "true_false"}
+                <div class="mt-3 space-y-2">
+                  {#each [["true", "Benar"], ["false", "Salah"]] as [val, label]}
+                    <label
+                      class="flex cursor-pointer items-center gap-3 rounded-sm border px-3 py-2 text-sm"
+                      class:border-primary={answers[q.id] === val}
+                    >
+                      <input
+                        type="radio"
+                        name={`q-${q.id}`}
+                        value={val}
+                        checked={answers[q.id] === val}
+                        on:change={() => {
+                          answers[q.id] = val;
+                          onInput(q.id);
+                        }}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  {/each}
+                </div>
+              {:else if q.qtype === "multi_select"}
+                <div class="mt-3 space-y-2">
+                  {#each q.options ?? [] as opt}
+                    <label
+                      class="flex cursor-pointer items-center gap-3 rounded-sm border px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        value={opt.label}
+                        checked={multiSelections(q.id).includes(opt.label)}
+                        on:change={(e) => {
+                          const set = new Set(multiSelections(q.id));
+                          if ((e.currentTarget as HTMLInputElement).checked) set.add(opt.label);
+                          else set.delete(opt.label);
+                          answers[q.id] = JSON.stringify([...set]);
+                          onInput(q.id);
+                        }}
+                      />
+                      <span class="mono text-xs muted">{opt.label}.</span>
+                      <span>{opt.text}</span>
+                    </label>
+                  {/each}
+                </div>
+              {:else if q.qtype === "numeric"}
+                <input
+                  class="input mt-3 !w-56"
+                  type="number"
+                  step="any"
+                  placeholder="Jawaban angka…"
+                  value={answers[q.id] ?? ""}
+                  on:input={(e) => {
+                    answers[q.id] = (e.currentTarget as HTMLInputElement).value;
+                    onInput(q.id);
+                  }}
+                />
               {:else}
                 <textarea
                   class="input mt-3 min-h-[160px]"

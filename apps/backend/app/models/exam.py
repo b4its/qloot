@@ -89,6 +89,11 @@ class Question(Base, TimestampMixin):
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     correct_answer: Mapped[str | None] = mapped_column(Text)
     qtype: Mapped[str] = mapped_column(String(32), default="essay", nullable=False)
+    # Structured answer key for the non-essay types that need more than a single
+    # label: {"correct": ["A","C"]} for multi_select, {"value": 42.0,
+    # "tolerance": 0.5} for numeric, {"accepted": [...]} for fill_blank, and
+    # ordered/paired lists for matching/ordering.
+    answer_json: Mapped[dict | None] = mapped_column(JSONB)
     max_score_bp: Mapped[int] = mapped_column(Integer, default=BP_SCALE, nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     source: Mapped[str] = mapped_column(String(16), default="manual", nullable=False)

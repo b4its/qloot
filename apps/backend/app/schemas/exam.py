@@ -9,11 +9,53 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import ORMModel
 
-# Question kinds. ``essay`` is AI-graded free text; ``multiple_choice`` is
-# graded deterministically (instant) against the correct option.
-QUESTION_TYPES = ("essay", "multiple_choice")
+# Question kinds. ``essay`` is AI-graded free text; the rest are graded
+# deterministically (instant) with no AI call.
+QUESTION_TYPES = (
+    "essay",
+    "multiple_choice",
+    "true_false",
+    "multi_select",
+    "numeric",
+    "fill_blank",
+    "matching",
+    "ordering",
+)
+# Types that are graded deterministically (no AI provider).
+AUTO_GRADED_TYPES = (
+    "multiple_choice",
+    "true_false",
+    "multi_select",
+    "numeric",
+    "fill_blank",
+    "matching",
+    "ordering",
+)
+QTYPE_PATTERN = (
+    "^(essay|multiple_choice|true_false|multi_select|numeric|fill_blank|matching|ordering)$"
+)
 MC_MIN_OPTIONS = 2
 MC_MAX_OPTIONS = 8
+
+
+class AnswerKeyIn(BaseModel):
+    """Structured answer key for the non-single-label question types.
+
+    All fields are optional; which ones are required depends on ``qtype``.
+    """
+
+    # multi_select: the correct option labels.
+    correct: list[str] | None = None
+    # numeric: the value and an absolute tolerance.
+    value: float | None = None
+    tolerance: float | None = None
+    # fill_blank: accepted strings (case/space normalisation via flags).
+    accepted: list[str] | None = None
+    case_sensitive: bool = False
+    trim: bool = True
+    # matching/ordering: canonical order of the correct items (labels/keys).
+    order: list[str] | None = None
+    pairs: dict[str, str] | None = None
 
 
 class OptionIn(BaseModel):
@@ -43,18 +85,51 @@ def _validate_mc_options(options: list[OptionIn]) -> list[OptionIn]:
     return options
 
 
+def _validate_question(
+    qtype: str,
+    options: list[OptionIn],
+    correct_answer: str | None,
+    key: AnswerKeyIn | None,
+) -> None:
+    """Per-type validation so an unsupported shape is rejected at the API edge."""
+    if qtype == "multiple_choice":
+        _validate_mc_options(options)
+    elif qtype == "true_false":
+        if (correct_answer or "").strip().lower() not in ("true", "false"):
+            raise ValueError("true_false needs correct_answer 'true' or 'false'")
+    elif qtype == "multi_select":
+        if not (MC_MIN_OPTIONS <= len(options) <= MC_MAX_OPTIONS):
+            raise ValueError(f"multi_select needs {MC_MIN_OPTIONS}–{MC_MAX_OPTIONS} options")
+        correct = [o for o in options if o.is_correct]
+        if len(correct) < 2:
+            raise ValueError("multi_select needs at least two correct options")
+    elif qtype == "numeric":
+        if key is None or key.value is None:
+            raise ValueError("numeric needs answer_json.value")
+        if key.tolerance is not None and key.tolerance < 0:
+            raise ValueError("numeric tolerance must be >= 0")
+    elif qtype == "fill_blank":
+        if key is None or not key.accepted:
+            raise ValueError("fill_blank needs answer_json.accepted (non-empty)")
+    elif qtype == "ordering":
+        if key is None or not key.order or len(key.order) < 2:
+            raise ValueError("ordering needs answer_json.order (>= 2 items)")
+    elif qtype == "matching" and (key is None or not key.pairs or len(key.pairs) < 2):
+        raise ValueError("matching needs answer_json.pairs (>= 2 pairs)")
+
+
 class QuestionCreate(BaseModel):
     prompt: str = Field(min_length=5, max_length=10_000)
     correct_answer: str | None = Field(default=None, max_length=10_000)
     max_score_bp: int = Field(default=10_000, ge=0, le=10_000)
     position: int = Field(default=0, ge=0)
-    qtype: str = Field(default="essay", pattern="^(essay|multiple_choice)$")
+    qtype: str = Field(default="essay", pattern=QTYPE_PATTERN)
     options: list[OptionIn] = Field(default_factory=list)
+    answer_json: AnswerKeyIn | None = None
 
     @model_validator(mode="after")
     def _check(self):
-        if self.qtype == "multiple_choice":
-            _validate_mc_options(self.options)
+        _validate_question(self.qtype, self.options, self.correct_answer, self.answer_json)
         return self
 
 
@@ -64,12 +139,14 @@ class QuestionUpdate(BaseModel):
     max_score_bp: int | None = Field(default=None, ge=0, le=10_000)
     position: int | None = Field(default=None, ge=0)
     review_status: str | None = Field(default=None, pattern="^(pending|approved|rejected)$")
-    # When provided for a multiple_choice question, replaces all options.
+    qtype: str | None = Field(default=None, pattern=QTYPE_PATTERN)
+    # When provided for a multiple_choice/multi_select question, replaces options.
     options: list[OptionIn] | None = None
+    answer_json: AnswerKeyIn | None = None
 
     @model_validator(mode="after")
     def _check(self):
-        if self.options is not None:
+        if self.options is not None and self.qtype in (None, "multiple_choice"):
             _validate_mc_options(self.options)
         return self
 
@@ -85,6 +162,7 @@ class QuestionOut(ORMModel):
     source: str
     review_status: str
     options: list[OptionOut] = Field(default_factory=list)
+    answer_json: dict | None = None
 
 
 class ExamCreate(BaseModel):

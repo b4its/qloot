@@ -27,6 +27,7 @@ from app.models.exam import (
     Question,
     StudentAnswer,
 )
+from app.services.auto_grading import auto_feedback, score_auto_answer
 
 log = get_logger("grading")
 
@@ -74,7 +75,7 @@ class GradingService:
                 .select_from(StudentAnswer)
                 .join(Question, Question.id == StudentAnswer.question_id)
                 .where(StudentAnswer.attempt_id == attempt.id)
-                .where(Question.qtype != "multiple_choice")
+                .where(Question.qtype == "essay")
             )
         ).scalar_one()
         if not has_essay:
@@ -121,26 +122,34 @@ class GradingService:
         return job
 
     async def grade_mc_answers(self, attempt: ExamAttempt) -> int:
-        """Deterministically score the multiple-choice questions of an attempt.
+        """Deterministically score every auto-graded answer of an attempt.
 
-        MC answers need no AI: a correct option label earns the question's full
-        ``max_score_bp``, anything else earns 0. Idempotent (re-runnable).
-        Returns the number of MC answers scored.
+        Multiple-choice / true-false are all-or-nothing; multi-select, numeric,
+        fill-blank, matching and ordering award deterministic partial credit.
+        Idempotent (re-runnable). Returns the number of answers scored.
         """
+        auto_types = (
+            "multiple_choice",
+            "true_false",
+            "multi_select",
+            "numeric",
+            "fill_blank",
+            "matching",
+            "ordering",
+        )
         stmt = (
             select(StudentAnswer, Question)
             .join(Question, Question.id == StudentAnswer.question_id)
             .where(StudentAnswer.attempt_id == attempt.id)
             .where(Question.exam_id == attempt.exam_id)
-            .where(Question.qtype == "multiple_choice")
+            .where(Question.qtype.in_(auto_types))
         )
         rows = (await self.session.execute(stmt)).all()
         for sa, q in rows:
-            chosen = (sa.answer_text or "").strip().upper()
-            correct = (q.correct_answer or "").strip().upper()
-            sa.score_bp = q.max_score_bp if chosen and chosen == correct else 0
+            ratio = score_auto_answer(q, sa.answer_text)
+            sa.score_bp = int(round(q.max_score_bp * ratio))
             sa.max_score_bp = q.max_score_bp
-            sa.feedback = "Benar" if sa.score_bp else "Salah"
+            sa.feedback = auto_feedback(q, sa.answer_text, ratio)
             sa.similarity_bp = None
             sa.graded_at = datetime.now(UTC)
         if rows:
@@ -344,7 +353,7 @@ class GradingService:
             .join(Question, Question.id == StudentAnswer.question_id)
             .where(StudentAnswer.attempt_id == attempt.id)
             .where(Question.exam_id == attempt.exam_id)
-            .where(Question.qtype != "multiple_choice")
+            .where(Question.qtype == "essay")
             .order_by(Question.position)
         )
         rows = (await self.session.execute(stmt)).all()

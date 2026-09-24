@@ -46,6 +46,9 @@
     correct_answer: "",
     qtype: "essay",
     weight: 100,
+    tf: "true",
+    numericValue: 0,
+    numericTolerance: 0,
     options: blankOptions(),
   };
   let editingQ: string | null = null;
@@ -54,6 +57,9 @@
     correct_answer: "",
     qtype: "essay",
     weight: 100,
+    tf: "true",
+    numericValue: 0,
+    numericTolerance: 0,
     options: blankOptions(),
   };
 
@@ -69,12 +75,43 @@
   function setCorrect(list: OptionDraft[], i: number) {
     list.forEach((o, j) => (o.is_correct = j === i));
   }
-  function validMc(list: OptionDraft[]): boolean {
-    return (
-      list.length >= 2 &&
-      list.every((o) => o.text.trim().length > 0) &&
-      list.filter((o) => o.is_correct).length === 1
-    );
+  function validOptions(qtype: string, list: OptionDraft[]): boolean {
+    if (list.length < 2 || !list.every((o) => o.text.trim().length > 0)) return false;
+    const n = list.filter((o) => o.is_correct).length;
+    return qtype === "multi_select" ? n >= 2 : n === 1;
+  }
+
+  type Draft = {
+    prompt: string;
+    correct_answer: string;
+    qtype: string;
+    weight: number;
+    tf?: string;
+    numericValue?: number;
+    numericTolerance?: number;
+    options: OptionDraft[];
+  };
+
+  function buildQuestionPayload(d: Draft, position: number) {
+    const base: Record<string, unknown> = {
+      prompt: d.prompt.trim(),
+      qtype: d.qtype,
+      max_score_bp: Math.max(0, Math.min(10000, Math.round((d.weight ?? 100) * 100))),
+      position,
+    };
+    if (d.qtype === "essay") {
+      base.correct_answer = d.correct_answer.trim() || null;
+    } else if (d.qtype === "true_false") {
+      base.correct_answer = d.tf ?? "true";
+    } else if (d.qtype === "multiple_choice" || d.qtype === "multi_select") {
+      base.options = d.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }));
+    } else if (d.qtype === "numeric") {
+      base.answer_json = {
+        value: Number(d.numericValue ?? 0),
+        tolerance: Number(d.numericTolerance ?? 0),
+      };
+    }
+    return base;
   }
 
   async function loadExam() {
@@ -156,30 +193,26 @@
       error = "Soal minimal 5 karakter.";
       return;
     }
-    if (newQ.qtype === "multiple_choice" && !validMc(newQ.options)) {
-      error = "Pilihan ganda butuh ≥2 opsi dan tepat satu jawaban benar.";
+    if (
+      (newQ.qtype === "multiple_choice" || newQ.qtype === "multi_select") &&
+      !validOptions(newQ.qtype, newQ.options)
+    ) {
+      error = "Opsi tidak valid: minimal 2 opsi; PG tepat satu benar, pilih-banyak ≥2 benar.";
       return;
     }
     error = "";
     message = "";
     busy = "q-add";
     try {
-      await api.post(`/exams/${examId}/questions`, {
-        prompt: newQ.prompt.trim(),
-        correct_answer: newQ.qtype === "essay" ? newQ.correct_answer.trim() || null : null,
-        qtype: newQ.qtype,
-        max_score_bp: Math.max(0, Math.min(10000, Math.round((newQ.weight ?? 100) * 100))),
-        position: questions.length,
-        options:
-          newQ.qtype === "multiple_choice"
-            ? newQ.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }))
-            : [],
-      });
+      await api.post(`/exams/${examId}/questions`, buildQuestionPayload(newQ, questions.length));
       newQ = {
         prompt: "",
         correct_answer: "",
         qtype: "essay",
         weight: 100,
+        tf: "true",
+        numericValue: 0,
+        numericTolerance: 0,
         options: blankOptions(),
       };
       message = "Soal ditambahkan.";
@@ -193,13 +226,17 @@
 
   function startEditQ(q: Question) {
     editingQ = q.id;
+    const aj = (q as { answer_json?: Record<string, unknown> }).answer_json ?? {};
     editQ = {
       prompt: q.prompt,
       correct_answer: q.correct_answer ?? "",
       qtype: q.qtype,
       weight: Math.round((q.max_score_bp ?? 10000) / 100),
+      tf: q.qtype === "true_false" ? (q.correct_answer ?? "true") : "true",
+      numericValue: Number((aj.value as number) ?? 0),
+      numericTolerance: Number((aj.tolerance as number) ?? 0),
       options:
-        q.qtype === "multiple_choice"
+        q.qtype === "multiple_choice" || q.qtype === "multi_select"
           ? (q.options ?? []).map((o) => ({ text: o.text, is_correct: !!o.is_correct }))
           : blankOptions(),
     };
@@ -211,22 +248,22 @@
       error = "Soal minimal 5 karakter.";
       return;
     }
-    if (editQ.qtype === "multiple_choice" && !validMc(editQ.options)) {
-      error = "Pilihan ganda butuh ≥2 opsi dan tepat satu jawaban benar.";
+    if (
+      (editQ.qtype === "multiple_choice" || editQ.qtype === "multi_select") &&
+      !validOptions(editQ.qtype, editQ.options)
+    ) {
+      error = "Opsi tidak valid: minimal 2 opsi; PG tepat satu benar, pilih-banyak ≥2 benar.";
       return;
     }
     error = "";
     busy = "q-edit";
     try {
-      await api.patch(`/questions/${editingQ}`, {
-        prompt: editQ.prompt.trim(),
-        correct_answer: editQ.qtype === "essay" ? editQ.correct_answer.trim() || null : null,
-        max_score_bp: Math.max(0, Math.min(10000, Math.round((editQ.weight ?? 100) * 100))),
-        options:
-          editQ.qtype === "multiple_choice"
-            ? editQ.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }))
-            : undefined,
-      });
+      const payload = buildQuestionPayload(editQ, 0);
+      delete (payload as Record<string, unknown>).position;
+      if (editQ.qtype !== "multiple_choice" && editQ.qtype !== "multi_select") {
+        delete (payload as Record<string, unknown>).options;
+      }
+      await api.patch(`/questions/${editingQ}`, payload);
       editingQ = null;
       message = "Soal diperbarui.";
       await loadQuestions();
@@ -388,7 +425,7 @@
             {#if editingQ === q.id}
               <li class="border-b pb-2 last:border-0">
                 <input class="input" bind:value={editQ.prompt} />
-                {#if editQ.qtype === "multiple_choice"}
+                {#if editQ.qtype === "multiple_choice" || editQ.qtype === "multi_select"}
                   <div class="mt-2 space-y-2">
                     {#each editQ.options as opt, oi}
                       <div class="flex items-center gap-2">
@@ -426,6 +463,29 @@
                     >
                       <Icon name="plus" size="10px" /> Tambah pilihan
                     </button>
+                  </div>
+                {:else if editQ.qtype === "true_false"}
+                  <select class="input mt-2 !w-auto !py-1" bind:value={editQ.tf}>
+                    <option value="true">Benar</option>
+                    <option value="false">Salah</option>
+                  </select>
+                {:else if editQ.qtype === "numeric"}
+                  <div class="mt-2 flex items-center gap-2">
+                    <span class="mono-label">Nilai</span>
+                    <input
+                      class="input !w-28 !py-1"
+                      type="number"
+                      step="any"
+                      bind:value={editQ.numericValue}
+                    />
+                    <span class="mono-label">Toleransi</span>
+                    <input
+                      class="input !w-24 !py-1"
+                      type="number"
+                      min="0"
+                      step="any"
+                      bind:value={editQ.numericTolerance}
+                    />
                   </div>
                 {:else}
                   <textarea
@@ -524,10 +584,16 @@
             <select class="input !w-auto !py-1" bind:value={newQ.qtype}>
               <option value="essay">Esai (dinilai AI)</option>
               <option value="multiple_choice">Pilihan ganda</option>
+              <option value="true_false">Benar/Salah</option>
+              <option value="multi_select">Pilih banyak</option>
+              <option value="numeric">Angka (toleransi)</option>
+              <option value="fill_blank">Isian singkat</option>
+              <option value="matching">Mencocokkan</option>
+              <option value="ordering">Mengurutkan</option>
             </select>
           </div>
           <input class="input" placeholder="Pertanyaan baru" bind:value={newQ.prompt} />
-          {#if newQ.qtype === "multiple_choice"}
+          {#if newQ.qtype === "multiple_choice" || newQ.qtype === "multi_select"}
             <div class="space-y-2">
               {#each newQ.options as opt, oi}
                 <div class="flex items-center gap-2">
@@ -561,6 +627,24 @@
               >
                 <Icon name="plus" size="10px" /> Tambah pilihan
               </button>
+            </div>
+          {:else if newQ.qtype === "true_false"}
+            <select class="input !w-auto !py-1" bind:value={newQ.tf}>
+              <option value="true">Benar</option>
+              <option value="false">Salah</option>
+            </select>
+          {:else if newQ.qtype === "numeric"}
+            <div class="flex items-center gap-2">
+              <span class="mono-label">Nilai</span>
+              <input class="input !w-28 !py-1" type="number" step="any" bind:value={newQ.numericValue} />
+              <span class="mono-label">Toleransi</span>
+              <input
+                class="input !w-24 !py-1"
+                type="number"
+                min="0"
+                step="any"
+                bind:value={newQ.numericTolerance}
+              />
             </div>
           {:else}
             <textarea

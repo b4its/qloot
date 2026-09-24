@@ -88,11 +88,13 @@ export interface Question {
   correct_answer?: string | null;
   max_score_bp: number;
   position: number;
-  /** "essay" (AI-graded) or "multiple_choice" (deterministic). */
+  /** essay | multiple_choice | true_false | multi_select | numeric | … */
   qtype: string;
   source: string;
   review_status: string;
   options?: QuestionOption[];
+  /** Structured answer key for the non-single-label types. */
+  answer_json?: Record<string, unknown> | null;
 }
 
 export interface Exam {

@@ -95,12 +95,12 @@ class ExamService:
         ).all()
         counts: dict[uuid.UUID, tuple[int, int, int]] = {}
         for exam_id, qtype, n in rows:
-            total, mc, essay = counts.get(exam_id, (0, 0, 0))
-            if qtype == "multiple_choice":
-                mc += int(n)
-            else:
+            total, auto, essay = counts.get(exam_id, (0, 0, 0))
+            if qtype == "essay":
                 essay += int(n)
-            counts[exam_id] = (total + int(n), mc, essay)
+            else:
+                auto += int(n)
+            counts[exam_id] = (total + int(n), auto, essay)
         return counts
 
     async def list_all_with_counts(
@@ -155,15 +155,15 @@ class ExamService:
     ) -> Question:
         exam = await self._get_owned_exam(exam_id, user)
         qtype = data.get("qtype", "essay")
-        if qtype == "multiple_choice" and not options:
-            raise ValidationError("multiple_choice requires options")
+        if qtype in ("multiple_choice", "multi_select") and not options:
+            raise ValidationError(f"{qtype} requires options")
         question = Question(
             exam_id=exam.id, owner_id=user.id, source="manual", review_status="approved", **data
         )
         self.session.add(question)
         await self.session.flush()
-        if qtype == "multiple_choice":
-            await self._replace_options(question, options or [])
+        if qtype in ("multiple_choice", "multi_select"):
+            await self._replace_options(question, options or [], multi=(qtype == "multi_select"))
         return question
 
     async def list_questions(self, exam_id: uuid.UUID) -> list[Question]:
@@ -176,7 +176,7 @@ class ExamService:
             await self.session.execute(
                 select(func.count())
                 .select_from(Question)
-                .where(Question.exam_id == exam_id, Question.qtype != "multiple_choice")
+                .where(Question.exam_id == exam_id, Question.qtype == "essay")
             )
         ).scalar_one()
         return int(count) > 0
@@ -219,18 +219,23 @@ class ExamService:
             rng.shuffle(rows)
         return rows
 
-    async def _replace_options(self, question: Question, options: list[dict]) -> None:
+    async def _replace_options(
+        self, question: Question, options: list[dict], *, multi: bool = False
+    ) -> None:
         """Replace a question's options wholesale (atomic: delete + insert)."""
         if len(options) < 2:
             raise ValidationError("multiple_choice needs at least 2 options")
         correct = [o for o in options if o.get("is_correct")]
-        if len(correct) != 1:
+        if multi:
+            if len(correct) < 2:
+                raise ValidationError("multi_select needs at least two correct options")
+        elif len(correct) != 1:
             raise ValidationError("multiple_choice needs exactly one correct option")
         # Drop existing options, then insert the new set deterministically.
         for existing in await self.options_for(question.id):
             await self.session.delete(existing)
         await self.session.flush()
-        correct_label = ""
+        correct_labels: list[str] = []
         for i, opt in enumerate(options):
             label = (opt.get("label") or _OPTION_LABELS[i]).strip().upper()[:8]
             self.session.add(
@@ -243,10 +248,15 @@ class ExamService:
                 )
             )
             if opt.get("is_correct"):
-                correct_label = label
-        # Keep ``correct_answer`` in sync with the correct option's label so
-        # existing tooling/reporting still has a single answer key.
-        question.correct_answer = correct_label
+                correct_labels.append(label)
+        if multi:
+            # multi_select keys live in answer_json; correct_answer stays empty.
+            question.correct_answer = None
+            question.answer_json = {"correct": correct_labels}
+        else:
+            # Keep ``correct_answer`` in sync with the correct option's label so
+            # existing tooling/reporting still has a single answer key.
+            question.correct_answer = correct_labels[0] if correct_labels else ""
         await self.session.flush()
 
     async def update_question(
@@ -260,8 +270,10 @@ class ExamService:
         for k, v in data.items():
             if v is not None:
                 setattr(question, k, v)
-        if question.qtype == "multiple_choice" and options is not None:
-            await self._replace_options(question, options)
+        if question.qtype in ("multiple_choice", "multi_select") and options is not None:
+            await self._replace_options(
+                question, options, multi=(question.qtype == "multi_select")
+            )
         await self.session.flush()
         return question
 
@@ -384,6 +396,26 @@ class ExamService:
             if choice and choice not in labels:
                 raise ValidationError("Answer must be one of the question's options")
             answer_text = choice
+        elif question.qtype == "true_false":
+            choice = (answer_text or "").strip().lower()
+            if choice and choice not in ("true", "false"):
+                raise ValidationError("Answer must be 'true' or 'false'")
+            answer_text = choice
+        elif question.qtype == "multi_select":
+            # The answer is a JSON array of option labels.
+            labels = {o.label for o in await self.options_for(question_id)}
+            import json as _json
+
+            try:
+                raw = _json.loads(answer_text) if answer_text else []
+            except (ValueError, TypeError):
+                raise ValidationError("multi_select answer must be a JSON array") from None
+            if not isinstance(raw, list):
+                raise ValidationError("multi_select answer must be a JSON array")
+            picked = [str(x).strip().upper() for x in raw if str(x).strip()]
+            if any(p not in labels for p in picked):
+                raise ValidationError("Answer contains an unknown option")
+            answer_text = _json.dumps(sorted(set(picked)))
         stmt = select(StudentAnswer).where(
             StudentAnswer.attempt_id == attempt_id, StudentAnswer.question_id == question_id
         )
