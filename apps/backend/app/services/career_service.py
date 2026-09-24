@@ -949,6 +949,49 @@ class CareerService:
         return items[offset : offset + limit]
 
     # --- assistant ---------------------------------------------------------
+    async def student_profile_context(self, user: User) -> str:
+        """A compact, factual summary of the student's own career data (CARE-02).
+
+        Injected into the assistant's AI/KB context so answer are grounded in
+        the caller's real grades, personality and recommendations instead of
+        generic advice. Returns "" when the student has no data, so the
+        assistant's behaviour is unchanged for empty profiles.
+        """
+        parts: list[str] = []
+
+        grades = await self.list_grades(user.id)
+        if grades:
+            latest = _latest_per_subject(grades)
+            if latest:
+                avg = round(sum(latest.values()) / len(latest), 1)
+                ordered = sorted(latest.items(), key=lambda kv: kv[1])
+                weak_subject, weak_grade = ordered[0]
+                strong_subject, strong_grade = ordered[-1]
+                parts.append(f"Rata-rata nilai: {avg}")
+                parts.append(f"Mata pelajaran kuat: {strong_subject} ({strong_grade})")
+                parts.append(f"Mata pelajaran lemah: {weak_subject} ({weak_grade})")
+
+        personality = await self.latest_personality(user.id)
+        if personality is not None:
+            named = [
+                ("Keterbukaan", personality.openness),
+                ("Kehati-hatian", personality.conscientiousness),
+                ("Ekstroversi", personality.extraversion),
+                ("Keramahan", personality.agreeableness),
+                ("Stabilitas emosi", 100 - personality.neuroticism),
+            ]
+            top = max(named, key=lambda x: x[1])
+            parts.append(f"Trait dominan: {top[0]} ({top[1]}%)")
+
+        recs = await self.list_recommendations(user.id)
+        if recs:
+            top_majors = ", ".join(f"{r.major} ({r.fit_score}%)" for r in recs[:3])
+            parts.append(f"Jurusan rekomendasi teratas: {top_majors}")
+
+        if not parts:
+            return ""
+        return "; ".join(parts) + "."
+
     async def assistant_reply(self, user: User, question: str) -> dict:
         """Answer a career/study question.
 
@@ -977,6 +1020,10 @@ class CareerService:
             "Jawab ringkas, ramah, dan dalam bahasa pengguna. Jangan menyebut nama lain "
             "selain namamu."
         )
+        # CARE-02: ground the answer in the student's own data when present.
+        profile = await self.student_profile_context(user)
+        if profile:
+            context = f"{context}\n\nData siswa ini (gunakan bila relevan): {profile}"
         try:
             result = await provider.answer(
                 QAContext(text=context, question=question, language="id")
@@ -1097,6 +1144,21 @@ class CareerService:
                 ),
                 "confidence_bp": 7500,
             }
+
+        # CARE-02: personalise the answer with the student's own data when the
+        # question is about *them* and such data exists. With no data (or no
+        # self-reference), the generic response below is unchanged.
+        self_ref = {"aku", "saya", "nilai", "kemampuan", "kepribadian", "diriku"} & words
+        if self_ref:
+            profile = await self.student_profile_context(user)
+            if profile:
+                return {
+                    "answer": (
+                        f"Berikut ringkasan profilmu: {profile} "
+                        "Buka **Jalur Karier → Analisis** untuk detail dan saran jurusan."
+                    ),
+                    "confidence_bp": 8500,
+                }
 
         return {
             "answer": (
