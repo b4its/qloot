@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import metrics
 from app.core.config import settings
 from app.core.errors import AuthError, ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
@@ -134,6 +135,7 @@ class AuthService:
                 data={"reason": "no_such_account", "ip": ip_address},
             )
             await self._commit_side_effect()
+            metrics.incr("auth_login_failures_total", reason="no_such_account")
             raise AuthError("Invalid credentials")
 
         if user.locked_until is not None and user.locked_until > now:
@@ -173,6 +175,7 @@ class AuthService:
                 )
                 log.warning("account_locked", user_id=str(user.id))
             await self._commit_side_effect()
+            metrics.incr("auth_login_failures_total", reason="bad_password")
             raise AuthError("Invalid credentials")
 
         if not user.is_active:
@@ -185,6 +188,7 @@ class AuthService:
                 data={"reason": "inactive"},
             )
             await self._commit_side_effect()
+            metrics.incr("auth_login_failures_total", reason="inactive")
             raise AuthError("Account is disabled")
 
         # Successful login: reset counters, maybe rehash.
@@ -203,6 +207,7 @@ class AuthService:
             entity_id=str(user.id),
             data={"ip": ip_address},
         )
+        metrics.incr("auth_logins_total")
         log.info("user_login", user_id=str(user.id))
         return user, token
 

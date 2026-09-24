@@ -398,6 +398,9 @@ class MaterialService:
 
         job.status = "running"
         job.started_at = job.started_at or datetime.now(UTC)
+        from app.core import metrics
+
+        metrics.incr("ai_jobs_total", kind="generation")
         try:
             questions = await self.run_generation(job)
         except Exception as exc:  # noqa: BLE001 - record and re-raise
@@ -411,6 +414,7 @@ class MaterialService:
                 await AiUsageService(self.session).refund_job(
                     user_id=job.owner_id, job_id=job.id
                 )
+                metrics.incr("grading_failures_total", reason="generation_error")
             else:
                 from datetime import timedelta
 

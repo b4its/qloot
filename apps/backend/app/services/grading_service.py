@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.provider import GradeItem, GradingContext, get_ai_provider
+from app.core import metrics
 from app.core.errors import AIProviderError, NotFoundError
 from app.core.logging import get_logger
 from app.models.exam import (
@@ -378,6 +379,7 @@ class GradingService:
         # Call the provider OUTSIDE any transaction to avoid long-held locks.
         provider = get_ai_provider()
         result = await provider.grade(GradingContext(items=items))
+        metrics.incr("ai_jobs_total", kind="grading")
 
         # Guard against a provider returning the wrong number of items: treat it
         # as a retryable provider error rather than crashing mid-write.
@@ -439,6 +441,7 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
         job.error_code = "attempt_missing"
         job.error_message = "Attempt not found"
         await session.flush()
+        metrics.incr("grading_failures_total", reason="attempt_missing")
         return False
 
     try:
@@ -465,6 +468,7 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
             await AiUsageService(session).refund_job(
                 user_id=attempt.user_id, job_id=job.id
             )
+            metrics.incr("grading_failures_total", reason="ai_error")
         else:
             # Exponential backoff, cap at 10 minutes.
             from datetime import timedelta
@@ -488,5 +492,6 @@ async def process_grading_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
 
         await AiUsageService(session).refund_job(user_id=attempt.user_id, job_id=job.id)
         await session.flush()
+        metrics.incr("grading_failures_total", reason="internal_error")
         log.error("grading_job_failed", job_id=str(job.id), error=str(exc))
         return False

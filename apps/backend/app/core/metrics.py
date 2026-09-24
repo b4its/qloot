@@ -28,6 +28,8 @@ _HELP = {
     "ledger_reconciliation_errors_total": "Ledger reconciliation mismatches",
     "ledger_negative_balance_total": "Ledger mutations that drove a balance negative",
     "rate_limited_total": "Requests rejected by the rate limiter",
+    "auth_logins_total": "Successful logins",
+    "auth_login_failures_total": "Failed login attempts",
 }
 
 
