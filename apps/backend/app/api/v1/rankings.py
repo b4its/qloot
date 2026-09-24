@@ -352,10 +352,66 @@ async def list_materialized(
     ]
 
 
+@router.get("/leaderboards/{leaderboard_id}/entries")
+async def list_materialized_entries(
+    leaderboard_id: uuid.UUID,
+    db: DbSession,
+    user: OptionalUser,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
+    """Entries of one materialized snapshot (by leaderboard id)."""
+    from app.models.ranking import Leaderboard, LeaderboardEntry
+
+    lb = await db.get(Leaderboard, leaderboard_id)
+    if lb is None:
+        from app.core.errors import NotFoundError
+
+        raise NotFoundError("Leaderboard not found")
+    stmt = (
+        select(LeaderboardEntry, User.full_name)
+        .join(User, User.id == LeaderboardEntry.user_id)
+        .where(LeaderboardEntry.leaderboard_id == leaderboard_id)
+        .order_by(LeaderboardEntry.rank)
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).all()
+    return {
+        "scope": lb.scope,
+        "scope_id": str(lb.scope_id) if lb.scope_id else None,
+        "period": lb.period,
+        "entries": [
+            _row(e.user_id, e.score_bp, e.opc_earned, e.rank, name=name) for e, name in rows
+        ],
+    }
+
+
 @router.post("/leaderboards/refresh")
-async def refresh_materialized(db: DbSession, admin: AdminUser):
-    """Rebuild the materialized global leaderboard snapshot (admin only)."""
+async def refresh_materialized(
+    db: DbSession,
+    admin: AdminUser,
+    scope: Literal["global", "room", "quest"] = Query(default="global"),
+    scope_id: uuid.UUID | None = Query(default=None),
+):
+    """Rebuild a materialized leaderboard snapshot (admin only).
+
+    ``scope=global`` (default) rebuilds the lifetime global board.
+    ``scope=room``/``quest`` require ``scope_id`` and rebuild that room's or
+    quest's final-standings snapshot.
+    """
+    from app.core.errors import ValidationError
     from app.services.leaderboard_service import LeaderboardService
 
-    count = await LeaderboardService(db).materialize_global()
-    return {"materialized": count}
+    service = LeaderboardService(db)
+    if scope == "global":
+        count = await service.materialize_global()
+    elif scope == "room":
+        if scope_id is None:
+            raise ValidationError("scope_id is required for scope=room")
+        count = await service.materialize_room(scope_id)
+    else:
+        if scope_id is None:
+            raise ValidationError("scope_id is required for scope=quest")
+        count = await service.materialize_quest(scope_id)
+    return {"scope": scope, "scope_id": str(scope_id) if scope_id else None, "materialized": count}

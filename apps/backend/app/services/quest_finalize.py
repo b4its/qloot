@@ -94,6 +94,11 @@ async def apply_finalize_side_effects(
             room_channel(str(quest.room_id)),
             {"type": "quest.finalized", "quest_id": str(quest.id), "winners": len(winners)},
         )
+
+    # Snapshot the quest's final winner standings (survives later edits).
+    from app.services.leaderboard_service import LeaderboardService
+
+    await LeaderboardService(session).materialize_quest(quest.id)
     return created
 
 

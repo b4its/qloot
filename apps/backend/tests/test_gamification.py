@@ -316,3 +316,102 @@ async def test_gamification_me_endpoint_triggers_level_up_notification(client):
     notif = await client.get("/api/v1/notifications?limit=50")
     assert notif.status_code == 200
     assert all(n["kind"] != "level" for n in notif.json())
+
+
+async def test_materialize_room_leaderboard(session):
+    """GAME-10: room-scoped materialization is actually written and readable."""
+    from app.models.room import RoomMember
+    from app.services.room_service import RoomService
+
+    owner = await _user(session, "room_lb_teacher@q.com", "teacher")
+    exam = Exam(title="Room LB Exam", owner_id=owner.id, is_active=True)
+    session.add(exam)
+    await session.flush()
+    room = await RoomService(session).create(owner, name="LB Room", is_public=True)
+    exam.room_id = room.id
+    await session.flush()
+
+    a = await _user(session, "room_lb_a@q.com")
+    b = await _user(session, "room_lb_b@q.com")
+    session.add(RoomMember(room_id=room.id, user_id=a.id, role="student"))
+    session.add(RoomMember(room_id=room.id, user_id=b.id, role="student"))
+    await session.flush()
+    await _graded(session, exam, a, 9500)
+    await _graded(session, exam, b, 6000)
+    await session.commit()
+
+    svc = LeaderboardService(session)
+    n = await svc.materialize_room(room.id)
+    assert n == 3  # owner + 2 students (RoomService.create adds the owner as a member)
+    entries = await svc.get_materialized("room", scope_id=room.id)
+    assert len(entries) == 3
+    by_user = {e.user_id: e for e in entries}
+    assert by_user[a.id].score_bp == 9500
+    assert by_user[b.id].score_bp == 6000
+    assert by_user[a.id].rank < by_user[b.id].rank
+
+
+async def test_materialize_quest_leaderboard(session):
+    """GAME-10: quest-scoped materialization mirrors QuestWinner standings."""
+    from app.services.quest_service import QuestService
+
+    owner = await _user(session, "quest_lb_teacher@q.com", "teacher")
+    exam = Exam(title="Quest LB Exam", owner_id=owner.id, is_active=True)
+    session.add(exam)
+    await session.flush()
+    quest = await QuestService(session).create(
+        owner,
+        [{"rank": 1, "reward_amount": 50}],
+        title="LB Quest",
+        top_n_winners=1,
+        status="open",
+    )
+    student = await _user(session, "quest_lb_student@q.com")
+    attempt = await _graded(session, exam, student, 9000)
+    await QuestService(session).record_attempt(quest.id, student, exam_attempt_id=attempt.id)
+    await session.commit()
+
+    await QuestService(session).finalize(quest.id, owner)
+    await session.commit()
+
+    svc = LeaderboardService(session)
+    n = await svc.materialize_quest(quest.id)
+    assert n == 1
+    entries = await svc.get_materialized("quest", scope_id=quest.id)
+    assert len(entries) == 1
+    assert entries[0].user_id == student.id
+    assert entries[0].rank == 1
+
+
+async def test_room_close_auto_materializes_leaderboard(client):
+    from tests.helpers import register_actor
+
+    await register_actor(client, "room_close_teacher@ex.com", "teacher")
+    room = await client.post("/api/v1/rooms", json={"name": "Auto LB Room", "is_public": True})
+    assert room.status_code == 201, room.text
+    room_id = room.json()["id"]
+    await client.post(f"/api/v1/rooms/{room_id}/open")
+
+    closed = await client.post(f"/api/v1/rooms/{room_id}/close")
+    assert closed.status_code == 200, closed.text
+
+    boards = await client.get("/api/v1/rankings/leaderboards?limit=200")
+    assert boards.status_code == 200
+    assert any(b["scope"] == "room" and b["scope_id"] == room_id for b in boards.json())
+
+
+async def test_admin_can_refresh_room_scope_via_api(client):
+    from tests.helpers import register_actor
+
+    await register_actor(client, "room_refresh_teacher@ex.com", "teacher")
+    room = await client.post("/api/v1/rooms", json={"name": "Refresh Room", "is_public": True})
+    room_id = room.json()["id"]
+
+    await client.post("/api/v1/auth/logout")
+    await register_actor(client, "room_refresh_admin@ex.com", "admin")
+    r = await client.post(f"/api/v1/rankings/leaderboards/refresh?scope=room&scope_id={room_id}")
+    assert r.status_code == 200, r.text
+    assert r.json()["scope"] == "room"
+
+    missing_id = await client.post("/api/v1/rankings/leaderboards/refresh?scope=room")
+    assert missing_id.status_code == 422

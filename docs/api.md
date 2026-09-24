@@ -131,17 +131,23 @@ POST   /tasks/{task_id}/complete
 ## Rankings
 
 ```
-GET /rankings/global
+GET /rankings/global?period=all|weekly|monthly
 GET /rankings/rooms/{room_id}
 GET /rankings/quests/{quest_id}
-GET /rankings/me
+GET /rankings/me?period=all|weekly|monthly
+GET /rankings/leaderboards                          # list materialized snapshots
+GET /rankings/leaderboards/{leaderboard_id}/entries  # read one snapshot
+POST /rankings/leaderboards/refresh?scope=global|room|quest[&scope_id=...]  # admin
 ```
 
 All boards exclude flagged (disqualified) attempts and inactive users, and
 `/rankings/me`'s `rank` matches the caller's position in `/rankings/global`
-(same `score desc, opc desc, id asc` ordering). XP/levels use the same
-best-per-exam, non-flagged aggregation, so the level board agrees with the
-score board (<code>/gamification/me</code>, <code>/gamification/levels</code>).
+for the same `period` (same `score desc, opc desc, id asc` ordering). XP/levels
+use the same best-per-exam, non-flagged aggregation, so the level board agrees
+with the score board (<code>/gamification/me</code>, <code>/gamification/levels</code>).
+`period=weekly`/`monthly` scope exam totals to the last 7/30 days (platform
+timezone); `all` (default) is lifetime. Room/quest leaderboards are also
+auto-materialized on room close / quest finalize (`/admin/leaderboards`).
 
 ## Wallet & blockchain
 

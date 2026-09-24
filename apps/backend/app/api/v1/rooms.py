@@ -103,6 +103,12 @@ async def open_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
 async def close_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
     async with transaction(db):
         room = await RoomService(db).close(room_id, user)
+        # Snapshot final standings so they survive later score edits elsewhere
+        # (e.g. a regrade) and so the admin leaderboard list has something to
+        # show for closed rooms without a separate scheduler.
+        from app.services.leaderboard_service import LeaderboardService
+
+        await LeaderboardService(db).materialize_room(room_id)
     await event_bus.publish(
         room_channel(str(room_id)), {"type": "room.close", "status": room.status}
     )

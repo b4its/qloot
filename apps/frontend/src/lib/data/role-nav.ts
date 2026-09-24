@@ -94,6 +94,12 @@ export const adminNav: RoleNavItem[] = [
     desc: "Rekonsiliasi saldo dan akun berutang",
   },
   {
+    href: "/admin/leaderboards",
+    label: "Papan Peringkat",
+    icon: "ranking-star",
+    desc: "Materialisasi papan global, ruang, dan quest",
+  },
+  {
     href: "/admin/blockchain",
     label: "Blockchain",
     icon: "cube",
