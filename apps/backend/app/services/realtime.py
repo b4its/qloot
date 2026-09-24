@@ -121,3 +121,8 @@ event_bus = EventBus()
 
 def room_channel(room_id: str) -> str:
     return f"room:{room_id}"
+
+
+def user_channel(user_id: str) -> str:
+    """Per-user pub/sub channel for realtime notification delivery (GAME-14)."""
+    return f"user:{user_id}"

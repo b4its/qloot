@@ -56,6 +56,12 @@ class NotificationService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def _is_muted(self, user_id: uuid.UUID, kind: str) -> bool:
+        from app.models.social import NotificationPreference
+
+        pref = await self.session.get(NotificationPreference, user_id)
+        return pref is not None and kind in (pref.muted_kinds or [])
+
     async def notify(
         self,
         *,
@@ -64,11 +70,41 @@ class NotificationService:
         title: str,
         body: str | None = None,
         data: dict | None = None,
-    ) -> Notification:
+    ) -> Notification | None:
+        """Create a notification and push it over the user's realtime
+        channel, unless the caller has muted this ``kind`` (GAME-14).
+        Returns ``None`` (no row created) when muted.
+        """
+        if await self._is_muted(user_id, kind):
+            return None
         n = Notification(user_id=user_id, kind=kind, title=title, body=body, data=data)
         self.session.add(n)
         await self.session.flush()
+        await self._push(n)
         return n
+
+    async def _push(self, n: Notification) -> None:
+        """Best-effort realtime push; polling remains the fallback so a
+        missed/failed push never loses the notification (it's already in the
+        DB — only the "instant" delivery may lag to the next poll).
+        """
+        from app.services.realtime import event_bus, user_channel
+
+        try:
+            await event_bus.publish(
+                user_channel(str(n.user_id)),
+                {
+                    "type": "notification",
+                    "id": str(n.id),
+                    "kind": n.kind,
+                    "title": n.title,
+                    "body": n.body,
+                    "data": n.data,
+                    "created_at": n.created_at.isoformat(),
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - push is best-effort
+            log.warning("notification_push_failed", user_id=str(n.user_id), error=str(exc))
 
     async def notify_many(
         self,
@@ -80,12 +116,17 @@ class NotificationService:
         data: dict | None = None,
     ) -> int:
         count = 0
+        created: list[Notification] = []
         for uid in user_ids:
-            self.session.add(
-                Notification(user_id=uid, kind=kind, title=title, body=body, data=data)
-            )
+            if await self._is_muted(uid, kind):
+                continue
+            n = Notification(user_id=uid, kind=kind, title=title, body=body, data=data)
+            self.session.add(n)
+            created.append(n)
             count += 1
         await self.session.flush()
+        for n in created:
+            await self._push(n)
         return count
 
     async def list_for_user(

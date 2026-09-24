@@ -241,3 +241,75 @@ async def test_teacher_analytics_and_submissions(client):
 
     subs = await client.get("/api/v1/teacher/submissions")
     assert subs.status_code == 200
+
+
+async def test_muted_kind_suppresses_notification_creation(client):
+    """GAME-14: a muted kind produces no Notification row for that kind."""
+    await _register(client, "mute_owner@ex.com", "teacher")
+    task = await client.post(
+        "/api/v1/tasks", json={"title": "Mute test", "kind": "daily", "reward_amount": 5}
+    )
+    task_id = task.json()["id"]
+
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "mute_student@ex.com", "student")
+
+    before = await client.get("/api/v1/notifications/preferences")
+    assert before.status_code == 200
+    assert before.json()["muted_kinds"] == []
+
+    muted = await client.put("/api/v1/notifications/preferences", json={"muted_kinds": ["reward"]})
+    assert muted.status_code == 200, muted.text
+    assert muted.json()["muted_kinds"] == ["reward"]
+
+    complete = await client.post(f"/api/v1/tasks/{task_id}/complete")
+    assert complete.status_code == 200, complete.text
+
+    feed = await client.get("/api/v1/notifications")
+    assert feed.status_code == 200
+    # The task completion path notifies kind="reward" — must be suppressed.
+    assert all(n["kind"] != "reward" for n in feed.json())
+
+
+async def test_unmuting_a_kind_restores_delivery(client):
+    await _register(client, "unmute_owner@ex.com", "teacher")
+    task = await client.post(
+        "/api/v1/tasks", json={"title": "Unmute test", "kind": "daily", "reward_amount": 5}
+    )
+    task_id = task.json()["id"]
+
+    await client.post("/api/v1/auth/logout")
+    await _register(client, "unmute_student@ex.com", "student")
+
+    await client.put("/api/v1/notifications/preferences", json={"muted_kinds": ["reward"]})
+    await client.put("/api/v1/notifications/preferences", json={"muted_kinds": []})
+
+    complete = await client.post(f"/api/v1/tasks/{task_id}/complete")
+    assert complete.status_code == 200, complete.text
+
+    feed = await client.get("/api/v1/notifications")
+    assert any(n["kind"] == "reward" for n in feed.json())
+
+
+async def test_invalid_preferences_payload_rejected(client):
+    await _register(client, "badprefs@ex.com", "student")
+    r = await client.put("/api/v1/notifications/preferences", json={"muted_kinds": "not-a-list"})
+    assert r.status_code == 422
+
+
+async def test_muted_notification_service_returns_none(session):
+    """Unit-level: NotificationService.notify() returns None when muted."""
+    from app.models.social import NotificationPreference
+    from app.services.social_service import NotificationService
+    from tests.test_gamification import _user
+
+    student = await _user(session, "mute_unit@q.com")
+    session.add(NotificationPreference(user_id=student.id, muted_kinds=["quest"]))
+    await session.flush()
+
+    svc = NotificationService(session)
+    muted_result = await svc.notify(user_id=student.id, kind="quest", title="x")
+    assert muted_result is None
+
+    allowed_result = await svc.notify(user_id=student.id, kind="reward", title="y")
+    assert allowed_result is not None

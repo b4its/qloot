@@ -16,7 +16,7 @@ from app.db.session import get_sessionmaker
 from app.models.identity import Session as SessionModel
 from app.models.identity import User
 from app.models.room import Room
-from app.services.realtime import event_bus, room_channel
+from app.services.realtime import event_bus, room_channel, user_channel
 
 router = APIRouter()
 log = get_logger("ws")
@@ -122,3 +122,45 @@ async def room_ws(websocket: WebSocket, room_id: uuid.UUID) -> None:
                 await db.commit()
             await event_bus.publish(channel, {"type": "presence.leave", "user_id": str(user.id)})
         log.info("ws_disconnected", room_id=str(room_id), user_id=str(user.id), sockets=remaining)
+
+
+@router.websocket("/ws/notifications")
+async def notifications_ws(websocket: WebSocket) -> None:
+    """Per-user realtime notification stream (GAME-14).
+
+    Delivers the same payload NotificationService.notify() pushes; the
+    unread-count/list polling in the frontend store remains a fallback for
+    when this socket is unavailable (Redis down, network issue), so a missed
+    push never loses the notification — it's already persisted.
+    """
+    token = websocket.cookies.get(settings.session_cookie_name) or websocket.query_params.get(
+        "token"
+    )
+    user = await _authenticate(token)
+    if user is None:
+        await websocket.close(code=4401)
+        return
+
+    await websocket.accept()
+    channel = user_channel(str(user.id))
+    log.info("ws_notifications_connected", user_id=str(user.id))
+
+    async def pump_events() -> None:
+        async for message in event_bus.subscribe(channel):
+            await websocket.send_json(message)
+
+    pump_task = asyncio.create_task(pump_events())
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        pump_task.cancel()
+        try:
+            await pump_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001 - best-effort cleanup
+            pass
+        log.info("ws_notifications_disconnected", user_id=str(user.id))

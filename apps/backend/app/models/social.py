@@ -85,6 +85,24 @@ class UserBadge(Base):
     meta: Mapped[dict | None] = mapped_column(JSONB)
 
 
+class NotificationPreference(Base):
+    """Per-user, per-kind mute flags respected by NotificationService.notify.
+
+    Absent row (or absent kind in ``muted_kinds``) means the kind is enabled
+    (opt-out model — matches the always-on behaviour before this feature).
+    """
+
+    __tablename__ = "notification_preferences"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    muted_kinds: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+
 class UserProgress(Base):
     """Small per-user marker row for progress notifications that must be
     idempotent across repeated reads (e.g. level-up) without storing the

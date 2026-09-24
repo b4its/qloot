@@ -22,7 +22,45 @@
     badge: { name: "medal", klass: "text-secondary" },
     room: { name: "bullseye", klass: "text-tertiary" },
     system: { name: "bell", klass: "text-primary" },
+    level: { name: "arrow-up", klass: "text-highlight" },
   };
+
+  const kindLabel: Record<string, string> = {
+    reward: "Hadiah",
+    quest: "Quest",
+    badge: "Badge",
+    room: "Ruang",
+    system: "Sistem",
+    level: "Naik level",
+  };
+  let mutedKinds: string[] = [];
+  let prefsLoading = true;
+  let prefsError = "";
+
+  async function loadPreferences() {
+    prefsLoading = true;
+    try {
+      const res = await api.get<{ muted_kinds: string[] }>("/notifications/preferences");
+      mutedKinds = res.muted_kinds ?? [];
+    } catch (e) {
+      prefsError = e instanceof ApiError ? e.message : "Gagal memuat preferensi";
+    } finally {
+      prefsLoading = false;
+    }
+  }
+
+  async function toggleMute(kind: string) {
+    const next = mutedKinds.includes(kind)
+      ? mutedKinds.filter((k) => k !== kind)
+      : [...mutedKinds, kind];
+    prefsError = "";
+    try {
+      await api.put("/notifications/preferences", { muted_kinds: next });
+      mutedKinds = next;
+    } catch (e) {
+      prefsError = e instanceof ApiError ? e.message : "Gagal menyimpan preferensi";
+    }
+  }
 
   async function load() {
     loading = true;
@@ -78,7 +116,10 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    load();
+    loadPreferences();
+  });
 </script>
 
 <svelte:head><title>Notifikasi — QLoot</title></svelte:head>
@@ -98,6 +139,31 @@
   {#if error}
     <p class="alert-error mt-6">{error}</p>
   {/if}
+
+  <div class="card mt-6">
+    <p class="mono-label">Preferensi</p>
+    <h2 class="mt-1 font-display text-lg font-bold">Jenis notifikasi</h2>
+    <p class="mt-1 text-sm muted">Matikan jenis notifikasi yang tidak ingin kamu terima.</p>
+    {#if prefsError}
+      <p class="alert-error mt-2 text-xs">{prefsError}</p>
+    {/if}
+    {#if !prefsLoading}
+      <div class="mt-3 flex flex-wrap gap-2">
+        {#each Object.keys(kindLabel) as kind}
+          <button
+            type="button"
+            class="badge"
+            class:badge-neutral={mutedKinds.includes(kind)}
+            class:badge-mint={!mutedKinds.includes(kind)}
+            on:click={() => toggleMute(kind)}
+          >
+            <Icon name={mutedKinds.includes(kind) ? "bell-slash" : "bell"} size="10px" />
+            {kindLabel[kind]}
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
 
   {#if loading}
     <div class="mt-6 space-y-2">

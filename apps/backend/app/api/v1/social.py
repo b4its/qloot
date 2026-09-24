@@ -40,6 +40,39 @@ async def unread_count(user: CurrentUser, db: DbSession):
     return UnreadCount(unread=await NotificationService(db).unread_count(user.id))
 
 
+@router.get("/notifications/preferences")
+async def get_notification_preferences(user: CurrentUser, db: DbSession):
+    """The caller's muted notification kinds (opt-out; absent = all enabled)."""
+    from app.models.social import NotificationPreference
+
+    pref = await db.get(NotificationPreference, user.id)
+    return {"muted_kinds": pref.muted_kinds if pref else []}
+
+
+@router.put("/notifications/preferences")
+async def set_notification_preferences(payload: dict, user: CurrentUser, db: DbSession):
+    """Replace the caller's muted-kinds set.
+
+    Body: ``{"muted_kinds": ["quest", "level"]}``. An empty list re-enables
+    every kind.
+    """
+    from app.core.errors import ValidationError
+    from app.models.social import NotificationPreference
+
+    muted = payload.get("muted_kinds")
+    if not isinstance(muted, list) or not all(isinstance(k, str) for k in muted):
+        raise ValidationError("muted_kinds must be a list of strings")
+    async with transaction(db):
+        pref = await db.get(NotificationPreference, user.id)
+        if pref is None:
+            pref = NotificationPreference(user_id=user.id, muted_kinds=muted)
+            db.add(pref)
+        else:
+            pref.muted_kinds = muted
+        await db.flush()
+    return {"muted_kinds": muted}
+
+
 @router.post("/notifications/{notification_id}/read", response_model=NotificationOut)
 async def mark_read(notification_id: uuid.UUID, user: CurrentUser, db: DbSession):
     async with transaction(db):
