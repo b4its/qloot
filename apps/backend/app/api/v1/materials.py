@@ -82,16 +82,24 @@ async def get_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession)
 
 @router.get("/{material_id}/download")
 async def download_material(material_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    """Stream the stored material file back to an authorised viewer.
+    """Download the stored material file to an authorised viewer.
 
-    Uploaded materials were previously write-only (no read path); this lets a
-    teacher/student actually retrieve the PDF.
+    With object storage (MinIO) the client is redirected (302) to a time-limited
+    presigned URL so the bytes never proxy through the API. With local storage
+    the file is streamed directly.
     """
-    from urllib.parse import quote
-
     from fastapi import Response
 
-    data, filename, content_type = await MaterialService(db).download(material_id, user)
+    service = MaterialService(db)
+    presigned = await service.presigned_download(material_id, user)
+    if presigned is not None:
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(url=presigned, status_code=302)
+
+    from urllib.parse import quote
+
+    data, filename, content_type = await service.download(material_id, user)
     return Response(
         content=data,
         media_type=content_type or "application/octet-stream",

@@ -20,7 +20,7 @@ from app.core.logging import get_logger
 from app.models.exam import GradingJob, Question
 from app.models.identity import User
 from app.models.learning import LearningMaterial, MaterialChunk
-from app.services.storage import build_key, sha256_hex, sniff_pdf, storage
+from app.services.storage import build_key, scan_for_viruses, sha256_hex, sniff_pdf, storage
 
 log = get_logger("materials")
 
@@ -84,6 +84,9 @@ class MaterialService:
             raise ValidationError(f"File exceeds the {settings.ai_max_upload_bytes} byte limit")
         if not sniff_pdf(content):
             raise ValidationError("Only valid PDF files are accepted")
+        # AV policy hook (documented no-op by default; see storage.scan_for_viruses).
+        if not scan_for_viruses(content):
+            raise ValidationError("Uploaded file rejected by the antivirus scan")
 
         key = build_key(owner.id, filename)
         storage.put(key, content, "application/pdf")
@@ -203,6 +206,17 @@ class MaterialService:
         material = await self.get_viewable(material_id, user)
         data = storage.get(material.storage_key)
         return data, material.filename, material.content_type
+
+    async def presigned_download(
+        self, material_id: uuid.UUID, user: User, *, ttl_seconds: int = 300
+    ) -> str | None:
+        """Return a presigned download URL (MinIO) or None for local storage.
+
+        Authorization is enforced exactly like the streaming download, so a
+        presigned URL is only ever handed to a permitted viewer.
+        """
+        material = await self.get_viewable(material_id, user)
+        return storage.presigned_get_url(material.storage_key, expires_seconds=ttl_seconds)
 
     async def delete(self, material_id: uuid.UUID, user: User) -> None:
         """Delete a material (owner or admin) and its stored object."""

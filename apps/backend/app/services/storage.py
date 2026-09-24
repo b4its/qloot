@@ -83,12 +83,63 @@ class Storage:
         except Exception as exc:  # noqa: BLE001 - cleanup must not fail the request
             log.warning("storage_delete_failed", key=key, error=str(exc))
 
+    def presigned_get_url(self, key: str, *, expires_seconds: int = 300) -> str | None:
+        """Return a time-limited presigned download URL, or None for local storage.
+
+        Local storage has no HTTP origin to presign against, so callers fall back
+        to streaming the object (see the download endpoint).
+        """
+        if self.use_local:
+            return None
+        assert self._client is not None
+        from datetime import timedelta
+
+        try:
+            return self._client.presigned_get_object(
+                settings.minio_bucket, key, expires=timedelta(seconds=expires_seconds)
+            )
+        except Exception as exc:  # noqa: BLE001 - fall back to a streaming download
+            log.warning("presign_failed", key=key, error=str(exc))
+            return None
+
+    def ping(self) -> bool:
+        """True when the backing store is reachable (used by readiness)."""
+        try:
+            if self.use_local:
+                Path(settings.storage_local_dir).mkdir(parents=True, exist_ok=True)
+                return True
+            assert self._client is not None
+            self._client.bucket_exists(settings.minio_bucket)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("storage_ping_failed", error=str(exc))
+            return False
+
 
 storage = Storage()
 
 
+def scan_for_viruses(data: bytes) -> bool:
+    """Antivirus policy hook (LEARN-07).
+
+    A real deployment would call ClamAV/ICAP here. The default is a documented
+    no-op that accepts the content; wire a scanner by overriding this function
+    (or injecting one) without touching call sites.
+    """
+    # TODO(security): integrate ClamAV; return False to reject a document.
+    return True
+
+
 def build_key(owner_id: uuid.UUID, filename: str) -> str:
+    """Build a hardned object key for an uploaded material.
+
+    The key is forced to ``.pdf`` (the only accepted type) and the caller never
+    controls the path beyond a random uuid, so a crafted filename cannot escape
+    the materials prefix or smuggle a different extension.
+    """
     ext = os.path.splitext(filename)[1].lower()
+    if ext != ".pdf":
+        ext = ".pdf"
     return f"materials/{owner_id}/{uuid.uuid4().hex}{ext}"
 
 
