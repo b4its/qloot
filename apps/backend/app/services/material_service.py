@@ -168,6 +168,46 @@ class MaterialService:
         log.info("generation_enqueued", job_id=str(job.id))
         return job
 
+    async def run_generation_job(self, job: GradingJob) -> list[Question]:
+        """Execute a generation job and own its terminal status.
+
+        Both the synchronous endpoint and the async worker call this, so the
+        ``done``/``failed``/``queued`` transitions live in exactly one place
+        instead of being duplicated in each caller.
+        """
+        from datetime import UTC, datetime
+
+        job.status = "running"
+        job.started_at = job.started_at or datetime.now(UTC)
+        try:
+            questions = await self.run_generation(job)
+        except Exception as exc:  # noqa: BLE001 - record and re-raise
+            job.error_code = "generation_error"
+            job.error_message = str(exc)[:500]
+            if job.attempts >= job.max_attempts:
+                job.status = "failed"
+                job.finished_at = datetime.now(UTC)
+                from app.services.ai_usage_service import AiUsageService
+
+                await AiUsageService(self.session).refund_job(
+                    user_id=job.owner_id, job_id=job.id
+                )
+            else:
+                from datetime import timedelta
+
+                job.status = "queued"
+                job.available_at = datetime.now(UTC) + timedelta(
+                    seconds=min(600, 2 ** max(job.attempts, 1))
+                )
+            await self.session.flush()
+            raise
+        job.status = "done"
+        job.finished_at = datetime.now(UTC)
+        job.error_code = None
+        job.error_message = None
+        await self.session.flush()
+        return questions
+
     async def run_generation(self, job: GradingJob) -> list[Question]:
         """Execute a generation job synchronously (called by the worker)."""
         material = await self.session.get(LearningMaterial, job.material_id)

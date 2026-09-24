@@ -126,3 +126,80 @@ async def test_worker_returns_false_when_no_jobs(engine, session):
     await session.commit()
 
     assert await _process_once() is False
+
+
+async def test_service_owns_generation_job_status(session):
+    """C32: run_generation_job leaves the job done/failed from the service."""
+    from sqlalchemy import update
+
+    from app.models.learning import LearningMaterial
+    from app.services.material_service import MaterialService
+
+    await _clear_queued_jobs(session)
+    student, _attempt, _job = await _seed_grading_job(session)  # reuse: a user
+    owner_id = student.id
+
+    # A material with enough extracted text to generate from (mock provider).
+    mat = LearningMaterial(
+        owner_id=owner_id,
+        filename="m.pdf",
+        content_type="application/pdf",
+        size_bytes=10,
+        checksum_sha256="a" * 64,
+        storage_key="m.pdf",
+        extracted_text="Fotosintesis adalah proses tumbuhan mengubah cahaya matahari.",
+    )
+    session.add(mat)
+    await session.flush()
+
+    job = GradingJob(
+        owner_id=owner_id,
+        material_id=mat.id,
+        kind="generation",
+        status="queued",
+        payload={"count": 2, "language": "id"},
+        attempts=1,
+        max_attempts=3,
+    )
+    session.add(job)
+    await session.flush()
+
+    questions = await MaterialService(session).run_generation_job(job)
+    assert job.status == "done"
+    assert job.finished_at is not None
+    assert len(questions) >= 1
+
+    # Failure path: a job whose material has no usable text reaches a terminal
+    # failed state (max attempts reached) from inside the service.
+    mat2 = LearningMaterial(
+        owner_id=owner_id,
+        filename="empty.pdf",
+        content_type="application/pdf",
+        size_bytes=10,
+        checksum_sha256="b" * 64,
+        storage_key="empty.pdf",
+        extracted_text="",
+    )
+    session.add(mat2)
+    await session.flush()
+    bad = GradingJob(
+        owner_id=owner_id,
+        material_id=mat2.id,
+        kind="generation",
+        status="queued",
+        payload={"count": 1},
+        attempts=1,
+        max_attempts=1,
+    )
+    session.add(bad)
+    await session.flush()
+    from app.core.errors import ValidationError
+
+    with pytest.raises(ValidationError):
+        await MaterialService(session).run_generation_job(bad)
+    await session.refresh(bad)
+    assert bad.status == "failed"
+
+    # Cleanup so leftovers do not leak into other tests.
+    await session.execute(update(GradingJob).where(GradingJob.id.in_([job.id, bad.id])).values(status="failed"))
+    await session.flush()

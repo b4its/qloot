@@ -153,8 +153,8 @@ async def generate_questions_sync(
             language=payload.language,
             exam_id=payload.exam_id,
         )
-        questions: list[Question] = await service.run_generation(job)
-        job.status = "done"
+        # The service owns the job's terminal status (done/failed).
+        questions: list[Question] = await service.run_generation_job(job)
     return [
         GeneratedQuestionOut(
             id=q.id,

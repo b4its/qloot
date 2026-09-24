@@ -121,30 +121,11 @@ async def _run_generation(session, job_id) -> bool:
     ).scalar_one_or_none()
     if job is None or job.status in ("done", "failed"):
         return False
+    # The service owns the terminal status (done/failed/requeue) + ORT refund.
     try:
-        await MaterialService(session).run_generation(job)
-        job.status = "done"
-        job.finished_at = datetime.now(UTC)
-        job.error_code = None
-        job.error_message = None
-        await session.flush()
+        await MaterialService(session).run_generation_job(job)
         return True
-    except Exception as exc:  # noqa: BLE001
-        job.error_code = "generation_error"
-        job.error_message = str(exc)[:500]
-        if job.attempts >= job.max_attempts:
-            job.status = "failed"
-            job.finished_at = datetime.now(UTC)
-            # Terminal failure: return the ORT charged for this AI job.
-            from app.services.ai_usage_service import AiUsageService
-
-            await AiUsageService(session).refund_job(user_id=job.owner_id, job_id=job.id)
-        else:
-            from datetime import timedelta
-
-            job.status = "queued"
-            job.available_at = datetime.now(UTC) + timedelta(seconds=min(600, 2**job.attempts))
-        await session.flush()
+    except Exception:  # noqa: BLE001 - status/refund already handled in-service
         return False
 
 
