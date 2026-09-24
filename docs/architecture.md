@@ -123,3 +123,33 @@ Big Five┘                                                        │
 
 Everything is seeded by `python -m app.db.seed`, so the UI is populated and
 demonstrable without any external service.
+
+## Realtime bus (rooms, presence, notifications)
+
+`EventBus` (`app/services/realtime.py`) is Redis pub/sub with an in-process
+fallback for single-process dev/test:
+
+- **Redis available** (multi-replica-safe): `publish()`/`subscribe()` go
+  straight through Redis pub/sub; every backend replica sees every message.
+  Redis is also used for the presence connection counter
+  (`incr_connection`/`decr_connection`, key `presence:{room_id}:{user_id}`) so
+  a user's live-socket count stays correct across replicas.
+- **Redis unavailable** (fallback): each channel keeps a set of bounded
+  `asyncio.Queue(maxsize=100)` per subscriber, scoped to *this* process only —
+  fan-out across replicas is not possible in this mode (acceptable for local
+  dev; production must run Redis).
+
+**Backpressure/drop policy**: a slow consumer's queue can fill up. When that
+happens, `publish()` drops the message for that subscriber only (`QueueFull`
+is caught, not raised) and records the drop. The *next* time that subscriber's
+`subscribe()` generator reads a message, it first yields a synthetic
+`{"type": "resync", "reason": "backpressure", "hint": "..."}` frame before the
+real message, so the client knows a gap happened and reloads its view's data
+(`GET .../participants`, `.../events`, etc.) instead of silently trusting a
+now-stale incremental state. The room page's WS handler
+(`(site)/rooms/[roomId]/+page.svelte`) treats `resync` as "call load() again".
+
+Redis pub/sub itself has no equivalent backpressure signal (a disconnected
+Redis client just misses messages until reconnected); this resync mechanism
+is specific to the in-process fallback, which is the mode where drops are
+actually observable (a single queue, not a broker).

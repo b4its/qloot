@@ -77,6 +77,12 @@
       try {
         const msg = JSON.parse(ev.data);
         if (msg.type === "pong") return;
+        if (msg.type === "resync") {
+          // The bus dropped one or more frames for this socket (backpressure
+          // — see docs/architecture.md); reload rather than trust a gap.
+          load();
+          return;
+        }
         const actor = participants.find((p) => p.user_id === msg.user_id);
         const label = EVENT_LABEL[msg.type] ?? msg.type;
         liveEvents = [

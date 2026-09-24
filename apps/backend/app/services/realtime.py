@@ -29,6 +29,9 @@ class EventBus:
         # unavailable (dev/test single-process). Redis-backed values live
         # under a "presence:" key prefix instead of a local dict.
         self._local_presence: dict[str, int] = {}
+        # Queues (by id()) that dropped at least one message since the last
+        # read — the next read injects a "resync" hint frame (see publish()).
+        self._dropped_channels: set[int] = set()
 
     async def connect(self) -> None:
         try:
@@ -54,10 +57,19 @@ class EventBus:
                 return
             except Exception as exc:  # noqa: BLE001
                 log.warning("realtime_publish_failed", error=str(exc))
-        # Local fallback
+        # Local fallback. Backpressure policy: each subscriber queue is
+        # bounded (maxsize=100); a slow consumer's queue fills up and this
+        # message is silently dropped for *that* subscriber only (others are
+        # unaffected). We track the drop and inject a single "resync" hint
+        # frame the next time that queue is read, so the client knows its
+        # view may be stale and should reload rather than trust a gap
+        # silently. See docs/architecture.md "Realtime backpressure policy".
         for q in list(self._local_subscribers.get(channel, set())):
-            with contextlib.suppress(asyncio.QueueFull):
+            try:
                 q.put_nowait(message)
+            except asyncio.QueueFull:
+                self._dropped_channels.add(id(q))
+                log.warning("realtime_queue_full_dropped", channel=channel)
 
     async def subscribe(self, channel: str) -> AsyncIterator[dict[str, Any]]:
         if self._redis is not None:
@@ -79,9 +91,18 @@ class EventBus:
         self._local_subscribers.setdefault(channel, set()).add(queue)
         try:
             while True:
-                yield await queue.get()
+                message = await queue.get()
+                if id(queue) in self._dropped_channels:
+                    self._dropped_channels.discard(id(queue))
+                    yield {
+                        "type": "resync",
+                        "reason": "backpressure",
+                        "hint": "one or more frames were dropped; reload this view's data",
+                    }
+                yield message
         finally:
             self._local_subscribers.get(channel, set()).discard(queue)
+            self._dropped_channels.discard(id(queue))
 
     async def incr_connection(self, key: str) -> int:
         """Increment a live-socket counter for ``key`` (e.g. ``room:user``)

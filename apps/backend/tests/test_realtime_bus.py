@@ -59,6 +59,34 @@ async def test_local_queue_drops_silently_when_full():
     assert first["i"] == 0  # items already enqueued before overflow remain
 
 
+async def test_dropped_frames_inject_a_resync_hint():
+    """GAME-09: once a subscriber's queue overflows, the *next* read of that
+    queue via subscribe() must yield a 'resync' hint before the next real
+    message, so the client knows to reload rather than trust a silent gap.
+    """
+    bus = EventBus()
+    channel = "room:resync"
+
+    gen = bus.subscribe(channel)
+    # Prime the generator so its queue is registered before we publish.
+    task = asyncio.ensure_future(gen.__anext__())
+    await asyncio.sleep(0.01)
+
+    # Force an overflow by directly marking the queue as having dropped a
+    # message (simulating a full queue without actually filling 100 slots).
+    (queue,) = bus._local_subscribers[channel]  # noqa: SLF001
+    bus._dropped_channels.add(id(queue))  # noqa: SLF001
+    await bus.publish(channel, {"type": "real_message"})
+
+    first = await task
+    assert first["type"] == "resync"
+    assert first["reason"] == "backpressure"
+
+    second = await gen.__anext__()
+    assert second["type"] == "real_message"
+    await gen.aclose()
+
+
 async def test_connection_counter_increments_and_decrements():
     bus = EventBus()
     key = "room-1:user-1"
