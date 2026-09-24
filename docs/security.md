@@ -25,9 +25,12 @@ command line (which leaks to shell history and process lists).
 - [x] ≥256-bit random session tokens, stored **hashed** (HMAC-SHA256)
 - [x] Session expiry + revocation + list/revoke-all
 - [x] Login rate limiting / progressive account lockout
-      (DB lockout after `login_max_attempts`; plus a Redis-backed per-IP window
-      on `login`/`register`/`forgot-password`/`reset-password` and AI endpoints —
-      see `RATE_LIMIT_*` in `app/core/config.py`; returns 429 + `Retry-After`)
+      (DB lockout after `login_max_attempts` (default 10); plus a Redis-backed
+      per-IP window on `login`/`register`/`forgot-password`/`reset-password` and
+      AI endpoints — default limits per 60 s window: `login` 20, `register` 10,
+      `password_reset` 10, `ai` 30 (see `rate_limit_*` in `app/core/config.py`);
+      returns 429 + `Retry-After`; falls back to an in-process limiter when Redis
+      is unavailable)
 - [x] Object-level authorization (owner or admin, never id alone)
 - [x] Self-registration restricted to the `student` role (privileged roles are
       provisioned by an admin via `POST /admin/users`)

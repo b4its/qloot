@@ -183,11 +183,25 @@ PATCH /admin/users/{user_id}/role
 GET   /admin/rewards
 POST  /admin/rewards/{reward_id}/retry
 POST  /admin/rewards/{reward_id}/cancel
+POST  /admin/rewards/adjust           (audited manual OPT adjustment)
+GET   /admin/withdrawals              (review queue; ?status_filter=)
+POST  /admin/withdrawals/{id}/approve
+POST  /admin/withdrawals/{id}/reject
+GET   /admin/ledger/negative          (accounts in debt)
+POST  /admin/ledger/reconcile         (drift sweep)
 POST  /admin/blockchain/pause
 POST  /admin/blockchain/unpause
-GET   /admin/audit-logs
+GET   /admin/audit-logs               (?action= filter; X-Total-Count)
 GET   /admin/config
 ```
+
+Community moderation (`/community`, role `admin`):
+
+```
+GET   /community/reports              (?status_filter=)
+POST  /community/reports/{id}/moderate  (hide|delete|dismiss)
+```
+
 
 ## Notifications & badges
 

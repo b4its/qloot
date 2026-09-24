@@ -41,6 +41,16 @@ Cross-cutting: `app/core` (config, logging, security, errors, metrics),
 `app/middleware` (request id, security headers), `app/ai` (providers),
 `app/blockchain` (chain client + worker logic), `app/workers`.
 
+## Material RAG (summary & Q&A)
+
+When a PDF is uploaded, its extracted text is chunked and each chunk is
+embedded via the AI provider's `embed()` and stored in `material_chunks`
+(migration `d44556677889`). Summaries and grounded Q&A retrieve the top-k
+chunks most similar to the query instead of truncating the document at 20k
+characters, so answers about the end of a long document remain correct. In the
+`mock` provider the embeddings are deterministic, so retrieval is reproducible
+offline.
+
 ## Transactions
 
 `get_db` owns one request-scoped transaction: it commits once at the end of a

@@ -25,6 +25,20 @@ make db-revision NAME=add_x && make db-upgrade
 make test-unit && make test-contracts && make test-frontend
 ```
 
+## Background workers
+
+| Worker | Compose service | Command | Responsibility |
+|---|---|---|---|
+| AI worker | `worker` | `python -m app.workers.main` | Drains AI grading + generation jobs, sweeps expired exam attempts (auto-submit) and auto-finalizes quests past `closes_at`. |
+| Blockchain worker | `blockchain-worker` | `python -m app.workers.blockchain` | Submits outbox rows (rewards, withdrawals, swaps, anchors) on-chain. |
+| Indexer | `indexer` | `python -m app.workers.indexer` | Resubmits stuck txs with a fee bump, rolls back reorged confirmations, ingests event logs, confirms txs. |
+| Reconciler | `reconciler` | `python -m app.workers.reconciler` | Sweeps OPT accounts for cached-vs-ledger drift and repairs it. |
+
+Each sweep is idempotent and uses `SKIP LOCKED`, so running multiple replicas is
+safe. All workers use the simulation defaults offline (`AI_PROVIDER=mock`,
+`BLOCKCHAIN_DRY_RUN=true`).
+
+
 ## Deploying the contract (Sepolia)
 
 ```bash
@@ -69,8 +83,17 @@ Check `transaction_outbox` for the row; the blockchain worker may be down.
 `make logs-blockchain` and retry via the admin endpoint.
 
 **Transaction stuck `pending`**
-Confirm the indexer is running (`make logs-blockchain`). Increase
-`OPC_CONFIRMATIONS` or check RPC health.
+Confirm the indexer is running (`make logs-blockchain`). The indexer resubmits a
+transaction that is not mined past `TX_STUCK_SECONDS` with the same nonce and a
+`TX_FEE_BUMP_PERCENT` higher fee (up to `TX_MAX_RESUBMITS`); after that it is
+marked `dropped` and the ledger effect is compensated. If txs keep stalling,
+check RPC health and raise `TX_PRIORITY_FEE_BUFFER`/`TX_BASE_FEE_BUFFER`.
+
+**A confirmed transaction disappeared (reorg)**
+The indexer revalidates recently-confirmed transactions against the canonical
+chain. One whose receipt is no longer canonical is rolled back and compensated
+(log `reorg_rollbacks`), and its event rows are cleared so a re-mine re-ingests
+them. No manual action is normally needed; investigate if it recurs.
 
 **Ledger mismatch**
 `GET /api/v1/wallet/reconciliation` returns `cached_balance` vs `computed_balance`
