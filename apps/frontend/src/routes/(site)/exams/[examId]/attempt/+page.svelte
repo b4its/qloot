@@ -80,6 +80,28 @@
     }
   }
 
+  function orderingText(qid: string): string {
+    try {
+      const raw = JSON.parse(answers[qid] ?? "[]");
+      return Array.isArray(raw) ? raw.join("\n") : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function matchingText(qid: string): string {
+    try {
+      const raw = JSON.parse(answers[qid] ?? "{}");
+      if (raw && typeof raw === "object")
+        return Object.entries(raw)
+          .map(([k, v]) => `${k}=${v}`)
+          .join("\n");
+      return "";
+    } catch {
+      return "";
+    }
+  }
+
   function onInput(qid: string) {
     saved[qid] = "idle";
     if (autosaveTimers[qid]) clearTimeout(autosaveTimers[qid]);
@@ -293,6 +315,45 @@
                     onInput(q.id);
                   }}
                 />
+              {:else if q.qtype === "fill_blank"}
+                <input
+                  class="input mt-3 !w-72"
+                  placeholder="Jawaban singkat…"
+                  value={answers[q.id] ?? ""}
+                  on:input={(e) => {
+                    answers[q.id] = (e.currentTarget as HTMLInputElement).value;
+                    onInput(q.id);
+                  }}
+                />
+              {:else if q.qtype === "ordering"}
+                <textarea
+                  class="input mt-3 min-h-[120px]"
+                  placeholder="Tulis item dalam urutan yang benar, satu per baris"
+                  value={orderingText(q.id)}
+                  on:input={(e) => {
+                    const lines = (e.currentTarget as HTMLTextAreaElement).value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    answers[q.id] = JSON.stringify(lines);
+                    onInput(q.id);
+                  }}
+                ></textarea>
+              {:else if q.qtype === "matching"}
+                <textarea
+                  class="input mt-3 min-h-[120px]"
+                  placeholder="Pasangan kunci=nilai, satu per baris"
+                  value={matchingText(q.id)}
+                  on:input={(e) => {
+                    const obj: Record<string, string> = {};
+                    for (const line of (e.currentTarget as HTMLTextAreaElement).value.split("\n")) {
+                      const [k, v] = line.split("=");
+                      if (k && v) obj[k.trim()] = v.trim();
+                    }
+                    answers[q.id] = JSON.stringify(obj);
+                    onInput(q.id);
+                  }}
+                ></textarea>
               {:else}
                 <textarea
                   class="input mt-3 min-h-[160px]"

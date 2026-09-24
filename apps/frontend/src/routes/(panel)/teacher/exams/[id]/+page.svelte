@@ -49,6 +49,9 @@
     tf: "true",
     numericValue: 0,
     numericTolerance: 0,
+    fillAnswers: "",
+    orderItems: "",
+    matchPairs: "",
     options: blankOptions(),
   };
   let editingQ: string | null = null;
@@ -60,6 +63,9 @@
     tf: "true",
     numericValue: 0,
     numericTolerance: 0,
+    fillAnswers: "",
+    orderItems: "",
+    matchPairs: "",
     options: blankOptions(),
   };
 
@@ -89,6 +95,9 @@
     tf?: string;
     numericValue?: number;
     numericTolerance?: number;
+    fillAnswers?: string;
+    orderItems?: string;
+    matchPairs?: string;
     options: OptionDraft[];
   };
 
@@ -110,6 +119,29 @@
         value: Number(d.numericValue ?? 0),
         tolerance: Number(d.numericTolerance ?? 0),
       };
+    } else if (d.qtype === "fill_blank") {
+      base.answer_json = {
+        accepted: (d.fillAnswers ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        case_sensitive: false,
+        trim: true,
+      };
+    } else if (d.qtype === "ordering") {
+      base.answer_json = {
+        order: (d.orderItems ?? "")
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
+    } else if (d.qtype === "matching") {
+      const pairs: Record<string, string> = {};
+      for (const line of (d.matchPairs ?? "").split("\n")) {
+        const [k, v] = line.split("=");
+        if (k && v) pairs[k.trim()] = v.trim();
+      }
+      base.answer_json = { pairs };
     }
     return base;
   }
@@ -213,6 +245,9 @@
         tf: "true",
         numericValue: 0,
         numericTolerance: 0,
+        fillAnswers: "",
+        orderItems: "",
+        matchPairs: "",
         options: blankOptions(),
       };
       message = "Soal ditambahkan.";
@@ -235,6 +270,14 @@
       tf: q.qtype === "true_false" ? (q.correct_answer ?? "true") : "true",
       numericValue: Number((aj.value as number) ?? 0),
       numericTolerance: Number((aj.tolerance as number) ?? 0),
+      fillAnswers: Array.isArray(aj.accepted) ? (aj.accepted as string[]).join(", ") : "",
+      orderItems: Array.isArray(aj.order) ? (aj.order as string[]).join("\n") : "",
+      matchPairs:
+        aj.pairs && typeof aj.pairs === "object"
+          ? Object.entries(aj.pairs as Record<string, string>)
+              .map(([k, v]) => `${k}=${v}`)
+              .join("\n")
+          : "",
       options:
         q.qtype === "multiple_choice" || q.qtype === "multi_select"
           ? (q.options ?? []).map((o) => ({ text: o.text, is_correct: !!o.is_correct }))
@@ -487,6 +530,24 @@
                       bind:value={editQ.numericTolerance}
                     />
                   </div>
+                {:else if editQ.qtype === "fill_blank"}
+                  <input
+                    class="input mt-2"
+                    placeholder="Jawaban diterima, pisahkan dengan koma"
+                    bind:value={editQ.fillAnswers}
+                  />
+                {:else if editQ.qtype === "ordering"}
+                  <textarea
+                    class="input mt-2 min-h-[80px]"
+                    placeholder="Item dalam urutan benar, satu per baris"
+                    bind:value={editQ.orderItems}
+                  ></textarea>
+                {:else if editQ.qtype === "matching"}
+                  <textarea
+                    class="input mt-2 min-h-[80px]"
+                    placeholder="Pasangan kunci=nilai, satu per baris"
+                    bind:value={editQ.matchPairs}
+                  ></textarea>
                 {:else}
                   <textarea
                     class="input mt-2 min-h-[60px]"
@@ -646,6 +707,24 @@
                 bind:value={newQ.numericTolerance}
               />
             </div>
+          {:else if newQ.qtype === "fill_blank"}
+            <input
+              class="input"
+              placeholder="Jawaban diterima, pisahkan dengan koma"
+              bind:value={newQ.fillAnswers}
+            />
+          {:else if newQ.qtype === "ordering"}
+            <textarea
+              class="input min-h-[80px]"
+              placeholder="Item dalam urutan benar, satu per baris"
+              bind:value={newQ.orderItems}
+            ></textarea>
+          {:else if newQ.qtype === "matching"}
+            <textarea
+              class="input min-h-[80px]"
+              placeholder="Pasangan kunci=nilai, satu per baris"
+              bind:value={newQ.matchPairs}
+            ></textarea>
           {:else}
             <textarea
               class="input min-h-[70px]"
