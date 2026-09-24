@@ -166,6 +166,63 @@ class GamificationService:
             "last_active_date": last_active.isoformat(),
         }
 
+    async def notify_level_up_if_crossed(self, *, user_id: uuid.UUID, level: int) -> bool:
+        """Emit exactly one level-up notification (and optional OPT bonus)
+        the first time the caller's derived level is observed to have
+        crossed a new threshold. Idempotent: repeated calls at the same
+        level are a no-op because ``last_notified_level`` is only ever
+        advanced, never re-read as "not yet notified" for a level already
+        recorded.
+        """
+        from app.core.config import settings
+        from app.models.social import UserProgress
+
+        row = await self.session.get(UserProgress, user_id)
+        if row is None:
+            row = UserProgress(user_id=user_id, last_notified_level=1)
+            self.session.add(row)
+            await self.session.flush()
+
+        if level <= row.last_notified_level:
+            return False
+
+        previous_level = row.last_notified_level
+        row.last_notified_level = level
+        await self.session.flush()
+
+        from app.services.keys import level_up_reward_key
+        from app.services.reward_engine import RewardEngine
+        from app.services.social_service import NotificationService
+
+        bonus = settings.reward_level_up
+        if bonus > 0:
+            from app.models.identity import User
+
+            user = await self.session.get(User, user_id)
+            if user is not None:
+                rkey = level_up_reward_key(user_id, level)
+                await RewardEngine(self.session).credit(
+                    user=user,
+                    amount=bonus,
+                    reference_type="level_up",
+                    reference_id=f"level-{level}",
+                    reward_key_value=rkey,
+                    token_id=0,
+                )
+
+        await NotificationService(self.session).notify(
+            user_id=user_id,
+            kind="level",
+            title=f"Naik ke level {level}!",
+            body=(
+                f"Kamu naik dari level {previous_level} ke level {level}"
+                + (f" (+{bonus} OPT)" if bonus > 0 else "")
+                + "."
+            ),
+            data={"level": level, "previous_level": previous_level, "bonus_opt": bonus},
+        )
+        return True
+
     async def xp_for_user(self, user_id: uuid.UUID) -> dict:
         """Compute a user's XP breakdown and level."""
         # Best exam score per exam (no retry double-counting). Flagged

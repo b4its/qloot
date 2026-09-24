@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 
 from app.models import Exam, ExamAttempt, User
 from app.services.leaderboard_service import LeaderboardService
@@ -232,3 +233,86 @@ async def test_gamification_me_endpoint_includes_streak(client):
     assert "current_streak" in body
     assert "best_streak" in body
     assert body["current_streak"] == 0  # no activity yet
+
+
+async def test_level_up_notification_fires_once_idempotently(session):
+    """GAME-12: crossing a level emits exactly one notification; repeated
+    calls at the same level are a no-op (idempotent via UserProgress).
+    """
+    from app.models.social import Notification
+    from app.services.gamification_service import GamificationService
+
+    student = await _user(session, "levelup_a@q.com")
+    svc = GamificationService(session)
+
+    fired = await svc.notify_level_up_if_crossed(user_id=student.id, level=2)
+    assert fired is True
+    await session.commit()
+
+    notif = (
+        await session.execute(select(Notification).where(Notification.user_id == student.id))
+    ).scalars().all()
+    assert len(notif) == 1
+    assert notif[0].kind == "level"
+
+    # Same level again -> no-op, no duplicate notification.
+    fired_again = await svc.notify_level_up_if_crossed(user_id=student.id, level=2)
+    assert fired_again is False
+    await session.commit()
+    notif2 = (
+        await session.execute(select(Notification).where(Notification.user_id == student.id))
+    ).scalars().all()
+    assert len(notif2) == 1
+
+
+async def test_level_up_notification_fires_again_on_a_further_level(session):
+    from app.models.social import Notification
+    from app.services.gamification_service import GamificationService
+
+    student = await _user(session, "levelup_b@q.com")
+    svc = GamificationService(session)
+
+    await svc.notify_level_up_if_crossed(user_id=student.id, level=2)
+    await session.commit()
+    fired = await svc.notify_level_up_if_crossed(user_id=student.id, level=5)
+    assert fired is True
+    await session.commit()
+
+    notif = (
+        await session.execute(select(Notification).where(Notification.user_id == student.id))
+    ).scalars().all()
+    assert len(notif) == 2
+
+
+async def test_level_up_bonus_is_idempotent_when_enabled(session, monkeypatch):
+    from app.core.config import settings
+    from app.services.gamification_service import GamificationService
+    from app.services.reward_engine import RewardEngine
+
+    monkeypatch.setattr(settings, "reward_level_up", 25)
+    student = await _user(session, "levelup_c@q.com")
+    svc = GamificationService(session)
+
+    await svc.notify_level_up_if_crossed(user_id=student.id, level=3)
+    await session.commit()
+    balance = await RewardEngine(session).balance(student.id)
+    assert balance == 25
+
+    # A second call at a *lower or equal* level pays nothing further.
+    await svc.notify_level_up_if_crossed(user_id=student.id, level=3)
+    await session.commit()
+    assert await RewardEngine(session).balance(student.id) == 25
+
+
+async def test_gamification_me_endpoint_triggers_level_up_notification(client):
+    """End-to-end: the /gamification/me endpoint itself drives the check."""
+    from tests.helpers import register_actor
+
+    await register_actor(client, "levelup_endpoint@ex.com", "student")
+    r = await client.get("/api/v1/gamification/me")
+    assert r.status_code == 200, r.text
+    # A brand-new user starts at level 1 with last_notified_level defaulting
+    # to 1 -> no level-up notification yet, but the endpoint must not error.
+    notif = await client.get("/api/v1/notifications?limit=50")
+    assert notif.status_code == 200
+    assert all(n["kind"] != "level" for n in notif.json())

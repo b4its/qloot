@@ -22,13 +22,15 @@ async def my_gamification(user: CurrentUser, db: DbSession):
     service = GamificationService(db)
     result = await service.xp_for_user(user.id)
     result.update(await service.streak_for_user(user.id))
-    # Award any XP-milestone badges the user has crossed (keeps the badge page
-    # free of permanently-locked filler; idempotent).
+    # Award any XP-milestone badges the user has crossed, and notify once
+    # (idempotently) if the derived level has crossed a new threshold since
+    # the last time this was checked.
     from app.db.session import transaction
     from app.services.social_service import BadgeService
 
     async with transaction(db):
         await BadgeService(db).sync_xp_milestones(user=user, xp=int(result["xp"]))
+        await service.notify_level_up_if_crossed(user_id=user.id, level=int(result["level"]))
     return result
 
 

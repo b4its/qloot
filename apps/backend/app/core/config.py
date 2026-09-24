@@ -172,6 +172,9 @@ class Settings(BaseSettings):
     reward_perfect_exam: int = 100
     reward_quiz_master: int = 30
     reward_course_completion: int = 50
+    # Bonus paid the first time a level-up notification fires for a given
+    # level (0 disables the payout; the notification itself always fires).
+    reward_level_up: int = 0
 
     # --- Withdrawals -------------------------------------------------------
     # Withdrawals require admin approval before they are submitted on-chain.

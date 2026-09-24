@@ -80,3 +80,22 @@ class UserBadge(Base):
         DateTime(timezone=True), default=utcnow, nullable=False
     )
     meta: Mapped[dict | None] = mapped_column(JSONB)
+
+
+class UserProgress(Base):
+    """Small per-user marker row for progress notifications that must be
+    idempotent across repeated reads (e.g. level-up) without storing the
+    derived value itself (XP/level stay pure functions of activity — see
+    GamificationService). Only the *last notified* level is persisted, never
+    the level itself.
+    """
+
+    __tablename__ = "user_progress"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_notified_level: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )

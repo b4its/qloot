@@ -48,7 +48,7 @@ from app.models.quest import (
 )
 from app.models.ranking import Leaderboard, LeaderboardEntry, RankingSnapshot
 from app.models.room import Room, RoomEvent, RoomInvitation, RoomMember
-from app.models.social import Badge, Notification, UserBadge
+from app.models.social import Badge, Notification, UserBadge, UserProgress
 from app.models.wallet import (
     AiUsageCharge,
     BlockchainEvent,
@@ -102,6 +102,7 @@ __all__ = [
     "Notification",
     "Badge",
     "UserBadge",
+    "UserProgress",
     "AcademicGrade",
     "PersonalityResult",
     "CareerRecommendation",
