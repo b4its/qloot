@@ -180,6 +180,8 @@ class Settings(BaseSettings):
     reward_perfect_exam: int = 100
     reward_quiz_master: int = 30
     reward_course_completion: int = 50
+    # OPT paid once when a roadmap milestone is completed (0 disables).
+    reward_milestone: int = 20
     # Bonus paid the first time a level-up notification fires for a given
     # level (0 disables the payout; the notification itself always fires).
     reward_level_up: int = 0

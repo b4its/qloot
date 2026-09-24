@@ -21,6 +21,7 @@ from app.schemas.career import (
     DashboardOut,
     GradeIn,
     GradeOut,
+    MilestoneCreate,
     MilestoneOut,
     MilestoneUpdate,
     PendingReviewOut,
@@ -28,6 +29,7 @@ from app.schemas.career import (
     PersonalityOut,
     RecommendationOut,
     ResourceOut,
+    RoadmapReorder,
 )
 from app.schemas.common import Message
 from app.services.career_service import CareerService
@@ -152,6 +154,42 @@ async def update_milestone(
         return await CareerService(db).update_milestone(
             user.id, milestone_id, payload.progress_percent
         )
+
+
+@router.post("/roadmap", response_model=MilestoneOut, status_code=201)
+async def add_milestone(payload: MilestoneCreate, user: CurrentUser, db: DbSession):
+    """Add a milestone to the caller's roadmap (CARE-05)."""
+    async with transaction(db):
+        return await CareerService(db).add_milestone(
+            user.id,
+            title=payload.title,
+            description=payload.description,
+            period=payload.period,
+            tasks=payload.tasks,
+        )
+
+
+@router.post("/roadmap/reorder", response_model=list[MilestoneOut])
+async def reorder_roadmap(payload: RoadmapReorder, user: CurrentUser, db: DbSession):
+    """Atomically reorder the caller's milestones (CARE-05)."""
+    async with transaction(db):
+        return await CareerService(db).reorder_milestones(user.id, payload.ordered_ids)
+
+
+@router.post("/roadmap/{milestone_id}/tasks/{task_index}/toggle", response_model=MilestoneOut)
+async def toggle_milestone_task(
+    milestone_id: uuid.UUID, task_index: int, user: CurrentUser, db: DbSession
+):
+    """Check/uncheck a task; progress is derived from completed tasks (CARE-05)."""
+    async with transaction(db):
+        return await CareerService(db).toggle_milestone_task(user.id, milestone_id, task_index)
+
+
+@router.delete("/roadmap/{milestone_id}", response_model=Message)
+async def delete_milestone(milestone_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    async with transaction(db):
+        await CareerService(db).delete_milestone(user.id, milestone_id)
+    return Message(message="Milestone deleted")
 
 
 # --- consultations ---------------------------------------------------------

@@ -597,6 +597,11 @@ export interface Recommendation {
   status: string;
 }
 
+export interface MilestoneTask {
+  title: string;
+  done: boolean;
+}
+
 export interface Milestone {
   id: string;
   title: string;
@@ -605,7 +610,8 @@ export interface Milestone {
   position: number;
   progress_percent: number;
   status: string;
-  tasks?: string[] | null;
+  /** Structured tasks (CARE-05); may also be legacy plain strings. */
+  tasks?: (MilestoneTask | string)[] | null;
 }
 
 export interface Counselor {

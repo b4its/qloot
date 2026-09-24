@@ -85,6 +85,17 @@ class MilestoneUpdate(BaseModel):
     progress_percent: int = Field(ge=0, le=100)
 
 
+class MilestoneCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    period: str = Field(default="", max_length=64)
+    tasks: list[str] = Field(default_factory=list)
+
+
+class RoadmapReorder(BaseModel):
+    ordered_ids: list[uuid.UUID] = Field(min_length=1)
+
+
 class ConsultationIn(BaseModel):
     counselor: str = Field(min_length=2, max_length=128)
     topic: str = Field(min_length=2, max_length=255)

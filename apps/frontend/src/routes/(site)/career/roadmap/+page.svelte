@@ -2,7 +2,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { Recommendation, Milestone, PendingReview } from "$lib/types";
+  import type { Recommendation, Milestone, MilestoneTask, PendingReview } from "$lib/types";
   import { statusLabel } from "$lib/utils/format";
   import { auth, hasRole } from "$lib/stores/auth";
 
@@ -14,10 +14,19 @@
   let approvingId = "";
   let error = "";
   let message = "";
+  // CARE-05: add-milestone form.
+  let newTitle = "";
+  let newTasks = "";
 
   // Only a counselor (teacher/admin) may approve the human-in-the-loop review;
   // a student can create, submit, and view — never approve their own plan.
   $: isCounselor = hasRole($auth.user, "teacher") || hasRole($auth.user, "admin");
+
+  function tasksOf(m: Milestone): MilestoneTask[] {
+    return (m.tasks ?? []).map((t) =>
+      typeof t === "string" ? { title: t, done: false } : t,
+    );
+  }
 
   async function load() {
     loading = true;
@@ -97,6 +106,61 @@
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memperbarui progres";
+    }
+  }
+
+  /** CARE-05: check/uncheck a task; the server derives progress from it. */
+  async function toggleTask(m: Milestone, index: number) {
+    error = "";
+    try {
+      await api.post(`/career/roadmap/${m.id}/tasks/${index}/toggle`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui tugas";
+    }
+  }
+
+  async function addMilestone() {
+    if (!newTitle.trim()) return;
+    error = "";
+    try {
+      await api.post("/career/roadmap", {
+        title: newTitle.trim(),
+        tasks: newTasks
+          .split("\n")
+          .map((t) => t.trim())
+          .filter(Boolean),
+      });
+      newTitle = "";
+      newTasks = "";
+      message = "Tonggak ditambahkan.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menambah tonggak";
+    }
+  }
+
+  async function removeMilestone(id: string) {
+    if (!confirm("Hapus tonggak ini?")) return;
+    try {
+      await api.delete(`/career/roadmap/${id}`);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus tonggak";
+    }
+  }
+
+  /** CARE-05: move a milestone up/down and persist the new order atomically. */
+  async function move(index: number, delta: number) {
+    const target = index + delta;
+    if (target < 0 || target >= milestones.length) return;
+    const ids = milestones.map((m) => m.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    try {
+      await api.post("/career/roadmap/reorder", { ordered_ids: ids });
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengubah urutan";
     }
   }
 
@@ -291,9 +355,11 @@
       <h2 class="hud font-display text-lg font-bold">Peta jalan tonggak</h2>
       {#if !milestones.length}
         <p class="mt-2 muted">Peta jalan aktif setelah disetujui pembimbing.</p>
-      {:else}
+      {/if}
+
+      {#if milestones.length}
         <ol class="mt-3 space-y-4">
-          {#each milestones as m}
+          {#each milestones as m, i (m.id)}
             <li
               class="border-l-2 pl-4"
               class:border-primary={m.status === "in_progress"}
@@ -308,12 +374,48 @@
                   class:badge-mint={m.status === "completed"}
                   class:badge-neutral={m.status === "not_started"}>{statusLabel(m.status)}</span
                 >
+                <span class="ml-auto flex items-center gap-1">
+                  <button
+                    class="btn-icon"
+                    aria-label="Naikkan tonggak"
+                    on:click={() => move(i, -1)}
+                    disabled={i === 0}
+                  >
+                    <Icon name="arrow-up" size="11px" />
+                  </button>
+                  <button
+                    class="btn-icon"
+                    aria-label="Turunkan tonggak"
+                    on:click={() => move(i, 1)}
+                    disabled={i === milestones.length - 1}
+                  >
+                    <Icon name="arrow-down" size="11px" />
+                  </button>
+                  <button
+                    class="btn-icon !text-tertiary"
+                    aria-label="Hapus tonggak"
+                    on:click={() => removeMilestone(m.id)}
+                  >
+                    <Icon name="trash" size="11px" />
+                  </button>
+                </span>
               </div>
               <p class="font-semibold">{m.title}</p>
               <p class="text-sm muted">{m.description}</p>
               {#if m.tasks}
-                <ul class="mt-1 flex flex-wrap gap-3 text-xs muted">
-                  {#each m.tasks as t}<li>• {t}</li>{/each}
+                <ul class="mt-2 space-y-1 text-sm">
+                  {#each tasksOf(m) as t, ti (ti)}
+                    <li>
+                      <label class="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={t.done}
+                          on:change={() => toggleTask(m, ti)}
+                        />
+                        <span class:muted={t.done} class:line-through={t.done}>{t.title}</span>
+                      </label>
+                    </li>
+                  {/each}
                 </ul>
               {/if}
               <div class="mt-2 flex items-center gap-3">
@@ -321,17 +423,42 @@
                   <span style={`width:${m.progress_percent}%`}></span>
                 </div>
                 <span class="text-xs font-mono">{m.progress_percent}%</span>
-                <button
-                  class="btn-ghost !py-1 text-xs"
-                  on:click={() => setProgress(m.id, Math.min(100, m.progress_percent + 25))}
-                >
-                  +25%
-                </button>
+                <input
+                  class="input !w-16 !py-0.5 text-xs"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={m.progress_percent}
+                  aria-label="Atur progres manual"
+                  on:change={(e) =>
+                    setProgress(m.id, Number((e.currentTarget as HTMLInputElement).value))}
+                />
               </div>
             </li>
           {/each}
         </ol>
       {/if}
+
+      <!-- CARE-05: add a milestone (title + one task per line). -->
+      <div class="mt-5 border-t pt-4">
+        <p class="mono-label">Tambah tonggak</p>
+        <div class="mt-2 grid gap-2 sm:grid-cols-2">
+          <label class="flex flex-col text-xs">
+            <span class="muted mb-1">Judul</span>
+            <input class="input" bind:value={newTitle} placeholder="mis. Ikut olimpiade fisika" />
+          </label>
+          <label class="flex flex-col text-xs">
+            <span class="muted mb-1">Tugas (satu per baris)</span>
+            <textarea class="input" rows="2" bind:value={newTasks} placeholder="Tugas A&#10;Tugas B"
+            ></textarea>
+          </label>
+        </div>
+        <button
+          class="btn-primary mt-2 !py-1.5"
+          on:click={addMilestone}
+          disabled={!newTitle.trim()}>Tambah tonggak</button
+        >
+      </div>
     </div>
   {/if}
 </div>

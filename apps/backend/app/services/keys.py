@@ -46,6 +46,11 @@ def level_up_reward_key(user_id: uuid.UUID, level: int) -> str:
     return _h("level_up", str(user_id), str(level))
 
 
+def milestone_reward_key(user_id: uuid.UUID, milestone_id: uuid.UUID) -> str:
+    """Idempotency key for a roadmap milestone completion reward (once)."""
+    return _h("milestone", str(user_id), str(milestone_id))
+
+
 def certificate_anchor_key(certificate_id: uuid.UUID) -> str:
     """On-chain anchor key for a certificate (deterministic, one per cert)."""
     return _h("cert_anchor", str(certificate_id))

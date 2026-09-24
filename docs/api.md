@@ -261,14 +261,17 @@ GET   /career/recommendations/pending     (teacher/admin: students awaiting revi
 
 GET   /career/roadmap
 PATCH /career/roadmap/{milestone_id}
+POST  /career/roadmap
+POST  /career/roadmap/reorder
+POST  /career/roadmap/{milestone_id}/tasks/{task_index}/toggle
+DELETE /career/roadmap/{milestone_id}
 
 GET   /career/counselors
 GET   /career/consultations
 POST  /career/consultations
 POST  /career/consultations/{consultation_id}/cancel
 
-GET   /career/resources            (?category=course|extracurricular|material)
-POST  /career/assistant            (body may carry conversation_id to continue)
+GET   /career/resources            (?category=course|extracurricular|material)POST  /career/assistant            (body may carry conversation_id to continue)
 POST  /career/assistant/stream     (Server-Sent Events; JSON endpoint is the fallback)
 GET   /career/assistant/conversations
 GET   /career/assistant/conversations/{conversation_id}

@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.models.assistant import AssistantConversation, AssistantMessage
 from app.models.career import (
@@ -844,7 +844,128 @@ class CareerService:
             else ("in_progress" if m.progress_percent > 0 else "not_started")
         )
         await self.session.flush()
+        if m.progress_percent >= 100:
+            await self._reward_milestone(user_id, m)
         return m
+
+    @staticmethod
+    def _normalize_tasks(milestone: RoadmapMilestone) -> list[dict]:
+        """Return the milestone's tasks as structured ``{title, done}`` dicts.
+
+        Legacy roadmaps stored tasks as a plain list of strings; those are
+        migrated on read to ``{title, done: False}`` so the checkoff UI works
+        without a data migration.
+        """
+        raw = milestone.tasks or []
+        out: list[dict] = []
+        for t in raw:
+            if isinstance(t, dict):
+                out.append({"title": str(t.get("title", "")), "done": bool(t.get("done"))})
+            else:
+                out.append({"title": str(t), "done": False})
+        return out
+
+    async def toggle_milestone_task(
+        self, user_id: uuid.UUID, milestone_id: uuid.UUID, task_index: int
+    ) -> RoadmapMilestone:
+        """Check/uncheck one task and recompute progress from it (CARE-05).
+
+        Progress is derived from the fraction of completed tasks — not a
+        hardcoded +25% — so checking a task moves the bar deterministically.
+        """
+        m = await self.session.get(RoadmapMilestone, milestone_id)
+        if m is None or m.user_id != user_id:
+            raise NotFoundError("Milestone not found")
+        tasks = self._normalize_tasks(m)
+        if not (0 <= task_index < len(tasks)):
+            raise NotFoundError("Task not found")
+        tasks[task_index]["done"] = not tasks[task_index]["done"]
+        m.tasks = tasks
+        done = sum(1 for t in tasks if t["done"])
+        m.progress_percent = _clamp(round(done / len(tasks) * 100)) if tasks else 0
+        m.status = (
+            "completed"
+            if m.progress_percent >= 100
+            else ("in_progress" if m.progress_percent > 0 else "not_started")
+        )
+        await self.session.flush()
+        if m.status == "completed":
+            await self._reward_milestone(user_id, m)
+        return m
+
+    async def add_milestone(
+        self,
+        user_id: uuid.UUID,
+        *,
+        title: str,
+        description: str | None = None,
+        period: str = "",
+        tasks: list[str] | None = None,
+    ) -> RoadmapMilestone:
+        existing = await self.list_milestones(user_id)
+        position = len(existing)
+        m = RoadmapMilestone(
+            user_id=user_id,
+            title=title,
+            description=description,
+            period=period or "Belum dijadwalkan",
+            position=position,
+            progress_percent=0,
+            status="not_started",
+            tasks=[{"title": t, "done": False} for t in (tasks or [])],
+        )
+        self.session.add(m)
+        await self.session.flush()
+        return m
+
+    async def reorder_milestones(
+        self, user_id: uuid.UUID, ordered_ids: list[uuid.UUID]
+    ) -> list[RoadmapMilestone]:
+        """Rewrite positions atomically to match ``ordered_ids`` (CARE-05).
+
+        Positions are unique per user, so a direct swap would collide; we first
+        move every row to a disjoint negative offset, then write the final
+        positions. Both steps run in the caller's single transaction.
+        """
+        milestones = await self.list_milestones(user_id)
+        by_id = {m.id: m for m in milestones}
+        if set(ordered_ids) != set(by_id):
+            raise ValidationError("ordered_ids must list exactly the caller's milestones")
+        for i, m in enumerate(milestones):
+            m.position = -(i + 1)
+        await self.session.flush()
+        for i, mid in enumerate(ordered_ids):
+            by_id[mid].position = i
+        await self.session.flush()
+        return [by_id[mid] for mid in ordered_ids]
+
+    async def delete_milestone(self, user_id: uuid.UUID, milestone_id: uuid.UUID) -> None:
+        m = await self.session.get(RoadmapMilestone, milestone_id)
+        if m is None or m.user_id != user_id:
+            raise NotFoundError("Milestone not found")
+        await self.session.delete(m)
+        await self.session.flush()
+
+    async def _reward_milestone(self, user_id: uuid.UUID, milestone: RoadmapMilestone) -> None:
+        """Idempotently pay the milestone-completion OPT bonus (CARE-05)."""
+        from app.core.config import settings
+        from app.models.identity import User
+        from app.services.keys import milestone_reward_key
+        from app.services.reward_engine import RewardEngine
+
+        if settings.reward_milestone <= 0:
+            return
+        user = await self.session.get(User, user_id)
+        if user is None:
+            return
+        await RewardEngine(self.session).credit(
+            user=user,
+            amount=settings.reward_milestone,
+            reference_type="milestone",
+            reference_id=str(milestone.id),
+            reward_key_value=milestone_reward_key(user_id, milestone.id),
+            token_id=0,
+        )
 
     # --- consultations -----------------------------------------------------
     async def list_consultations(
