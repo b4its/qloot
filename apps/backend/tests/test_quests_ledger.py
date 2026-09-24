@@ -495,3 +495,25 @@ async def test_reward_cap_enforced_before_ledger_write(session):
         token_id=0,
     )
     assert await engine.balance(student.id) == settings.opc_max_reward_per_tx
+
+
+async def test_quest_kind_is_fenced_to_exam(client):
+    """GAME-02: `quiz`/`task` quest kinds have no attempt-recording or
+    winner-selection path (finalize always yields zero winners) — the schema
+    must reject them outright rather than accept a silently-dead quest.
+    """
+    from tests.helpers import register_actor
+
+    await register_actor(client, "kind_teacher@ex.com", "teacher")
+
+    for bad_kind in ("quiz", "task"):
+        r = await client.post("/api/v1/quests", json={"title": "Bad kind", "kind": bad_kind})
+        assert r.status_code == 422, r.text
+
+    ok = await client.post("/api/v1/quests", json={"title": "Good kind", "kind": "exam"})
+    assert ok.status_code == 201, ok.text
+
+    # Omitting kind still defaults to "exam".
+    default = await client.post("/api/v1/quests", json={"title": "Default kind"})
+    assert default.status_code == 201, default.text
+    assert default.json()["kind"] == "exam"

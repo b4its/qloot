@@ -21,7 +21,11 @@ class QuestCreate(BaseModel):
     description: str | None = Field(default=None, max_length=5000)
     room_id: uuid.UUID | None = None
     exam_id: uuid.UUID | None = None
-    kind: str = Field(default="exam", pattern="^(exam|quiz|task)$")
+    # Only "exam" is implemented end-to-end (attempt recording + finalize).
+    # "quiz"/"task" were accepted by this pattern but had no attempt-recording
+    # or winner-selection path — a quest created with either kind would sit
+    # open forever with zero winners. Restrict until they are built (GAME-02).
+    kind: str = Field(default="exam", pattern="^exam$")
     top_n_winners: int = Field(default=3, ge=1, le=50)
     opens_at: datetime | None = None
     closes_at: datetime | None = None
