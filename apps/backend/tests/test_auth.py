@@ -163,6 +163,59 @@ async def test_logout_all_requires_authentication(client):
     assert r.status_code == 401
 
 
+async def test_change_password_requires_current_password(client):
+    await _register(client, "changepw@example.com", password="OldPassword1!")
+    wrong = await client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "NotTheRealOne!", "new_password": "NewPassword1!"},
+    )
+    assert wrong.status_code == 401, wrong.text
+
+
+async def test_change_password_succeeds_and_old_password_stops_working(client):
+    await _register(client, "changepw2@example.com", password="OldPassword1!")
+    ok = await client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "OldPassword1!", "new_password": "NewPassword1!"},
+    )
+    assert ok.status_code == 200, ok.text
+
+    await client.post("/api/v1/auth/logout")
+    old_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "changepw2@example.com", "password": "OldPassword1!"},
+    )
+    assert old_login.status_code == 401
+
+    new_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "changepw2@example.com", "password": "NewPassword1!"},
+    )
+    assert new_login.status_code == 200
+
+
+async def test_change_password_revokes_other_sessions_but_keeps_current(client):
+    await _register(client, "changepw3@example.com", password="OldPassword1!")
+    second_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "changepw3@example.com", "password": "OldPassword1!"},
+    )
+    assert second_login.status_code == 200
+    # The client's cookie jar now holds the *second* session's token.
+    before = await client.get("/api/v1/auth/sessions")
+    assert len(before.json()) >= 2
+
+    changed = await client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "OldPassword1!", "new_password": "NewPassword1!"},
+    )
+    assert changed.status_code == 200, changed.text
+
+    # The current session (the one that made the change) must still work.
+    me = await client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+
+
 async def test_password_reset_full_flow(client):
     """Forgot-password returns a dev token that can reset the password."""
     await _register(client, "reset_me@example.com", password="OldPassword1!")

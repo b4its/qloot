@@ -14,6 +14,11 @@
   let error = "";
   let revoking = "";
   let signingOutAll = false;
+  let currentPassword = "";
+  let newPassword = "";
+  let changingPassword = false;
+  let passwordMessage = "";
+  let passwordError = "";
   $: user = $auth.user;
 
   async function load() {
@@ -55,6 +60,30 @@
       error = e instanceof ApiError ? e.message : "Gagal keluar dari semua perangkat";
     } finally {
       signingOutAll = false;
+    }
+  }
+
+  async function changePassword() {
+    passwordError = "";
+    passwordMessage = "";
+    if (newPassword.length < 8) {
+      passwordError = "Kata sandi baru minimal 8 karakter.";
+      return;
+    }
+    changingPassword = true;
+    try {
+      await api.post("/auth/change-password", {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      passwordMessage = "Kata sandi berhasil diganti. Sesi lain telah dikeluarkan.";
+      currentPassword = "";
+      newPassword = "";
+      await load();
+    } catch (e) {
+      passwordError = e instanceof ApiError ? e.message : "Gagal mengganti kata sandi";
+    } finally {
+      changingPassword = false;
     }
   }
 
@@ -163,6 +192,36 @@
         </div>
       </div>
     {/if}
+
+    <div class="mt-6 card">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold">Ganti kata sandi</h2>
+        <Icon name="key" size="14px" class="text-primary" />
+      </div>
+      {#if passwordError}
+        <p class="alert-error mt-3">{passwordError}</p>
+      {/if}
+      {#if passwordMessage}
+        <p class="alert-ok mt-3">{passwordMessage}</p>
+      {/if}
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <label class="block">
+          <span class="mono-label">Kata sandi saat ini</span>
+          <input class="input mt-1" type="password" bind:value={currentPassword} />
+        </label>
+        <label class="block">
+          <span class="mono-label">Kata sandi baru</span>
+          <input class="input mt-1" type="password" bind:value={newPassword} />
+        </label>
+      </div>
+      <button
+        class="btn-primary mt-3"
+        on:click={changePassword}
+        disabled={changingPassword || !currentPassword || newPassword.length < 8}
+      >
+        {changingPassword ? "Menyimpan…" : "Simpan kata sandi baru"}
+      </button>
+    </div>
 
     <div class="mt-6 card">
       <div class="flex items-center justify-between">

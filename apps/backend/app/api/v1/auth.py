@@ -12,6 +12,7 @@ from app.core.errors import AuthError
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit
 from app.schemas.auth import (
+    ChangePasswordRequest,
     ForgotPasswordOut,
     ForgotPasswordRequest,
     LoginRequest,
@@ -203,3 +204,33 @@ async def reset_password(payload: ResetPasswordRequest, db: DbSession) -> Messag
     async with transaction(db):
         await AuthService(db).reset_password(payload.token, payload.new_password)
     return Message(message="Password has been reset")
+
+
+@router.post(
+    "/change-password",
+    response_model=Message,
+    dependencies=[Depends(rate_limit("password_reset"))],
+)
+async def change_password(
+    payload: ChangePasswordRequest,
+    user: CurrentUser,
+    request: Request,
+    db: DbSession,
+) -> Message:
+    """Change the password for the currently logged-in user.
+
+    Requires the current password; revokes every *other* session, keeping
+    the caller's own session (the one making this request) alive.
+    """
+    from app.core.security import hash_session_token
+
+    token = request.cookies.get(settings.session_cookie_name)
+    keep_hash = hash_session_token(token, settings.session_secret) if token else None
+    async with transaction(db):
+        await AuthService(db).change_password(
+            user,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+            keep_session_token_hash=keep_hash,
+        )
+    return Message(message="Password changed")

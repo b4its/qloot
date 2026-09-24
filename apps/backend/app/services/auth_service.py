@@ -207,6 +207,29 @@ class AuthService:
         await self.sessions.revoke_all_for_user(user.id)
         await self.session.flush()
 
+    async def change_password(
+        self,
+        user: User,
+        *,
+        current_password: str,
+        new_password: str,
+        keep_session_token_hash: str | None = None,
+    ) -> None:
+        """Change the password for a logged-in user.
+
+        Requires the current password (rejects a stolen/expired session token
+        being enough on its own); revokes every *other* session so a stolen
+        token elsewhere is cut off immediately, but keeps the caller's own
+        current session alive if its hash is passed.
+        """
+        if not verify_password(current_password, user.password_hash):
+            raise AuthError("Current password is incorrect")
+        user.password_hash = hash_password(new_password)
+        await self.sessions.revoke_all_for_user(
+            user.id, except_token_hash=keep_session_token_hash
+        )
+        await self.session.flush()
+
     async def _issue_session(
         self, user: User, *, user_agent: str | None, ip_address: str | None
     ) -> str:

@@ -112,11 +112,15 @@ class SessionRepository:
         session_obj.revoked_at = datetime.now(UTC)
         await self.session.flush()
 
-    async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
+    async def revoke_all_for_user(
+        self, user_id: uuid.UUID, *, except_token_hash: str | None = None
+    ) -> None:
         stmt = select(SessionModel).where(
             SessionModel.user_id == user_id, SessionModel.revoked_at.is_(None)
         )
         for s in (await self.session.execute(stmt)).scalars().all():
+            if except_token_hash is not None and s.token_hash == except_token_hash:
+                continue
             s.revoked_at = datetime.now(UTC)
         await self.session.flush()
 
