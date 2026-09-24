@@ -8,17 +8,39 @@ Computed on the fly with SQL aggregation (no N+1). A materialized
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta
+from typing import Literal
+from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 
 from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam, OptionalUser
+from app.core.config import settings
 from app.models.exam import ExamAttempt
 from app.models.identity import User
 from app.models.quest import QuestWinner
 from app.models.wallet import RewardAllocation, WalletAccount
 
 router = APIRouter()
+
+PeriodParam = Literal["all", "weekly", "monthly"]
+
+
+def _period_start(period: PeriodParam) -> datetime | None:
+    """The inclusive start of a ranking period.
+
+    "weekly" = the last 7 days, "monthly" = the last 30 days, anchored to the
+    current instant in ``settings.platform_timezone`` so the window aligns
+    with local time rather than UTC. ``None`` for "all" (no filter — lifetime
+    ranking, the existing default behaviour).
+    """
+    if period == "all":
+        return None
+    tz = ZoneInfo(settings.platform_timezone)
+    now_local = datetime.now(tz)
+    days = 7 if period == "weekly" else 30
+    return now_local - timedelta(days=days)
 
 
 def _row(user_id, score_bp, opc, position, *, name: str | None = None) -> dict:
@@ -31,8 +53,12 @@ def _row(user_id, score_bp, opc, position, *, name: str | None = None) -> dict:
     }
 
 
-def _best_per_exam_subquery(*, room_exam_ids=None):
-    """Best score per (user, exam) so retries never double-count."""
+def _best_per_exam_subquery(*, room_exam_ids=None, period_start: datetime | None = None):
+    """Best score per (user, exam) so retries never double-count.
+
+    ``period_start`` scopes to attempts submitted on/after that instant (for
+    weekly/monthly ranking windows); ``None`` means lifetime (no filter).
+    """
     stmt = (
         select(
             ExamAttempt.user_id.label("user_id"),
@@ -44,20 +70,28 @@ def _best_per_exam_subquery(*, room_exam_ids=None):
     )
     if room_exam_ids is not None:
         stmt = stmt.where(ExamAttempt.exam_id.in_(room_exam_ids))
+    if period_start is not None:
+        stmt = stmt.where(ExamAttempt.submitted_at >= period_start)
     return stmt.subquery()
 
 
 @router.get("/global")
 async def global_ranking(
-    db: DbSession, user: CurrentUser, limit: LimitParam = 50, offset: OffsetParam = 0
+    db: DbSession,
+    user: CurrentUser,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
+    period: PeriodParam = Query(default="all"),
 ):
     """Global leaderboard over each user's best-per-exam totals.
 
     Only active users who have at least one graded attempt are ranked, so the
     board is not padded with empty accounts. ``opc_earned`` reflects actual
     rewards (confirmed/pending), and ties break on user id for determinism.
+    ``?period=weekly|monthly`` scopes exam totals to attempts submitted in the
+    last 7/30 days; ``all`` (default) is lifetime.
     """
-    best_per_exam = _best_per_exam_subquery()
+    best_per_exam = _best_per_exam_subquery(period_start=_period_start(period))
     totals = (
         select(
             best_per_exam.c.user_id.label("user_id"),
@@ -96,6 +130,7 @@ async def global_ranking(
     rows = (await db.execute(stmt)).all()
     return {
         "scope": "global",
+        "period": period,
         "entries": [
             _row(r.id, r.score, r.opc, i + 1, name=r.full_name) for i, r in enumerate(rows)
         ],
@@ -204,13 +239,18 @@ async def quest_ranking(
 
 
 @router.get("/me")
-async def my_ranking(db: DbSession, user: CurrentUser):
-    """The caller's own total, OPT balance, and live global position."""
+async def my_ranking(db: DbSession, user: CurrentUser, period: PeriodParam = Query(default="all")):
+    """The caller's own total, OPT balance, and live global position.
+
+    ``?period=weekly|monthly`` must agree with ``/rankings/global`` for the
+    same value so the personal card's rank matches the row the user sees
+    there.
+    """
     # Use the *same* best-per-exam aggregation as the global board so the
     # caller's own total and rank agree with their global position. Retries must
     # not double-count and flagged attempts must be excluded — re-implementing
     # the sum here previously diverged from ``global_ranking``.
-    best_per_exam = _best_per_exam_subquery()
+    best_per_exam = _best_per_exam_subquery(period_start=_period_start(period))
     totals = (
         select(
             best_per_exam.c.user_id.label("user_id"),
@@ -280,6 +320,7 @@ async def my_ranking(db: DbSession, user: CurrentUser):
     xp = await GamificationService(db).xp_for_user(user.id)
     return {
         "user_id": str(user.id),
+        "period": period,
         "total_score_bp": int(total or 0),
         "opc_balance": int(account.cached_balance if account else 0),
         "rank": int(higher) + 1,

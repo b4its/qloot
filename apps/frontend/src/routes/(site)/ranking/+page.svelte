@@ -8,6 +8,8 @@
   import StatCounter from "$lib/components/StatCounter.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
 
+  type RankingPeriod = "all" | "weekly" | "monthly";
+
   const PAGE = 25;
   let global: RankingResponse | null = null;
   let me: RankingMe | null = null;
@@ -20,6 +22,13 @@
   let levelPage = 1;
   let levelHasMore = false;
   let levelLoading = false;
+  let period: RankingPeriod = "all";
+
+  const periodLabel: Record<RankingPeriod, string> = {
+    all: "Sepanjang waktu",
+    weekly: "Minggu ini",
+    monthly: "Bulan ini",
+  };
 
   const medal: Record<number, string> = { 1: "medal", 2: "medal", 3: "medal" };
   const medalColor: Record<number, string> = {
@@ -32,7 +41,7 @@
     rankLoading = true;
     try {
       const res = await api.get<RankingResponse>(
-        `/rankings/global?limit=${PAGE}&offset=${(rankPage - 1) * PAGE}`,
+        `/rankings/global?limit=${PAGE}&offset=${(rankPage - 1) * PAGE}&period=${period}`,
       );
       global = res;
       rankHasMore = res.entries.length === PAGE;
@@ -48,6 +57,19 @@
     if (next < 1 || (delta > 0 && !rankHasMore)) return;
     rankPage = next;
     loadRanking();
+  }
+
+  async function changePeriod(next: RankingPeriod) {
+    if (next === period) return;
+    period = next;
+    rankPage = 1;
+    await Promise.all([
+      loadRanking(),
+      api
+        .get<RankingMe>(`/rankings/me?period=${period}`)
+        .then((m) => (me = m))
+        .catch(() => {}),
+    ]);
   }
 
   async function loadLevels() {
@@ -74,7 +96,7 @@
 
   onMount(async () => {
     try {
-      me = await api.get<RankingMe>("/rankings/me");
+      me = await api.get<RankingMe>(`/rankings/me?period=${period}`);
       await Promise.all([loadRanking(), loadLevels()]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
@@ -87,8 +109,26 @@
 <svelte:head><title>Peringkat — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-  <p class="mono-label">Papan Peringkat</p>
-  <h1 class="mt-2 font-display text-4xl font-bold">Peringkat global</h1>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mono-label">Papan Peringkat</p>
+      <h1 class="mt-2 font-display text-4xl font-bold">Peringkat global</h1>
+    </div>
+    <div class="flex gap-1 rounded-sm border p-1" role="tablist" aria-label="Periode peringkat">
+      {#each ["all", "weekly", "monthly"] as const as p}
+        <button
+          role="tab"
+          aria-selected={period === p}
+          class="btn-ghost !px-3 !py-1.5 text-xs"
+          class:bg-primary={period === p}
+          class:text-white={period === p}
+          on:click={() => changePeriod(p)}
+        >
+          {periodLabel[p]}
+        </button>
+      {/each}
+    </div>
+  </div>
 
   {#if error}
     <p class="alert-error mt-4">{error}</p>

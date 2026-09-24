@@ -295,11 +295,13 @@ export interface RankingEntry {
 export interface RankingResponse {
   scope: string;
   scope_id?: string;
+  period?: string;
   entries: RankingEntry[];
 }
 
 export interface RankingMe {
   user_id: string;
+  period?: string;
   total_score_bp: number;
   opc_balance: number;
   rank?: number;
