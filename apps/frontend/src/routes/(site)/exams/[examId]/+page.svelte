@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
@@ -73,7 +74,7 @@
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
-    <p class="muted">Memuat …</p>
+    <Skeleton rows={4} />
   {:else if error}
     <p class="alert-error">
       {error}

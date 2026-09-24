@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Personality } from "$lib/types";
 
@@ -127,7 +128,7 @@
     <div class="card h-fit">
       <h2 class="hud font-display text-lg font-bold">Hasilmu</h2>
       {#if loading}
-        <p class="mt-2 muted">Memuat …</p>
+        <Skeleton rows={4} />
       {:else if result}
         <div class="mt-3 space-y-3">
           {#each traits as t}

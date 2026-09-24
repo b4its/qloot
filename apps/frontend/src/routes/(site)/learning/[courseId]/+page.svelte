@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
   import type { Course, Lesson, Progress } from "$lib/types";
@@ -50,7 +51,7 @@
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
-    <p class="muted">Memuat …</p>
+    <Skeleton rows={4} />
   {:else if error}
     <p class="alert-error">
       {error}

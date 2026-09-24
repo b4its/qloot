@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { ResourceItem, Recommendation } from "$lib/types";
   import Pagination from "$lib/components/Pagination.svelte";
@@ -129,7 +130,7 @@
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Memuat …</p>
+    <Skeleton rows={4} />
   {:else if !items.length}
     <div class="card mt-4 text-center">
       <p class="muted">Belum ada sumber daya yang cocok.</p>

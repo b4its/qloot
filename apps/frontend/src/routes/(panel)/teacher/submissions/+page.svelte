@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { SubmissionRow, TeacherAnalytics } from "$lib/types";
@@ -110,7 +111,7 @@
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Memuat …</p>
+    <Skeleton rows={4} />
   {:else if !rows.length}
     <div class="card mt-4 text-center"><p class="muted">Belum ada pengumpulan.</p></div>
   {:else}

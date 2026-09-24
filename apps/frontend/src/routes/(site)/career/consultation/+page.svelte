@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Consultation, ConsultationMessage, Counselor } from "$lib/types";
   import { formatDate, statusLabel } from "$lib/utils/format";
@@ -119,7 +120,7 @@
     <div class="card lg:col-span-2">
       <h2 class="hud font-display text-lg font-bold">Sesimu</h2>
       {#if loading}
-        <p class="mt-2 muted">Memuat …</p>
+        <Skeleton rows={4} />
       {:else if !consultations.length}
         <p class="mt-2 muted">Belum ada sesi. Pesan sesi di panel kanan.</p>
       {:else}
