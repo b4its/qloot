@@ -7,6 +7,16 @@ interface AuthState {
   loading: boolean;
 }
 
+/** Rotate the session when it has less than this many ms of life left. */
+const REFRESH_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 1 day
+
+function needsRefresh(user: User | null): boolean {
+  if (!user?.session_expires_at) return false;
+  const expires = new Date(user.session_expires_at).getTime();
+  if (Number.isNaN(expires)) return false;
+  return expires - Date.now() < REFRESH_THRESHOLD_MS;
+}
+
 function createAuthStore() {
   const { subscribe, set, update } = writable<AuthState>({ user: null, loading: true });
 
@@ -18,7 +28,16 @@ function createAuthStore() {
     async load() {
       update((s) => ({ ...s, loading: true }));
       try {
-        const user = await api.get<User>("/auth/me");
+        let user = await api.get<User>("/auth/me");
+        // Near-expiry rotation (AUTH-10): refresh the token before it lapses
+        // so the session is silently extended instead of dropping the user.
+        if (needsRefresh(user)) {
+          try {
+            user = await api.post<User>("/auth/refresh");
+          } catch {
+            // Refresh is best-effort; keep the still-valid user if it fails.
+          }
+        }
         set({ user, loading: false });
       } catch {
         set({ user: null, loading: false });

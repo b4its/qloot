@@ -56,6 +56,9 @@ class UserOut(ORMModel):
     roles: list[str] = Field(default_factory=list)
     class_code: str | None = None
     class_type: str | None = None
+    # When the current request's session token expires (AUTH-10). Lets the
+    # client rotate the token before it lapses instead of being logged out.
+    session_expires_at: datetime | None = None
 
 
 class SessionOut(ORMModel):

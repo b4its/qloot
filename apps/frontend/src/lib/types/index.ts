@@ -11,6 +11,8 @@ export interface User {
   roles: string[];
   class_code?: string | null;
   class_type?: string | null;
+  /** Expiry of the current session token (AUTH-10), used for silent refresh. */
+  session_expires_at?: string | null;
 }
 
 export interface SessionInfo {

@@ -395,3 +395,31 @@ async def test_change_email_confirm_rejects_invalid_token(client):
     await _register(client, "invalid_token_user@example.com")
     r = await client.post("/api/v1/auth/change-email/confirm", json={"token": "not-a-real-token"})
     assert r.status_code == 422
+
+
+async def test_me_reports_session_expiry(client):
+    """AUTH-10: /auth/me surfaces the current session's expiry so the client can
+    rotate the token before it lapses."""
+    await _register(client, "expiry_user@example.com")
+    me = await client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+    assert me.json()["session_expires_at"] is not None
+
+
+async def test_refresh_rotates_the_session_and_invalidates_the_old_token(client):
+    """AUTH-10: /auth/refresh issues a new token, revokes the old one, and the
+    old token no longer authenticates."""
+    await _register(client, "refresh_user@example.com")
+    old_token = client.cookies.get("qloot_session")
+    assert old_token
+
+    refreshed = await client.post("/api/v1/auth/refresh")
+    assert refreshed.status_code == 200, refreshed.text
+    assert refreshed.json()["session_expires_at"] is not None
+    new_token = client.cookies.get("qloot_session")
+    assert new_token and new_token != old_token
+
+    # The rotated (old) token is revoked. Send it explicitly on a fresh
+    # request via a per-request cookie override.
+    stale = await client.get("/api/v1/auth/me", cookies={"qloot_session": old_token})
+    assert stale.status_code == 401

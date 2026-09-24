@@ -32,7 +32,7 @@ from app.services.storage import sniff_image, storage
 router = APIRouter()
 
 
-def _user_out(user) -> UserOut:
+def _user_out(user, session_expires_at=None) -> UserOut:
     return UserOut(
         id=user.id,
         email=user.email,
@@ -45,6 +45,7 @@ def _user_out(user) -> UserOut:
         roles=sorted(user.role_names),
         class_code=user.class_code,
         class_type=user.class_type,
+        session_expires_at=session_expires_at,
     )
 
 
@@ -128,6 +129,9 @@ async def logout_all(user: CurrentUser, response: Response, db: DbSession) -> Me
 @router.post("/refresh", response_model=UserOut)
 async def refresh(request: Request, response: Response, db: DbSession) -> UserOut:
     """Rotate the session token (revoke old, issue new)."""
+    from app.core.security import hash_session_token
+    from app.repositories.users import SessionRepository
+
     token = request.cookies.get(settings.session_cookie_name)
     if not token:
         raise AuthError("No active session")
@@ -140,8 +144,12 @@ async def refresh(request: Request, response: Response, db: DbSession) -> UserOu
             user_agent=request.headers.get("user-agent"),
             ip_address=request.client.host if request.client else None,
         )
+        new_session = await SessionRepository(db).get_by_token_hash(
+            hash_session_token(new_token, settings.session_secret)
+        )
+        expires_at = new_session.expires_at if new_session else None
     _set_session_cookie(response, new_token)
-    return _user_out(user)
+    return _user_out(user, expires_at)
 
 
 async def _user_from_token(service: AuthService, token: str):
@@ -163,8 +171,21 @@ async def _user_from_token(service: AuthService, token: str):
 
 
 @router.get("/me", response_model=UserOut)
-async def me(user: CurrentUser) -> UserOut:
-    return _user_out(user)
+async def me(user: CurrentUser, request: Request, db: DbSession) -> UserOut:
+    # Surface the current session's expiry so the client can rotate the token
+    # before it lapses (AUTH-10) instead of being logged out mid-session.
+    from app.core.security import hash_session_token
+    from app.repositories.users import SessionRepository
+
+    expires_at = None
+    token = request.cookies.get(settings.session_cookie_name)
+    if token:
+        session = await SessionRepository(db).get_by_token_hash(
+            hash_session_token(token, settings.session_secret)
+        )
+        if session is not None:
+            expires_at = session.expires_at
+    return _user_out(user, expires_at)
 
 
 @router.patch("/profile", response_model=UserOut)
