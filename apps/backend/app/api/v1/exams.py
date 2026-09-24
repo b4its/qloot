@@ -14,6 +14,7 @@ from app.models.identity import AuditLog
 from app.schemas.exam import (
     AnswerOut,
     AnswerUpsert,
+    AttachQuestionIn,
     AttemptEventsIn,
     AttemptOut,
     AttemptResultOut,
@@ -136,6 +137,35 @@ async def delete_exam(exam_id: uuid.UUID, user: TeacherUser, db: DbSession):
 async def delete_question(question_id: uuid.UUID, user: TeacherUser, db: DbSession):
     async with transaction(db):
         await ExamService(db).delete_question(question_id, user)
+
+
+@router.get("/questions/bank", response_model=list[QuestionOut])
+async def question_bank(
+    user: TeacherUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+):
+    """List the caller's questions across all exams (the question bank)."""
+    service = ExamService(db)
+    rows = await service.list_question_bank(user, limit=limit, offset=offset)
+    out: list[QuestionOut] = []
+    for q in rows:
+        out.append(await _question_out(service, q, reveal_answers=True))
+    return out
+
+
+@router.post(
+    "/exams/{exam_id}/questions/attach",
+    response_model=QuestionOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def attach_question(
+    exam_id: uuid.UUID, payload: AttachQuestionIn, user: TeacherUser, db: DbSession
+):
+    """Copy an existing bank question into this exam (object-level owned)."""
+    async with transaction(db):
+        service = ExamService(db)
+        clone = await service.attach_question(exam_id, payload.question_id, user)
+        out = await _question_out(service, clone, reveal_answers=True)
+    return out
 
 
 @router.post(

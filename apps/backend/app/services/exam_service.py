@@ -277,6 +277,75 @@ class ExamService:
         await self.session.flush()
         return question
 
+    async def list_question_bank(
+        self, user: User, *, limit: int = 50, offset: int = 0
+    ) -> list[Question]:
+        """Every question a teacher owns, regardless of which exam it is on.
+
+        This is the "question bank": questions can be listed and re-attached to
+        other exams. Admins see all questions.
+        """
+        stmt = select(Question).order_by(Question.created_at.desc())
+        if not user.has_role("admin"):
+            stmt = stmt.where(Question.owner_id == user.id)
+        stmt = stmt.limit(limit).offset(offset)
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def attach_question(
+        self, target_exam_id: uuid.UUID, question_id: uuid.UUID, user: User
+    ) -> Question:
+        """Attach (or copy) an existing bank question into an exam.
+
+        Copying — rather than moving — keeps the original intact so deleting the
+        target exam never removes the bank question. Ownership is enforced for
+        both the source question and the target exam.
+        """
+        exam = await self._get_owned_exam(target_exam_id, user)
+        source = await self.session.get(Question, question_id)
+        if source is None:
+            raise NotFoundError("Question not found")
+        if not user.has_role("admin") and source.owner_id != user.id:
+            raise ForbiddenError("You do not own this question")
+        # Next position within the target exam.
+        next_pos = int(
+            (
+                await self.session.execute(
+                    select(func.coalesce(func.max(Question.position), -1)).where(
+                        Question.exam_id == exam.id
+                    )
+                )
+            ).scalar_one()
+        ) + 1
+        clone = Question(
+            exam_id=exam.id,
+            material_id=source.material_id,
+            owner_id=user.id,
+            prompt=source.prompt,
+            correct_answer=source.correct_answer,
+            qtype=source.qtype,
+            max_score_bp=source.max_score_bp,
+            position=next_pos,
+            source="bank",
+            review_status="approved",
+            answer_json=source.answer_json,
+        )
+        self.session.add(clone)
+        await self.session.flush()
+        # Clone options for choice-based types.
+        if source.qtype in ("multiple_choice", "multi_select"):
+            for opt in await self.options_for(source.id):
+                self.session.add(
+                    QuestionOption(
+                        question_id=clone.id,
+                        label=opt.label,
+                        text=opt.text,
+                        is_correct=opt.is_correct,
+                        position=opt.position,
+                    )
+                )
+            await self.session.flush()
+        return clone
+
     async def delete_question(self, question_id: uuid.UUID, user: User) -> None:
         question = await self.session.get(Question, question_id)
         if question is None:

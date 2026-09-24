@@ -355,6 +355,45 @@
     rejected: "Ditolak",
   };
 
+  // --- question bank import ---
+  interface BankQuestion {
+    id: string;
+    prompt: string;
+    qtype: string;
+  }
+  let bank: BankQuestion[] = [];
+  let bankOpen = false;
+  let bankLoading = false;
+
+  async function toggleBank() {
+    bankOpen = !bankOpen;
+    if (bankOpen && bank.length === 0) {
+      bankLoading = true;
+      try {
+        bank = await api.get<BankQuestion[]>("/questions/bank?limit=50");
+      } catch {
+        bank = [];
+      } finally {
+        bankLoading = false;
+      }
+    }
+  }
+
+  async function importFromBank(questionId: string) {
+    error = "";
+    message = "";
+    busy = `bank-${questionId}`;
+    try {
+      await api.post(`/exams/${examId}/questions/attach`, { question_id: questionId });
+      message = "Soal diimpor dari bank.";
+      await loadQuestions();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengimpor soal";
+    } finally {
+      busy = "";
+    }
+  }
+
   onMount(() => {
     loadExam();
     loadQuestions();
@@ -638,6 +677,34 @@
           {/each}
           {#if questions.length === 0}<li class="muted">Belum ada soal.</li>{/if}
         </ol>
+
+        <div class="mt-3 border-t pt-3">
+          <button class="btn-ghost !py-1 text-xs" on:click={toggleBank}>
+            <Icon name="box-archive" size="11px" />
+            {bankOpen ? "Tutup bank soal" : "Impor dari bank soal"}
+          </button>
+          {#if bankOpen}
+            {#if bankLoading}
+              <div class="skeleton mt-2 h-8"></div>
+            {:else if bank.length === 0}
+              <p class="mt-2 text-xs muted">Bank soal kosong.</p>
+            {:else}
+              <ul class="mt-2 max-h-52 space-y-1 overflow-y-auto">
+                {#each bank as bq}
+                  <li class="flex items-center justify-between gap-2 text-sm">
+                    <span class="truncate">{bq.prompt}</span>
+                    <button
+                      class="btn-ghost !py-0.5 text-xs"
+                      on:click={() => importFromBank(bq.id)}
+                      disabled={busy === `bank-${bq.id}`}
+                      >{busy === `bank-${bq.id}` ? "…" : "Impor"}</button
+                    >
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          {/if}
+        </div>
 
         <div class="mt-3 space-y-2 border-t pt-3">
           <div class="flex items-center gap-2">

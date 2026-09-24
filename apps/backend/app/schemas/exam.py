@@ -165,6 +165,12 @@ class QuestionOut(ORMModel):
     answer_json: dict | None = None
 
 
+class AttachQuestionIn(BaseModel):
+    """Copy an existing bank question into an exam."""
+
+    question_id: uuid.UUID
+
+
 class ExamCreate(BaseModel):
     title: str = Field(min_length=2, max_length=255)
     duration_minutes: int = Field(default=60, ge=1, le=600)
