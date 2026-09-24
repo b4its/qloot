@@ -174,6 +174,21 @@
     }
   }
 
+  /** COMM-04: escape the body, then link @mentions (injection-safe). */
+  function renderBody(body: string): string {
+    const escaped = (body ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    return escaped.replace(
+      /@([A-Za-z0-9_.\- ]{2,64}?)(?=[,.!?;:\n]|$)/g,
+      (_m, name) =>
+        `<a class="text-primary hover:underline" href="/community?mention=${encodeURIComponent(
+          name.trim(),
+        )}">@${name.trim()}</a>`,
+    );
+  }
+
   /** COMM-02: reply to a specific comment (nested). */
   async function replyTo(p: Post, parentId: string) {
     const text = prompt("Balasan Anda?");
@@ -382,7 +397,8 @@
               </div>
             </div>
           </div>
-          <p class="mt-3 text-sm">{f.body}</p>
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            <p class="mt-3 text-sm">{@html renderBody(f.body)}</p>
           <div class="mt-3 flex items-center gap-4 border-t pt-3 text-xs muted">
             <button
               class="inline-flex items-center gap-1.5 transition-colors hover:text-tertiary"
@@ -428,7 +444,8 @@
                        {#if c.edited_at}<span class="text-xs muted"> · disunting</span>{/if}
                        {#if c.parent_id}<span class="text-xs muted"> · balasan</span>{/if}
                      </p>
-                     <p class="text-ink2">{c.body}</p>
+                     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                     <p class="text-ink2">{@html renderBody(c.body)}</p>
                    </div>
                    <div class="flex flex-none items-center gap-1">
                      <button

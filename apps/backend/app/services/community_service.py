@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -32,6 +33,23 @@ TOPICS: tuple[str, ...] = (
 
 # COMM-02: maximum nesting depth for comment replies.
 MAX_COMMENT_DEPTH = 3
+
+# COMM-04: cap on @mention notifications per post/comment (anti-spam).
+MAX_MENTIONS_PER_POST = 10
+
+# Matches "@Name With Spaces" up to a punctuation/newline boundary. Names are
+# matched against users.full_name case-insensitively by the caller.
+_MENTION_RE = re.compile(r"@([A-Za-z0-9_.\- ]{2,64}?)(?=[,.!?;:\n]|$)")
+
+
+def _extract_mentions(body: str) -> list[str]:
+    """Return the distinct @mention names (trimmed, order preserved)."""
+    seen: list[str] = []
+    for m in _MENTION_RE.finditer(body or ""):
+        name = m.group(1).strip()
+        if name and name not in seen:
+            seen.append(name)
+    return seen
 
 
 class CommunityService:
@@ -118,6 +136,8 @@ class CommunityService:
         self.session.add(post)
         await self.session.flush()
         log.info("community_post_created", post=str(post.id), user=str(user.id))
+        # COMM-04: notify @mentioned users.
+        await self._notify_mentions(user, body, post_id=post.id)
         return post
 
     async def add_comment(
@@ -164,6 +184,8 @@ class CommunityService:
                 body=body[:140],
                 data={"post_id": str(post_id), "comment_id": str(comment.id)},
             )
+        # COMM-04: notify @mentioned users (bounded, never the author).
+        await self._notify_mentions(user, body, post_id=post_id, comment_id=comment.id)
         return comment
 
     async def edit_comment(
@@ -266,6 +288,49 @@ class CommunityService:
         return [{"name": t, "posts": counts.get(t, 0)} for t in TOPICS]
 
     # --- helpers -----------------------------------------------------------
+    async def _notify_mentions(
+        self,
+        author: User,
+        body: str,
+        *,
+        post_id: uuid.UUID,
+        comment_id: uuid.UUID | None = None,
+    ) -> None:
+        """Notify users @mentioned in ``body`` (COMM-04).
+
+        Mentions are matched case-insensitively against ``full_name`` and
+        capped per content to bound notification spam. Unknown names are left
+        as plain text (no notification). The author is never notified.
+        """
+        names = _extract_mentions(body)
+        if not names:
+            return
+        from app.services.social_service import NotificationService
+
+        notified: set[uuid.UUID] = set()
+        for name in names:
+            if len(notified) >= MAX_MENTIONS_PER_POST:
+                break
+            user = (
+                await self.session.execute(
+                    select(User).where(func.lower(User.full_name) == name.lower())
+                )
+            ).scalars().first()
+            if user is None or user.id == author.id or user.id in notified:
+                continue
+            notified.add(user.id)
+            mention_data = {
+                "post_id": str(post_id),
+                "comment_id": str(comment_id) if comment_id else None,
+            }
+            await NotificationService(self.session).notify(
+                user_id=user.id,
+                kind="community",
+                title=f"{author.full_name} menyebut Anda",
+                body=body[:140],
+                data=mention_data,
+            )
+
     async def _decorate(
         self, posts: list[CommunityPost], viewer_id: uuid.UUID | None
     ) -> list[dict]:
