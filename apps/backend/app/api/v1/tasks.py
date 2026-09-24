@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
+from app.core.config import settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.db.session import transaction
 from app.models.quest import Task, TaskCompletion
@@ -23,13 +25,16 @@ router = APIRouter()
 def _period_key(kind: str, now: datetime) -> str:
     """Bucket a completion by task kind so recurring tasks reset per period.
 
-    Daily tasks bucket by UTC date; weekly by ISO year-week; one-off tasks have
-    an empty bucket (completed exactly once, forever).
+    Daily tasks bucket by calendar date, weekly by ISO year-week — both in
+    ``settings.platform_timezone`` (default WIB) so a "day" resets at local
+    midnight rather than 00:00 UTC. One-off tasks have an empty bucket
+    (completed exactly once, forever).
     """
+    local = now.astimezone(ZoneInfo(settings.platform_timezone))
     if kind == "daily":
-        return now.strftime("%Y-%m-%d")
+        return local.strftime("%Y-%m-%d")
     if kind == "weekly":
-        iso = now.isocalendar()
+        iso = local.isocalendar()
         return f"{iso.year}-W{iso.week:02d}"
     return ""
 

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "staging", "production"] = "development"
     app_name: str = "QLoot"
     app_url: str = "http://localhost:3000"
+    # IANA tz name used to bucket calendar-day/week-scoped activity (daily and
+    # weekly task periods, streaks) so resets align with the local day rather
+    # than UTC midnight. Indonesia (WIB) by default.
+    platform_timezone: str = "Asia/Jakarta"
     api_url: str = "http://localhost:8000"
     api_v1_prefix: str = "/api/v1"
     debug: bool = False
