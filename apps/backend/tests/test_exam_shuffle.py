@@ -64,16 +64,19 @@ async def test_shuffle_is_stable_per_attempt_and_differs_between_attempts(client
 
     await register_actor(client, "shuf_student@ex.com", "student")
     a1 = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
-    a2 = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
 
     order_a1_first = await _attempt_question_order(client, a1)
     order_a1_second = await _attempt_question_order(client, a1)
     # Same attempt reloaded -> identical order.
     assert order_a1_first == order_a1_second
 
-    order_a2 = await _attempt_question_order(client, a2)
-    # Different attempts -> (almost surely) different order.
-    assert order_a1_first != order_a2, "two attempts should not share an identical order"
+    # Across several attempts the ordering must vary for at least one pair (a
+    # fixed order for everyone is the bug this feature prevents).
+    orders = {tuple(order_a1_first)}
+    for _ in range(6):
+        aid = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+        orders.add(tuple(await _attempt_question_order(client, aid)))
+    assert len(orders) > 1, "per-attempt shuffle must vary the order across attempts"
 
 
 async def test_shuffle_option_order_stable_and_no_answer_key(client):
