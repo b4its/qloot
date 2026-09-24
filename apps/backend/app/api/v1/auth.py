@@ -108,6 +108,17 @@ async def logout(request: Request, response: Response, db: DbSession) -> Message
     return Message(message="Logged out")
 
 
+@router.post("/logout-all", response_model=Message)
+async def logout_all(user: CurrentUser, response: Response, db: DbSession) -> Message:
+    """Revoke every session for the caller (sign out everywhere), including
+    the one making this request — the cookie is cleared client-side too.
+    """
+    async with transaction(db):
+        await AuthService(db).logout_all(user.id)
+    response.delete_cookie(settings.session_cookie_name, path="/")
+    return Message(message="Signed out of all devices")
+
+
 @router.post("/refresh", response_model=UserOut)
 async def refresh(request: Request, response: Response, db: DbSession) -> UserOut:
     """Rotate the session token (revoke old, issue new)."""

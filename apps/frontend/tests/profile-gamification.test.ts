@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/svelte";
+import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/svelte";
 
 const get = vi.fn();
+const post = vi.fn();
 vi.mock("../src/lib/api/client", () => ({
   API_BASE: "http://localhost:8000",
   ApiError: class ApiError extends Error {
@@ -10,9 +11,10 @@ vi.mock("../src/lib/api/client", () => ({
   },
   api: {
     get: (...args: unknown[]) => get(...args),
-    post: vi.fn().mockRejectedValue(new Error("offline")),
+    post: (...args: unknown[]) => post(...args),
   },
 }));
+vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 
 import ProfilePage from "$routes-site/profile/+page.svelte";
 import { auth } from "../src/lib/stores/auth";
@@ -35,11 +37,16 @@ const PROFILE = {
 beforeEach(() => {
   cleanup();
   get.mockReset();
+  post.mockReset();
   get.mockImplementation((path: string) => {
     if (path === "/auth/sessions") return Promise.resolve([]);
     if (path === "/gamification/me") return Promise.resolve(PROFILE);
     return Promise.reject(new Error(`unexpected path ${path}`));
   });
+  vi.stubGlobal(
+    "confirm",
+    vi.fn(() => true),
+  );
   auth.setUser({
     id: "u-1",
     email: "a@b.com",
@@ -72,5 +79,16 @@ describe("profile gamification card", () => {
     await waitFor(() => expect(screen.getByText("Progres gamifikasi")).toBeTruthy());
     expect(screen.getByText(/Streak 5 hari/)).toBeTruthy();
     expect(screen.getByText(/Terbaik 9 hari/)).toBeTruthy();
+  });
+
+  it("signs out of every device via /auth/logout-all (AUTH-02)", async () => {
+    post.mockResolvedValue({ message: "Signed out of all devices" });
+    render(ProfilePage);
+    await waitFor(() => expect(screen.getByText("Sesi aktif")).toBeTruthy());
+
+    const btn = screen.getByRole("button", { name: /keluar dari semua perangkat/i });
+    await fireEvent.click(btn);
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith("/auth/logout-all"));
   });
 });

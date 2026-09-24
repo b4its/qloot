@@ -48,6 +48,14 @@ function createAuthStore() {
         set({ user: null, loading: false });
       }
     },
+    /** Revoke every session for the caller ("sign out everywhere"). */
+    async logoutAll() {
+      try {
+        await api.post("/auth/logout-all");
+      } finally {
+        set({ user: null, loading: false });
+      }
+    },
   };
 }
 

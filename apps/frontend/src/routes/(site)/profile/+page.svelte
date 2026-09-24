@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { GamificationProfile, SessionInfo } from "$lib/types";
   import { auth } from "$lib/stores/auth";
@@ -12,6 +13,7 @@
   let loading = true;
   let error = "";
   let revoking = "";
+  let signingOutAll = false;
   $: user = $auth.user;
 
   async function load() {
@@ -39,6 +41,20 @@
       error = e instanceof ApiError ? e.message : "Gagal mencabut sesi";
     } finally {
       revoking = "";
+    }
+  }
+
+  async function signOutEverywhere() {
+    if (!confirm("Keluar dari semua perangkat? Kamu perlu masuk kembali di sini juga.")) return;
+    error = "";
+    signingOutAll = true;
+    try {
+      await auth.logoutAll();
+      await goto("/login");
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal keluar dari semua perangkat";
+    } finally {
+      signingOutAll = false;
     }
   }
 
@@ -182,6 +198,17 @@
           {/each}
         </ul>
       {/if}
+
+      <div class="mt-4 border-t pt-4">
+        <button
+          class="btn-ghost !text-tertiary"
+          on:click={signOutEverywhere}
+          disabled={signingOutAll}
+        >
+          <Icon name="right-from-bracket" size="12px" />
+          {signingOutAll ? "Memproses…" : "Keluar dari semua perangkat"}
+        </button>
+      </div>
     </div>
   {/if}
 </div>

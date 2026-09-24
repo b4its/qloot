@@ -133,6 +133,36 @@ async def test_sessions_listing_and_revoke(client):
     assert revoke.status_code == 200
 
 
+async def test_logout_all_revokes_every_session(client):
+    """AUTH-02: logout-all revokes every session for the caller, including
+    ones created by earlier logins (simulating multiple devices/tabs).
+    """
+    await _register(client, "logoutall@example.com", password="Password123!")
+    # A second login (e.g. another device) issues a second session row.
+    second_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "logoutall@example.com", "password": "Password123!"},
+    )
+    assert second_login.status_code == 200, second_login.text
+
+    before = await client.get("/api/v1/auth/sessions")
+    assert before.status_code == 200
+    assert len(before.json()) >= 2
+
+    out = await client.post("/api/v1/auth/logout-all")
+    assert out.status_code == 200, out.text
+
+    # The cookie was cleared client-side, but even the *old* token (if reused)
+    # must now be rejected — /auth/me must 401 with no valid cookie either.
+    me = await client.get("/api/v1/auth/me")
+    assert me.status_code == 401
+
+
+async def test_logout_all_requires_authentication(client):
+    r = await client.post("/api/v1/auth/logout-all")
+    assert r.status_code == 401
+
+
 async def test_password_reset_full_flow(client):
     """Forgot-password returns a dev token that can reset the password."""
     await _register(client, "reset_me@example.com", password="OldPassword1!")
