@@ -257,6 +257,7 @@ GET  /teacher/analytics
 GET   /career/dashboard
 GET   /career/grades
 POST  /career/grades
+PUT   /career/grades/{grade_id}       # edit one of your own grades
 DELETE /career/grades/{grade_id}      # remove one of your own grades
 
 GET   /career/personality

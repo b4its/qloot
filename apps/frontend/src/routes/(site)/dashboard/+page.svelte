@@ -78,6 +78,29 @@
     }
   }
 
+  async function editGrade(g: GradeRow) {
+    if (!g.id) return;
+    const next = prompt(`Nilai baru untuk ${g.subject} (${g.term}):`, String(g.grade));
+    if (next === null) return;
+    const value = Number(next);
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      gradeMsg = "Nilai harus antara 0 dan 100.";
+      return;
+    }
+    gradeMsg = "";
+    gradeBusy = true;
+    try {
+      await api.put(`/career/grades/${g.id}`, { grade: value });
+      grades = await api.get<GradeRow[]>("/career/grades");
+      await reloadAcademic();
+      gradeMsg = `${g.subject} diperbarui menjadi ${value}.`;
+    } catch (e) {
+      gradeMsg = e instanceof ApiError ? e.message : "Gagal memperbarui nilai";
+    } finally {
+      gradeBusy = false;
+    }
+  }
+
   async function deleteGrade(g: GradeRow) {
     if (!g.id) return;
     if (!confirm(`Hapus nilai ${g.subject} (${g.term})?`)) return;
@@ -301,6 +324,14 @@
                 {g.subject} · {g.grade}
                 <span class="muted">({g.term})</span>
                 {#if g.id}
+                  <button
+                    class="ml-1 hover:text-primary"
+                    on:click={() => editGrade(g)}
+                    disabled={gradeBusy}
+                    aria-label={`Ubah nilai ${g.subject}`}
+                  >
+                    <Icon name="pen" size="9px" />
+                  </button>
                   <button
                     class="ml-1 hover:text-tertiary"
                     on:click={() => deleteGrade(g)}

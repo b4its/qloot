@@ -367,6 +367,33 @@ class CareerService:
         await self.session.delete(grade)
         await self.session.flush()
 
+    async def update_grade(
+        self,
+        user_id: uuid.UUID,
+        grade_id: uuid.UUID,
+        *,
+        grade: int,
+        subject: str | None = None,
+        term: str | None = None,
+    ) -> AcademicGrade:
+        """Edit one of the caller's grades (UIX-05)."""
+        row = (
+            await self.session.execute(
+                select(AcademicGrade).where(
+                    AcademicGrade.id == grade_id, AcademicGrade.user_id == user_id
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFoundError("Grade not found")
+        row.grade = _clamp(grade)
+        if subject is not None:
+            row.subject = subject
+        if term is not None:
+            row.term = term
+        await self.session.flush()
+        return row
+
     async def dashboard(self, user: User) -> dict:
         grades = await self.list_grades(user.id)
         if not grades:

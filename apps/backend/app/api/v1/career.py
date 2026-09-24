@@ -24,6 +24,7 @@ from app.schemas.career import (
     DashboardOut,
     GradeIn,
     GradeOut,
+    GradeUpdate,
     MilestoneCreate,
     MilestoneOut,
     MilestoneUpdate,
@@ -61,6 +62,17 @@ async def upsert_grade(payload: GradeIn, user: CurrentUser, db: DbSession):
     async with transaction(db):
         return await CareerService(db).upsert_grade(
             user.id, payload.subject, payload.grade, payload.term
+        )
+
+
+@router.put("/grades/{grade_id}", response_model=GradeOut)
+async def update_grade(
+    grade_id: uuid.UUID, payload: GradeUpdate, user: CurrentUser, db: DbSession
+):
+    """Edit one of the caller's grades (UIX-05)."""
+    async with transaction(db):
+        return await CareerService(db).update_grade(
+            user.id, grade_id, grade=payload.grade, subject=payload.subject, term=payload.term
         )
 
 

@@ -17,6 +17,12 @@ class GradeIn(BaseModel):
     term: str = Field(default="2025/2026-genap", max_length=32)
 
 
+class GradeUpdate(BaseModel):
+    grade: int = Field(ge=0, le=100)
+    subject: str | None = Field(default=None, min_length=1, max_length=64)
+    term: str | None = Field(default=None, max_length=32)
+
+
 class GradeOut(ORMModel):
     id: uuid.UUID | None = None
     subject: str
