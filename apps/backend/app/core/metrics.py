@@ -7,8 +7,14 @@ pulling prometheus_client into the worker images.
 
 from __future__ import annotations
 
+import bisect
 import threading
 from collections import defaultdict
+
+# Fixed histogram buckets (seconds). Cumulative: a sample of 0.3s falls into
+# every bucket whose upper bound is >= 0.3. The final +Inf bucket always holds
+# the total count, matching the Prometheus histogram convention.
+_HISTOGRAM_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
 
 _lock = threading.Lock()
 _counters: dict[str, float] = defaultdict(float)
@@ -77,8 +83,42 @@ def render() -> str:
             if not values:
                 continue
             base = key.split("{")[0]
-            total = sum(values)
-            lines.append(f"# TYPE {base} summary")
-            lines.append(f"{key}_count {len(values)}")
-            lines.append(f"{key}_sum {total}")
+            label_prefix = _label_prefix(key)
+            if base in _HELP:
+                lines.append(f"# HELP {base} {_HELP[base]}")
+            lines.append(f"# TYPE {base} histogram")
+            # Buckets are cumulative: count every sample <= upper bound.
+            ordered = sorted(values)
+            for bound in _HISTOGRAM_BUCKETS:
+                cumulative = bisect.bisect_right(ordered, bound)
+                lines.append(f'{base}_bucket{label_prefix(le=_fmt_bound(bound))} {cumulative}')
+            lines.append(f'{base}_bucket{label_prefix(le="+Inf")} {len(values)}')
+            lines.append(f"{base}_count{label_prefix()} {len(values)}")
+            lines.append(f"{base}_sum{label_prefix()} {sum(values)}")
     return "\n".join(lines) + "\n"
+
+
+def _fmt_bound(bound: float) -> str:
+    """Render a bucket upper bound the way Prometheus does (e.g. ``1.0``)."""
+    return f"{bound:g}"
+
+
+def _label_prefix(key: str):
+    """Return a callable that builds the ``{...}`` suffix for a series key.
+
+    Histogram buckets need an extra ``le`` label appended to whatever labels
+    the observed series already carries.
+    """
+    if "{" in key:
+        existing = key[key.index("{") + 1 : key.rindex("}")]
+    else:
+        existing = ""
+
+    def _build(**extra: str) -> str:
+        parts = []
+        if existing:
+            parts.append(existing)
+        parts.extend(f'{k}="{v}"' for k, v in sorted(extra.items()))
+        return "{" + ",".join(parts) + "}" if parts else ""
+
+    return _build
