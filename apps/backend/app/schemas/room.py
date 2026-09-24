@@ -32,6 +32,7 @@ class RoomOut(ORMModel):
     status: str
     max_participants: int
     is_public: bool
+    is_locked: bool
     opens_at: datetime | None
     closes_at: datetime | None
     created_at: datetime

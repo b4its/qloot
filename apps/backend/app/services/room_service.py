@@ -114,6 +114,28 @@ class RoomService:
         await self.session.flush()
         return room
 
+    async def lock(self, room_id: uuid.UUID, user: User) -> Room:
+        """Freeze new joins while the room stays open (GAME-08).
+
+        Existing members can keep participating (answering, chatting via the
+        WS ``signal`` passthrough); only ``join``/``join-by-code`` are
+        blocked while locked.
+        """
+        room = await self._owned(room_id, user)
+        if room.status != "open":
+            raise ConflictError("Only an open room can be locked")
+        room.is_locked = True
+        await self._emit(room.id, "locked", {"by": str(user.id)})
+        await self.session.flush()
+        return room
+
+    async def unlock(self, room_id: uuid.UUID, user: User) -> Room:
+        room = await self._owned(room_id, user)
+        room.is_locked = False
+        await self._emit(room.id, "unlocked", {"by": str(user.id)})
+        await self.session.flush()
+        return room
+
     async def join(self, room_id: uuid.UUID, user: User) -> RoomMember:
         room = await self.get(room_id)
         if room.status in ("closed", "archived"):
@@ -123,6 +145,8 @@ class RoomService:
         )
         member = (await self.session.execute(stmt)).scalar_one_or_none()
         if member is None:
+            if room.is_locked:
+                raise ConflictError("Room is locked to new participants")
             # Lock the room row so concurrent joins can't exceed capacity.
             await self.session.execute(select(Room.id).where(Room.id == room_id).with_for_update())
             count = len(await self.participants(room_id))

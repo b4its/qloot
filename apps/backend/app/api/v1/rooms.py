@@ -115,6 +115,25 @@ async def close_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
     return RoomOut.model_validate(room)
 
 
+@router.post("/{room_id}/lock", response_model=RoomOut)
+async def lock_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    """Freeze new joins (host control, GAME-08); existing members keep
+    participating.
+    """
+    async with transaction(db):
+        room = await RoomService(db).lock(room_id, user)
+    await event_bus.publish(room_channel(str(room_id)), {"type": "room.locked"})
+    return RoomOut.model_validate(room)
+
+
+@router.post("/{room_id}/unlock", response_model=RoomOut)
+async def unlock_room(room_id: uuid.UUID, user: TeacherUser, db: DbSession):
+    async with transaction(db):
+        room = await RoomService(db).unlock(room_id, user)
+    await event_bus.publish(room_channel(str(room_id)), {"type": "room.unlocked"})
+    return RoomOut.model_validate(room)
+
+
 @router.get("/{room_id}/participants", response_model=list[RoomMemberOut])
 async def participants(
     room_id: uuid.UUID,

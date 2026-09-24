@@ -67,6 +67,7 @@ export interface Room {
   status: string;
   max_participants: number;
   is_public: boolean;
+  is_locked: boolean;
   opens_at?: string | null;
   closes_at?: string | null;
   created_at: string;

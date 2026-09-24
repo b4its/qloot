@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import { api, wsUrl, ApiError } from "$lib/api/client";
   import type { Room, RoomMember, RankingResponse, RoomEvent } from "$lib/types";
+  import Icon from "$lib/components/Icon.svelte";
   import { auth, hasRole } from "$lib/stores/auth";
   import { statusLabel } from "$lib/utils/format";
 
@@ -135,6 +136,12 @@
   async function closeRoom() {
     await act("close", "close");
   }
+  async function lockRoom() {
+    await act("lock", "lock");
+  }
+  async function unlockRoom() {
+    await act("unlock", "unlock");
+  }
 
   onMount(async () => {
     await load();
@@ -185,6 +192,17 @@
         <button class="btn-ghost" on:click={closeRoom} disabled={busy === "close"}>
           Tutup ruang
         </button>
+        {#if room.status === "open"}
+          {#if room.is_locked}
+            <button class="btn-ghost" on:click={unlockRoom} disabled={busy === "unlock"}>
+              <Icon name="lock-open" size="11px" /> Buka kunci
+            </button>
+          {:else}
+            <button class="btn-ghost" on:click={lockRoom} disabled={busy === "lock"}>
+              <Icon name="lock" size="11px" /> Kunci ruang
+            </button>
+          {/if}
+        {/if}
       {/if}
     </div>
 

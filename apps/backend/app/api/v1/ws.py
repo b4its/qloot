@@ -94,11 +94,13 @@ async def room_ws(websocket: WebSocket, room_id: uuid.UUID) -> None:
     pump_task = asyncio.create_task(pump_events())
     try:
         while True:
-            # Client heartbeats / ephemeral signals.
+            # Client heartbeats / ephemeral signals. "chat" was removed
+            # (GAME-07): frames were echoed but never persisted or rendered
+            # by any client — a dead surface with no history/moderation.
             data = await websocket.receive_json()
             if data.get("type") == "ping":
                 await websocket.send_json({"type": "pong"})
-            elif data.get("type") in ("signal", "chat"):
+            elif data.get("type") == "signal":
                 data["user_id"] = str(user.id)
                 await event_bus.publish(channel, data)
     except WebSocketDisconnect:

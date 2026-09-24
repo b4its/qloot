@@ -40,6 +40,8 @@ class Room(Base, TimestampMixin):
     opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Freezes new joins while status stays "open" (GAME-08 host control).
+    is_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     members: Mapped[list[RoomMember]] = relationship(
         back_populates="room", cascade="all, delete-orphan"
