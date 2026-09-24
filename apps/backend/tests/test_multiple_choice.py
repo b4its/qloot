@@ -559,3 +559,55 @@ async def test_exam_list_and_detail_expose_question_composition(client):
     assert detail.json()["question_count"] == 2
     assert detail.json()["mc_count"] == 1
     assert detail.json()["essay_count"] == 1
+
+
+async def test_question_weight_shifts_total_score(client):
+    """C27: a question with double weight moves the score proportionally."""
+    await _register(client, "weight_teacher@ex.com", "teacher")
+    exam = await client.post(
+        "/api/v1/exams",
+        json={"title": "Weighted", "duration_minutes": 20, "max_attempts": 5},
+    )
+    exam_id = exam.json()["id"]
+    # Q1 weight 10000 (100%), Q2 weight 5000 (50%) -> answering only Q1 gives
+    # 10000 / (10000 + 5000) = 66.67%.
+    q1 = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={
+            "prompt": "Soal berbobot besar?",
+            "qtype": "multiple_choice",
+            "max_score_bp": 10000,
+            "position": 0,
+            "options": [
+                {"text": "Benar", "is_correct": True},
+                {"text": "Salah", "is_correct": False},
+            ],
+        },
+    )
+    q1_id = q1.json()["id"]
+    q2 = await client.post(
+        f"/api/v1/exams/{exam_id}/questions",
+        json={
+            "prompt": "Soal berbobot kecil?",
+            "qtype": "multiple_choice",
+            "max_score_bp": 5000,
+            "position": 1,
+            "options": [
+                {"text": "Benar", "is_correct": True},
+                {"text": "Salah", "is_correct": False},
+            ],
+        },
+    )
+    q2_id = q2.json()["id"]
+    await client.post(f"/api/v1/exams/{exam_id}/publish")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "weight_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.put(f"/api/v1/attempts/{attempt_id}/answers/{q1_id}", json={"answer_text": "A"})
+    # Deliberately wrong on the low-weight question.
+    await client.put(f"/api/v1/attempts/{attempt_id}/answers/{q2_id}", json={"answer_text": "B"})
+    submit = await client.post(f"/api/v1/attempts/{attempt_id}/submit")
+    assert submit.status_code == 200, submit.text
+    # 10000 * 10000 / 15000 = 6667.
+    assert submit.json()["score_bp"] == 6667

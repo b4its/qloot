@@ -41,9 +41,21 @@
       { text: "", is_correct: false },
     ];
   }
-  let newQ = { prompt: "", correct_answer: "", qtype: "essay", options: blankOptions() };
+  let newQ = {
+    prompt: "",
+    correct_answer: "",
+    qtype: "essay",
+    weight: 100,
+    options: blankOptions(),
+  };
   let editingQ: string | null = null;
-  let editQ = { prompt: "", correct_answer: "", qtype: "essay", options: blankOptions() };
+  let editQ = {
+    prompt: "",
+    correct_answer: "",
+    qtype: "essay",
+    weight: 100,
+    options: blankOptions(),
+  };
 
   function addOption(list: OptionDraft[]) {
     if (list.length < 8) list.push({ text: "", is_correct: false });
@@ -156,13 +168,20 @@
         prompt: newQ.prompt.trim(),
         correct_answer: newQ.qtype === "essay" ? newQ.correct_answer.trim() || null : null,
         qtype: newQ.qtype,
+        max_score_bp: Math.max(0, Math.min(10000, Math.round((newQ.weight ?? 100) * 100))),
         position: questions.length,
         options:
           newQ.qtype === "multiple_choice"
             ? newQ.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }))
             : [],
       });
-      newQ = { prompt: "", correct_answer: "", qtype: "essay", options: blankOptions() };
+      newQ = {
+        prompt: "",
+        correct_answer: "",
+        qtype: "essay",
+        weight: 100,
+        options: blankOptions(),
+      };
       message = "Soal ditambahkan.";
       await loadQuestions();
     } catch (e) {
@@ -178,6 +197,7 @@
       prompt: q.prompt,
       correct_answer: q.correct_answer ?? "",
       qtype: q.qtype,
+      weight: Math.round((q.max_score_bp ?? 10000) / 100),
       options:
         q.qtype === "multiple_choice"
           ? (q.options ?? []).map((o) => ({ text: o.text, is_correct: !!o.is_correct }))
@@ -201,6 +221,7 @@
       await api.patch(`/questions/${editingQ}`, {
         prompt: editQ.prompt.trim(),
         correct_answer: editQ.qtype === "essay" ? editQ.correct_answer.trim() || null : null,
+        max_score_bp: Math.max(0, Math.min(10000, Math.round((editQ.weight ?? 100) * 100))),
         options:
           editQ.qtype === "multiple_choice"
             ? editQ.options.map((o) => ({ text: o.text.trim(), is_correct: o.is_correct }))
@@ -413,6 +434,16 @@
                     bind:value={editQ.correct_answer}
                   ></textarea>
                 {/if}
+                <div class="mt-2 flex items-center gap-2">
+                  <span class="mono-label">Bobot (%)</span>
+                  <input
+                    class="input !w-24 !py-1 text-sm"
+                    type="number"
+                    min="0"
+                    max="100"
+                    bind:value={editQ.weight}
+                  />
+                </div>
                 <div class="mt-2 flex gap-2">
                   <button class="btn-primary !py-1.5" on:click={saveQ} disabled={busy === "q-edit"}
                     >Simpan</button
@@ -538,6 +569,16 @@
               bind:value={newQ.correct_answer}
             ></textarea>
           {/if}
+          <div class="flex items-center gap-2">
+            <span class="mono-label">Bobot (%)</span>
+            <input
+              class="input !w-24 !py-1 text-sm"
+              type="number"
+              min="0"
+              max="100"
+              bind:value={newQ.weight}
+            />
+          </div>
           <button class="btn-primary" on:click={addQuestion} disabled={busy === "q-add"}>
             {#if busy === "q-add"}<Icon name="spinner" spin size="12px" />{:else}<Icon
                 name="plus"
