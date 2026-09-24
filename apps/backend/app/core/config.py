@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # --- Redis -------------------------------------------------------------
     redis_url: str = "redis://localhost:6379/0"
 
+    # Readiness probes. When enabled, `/ready` returns 503 if the dependency is
+    # unreachable; turn a probe off for environments that run without it (e.g.
+    # a test/CI environment with no Redis or object storage).
+    readiness_check_redis: bool = True
+    readiness_check_storage: bool = True
+
     # --- Sessions / auth ---------------------------------------------------
     session_secret: str = "change-me"
     session_cookie_name: str = "qloot_session"

@@ -21,6 +21,9 @@ os.environ.setdefault("LOG_LEVEL", "WARNING")
 # Tests exercise endpoints in tight loops; the rate limiter is a no-op for
 # app_env=test (the dedicated rate-limit test re-enables it per-case).
 os.environ.setdefault("APP_ENV", "test")
+# No Redis runs alongside the test suite; the readiness test drives this probe
+# explicitly, so it is off by default here to keep `/ready` green.
+os.environ.setdefault("READINESS_CHECK_REDIS", "false")
 
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
