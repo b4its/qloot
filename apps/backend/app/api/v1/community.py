@@ -6,16 +6,19 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam
+from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam
 from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.community import (
     CommentCreate,
     CommentOut,
     CommunityStatsOut,
+    ModerationAction,
     PostCreate,
     PostDetailOut,
     PostOut,
+    ReportCreate,
+    ReportOut,
     TopicOut,
 )
 from app.services.community_service import CommunityService
@@ -32,7 +35,11 @@ async def list_posts(
     offset: OffsetParam = 0,
 ):
     return await CommunityService(db).list_posts(
-        viewer_id=user.id, topic=topic, limit=limit, offset=offset
+        viewer_id=user.id,
+        topic=topic,
+        limit=limit,
+        offset=offset,
+        include_hidden_for=user.id,
     )
 
 
@@ -71,7 +78,9 @@ async def list_comments(
     limit: LimitParam = 100,
     offset: OffsetParam = 0,
 ):
-    return await CommunityService(db).list_comments(post_id, limit=limit, offset=offset)
+    return await CommunityService(db).list_comments(
+        post_id, limit=limit, offset=offset, include_hidden_for=user.id
+    )
 
 
 @router.post(
@@ -105,3 +114,74 @@ async def delete_comment(comment_id: uuid.UUID, user: CurrentUser, db: DbSession
 @router.get("/stats", response_model=CommunityStatsOut)
 async def stats(user: CurrentUser, db: DbSession):
     return await CommunityService(db).stats()
+
+
+# --- reporting & moderation (COMM-01) -------------------------------------
+@router.post("/reports", response_model=ReportOut, status_code=status.HTTP_201_CREATED)
+async def report_content(payload: ReportCreate, user: CurrentUser, db: DbSession):
+    """Report a post or comment. One report per user per object."""
+    async with transaction(db):
+        rep = await CommunityService(db).report(
+            user,
+            target_type=payload.target_type,
+            target_id=payload.target_id,
+            reason=payload.reason,
+        )
+        return ReportOut(
+            id=rep.id,
+            reporter_id=rep.reporter_id,
+            target_type=rep.target_type,
+            target_id=rep.target_id,
+            reason=rep.reason,
+            status=rep.status,
+            created_at=rep.created_at,
+        )
+
+
+@router.get("/reports", response_model=list[ReportOut])
+async def list_reports(
+    admin: AdminUser,
+    db: DbSession,
+    status_filter: str | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
+    """Admin moderation queue (paginated)."""
+    rows = await CommunityService(db).list_reports(
+        status=status_filter, limit=limit, offset=offset
+    )
+    return [ReportOut(**r) for r in rows]
+
+
+@router.post("/reports/{report_id}/moderate", response_model=ReportOut)
+async def moderate_report(
+    report_id: uuid.UUID, payload: ModerationAction, admin: AdminUser, db: DbSession
+):
+    async with transaction(db):
+        rep = await CommunityService(db).moderate(
+            admin, report_id, payload.action, reason=payload.reason
+        )
+        # Audit the moderation action.
+        from app.models.identity import AuditLog
+        from app.services.audit import current_request_id
+
+        db.add(
+            AuditLog(
+                actor_id=admin.id,
+                action=f"community.{payload.action}",
+                entity_type="community_report",
+                entity_id=str(report_id),
+                data={"target_type": rep.target_type, "target_id": str(rep.target_id)},
+                request_id=current_request_id(),
+            )
+        )
+        await db.flush()
+        return ReportOut(
+            id=rep.id,
+            reporter_id=rep.reporter_id,
+            target_type=rep.target_type,
+            target_id=rep.target_id,
+            reason=rep.reason,
+            status=rep.status,
+            created_at=rep.created_at,
+        )

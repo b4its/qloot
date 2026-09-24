@@ -129,4 +129,10 @@ export const adminNav: RoleNavItem[] = [
     icon: "sliders",
     desc: "Ringkasan runtime non-rahasia platform",
   },
+  {
+    href: "/admin/moderation",
+    label: "Moderasi",
+    icon: "flag",
+    desc: "Antrean laporan konten komunitas",
+  },
 ];

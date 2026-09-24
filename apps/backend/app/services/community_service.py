@@ -7,9 +7,14 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ForbiddenError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import get_logger
-from app.models.community import CommunityComment, CommunityLike, CommunityPost
+from app.models.community import (
+    CommunityComment,
+    CommunityLike,
+    CommunityPost,
+    CommunityReport,
+)
 from app.models.identity import User
 
 log = get_logger("community")
@@ -36,34 +41,59 @@ class CommunityService:
         topic: str | None = None,
         limit: int = 30,
         offset: int = 0,
+        include_hidden_for: uuid.UUID | None = None,
     ) -> list[dict]:
-        stmt = select(CommunityPost).order_by(CommunityPost.created_at.desc())
+        stmt = select(CommunityPost)
+        # COMM-01: hidden posts disappear from the feed but stay visible to
+        # their own author (include_hidden_for) and to admins.
+        if include_hidden_for is not None:
+            stmt = stmt.where(
+                (CommunityPost.hidden.is_(False))
+                | (CommunityPost.author_id == include_hidden_for)
+            )
+        else:
+            stmt = stmt.where(CommunityPost.hidden.is_(False))
         if topic:
             stmt = stmt.where(CommunityPost.topic == topic)
-        stmt = stmt.limit(limit).offset(offset)
+        stmt = stmt.order_by(CommunityPost.created_at.desc()).limit(limit).offset(offset)
         posts = list((await self.session.execute(stmt)).scalars().all())
         return await self._decorate(posts, viewer_id)
 
-    async def get_post(self, post_id: uuid.UUID, viewer_id: uuid.UUID | None) -> dict:
+    async def get_post(
+        self, post_id: uuid.UUID, viewer_id: uuid.UUID | None
+    ) -> dict:
         post = await self.session.get(CommunityPost, post_id)
         if post is None:
             raise NotFoundError("Post not found")
         decorated = (await self._decorate([post], viewer_id))[0]
-        comments = await self.list_comments(post_id)
+        include_hidden_for = viewer_id if viewer_id == post.author_id else None
+        comments = await self.list_comments(
+            post_id, include_hidden_for=include_hidden_for
+        )
         decorated["comments"] = comments
         return decorated
 
     async def list_comments(
-        self, post_id: uuid.UUID, *, limit: int = 100, offset: int = 0
+        self,
+        post_id: uuid.UUID,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        include_hidden_for: uuid.UUID | None = None,
     ) -> list[dict]:
         stmt = (
             select(CommunityComment, User.full_name)
             .join(User, User.id == CommunityComment.author_id)
             .where(CommunityComment.post_id == post_id)
-            .order_by(CommunityComment.created_at)
-            .limit(limit)
-            .offset(offset)
         )
+        if include_hidden_for is not None:
+            stmt = stmt.where(
+                (CommunityComment.hidden.is_(False))
+                | (CommunityComment.author_id == include_hidden_for)
+            )
+        else:
+            stmt = stmt.where(CommunityComment.hidden.is_(False))
+        stmt = stmt.order_by(CommunityComment.created_at).limit(limit).offset(offset)
         rows = (await self.session.execute(stmt)).all()
         return [
             {
@@ -71,6 +101,7 @@ class CommunityService:
                 "author_id": c.author_id,
                 "author_name": name,
                 "body": c.body,
+                "hidden": c.hidden,
                 "created_at": c.created_at,
             }
             for c, name in rows
@@ -231,7 +262,110 @@ class CommunityService:
                     "like_count": p.like_count,
                     "comment_count": p.comment_count,
                     "liked_by_me": p.id in liked,
+                    "hidden": p.hidden,
                     "created_at": p.created_at,
                 }
             )
         return out
+
+    # --- moderation (COMM-01) ---------------------------------------------
+    async def report(
+        self, user: User, *, target_type: str, target_id: uuid.UUID, reason: str
+    ) -> CommunityReport:
+
+        if target_type not in ("post", "comment"):
+            raise ValidationError("target_type must be post|comment")
+        target: CommunityPost | CommunityComment | None
+        if target_type == "post":
+            target = await self.session.get(CommunityPost, target_id)
+        else:
+            target = await self.session.get(CommunityComment, target_id)
+        if target is None:
+            raise NotFoundError("Target not found")
+        existing = (
+            await self.session.execute(
+                select(CommunityReport).where(
+                    CommunityReport.reporter_id == user.id,
+                    CommunityReport.target_type == target_type,
+                    CommunityReport.target_id == target_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            raise ConflictError("You already reported this")
+        rep = CommunityReport(
+            reporter_id=user.id,
+            target_type=target_type,
+            target_id=target_id,
+            reason=reason[:255],
+            status="open",
+        )
+        self.session.add(rep)
+        await self.session.flush()
+        return rep
+
+    async def list_reports(
+        self, *, status: str | None = None, limit: int = 100, offset: int = 0
+    ) -> list[dict]:
+
+        stmt = select(CommunityReport).order_by(CommunityReport.created_at.desc())
+        if status:
+            stmt = stmt.where(CommunityReport.status == status)
+        stmt = stmt.limit(limit).offset(offset)
+        reports = list((await self.session.execute(stmt)).scalars().all())
+        out = []
+        for r in reports:
+            body = None
+            if r.target_type == "post":
+                p = await self.session.get(CommunityPost, r.target_id)
+                body = p.body if p else None
+            else:
+                c = await self.session.get(CommunityComment, r.target_id)
+                body = c.body if c else None
+            out.append(
+                {
+                    "id": r.id,
+                    "reporter_id": r.reporter_id,
+                    "target_type": r.target_type,
+                    "target_id": r.target_id,
+                    "reason": r.reason,
+                    "status": r.status,
+                    "body": body,
+                    "created_at": r.created_at,
+                }
+            )
+        return out
+
+    async def moderate(
+        self, admin: User, report_id: uuid.UUID, action: str, *, reason: str | None = None
+    ) -> CommunityReport:
+        """Admin resolves a report: hide | delete | dismiss (COMM-01)."""
+
+        if not admin.has_role("admin"):
+            raise ForbiddenError("Admin only")
+        report = await self.session.get(CommunityReport, report_id)
+        if report is None:
+            raise NotFoundError("Report not found")
+        if action == "dismiss":
+            report.status = "dismissed"
+        elif action in ("hide", "delete"):
+            if report.target_type == "post":
+                post = await self.session.get(CommunityPost, report.target_id)
+                if post is not None:
+                    if action == "hide":
+                        post.hidden = True
+                        post.hidden_reason = (reason or "Dilaporkan")[:255]
+                    else:
+                        await self.session.delete(post)
+            else:
+                comment = await self.session.get(CommunityComment, report.target_id)
+                if comment is not None:
+                    if action == "hide":
+                        comment.hidden = True
+                    else:
+                        await self.session.delete(comment)
+            report.status = "actioned"
+        else:
+            raise ValidationError("action must be hide|delete|dismiss")
+        await self.session.flush()
+        return report

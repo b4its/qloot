@@ -12,7 +12,12 @@ from app.models.career import (
     RoadmapMilestone,
 )
 from app.models.certificate import Certificate
-from app.models.community import CommunityComment, CommunityLike, CommunityPost
+from app.models.community import (
+    CommunityComment,
+    CommunityLike,
+    CommunityPost,
+    CommunityReport,
+)
 from app.models.exam import (
     BP_SCALE,
     AttemptEvent,
@@ -125,6 +130,7 @@ __all__ = [
     "CommunityPost",
     "CommunityComment",
     "CommunityLike",
+    "CommunityReport",
     "AssistantConversation",
     "AssistantMessage",
     "WalletAccount",

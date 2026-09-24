@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -44,6 +45,10 @@ class CommunityPost(Base):
     # Denormalised counters (kept in sync by the service).
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     comment_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # COMM-01: moderation state. A hidden post is removed from feeds but stays
+    # visible to its author (and to admins in the moderation queue).
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    hidden_reason: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
@@ -67,11 +72,40 @@ class CommunityComment(Base):
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
 
     post: Mapped[CommunityPost] = relationship(back_populates="comments")
+
+
+class CommunityReport(Base):
+    """A user's report of a post or comment (COMM-01)."""
+
+    __tablename__ = "community_reports"
+    __table_args__ = (
+        UniqueConstraint(
+            "reporter_id", "target_type", "target_id", name="uq_community_report_target"
+        ),
+        Index("ix_community_reports_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    reporter_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    # "post" | "comment"
+    target_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    target_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    reason: Mapped[str] = mapped_column(String(255), nullable=False)
+    # "open" | "actioned" | "dismissed"
+    status: Mapped[str] = mapped_column(String(16), default="open", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
 
 
 class CommunityLike(Base):

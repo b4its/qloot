@@ -172,6 +172,26 @@
     }
   }
 
+  /** COMM-01: report a post or comment (one report per object). */
+  async function reportTarget(targetType: "post" | "comment", targetId: string) {
+    const reason = prompt("Alasan melaporkan konten ini?");
+    if (!reason || reason.trim().length < 3) return;
+    error = "";
+    try {
+      await api.post("/community/reports", {
+        target_type: targetType,
+        target_id: targetId,
+        reason: reason.trim(),
+      });
+      copiedId = targetId;
+      setTimeout(() => {
+        if (copiedId === targetId) copiedId = "";
+      }, 2000);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal melaporkan konten";
+    }
+  }
+
   async function submitComment(p: Post) {
     const text = (commentDraft[p.id] ?? "").trim();
     if (text.length < 1) return;
@@ -356,6 +376,13 @@
               <Icon name="share-nodes" size="12px" />
               {copiedId === f.id ? "Tersalin!" : "Bagikan"}
             </button>
+            <button
+              class="inline-flex items-center gap-1.5 hover:text-tertiary"
+              on:click={() => reportTarget("post", f.id)}
+            >
+              <Icon name="flag" size="12px" />
+              Laporkan
+            </button>
           </div>
 
           {#if openComments.has(f.id)}
@@ -378,6 +405,14 @@
                       aria-label="Hapus komentar"
                     >
                       <Icon name="trash" size="10px" />
+                    </button>
+                  {:else}
+                    <button
+                      class="btn-icon flex-none"
+                      on:click={() => reportTarget("comment", c.id)}
+                      aria-label="Laporkan komentar"
+                    >
+                      <Icon name="flag" size="10px" />
                     </button>
                   {/if}
                 </div>
