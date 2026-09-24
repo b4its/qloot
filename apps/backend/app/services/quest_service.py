@@ -77,6 +77,23 @@ class QuestService:
             stmt = stmt.where(Quest.owner_id == user.id)
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def list_expired_open(self, *, limit: int = 20) -> list[Quest]:
+        """Open quests whose ``closes_at`` has passed — candidates for the
+        auto-finalize sweep. Locked with ``SKIP LOCKED`` so two worker
+        replicas never race on the same quest.
+        """
+        now = datetime.now(UTC)
+        stmt = (
+            select(Quest)
+            .where(Quest.status == "open")
+            .where(Quest.closes_at.is_not(None))
+            .where(Quest.closes_at <= now)
+            .order_by(Quest.closes_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def list_rules(self, quest_id: uuid.UUID) -> list[QuestRule]:
         stmt = select(QuestRule).where(QuestRule.quest_id == quest_id).order_by(QuestRule.rank)
         return list((await self.session.execute(stmt)).scalars().all())
@@ -150,6 +167,20 @@ class QuestService:
 
     async def finalize(self, quest_id: uuid.UUID, user: User) -> tuple[Quest, list[QuestWinner]]:
         quest = await self._owned(quest_id, user)
+        return await self._finalize_locked(quest)
+
+    async def finalize_system(self, quest_id: uuid.UUID) -> tuple[Quest, list[QuestWinner]]:
+        """Finalize without an owning-user check — for the auto-finalize sweep.
+
+        Identical winner-selection logic to :meth:`finalize`; only the
+        authorization gate differs (the worker acts on behalf of the platform,
+        not a specific teacher).
+        """
+        quest = await self.get(quest_id)
+        return await self._finalize_locked(quest)
+
+    async def _finalize_locked(self, quest: Quest) -> tuple[Quest, list[QuestWinner]]:
+        quest_id = quest.id
         if quest.status == "finalized":
             existing_winners = await self.list_winners(quest_id)
             return quest, existing_winners

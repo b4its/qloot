@@ -10,7 +10,6 @@ from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, Teache
 from app.core.errors import ForbiddenError, NotFoundError
 from app.db.session import transaction
 from app.models.exam import Exam
-from app.models.identity import User
 from app.schemas.quest import (
     FinalizeResult,
     QuestCreate,
@@ -21,9 +20,6 @@ from app.schemas.quest import (
     WinnerOut,
 )
 from app.services.quest_service import QuestService
-from app.services.realtime import event_bus
-from app.services.reward_engine import RewardEngine
-from app.services.social_service import BadgeService, NotificationService
 
 router = APIRouter()
 
@@ -98,89 +94,22 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
         quest, winners = await service.finalize(quest_id, user)
         rules = {r.rank: r for r in await service.list_rules(quest_id)}
 
-        engine = RewardEngine(db)
-        badges = BadgeService(db)
-        notifications = NotificationService(db)
-        created = 0
-        out: list[WinnerOut] = []
-        for w in winners:
-            rule = rules.get(w.rank)
-            amount = rule.reward_amount if rule else 0
-            user_row = await db.get(User, w.user_id)
-            if user_row is not None and amount > 0 and w.rank <= quest.top_n_winners:
-                allocation = await engine.allocate_quest_reward(
-                    quest=quest,
-                    user=user_row,
-                    rank=w.rank,
-                    amount=amount,
-                    score_bp=w.score_bp,
-                )
-                created += 1
-                # Only notify/award on the *first* finalize: re-finalizing an
-                # already-finalized quest must not duplicate notifications.
-                if not already_finalized:
-                    await notifications.notify(
-                        user_id=user_row.id,
-                        kind="reward",
-                        title=f"You earned {amount} OPT!",
-                        body=f"Quest '{quest.title}' — rank {w.rank}",
-                        data={"quest_id": str(quest.id), "rank": w.rank, "amount": amount},
-                    )
-                    await badges.award(user=user_row, code="first_reward")
-                    if w.rank <= 3:
-                        await badges.award(
-                            user=user_row,
-                            code="top_3",
-                            meta={"quest_id": str(quest.id), "rank": w.rank},
-                        )
-                _ = allocation
-            out.append(
-                WinnerOut(
-                    rank=w.rank,
-                    user_id=w.user_id,
-                    score_bp=w.score_bp,
-                    submitted_at=w.submitted_at,
-                    reward_key=w.reward_key,
-                    reward_amount=amount,
-                )
-            )
-        # Notify participants who did NOT win (kind "quest") on the first finalize
-        # so the "quest" notification kind the contract declares is produced.
-        if not already_finalized:
-            winner_ids = {w.user_id for w in winners}
-            from sqlalchemy import select
+        from app.services.quest_finalize import apply_finalize_side_effects
 
-            from app.models.quest import QuestAttempt
-
-            participant_ids = (
-                set(
-                    (
-                        await db.execute(
-                            select(QuestAttempt.user_id).where(QuestAttempt.quest_id == quest_id)
-                        )
-                    )
-                    .scalars()
-                    .all()
-                )
-                - winner_ids
-            )
-            await notifications.notify_many(
-                user_ids=list(participant_ids),
-                kind="quest",
-                title=f"Quest '{quest.title}' selesai",
-                body="Terima kasih sudah berpartisipasi — cek papan peringkat untuk hasilnya.",
-                data={"quest_id": str(quest_id)},
-            )
-    # Announce finalization on the room's live channel (the room page listens on
-    # ``room:{room_id}``) so participants see it — a bespoke ``quest:{id}``
-    # channel has no subscriber and the event would be lost.
-    if quest.room_id is not None:
-        from app.services.realtime import room_channel
-
-        await event_bus.publish(
-            room_channel(str(quest.room_id)),
-            {"type": "quest.finalized", "quest_id": str(quest_id), "winners": len(out)},
+        created = await apply_finalize_side_effects(
+            db, quest, winners, already_finalized=already_finalized
         )
+        out: list[WinnerOut] = [
+            WinnerOut(
+                rank=w.rank,
+                user_id=w.user_id,
+                score_bp=w.score_bp,
+                submitted_at=w.submitted_at,
+                reward_key=w.reward_key,
+                reward_amount=rules[w.rank].reward_amount if w.rank in rules else 0,
+            )
+            for w in winners
+        ]
     return FinalizeResult(quest_id=quest_id, winners=out, allocations_created=created)
 
 

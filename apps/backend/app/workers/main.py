@@ -74,6 +74,34 @@ async def _reap_stuck_jobs(session) -> int:
     return len(stuck)
 
 
+async def _sweep_expired_quests(*, limit: int = 20) -> int:
+    """Auto-finalize open quests whose ``closes_at`` has passed.
+
+    Runs in its own short transaction per batch so the row locks
+    (``SKIP LOCKED``) from :meth:`QuestService.list_expired_open` are held
+    only for the duration of finalize + side-effects, matching the exam
+    sweeper's pattern. Re-running is a no-op (finalize is idempotent).
+    """
+    from app.services.quest_finalize import finalize_quest_system
+    from app.services.quest_service import QuestService
+
+    finalized = 0
+    async with session_factory() as session, session.begin():
+        quests = await QuestService(session).list_expired_open(limit=limit)
+        quest_ids = [q.id for q in quests]
+
+    for quest_id in quest_ids:
+        async with session_factory() as session, session.begin():
+            try:
+                await finalize_quest_system(session, quest_id)
+                finalized += 1
+            except Exception as exc:  # noqa: BLE001 - keep sweeping other quests
+                log.error("quest_autofinalize_failed", quest_id=str(quest_id), error=str(exc))
+    if finalized:
+        log.info("quests_autofinalized", count=finalized)
+    return finalized
+
+
 async def _process_once() -> bool:
     """Claim one job, release its lock, then do the work in a fresh transaction."""
     # --- 0. Sweep expired exam attempts (auto-submit) ----------------------
@@ -81,6 +109,9 @@ async def _process_once() -> bool:
         from app.services.exam_service import ExamService
 
         await ExamService(session).sweep_expired_attempts()
+
+    # --- 0b. Auto-finalize quests past their closes_at ----------------------
+    await _sweep_expired_quests()
 
     # --- 1. Short claim + reaper transaction (row lock held only briefly) ---
     async with session_factory() as session, session.begin():

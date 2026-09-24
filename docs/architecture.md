@@ -6,7 +6,7 @@
 |---|---|
 | `frontend` | SvelteKit (adapter-node) UI |
 | `backend` | FastAPI REST + WebSocket API |
-| `worker` | AI generation & grading jobs, expired-attempt sweeper |
+| `worker` | AI generation & grading jobs, expired-attempt sweeper, quest auto-finalize sweeper |
 | `blockchain-worker` | Signs & submits on-chain transactions (outbox drainer) |
 | `blockchain-indexer` | Tracks confirmations, promotes rewards to `confirmed` |
 | `reconciler` | Sweeps OPT accounts for cached-vs-ledger drift and repairs it |
