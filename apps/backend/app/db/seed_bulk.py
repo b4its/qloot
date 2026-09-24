@@ -708,18 +708,38 @@ async def seed_career(session: AsyncSession, students) -> None:
         await session.flush()
 
     if await _count(session, Consultation) < TARGET:
-        rng = random.Random(17)
-        counselors = ["Bu Ratna Wijaya", "Pak Aditya Nugraha"]
+        from app.models.identity import Role, User, UserRole
+
+        # CI-04: seed a counselor as a *real* teacher user so the BK panel has
+        # an owner, and cover every status the UI can render (including
+        # completed, which the old seeder never produced).
+        counselor_user = (
+            await session.execute(
+                select(User)
+                .join(UserRole, UserRole.user_id == User.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(Role.name == "teacher")
+                .limit(1)
+            )
+        ).scalars().first()
+        counselor_name = counselor_user.full_name if counselor_user else "Bu Ratna Wijaya"
+        counselors = [counselor_name, "Pak Aditya Nugraha"]
+        statuses = ["pending", "accepted", "completed", "cancelled"]
         for i in range(1, TARGET + 1):
             s = students[i % len(students)]
+            status = statuses[i % len(statuses)]
             session.add(
                 Consultation(
                     id=det_uuid("consult", str(i)),
                     user_id=s.id,
                     counselor=counselors[i % 2],
+                    counselor_user_id=counselor_user.id if counselor_user else None,
                     topic="Konsultasi pemilihan jurusan",
                     scheduled_at=datetime.now(UTC) + timedelta(days=3 + i % 10),
-                    status="pending" if i % 4 else "cancelled",
+                    status=status,
+                    completed_at=(
+                        datetime.now(UTC) - timedelta(hours=i) if status == "completed" else None
+                    ),
                     notes="Sesi simulasi.",
                 )
             )

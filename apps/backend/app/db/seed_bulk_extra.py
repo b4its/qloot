@@ -829,7 +829,9 @@ async def seed_misc(session: AsyncSession, students, teachers) -> None:
             major = majors[rank % len(majors)]
             i += 1
             key = (student.id, major, rank)
-            # no unique business constraint; ensure a unique id per row
+            # CI-04: vary the status so every state the UI renders has data.
+            # A third stay draft, a third are in_review, a third approved.
+            status = ["draft", "in_review", "approved"][i % 3]
             session.add(
                 CareerRecommendation(
                     id=det_uuid("crec", str(student.id), major, str(rank), str(i)),
@@ -844,7 +846,7 @@ async def seed_misc(session: AsyncSession, students, teachers) -> None:
                     skills=["Analisis", "Komunikasi"],
                     careers=["Engineer", "Analyst"],
                     rank=rank,
-                    status=["draft", "in_review", "approved"][i % 3],
+                    status=status,
                     created_at=datetime.now(UTC) - timedelta(hours=i),
                 )
             )

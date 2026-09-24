@@ -161,3 +161,31 @@ async def test_seed_quest_outcomes_respects_preexisting_winners(session):
     ranks_for_quest = [w.rank for w in winners if w.quest_id == quest.id]
     assert ranks_for_quest.count(1) == 1
     assert len({(w.quest_id, w.rank) for w in winners}) == len(winners)
+
+
+async def test_seed_career_covers_every_consultation_status(session):
+    """CI-04: consultations must include completed (not just pending/cancelled),
+    and recommendations a mix of draft/in_review/approved."""
+    from app.db.seed_bulk import seed_career
+    from app.db.seed_bulk_extra import seed_misc
+    from app.models.career import CareerRecommendation, Consultation
+
+    # A modest cohort is enough: the seeder pads to TARGET regardless.
+    students = [await _student(session, f"carseed_{i}@ex.com") for i in range(8)]
+    await session.flush()
+
+    await seed_career(session, students)
+    # Recommendations + consultation threads are seeded by seed_misc.
+    await seed_misc(session, students, [])
+    await session.flush()
+
+    statuses = set(
+        (await session.execute(select(Consultation.status))).scalars().all()
+    )
+    assert "completed" in statuses, f"consultation statuses missing 'completed': {statuses}"
+    assert {"pending", "cancelled"} <= statuses
+
+    rec_statuses = set(
+        (await session.execute(select(CareerRecommendation.status))).scalars().all()
+    )
+    assert {"draft", "in_review", "approved"} <= rec_statuses
