@@ -187,10 +187,14 @@ export interface Task {
   description?: string | null;
   kind: string;
   reward_amount: number;
+  course_id?: string | null;
+  quest_id?: string | null;
   is_active: boolean;
   starts_at?: string | null;
   ends_at?: string | null;
   created_at: string;
+  /** True when completion is pure self-report (no course/quest to verify). */
+  honor_system?: boolean;
 }
 
 export interface Wallet {

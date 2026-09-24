@@ -18,6 +18,7 @@ from app.schemas.task import TaskCompletionOut, TaskCreate, TaskOut, TaskUpdate
 from app.services.keys import task_reward_key
 from app.services.reward_engine import RewardEngine
 from app.services.social_service import NotificationService
+from app.services.task_verification import verify_task_completion
 
 router = APIRouter()
 
@@ -112,6 +113,11 @@ async def complete_task(task_id: uuid.UUID, user: CurrentUser, db: DbSession):
             raise ConflictError("Task has not started yet")
         if task.ends_at and now > task.ends_at:
             raise ConflictError("Task has ended")
+
+        # A task bound to a course/quest claims a specific real action
+        # happened; verify it instead of trusting the self-report. Tasks with
+        # neither binding remain genuinely honor-system.
+        await verify_task_completion(db, task, user.id)
 
         period = _period_key(task.kind, now)
         existing = (

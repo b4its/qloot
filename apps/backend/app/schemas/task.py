@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from app.schemas.common import ORMModel
 
@@ -43,6 +43,14 @@ class TaskOut(ORMModel):
     starts_at: datetime | None
     ends_at: datetime | None
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def honor_system(self) -> bool:
+        """True when completion is pure self-report (no course/quest binding
+        to verify against). Surfaced so the UI can label the difference.
+        """
+        return self.course_id is None and self.quest_id is None
 
 
 class TaskCompletionOut(ORMModel):

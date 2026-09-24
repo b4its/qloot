@@ -99,6 +99,11 @@
               <div class="flex items-center gap-2">
                 <h2 class="font-semibold">{t.title}</h2>
                 <span class="badge badge-neutral">{t.kind}</span>
+                {#if t.honor_system}
+                  <span class="badge badge-amber" title="Berbasis kejujuran — tidak diverifikasi"
+                    >self-report</span
+                  >
+                {/if}
               </div>
               <p class="text-sm muted">{t.description ?? ""}</p>
               {#if t.ends_at}<p class="text-xs muted">Berakhir {formatDate(t.ends_at)}</p>{/if}
