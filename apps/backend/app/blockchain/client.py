@@ -334,7 +334,7 @@ class ChainClient:
             self._orx.functions.anchorOnQtc(_b32(anchor_key), _b32(document_hash))
         )
 
-    async def _send(self, fn) -> TxReceipt:
+    async def _send(self, fn, *, fee_bump_percent: int = 0) -> TxReceipt:
         assert self._w3 is not None and self._account is not None
         try:
             # Hold the lock across nonce read -> sign -> send so back-to-back
@@ -349,6 +349,7 @@ class ChainClient:
                         "from": self._account.address,
                         "nonce": nonce,
                         "chainId": settings.chain_id,
+                        **self.estimate_fees(fee_bump_percent=fee_bump_percent),
                     }
                 )
                 signed = self._account.sign_transaction(tx)
@@ -360,6 +361,51 @@ class ChainClient:
             )
         except Exception as exc:  # noqa: BLE001
             raise ChainError("Failed to submit transaction") from exc
+
+    def estimate_fees(self, *, fee_bump_percent: int = 0) -> dict[str, int]:
+        """Build EIP-1559 fee fields with a configurable buffer (WEB3-06).
+
+        Estimates gas, the next base fee and a suggested priority fee, applies
+        the configured buffers, and returns the ``gas``/``maxFeePerGas``/
+        ``maxPriorityFeePerGas`` dict to merge into the transaction. A
+        ``fee_bump_percent`` raises the max fee for a stuck-transaction
+        resubmission.
+        """
+        assert self._w3 is not None
+        sender = self._account.address if self._account is not None else None
+        try:
+            gas = int(self._w3.eth.estimate_gas({"from": sender} if sender else {}))
+        except Exception:  # noqa: BLE001 - estimation can revert; fall back
+            gas = 200_000
+        try:
+            base = int(self._w3.eth.get_block("latest").get("baseFeePerGas") or 0)
+        except Exception:  # noqa: BLE001
+            base = 0
+        try:
+            priority = int(
+                self._w3.eth.max_priority_fee
+                if hasattr(self._w3.eth, "max_priority_fee")
+                else self._w3.to_wei(1, "gwei")
+            )
+        except Exception:  # noqa: BLE001
+            priority = self._w3.to_wei(1, "gwei")
+
+        priority = int(priority * settings.tx_priority_fee_buffer)
+        # EIP-1559: max fee must cover base + tip with headroom for a few blocks.
+        if base > 0:
+            max_fee = int(base * settings.tx_base_fee_buffer + priority)
+        else:
+            # Chains without base fee (legacy): fall back to a legacy gas price.
+            max_fee = priority
+        if fee_bump_percent:
+            bump = 1 + fee_bump_percent / 100.0
+            priority = int(priority * bump)
+            max_fee = int(max_fee * bump)
+        return {
+            "gas": max(gas, 21_000),
+            "maxFeePerGas": max_fee,
+            "maxPriorityFeePerGas": priority,
+        }
 
     def get_confirmations(self, tx_hash: str) -> int:
         if self.dry_run:

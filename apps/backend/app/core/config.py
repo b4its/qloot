@@ -153,6 +153,15 @@ class Settings(BaseSettings):
     opc_max_reward_per_tx: int = 100_000
     blockchain_dry_run: bool = True
     blockchain_poll_seconds: int = 5
+    # EIP-1559 fee estimation (WEB3-06). The priority-fee buffer multiplies the
+    # node's suggested tip; the base-fee buffer multiplies the estimated next
+    # base fee. Both default to a small headroom so a tx is not under-priced
+    # during fee spikes. Set fee_bump_percent to raise a stuck tx's fee.
+    tx_priority_fee_buffer: float = 1.25
+    tx_base_fee_buffer: float = 1.2
+    tx_fee_bump_percent: int = 10
+    tx_stuck_seconds: int = 120
+    tx_max_resubmits: int = 3
     # AI worker cadence + stuck-job recovery window (seconds).
     worker_poll_seconds: int = 3
     worker_job_timeout_seconds: int = 900

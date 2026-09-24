@@ -81,3 +81,66 @@ def test_dry_run_when_no_contract_configured(monkeypatch):
     monkeypatch.setattr(settings, "opc_contract_address", "")
     monkeypatch.setattr(settings, "blockchain_dry_run", True)
     assert ChainClient().dry_run is True
+
+
+class _FakeEth:
+    def __init__(self, *, gas=50_000, base=100, priority=2_000_000_000):
+        self._gas = gas
+        self._base = base
+        self._priority = priority
+
+    def estimate_gas(self, _tx):
+        return self._gas
+
+    def get_block(self, _tag):
+        return {"baseFeePerGas": self._base}
+
+    @property
+    def max_priority_fee(self):
+        return self._priority
+
+
+class _FakeW3:
+    def __init__(self, eth):
+        self.eth = eth
+
+    @staticmethod
+    def to_wei(value, unit):
+        assert unit == "gwei"
+        return value * 10**9
+
+
+def test_estimate_fees_applies_buffers(monkeypatch):
+    """WEB3-06: the built tx must carry gas/maxFeePerGas/maxPriorityFeePerGas."""
+    monkeypatch.setattr(settings, "tx_priority_fee_buffer", 1.5)
+    monkeypatch.setattr(settings, "tx_base_fee_buffer", 2.0)
+    client = ChainClient()
+    client._w3 = _FakeW3(_FakeEth(gas=50_000, base=100, priority=1_000_000_000))
+    fees = client.estimate_fees()
+    assert fees["gas"] == 50_000
+    assert fees["maxPriorityFeePerGas"] == int(1_000_000_000 * 1.5)
+    # maxFeePerGas covers base*2 + buffered tip.
+    assert fees["maxFeePerGas"] == int(100 * 2.0 + int(1_000_000_000 * 1.5))
+
+
+def test_estimate_fees_bump_raises_both(monkeypatch):
+    monkeypatch.setattr(settings, "tx_priority_fee_buffer", 1.0)
+    monkeypatch.setattr(settings, "tx_base_fee_buffer", 1.0)
+    client = ChainClient()
+    client._w3 = _FakeW3(_FakeEth(gas=50_000, base=100, priority=1_000_000_000))
+    base = client.estimate_fees()
+    bumped = client.estimate_fees(fee_bump_percent=100)
+    assert bumped["maxPriorityFeePerGas"] == base["maxPriorityFeePerGas"] * 2
+    assert bumped["maxFeePerGas"] > base["maxFeePerGas"]
+
+
+def test_estimate_fees_falls_back_when_estimation_reverts(monkeypatch):
+    class _RevertingEth(_FakeEth):
+        def estimate_gas(self, _tx):
+            raise ValueError("reverted")
+
+    client = ChainClient()
+    client._w3 = _FakeW3(_RevertingEth())
+    fees = client.estimate_fees()
+    assert fees["gas"] == 200_000
+    assert "maxFeePerGas" in fees
