@@ -37,6 +37,23 @@
   });
 
   $: earnedCodes = new Set(earned.map((e) => e.badge.code));
+
+  const rarityOrder: Record<string, number> = { legendary: 0, epic: 1, rare: 2, common: 3 };
+  const rarityLabel: Record<string, string> = {
+    legendary: "Legendaris",
+    epic: "Epik",
+    rare: "Langka",
+    common: "Umum",
+  };
+  const rarityClass: Record<string, string> = {
+    legendary: "badge-amber",
+    epic: "badge-indigo",
+    rare: "badge-mint",
+    common: "badge-neutral",
+  };
+  $: sortedCatalog = [...catalog].sort(
+    (a, b) => (rarityOrder[a.rarity ?? "common"] ?? 3) - (rarityOrder[b.rarity ?? "common"] ?? 3),
+  );
 </script>
 
 <svelte:head><title>Badge — QLoot</title></svelte:head>
@@ -73,7 +90,7 @@
     </div>
 
     <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {#each catalog as b}
+      {#each sortedCatalog as b}
         {@const owned = earned.find((e) => e.badge.code === b.code)}
         <div class="nft card" class:opacity-50={!earnedCodes.has(b.code)}>
           <div class="flex items-center justify-between">
@@ -89,7 +106,12 @@
           <h2 class="mt-3 font-display text-lg font-bold">{b.name}</h2>
           <p class="text-sm muted">{b.description}</p>
           <div class="mt-3 flex items-center justify-between border-t pt-3 text-xs muted">
-            <span class="mono">{b.points} POIN</span>
+            <span class="flex items-center gap-2">
+              <span class="mono">{b.points} POIN</span>
+              <span class="badge {rarityClass[b.rarity ?? 'common']}"
+                >{rarityLabel[b.rarity ?? "common"]}</span
+              >
+            </span>
             {#if owned}<span>· {relativeTime(owned.awarded_at)}</span>{/if}
           </div>
         </div>

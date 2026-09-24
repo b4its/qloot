@@ -29,7 +29,27 @@ XP_MILESTONES: list[tuple[int, str, str, str, str, int]] = [
 
 
 def _milestone_badge_row(code: str, name: str, desc: str, icon: str, points: int) -> dict:
-    return {"code": code, "name": name, "description": desc, "icon": icon, "points": points}
+    return {
+        "code": code,
+        "name": name,
+        "description": desc,
+        "icon": icon,
+        "points": points,
+        "rarity": rarity_for_points(points),
+    }
+
+
+def rarity_for_points(points: int) -> str:
+    """Deterministic points -> rarity tier mapping (matches the migration's
+    backfill so newly-seeded and pre-existing badges agree).
+    """
+    if points >= 100:
+        return "legendary"
+    if points >= 40:
+        return "epic"
+    if points >= 20:
+        return "rare"
+    return "common"
 
 
 class NotificationService:
@@ -150,6 +170,7 @@ class BadgeService:
                 "description": desc,
                 "icon": icon,
                 "points": points,
+                "rarity": rarity_for_points(points),
             }
             for code, name, desc, icon, points in catalog
         ]

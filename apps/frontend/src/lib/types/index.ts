@@ -372,6 +372,7 @@ export interface Badge {
   description?: string | null;
   icon: string;
   points: number;
+  rarity?: string;
 }
 
 export interface UserBadge {

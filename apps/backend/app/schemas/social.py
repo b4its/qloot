@@ -30,6 +30,7 @@ class BadgeOut(ORMModel):
     description: str | None = None
     icon: str
     points: int
+    rarity: str
 
 
 class UserBadgeOut(BaseModel):

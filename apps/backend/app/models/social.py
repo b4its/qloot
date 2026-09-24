@@ -58,6 +58,9 @@ class Badge(Base):
     description: Mapped[str | None] = mapped_column(String(512))
     icon: Mapped[str] = mapped_column(String(16), default="🏅", nullable=False)
     points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # common < rare < epic < legendary. Drives FE styling and XP weighting
+    # (see BadgeService.RARITY_XP_MULTIPLIER).
+    rarity: Mapped[str] = mapped_column(String(16), default="common", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

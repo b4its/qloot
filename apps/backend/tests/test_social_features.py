@@ -59,7 +59,31 @@ async def test_badge_catalog_available(client):
     assert catalog.status_code == 200
     assert len(catalog.json()) >= 1
     # Badges are off-chain gamification; the catalog exposes code/name/icon/points.
-    assert all({"code", "name", "icon", "points"} <= set(b) for b in catalog.json())
+    assert all({"code", "name", "icon", "points", "rarity"} <= set(b) for b in catalog.json())
+    assert all(b["rarity"] in ("common", "rare", "epic", "legendary") for b in catalog.json())
+
+
+def test_rarity_for_points_is_deterministic():
+    """GAME-13: points -> rarity mapping matches the migration's backfill."""
+    from app.services.social_service import rarity_for_points
+
+    assert rarity_for_points(0) == "common"
+    assert rarity_for_points(19) == "common"
+    assert rarity_for_points(20) == "rare"
+    assert rarity_for_points(39) == "rare"
+    assert rarity_for_points(40) == "epic"
+    assert rarity_for_points(99) == "epic"
+    assert rarity_for_points(100) == "legendary"
+    assert rarity_for_points(1000) == "legendary"
+
+
+async def test_catalog_rarity_matches_each_badges_points(client):
+    await _register(client, "badge_rarity@ex.com")
+    from app.services.social_service import rarity_for_points
+
+    catalog = (await client.get("/api/v1/badges")).json()
+    for b in catalog:
+        assert b["rarity"] == rarity_for_points(b["points"])
 
 
 async def test_perfect_exam_awards_badge(client):
