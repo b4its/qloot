@@ -53,11 +53,11 @@ contract OryphemProxy is
     bytes32 public constant ROUTER_ROLE = keccak256("ROUTER_ROLE");
 
     // =====================================================================
-    // Fixed rates (OPT per 1 unit of the target asset)
+    // Rates (OPT per 1 unit of the target asset) — governable storage
     // =====================================================================
-    /// @notice 1 ORT = 50 OPT.
+    /// @notice 1 ORT = 50 OPT (default).
     uint256 public constant ORT_RATE = 50;
-    /// @notice 1 QTC = 1000 OPT.
+    /// @notice 1 QTC = 1000 OPT (default).
     uint256 public constant QTC_RATE = 1000;
 
     // =====================================================================
@@ -81,8 +81,15 @@ contract OryphemProxy is
     /// @notice Total AI requests paid in ORT.
     uint256 public totalAiRequests;
 
-    /// @dev Reserved storage for future upgrades.
-    uint256[40] private __gap;
+    /// @notice Live OPT-per-ORT rate (governable; WEB3-10). 0 = use default.
+    uint256 public optPerOrtRate;
+    /// @notice Live OPT-per-QTC rate (governable; WEB3-10). 0 = use default.
+    uint256 public optPerQtcRate;
+
+    /// @dev Reserved storage for future upgrades (reduced by 2 for the new
+    ///      rate slots appended above; the layout of prior slots is unchanged,
+    ///      which keeps the UUPS upgrade safe).
+    uint256[38] private __gap;
 
     // =====================================================================
     // Events
@@ -91,6 +98,8 @@ contract OryphemProxy is
     event AiRequestPaid(address indexed account, uint256 requests, uint256 totalRequests);
     event AssetsUpdated(address opt, address qtc, address ort);
     event TreasuryUpdated(address oldTreasury, address newTreasury);
+    /// @notice Emitted when the swap rates are changed (WEB3-10).
+    event RatesUpdated(uint256 optPerOrt, uint256 optPerQtc);
 
     // =====================================================================
     // Errors
@@ -122,8 +131,12 @@ contract OryphemProxy is
         qtc = IOryphemAsset(qtc_);
         ort = IOryphemAsset(ort_);
         treasury = treasury_ == address(0) ? admin : treasury_;
+        // Default rates (governable afterwards via setRates).
+        optPerOrtRate = ORT_RATE;
+        optPerQtcRate = QTC_RATE;
         emit AssetsUpdated(opt_, qtc_, ort_);
         emit TreasuryUpdated(address(0), treasury);
+        emit RatesUpdated(optPerOrtRate, optPerQtcRate);
     }
 
     // =====================================================================
@@ -143,13 +156,24 @@ contract OryphemProxy is
         treasury = newTreasury;
     }
 
+    /**
+     * @notice Update the swap rates (WEB3-10). Only ADMIN_ROLE.
+     * @dev Zero falls back to the immutable default (ORT_RATE/QTC_RATE) so the
+     *      contract keeps working if a rate is unset.
+     */
+    function setRates(uint256 optPerOrt_, uint256 optPerQtc_) external onlyRole(ADMIN_ROLE) {
+        optPerOrtRate = optPerOrt_;
+        optPerQtcRate = optPerQtc_;
+        emit RatesUpdated(optPerOrt_, optPerQtc_);
+    }
+
     // =====================================================================
     // Router
     // =====================================================================
     /// @notice Which asset id a target token contract is: 1 = QTC, 2 = ORT.
-    function _rateFor(uint256 assetId) internal pure returns (uint256) {
-        if (assetId == 2) return ORT_RATE;
-        if (assetId == 1) return QTC_RATE;
+    function _rateFor(uint256 assetId) internal view returns (uint256) {
+        if (assetId == 2) return optPerOrtRate == 0 ? ORT_RATE : optPerOrtRate;
+        if (assetId == 1) return optPerQtcRate == 0 ? QTC_RATE : optPerQtcRate;
         revert UnsupportedAsset();
     }
 
@@ -211,9 +235,12 @@ contract OryphemProxy is
         emit AiRequestPaid(msg.sender, requests, totalAiRequests);
     }
 
-    /// @notice Current OPT-per-unit rates for ORT and QTC.
-    function proxyRates() external pure returns (uint256 optPerOrt, uint256 optPerQtc) {
-        return (ORT_RATE, QTC_RATE);
+    /// @notice Current OPT-per-unit rates for ORT and QTC (governable).
+    function proxyRates() external view returns (uint256 optPerOrt, uint256 optPerQtc) {
+        return (
+            optPerOrtRate == 0 ? ORT_RATE : optPerOrtRate,
+            optPerQtcRate == 0 ? QTC_RATE : optPerQtcRate
+        );
     }
 
     /**

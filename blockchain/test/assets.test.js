@@ -278,6 +278,35 @@ describe("QLoot digital assets — OPT / QTC / ORT + ORX router", function () {
       expect(await orx.QTC_RATE()).to.equal(1000n);
     });
 
+    it("updates the rates via setRates (ADMIN_ROLE) and uses them on swap", async function () {
+      // Non-admin cannot change rates.
+      await expect(orx.connect(alice).setRates(25n, 500n)).to.be.revertedWithCustomError(
+        orx,
+        "AccessControlUnauthorizedAccount"
+      );
+
+      await expect(orx.connect(admin).setRates(25n, 500n))
+        .to.emit(orx, "RatesUpdated")
+        .withArgs(25n, 500n);
+
+      const [optPerOrt, optPerQtc] = await orx.proxyRates();
+      expect(optPerOrt).to.equal(25n);
+      expect(optPerQtc).to.equal(500n);
+
+      // A swap now charges the governed rate (25 OPT per ORT).
+      await opt.connect(minter).mint(alice.address, 1_000n);
+      await orx.connect(alice).swapOptFor(2n, 4n); // 4 ORT * 25 = 100 OPT
+      expect(await opt.balanceOf(alice.address, ASSET_ID)).to.equal(900n);
+      expect(await ort.balanceOf(alice.address, ASSET_ID)).to.equal(4n);
+    });
+
+    it("setRates(0,0) falls back to the default rates", async function () {
+      await orx.connect(admin).setRates(0n, 0n);
+      const [optPerOrt, optPerQtc] = await orx.proxyRates();
+      expect(optPerOrt).to.equal(50n);
+      expect(optPerQtc).to.equal(1000n);
+    });
+
     it("stores the OPT/QTC/ORT addresses and treasury", async function () {
       expect(await orx.opt()).to.equal(await opt.getAddress());
       expect(await orx.qtc()).to.equal(await qtc.getAddress());

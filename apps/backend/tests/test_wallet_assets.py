@@ -113,3 +113,24 @@ async def test_ai_request_spends_ort(client, engine):
     # Spending more than the balance is rejected.
     over = await client.post("/api/v1/wallet/ai-requests", json={"requests": 10})
     assert over.status_code == 409, over.text
+
+
+def test_off_chain_rates_match_on_chain_defaults():
+    """WEB3-10 parity: the backend-quoted swap rate must equal the contract's
+    default rate, so the OPT a user is charged off-chain equals what the proxy
+    would burn on-chain."""
+    import pathlib
+    import re
+
+    from app.core.config import settings
+
+    sol = pathlib.Path(__file__).resolve().parents[3] / "blockchain" / "contracts"
+    source = (sol / "OryphemProxy.sol").read_text(encoding="utf-8")
+    ort = re.search(r"uint256 public constant ORT_RATE = (\d+);", source)
+    qtc = re.search(r"uint256 public constant QTC_RATE = (\d+);", source)
+    assert ort is not None and qtc is not None
+    assert settings.orx_ort_rate == int(ort.group(1))
+    assert settings.orx_qtc_rate == int(qtc.group(1))
+    assert settings.orx_rate("ORT") == int(ort.group(1))
+    assert settings.orx_rate("QTC") == int(qtc.group(1))
+

@@ -16,7 +16,10 @@ QLoot deploys **four separate ERC-1155 UUPS contracts**, each with its own addre
 All three assets share `OryphemAssetBase` and use token id `0` within their own contract.
 
 The **OryphemProxy (ORX)** router governs conversions: `1 ORT = 50 OPT`, `1 QTC = 1000 OPT`
-(`swapOptFor`); `payAiRequest` burns 1 ORT per AI request.
+(`swapOptFor`); `payAiRequest` burns 1 ORT per AI request. These rates are governable
+storage: `ADMIN_ROLE` can call `setRates(optPerOrt, optPerQtc)` (emits `RatesUpdated`),
+and `0` falls back to the immutable defaults. The backend quote (`ORX_ORT_RATE` /
+`ORX_QTC_RATE`) must match the on-chain rates — a parity test enforces this.
 
 ### Extensions
 
