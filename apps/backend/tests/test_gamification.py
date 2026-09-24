@@ -142,3 +142,93 @@ async def test_personal_ranking_reports_position(client):
     # A fresh user still gets a concrete rank (>= 1).
     assert body["rank"] >= 1
     assert "total_score_bp" in body
+
+
+async def test_streak_derivation_from_task_completions(session):
+    """GAME-05: streaks are derived from real activity dates, never stored."""
+    from app.models.quest import Task, TaskCompletion
+    from app.services.gamification_service import GamificationService
+    from app.services.keys import task_reward_key
+    from app.services.reward_engine import RewardEngine
+
+    student = await _user(session, "streak_a@q.com")
+    task = Task(title="Daily", kind="daily", reward_amount=5, owner_id=None)
+    session.add(task)
+    await session.flush()
+
+    engine = RewardEngine(session)
+    now = datetime.now(UTC)
+    for offset in (2, 1, 0):  # three consecutive days ending today
+        day = now - timedelta(days=offset)
+        rkey = task_reward_key(task.id, student.id, day.date().isoformat())
+        session.add(
+            TaskCompletion(
+                task_id=task.id,
+                user_id=student.id,
+                period_key=day.date().isoformat(),
+                reward_key=rkey,
+                completed_at=day,
+            )
+        )
+        await session.flush()
+    await session.commit()
+
+    result = await GamificationService(session).streak_for_user(student.id)
+    assert result["current_streak"] == 3
+    assert result["best_streak"] == 3
+    assert result["last_active_date"] is not None
+    _ = engine  # unused import guard for readability of the reward-key call
+
+
+async def test_streak_breaks_on_a_gap_day(session):
+    from app.models.quest import Task, TaskCompletion
+    from app.services.gamification_service import GamificationService
+    from app.services.keys import task_reward_key
+
+    student = await _user(session, "streak_b@q.com")
+    task = Task(title="Daily2", kind="daily", reward_amount=5, owner_id=None)
+    session.add(task)
+    await session.flush()
+
+    now = datetime.now(UTC)
+    # Active 4 and 3 days ago (a run of 2), then a gap, then active today.
+    for offset in (4, 3, 0):
+        day = now - timedelta(days=offset)
+        rkey = task_reward_key(task.id, student.id, f"gap-{offset}")
+        session.add(
+            TaskCompletion(
+                task_id=task.id,
+                user_id=student.id,
+                period_key=f"gap-{offset}",
+                reward_key=rkey,
+                completed_at=day,
+            )
+        )
+        await session.flush()
+    await session.commit()
+
+    result = await GamificationService(session).streak_for_user(student.id)
+    # Current streak only counts the unbroken run ending today (1 day).
+    assert result["current_streak"] == 1
+    # Best streak captures the earlier 2-day run.
+    assert result["best_streak"] == 2
+
+
+async def test_streak_is_zero_with_no_activity(session):
+    from app.services.gamification_service import GamificationService
+
+    student = await _user(session, "streak_c@q.com")
+    result = await GamificationService(session).streak_for_user(student.id)
+    assert result == {"current_streak": 0, "best_streak": 0, "last_active_date": None}
+
+
+async def test_gamification_me_endpoint_includes_streak(client):
+    from tests.helpers import register_actor
+
+    await register_actor(client, "streak_endpoint@ex.com", "student")
+    me = await client.get("/api/v1/gamification/me")
+    assert me.status_code == 200, me.text
+    body = me.json()
+    assert "current_streak" in body
+    assert "best_streak" in body
+    assert body["current_streak"] == 0  # no activity yet

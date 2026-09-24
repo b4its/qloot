@@ -27,6 +27,9 @@ const PROFILE = {
   breakdown: { exams: 800, quests: 300, tasks: 120, badges: 14 },
   quest_wins: 2,
   tasks_completed: 3,
+  current_streak: 5,
+  best_streak: 9,
+  last_active_date: "2026-09-24",
 };
 
 beforeEach(() => {
@@ -62,5 +65,12 @@ describe("profile gamification card", () => {
     expect(screen.getByText("Quest 300 XP")).toBeTruthy();
     expect(screen.getByText("Tugas 120 XP")).toBeTruthy();
     expect(screen.getByText("Badge 14 XP")).toBeTruthy();
+  });
+
+  it("renders the current and best streak (GAME-05)", async () => {
+    render(ProfilePage);
+    await waitFor(() => expect(screen.getByText("Progres gamifikasi")).toBeTruthy());
+    expect(screen.getByText(/Streak 5 hari/)).toBeTruthy();
+    expect(screen.getByText(/Terbaik 9 hari/)).toBeTruthy();
   });
 });

@@ -138,6 +138,12 @@
           <span class="badge badge-indigo">Quest {formatNumber(profile.breakdown.quests)} XP</span>
           <span class="badge badge-indigo">Tugas {formatNumber(profile.breakdown.tasks)} XP</span>
           <span class="badge badge-indigo">Badge {formatNumber(profile.breakdown.badges)} XP</span>
+          <span class="badge badge-amber">
+            <Icon name="fire" size="10px" /> Streak {profile.current_streak} hari
+          </span>
+          {#if profile.best_streak > profile.current_streak}
+            <span class="badge badge-neutral">Terbaik {profile.best_streak} hari</span>
+          {/if}
         </div>
       </div>
     {/if}

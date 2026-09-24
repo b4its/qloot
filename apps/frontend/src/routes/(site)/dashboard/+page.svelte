@@ -10,6 +10,7 @@
     Progress,
     Attempt,
     GradeRow,
+    GamificationProfile,
   } from "$lib/types";
   import { auth } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
@@ -25,6 +26,7 @@
   let badgeCatalog: Badge[] = [];
   let subjects: Course[] = [];
   let wallet: { available: number; token_id: number } | null = null;
+  let gamification: GamificationProfile | null = null;
   let loading = true;
   let error = "";
 
@@ -157,7 +159,7 @@
 
   onMount(async () => {
     try {
-      const [a, p, b, w, s, g, bc, prog, atts] = await Promise.all([
+      const [a, p, b, w, s, g, bc, prog, atts, gam] = await Promise.all([
         api.get<AcademicDashboard>("/career/dashboard").catch(() => null),
         api.get<Personality | null>("/career/personality").catch(() => null),
         api.get<UserBadge[]>("/me/badges").catch(() => []),
@@ -167,6 +169,7 @@
         api.get<Badge[]>("/badges").catch(() => []),
         api.get<Progress[]>("/me/learning-progress").catch(() => []),
         api.get<Attempt[]>("/attempts").catch(() => []),
+        api.get<GamificationProfile>("/gamification/me").catch(() => null),
       ]);
       acad = a;
       personality = p;
@@ -175,6 +178,7 @@
       subjects = s;
       grades = g;
       badgeCatalog = bc;
+      gamification = gam;
       activityCounts = buildActivity(prog, atts, b);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "";
@@ -358,6 +362,15 @@
             <h2 class="font-display font-bold">Aktivitas belajar</h2>
             <span class="mono-label">{weeks} minggu terakhir</span>
           </div>
+          {#if gamification && gamification.current_streak > 0}
+            <p class="mt-1 text-xs muted">
+              <Icon name="fire" size="10px" class="text-tertiary" />
+              Streak {gamification.current_streak} hari berturut-turut
+              {#if gamification.best_streak > gamification.current_streak}
+                · terbaik {gamification.best_streak} hari
+              {/if}
+            </p>
+          {/if}
           {#if totalActivity === 0}
             <p class="mt-4 text-sm muted">
               Belum ada aktivitas tercatat. Selesaikan materi, kumpulkan ujian, atau raih badge

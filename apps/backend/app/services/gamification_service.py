@@ -16,12 +16,16 @@ level, which the UI renders as an XP bar.
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.exam import ExamAttempt
-from app.models.quest import QuestWinner, TaskCompletion
+from app.models.learning import LessonProgress
+from app.models.quest import QuestAttempt, QuestWinner, TaskCompletion
 from app.models.social import Badge, UserBadge
 
 # XP contribution constants (documented so the simulation is transparent).
@@ -59,6 +63,108 @@ def level_progress(xp: int) -> float:
 class GamificationService:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def activity_dates_for_user(self, user_id: uuid.UUID) -> set[date]:
+        """Distinct calendar dates (in ``settings.platform_timezone``) on
+        which the user did something that counts toward a streak: completed a
+        lesson, submitted an exam attempt, submitted a quest attempt, or
+        completed a task. Derived from real rows every call — never stored,
+        so it can never drift (same principle as XP).
+        """
+        tz = ZoneInfo(settings.platform_timezone)
+        timestamps: list = []
+
+        timestamps += (
+            (
+                await self.session.execute(
+                    select(LessonProgress.completed_at).where(
+                        LessonProgress.user_id == user_id,
+                        LessonProgress.completed.is_(True),
+                        LessonProgress.completed_at.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        timestamps += (
+            (
+                await self.session.execute(
+                    select(ExamAttempt.submitted_at).where(
+                        ExamAttempt.user_id == user_id,
+                        ExamAttempt.submitted_at.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        timestamps += (
+            (
+                await self.session.execute(
+                    select(QuestAttempt.submitted_at).where(QuestAttempt.user_id == user_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        timestamps += (
+            (
+                await self.session.execute(
+                    select(TaskCompletion.completed_at).where(
+                        TaskCompletion.user_id == user_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return {ts.astimezone(tz).date() for ts in timestamps if ts is not None}
+
+    async def streak_for_user(self, user_id: uuid.UUID) -> dict:
+        """Current and best consecutive-day activity streak.
+
+        "Current" counts backward from today (platform tz); a gap since
+        yesterday breaks it (today not yet active still counts an
+        in-progress streak ending yesterday, so completing something later
+        today does not reset it to zero at midnight).
+        """
+        dates = await self.activity_dates_for_user(user_id)
+        if not dates:
+            return {"current_streak": 0, "best_streak": 0, "last_active_date": None}
+
+        tz = ZoneInfo(settings.platform_timezone)
+        today = datetime.now(tz).date()
+
+        ordered = sorted(dates, reverse=True)
+        last_active = ordered[0]
+
+        # Current streak: walk backward from the most recent active day only
+        # if it is today or yesterday (otherwise the streak is already over).
+        current = 0
+        if last_active in (today, today - timedelta(days=1)):
+            cursor = last_active
+            while cursor in dates:
+                current += 1
+                cursor -= timedelta(days=1)
+
+        # Best streak ever: scan all dates for the longest consecutive run.
+        best = 0
+        run = 0
+        prev: date | None = None
+        for d in sorted(dates):
+            if prev is not None and d == prev + timedelta(days=1):
+                run += 1
+            else:
+                run = 1
+            best = max(best, run)
+            prev = d
+
+        return {
+            "current_streak": current,
+            "best_streak": best,
+            "last_active_date": last_active.isoformat(),
+        }
 
     async def xp_for_user(self, user_id: uuid.UUID) -> dict:
         """Compute a user's XP breakdown and level."""

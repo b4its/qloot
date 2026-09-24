@@ -16,9 +16,12 @@ router = APIRouter(prefix="/gamification", tags=["gamification"])
 
 @router.get("/me")
 async def my_gamification(user: CurrentUser, db: DbSession):
-    """The caller's XP breakdown, level, and progress toward the next level."""
+    """The caller's XP breakdown, level, progress toward the next level, and
+    activity streak (current/best consecutive days).
+    """
     service = GamificationService(db)
     result = await service.xp_for_user(user.id)
+    result.update(await service.streak_for_user(user.id))
     # Award any XP-milestone badges the user has crossed (keeps the badge page
     # free of permanently-locked filler; idempotent).
     from app.db.session import transaction

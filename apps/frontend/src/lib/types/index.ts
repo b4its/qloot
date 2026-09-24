@@ -325,6 +325,9 @@ export interface GamificationProfile {
   breakdown: XpBreakdown;
   quest_wins: number;
   tasks_completed: number;
+  current_streak: number;
+  best_streak: number;
+  last_active_date?: string | null;
 }
 
 export interface LevelEntry {
