@@ -503,6 +503,7 @@ export interface ReviewAnswer {
   score_bp?: number | null;
   max_score_bp: number;
   feedback?: string | null;
+  similarity_bp?: number | null;
 }
 
 export interface ExamResultRow {

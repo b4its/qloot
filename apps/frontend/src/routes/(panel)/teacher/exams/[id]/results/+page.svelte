@@ -110,7 +110,28 @@
     }
   }
 
+  interface PlagiarismFinding {
+    prompt: string;
+    a_name: string;
+    b_name: string;
+    similarity_bp: number;
+  }
+  let plagiarism: PlagiarismFinding[] = [];
+  let plagiarismChecked = false;
+
+  async function loadPlagiarism() {
+    try {
+      const res = await api.get<{ findings: PlagiarismFinding[] }>(`/exams/${examId}/plagiarism`);
+      plagiarism = res?.findings ?? [];
+    } catch {
+      plagiarism = [];
+    } finally {
+      plagiarismChecked = true;
+    }
+  }
+
   onMount(load);
+  onMount(loadPlagiarism);
 </script>
 
 <svelte:head><title>Hasil Ujian — Panel Guru — QLoot</title></svelte:head>
@@ -125,6 +146,22 @@
   />
 
   <PageAlerts {error} {message} />
+
+  {#if plagiarismChecked && plagiarism.length}
+    <div class="card mt-4 border-tertiary">
+      <p class="mono-label mb-2 text-tertiary">
+        <Icon name="clone" size="11px" /> Indikasi kemiripan jawaban esai
+      </p>
+      <ul class="space-y-1 text-sm">
+        {#each plagiarism.slice(0, 10) as f}
+          <li class="flex flex-wrap items-center justify-between gap-2 border-b pb-1 last:border-0">
+            <span class="truncate">{f.a_name} ↔ {f.b_name}</span>
+            <span class="mono text-xs text-tertiary">{bpToPercent(f.similarity_bp)}</span>
+          </li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
 
   {#if loading}
     <div class="mt-6 space-y-2">
@@ -240,6 +277,11 @@
                       {/if}
                       {#if ans.feedback && ans.qtype !== "multiple_choice"}
                         <p class="mt-1 text-xs muted">Umpan balik: {ans.feedback}</p>
+                      {/if}
+                      {#if ans.similarity_bp !== null && ans.similarity_bp !== undefined}
+                        <p class="mt-0.5 text-xs muted">
+                          Kemiripan dengan acuan: {bpToPercent(ans.similarity_bp)}
+                        </p>
                       {/if}
                       {#if a.status === "graded" || a.status === "submitted"}
                         {@const d = draftFor(a.id, ans)}

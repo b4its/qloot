@@ -503,6 +503,72 @@ class ExamService:
             await self.session.flush()
         return saved
 
+    async def plagiarism_report(
+        self, exam_id: uuid.UUID, user: User, *, threshold_bp: int = 7000
+    ) -> list[dict]:
+        """Cross-student plagiarism pass over the exam's essay answers.
+
+        Pure Jaccard over ``_content_tokens`` (no AI calls, offline-safe): for
+        each essay question, compares every pair of graded answers and reports
+        pairs whose similarity is at or above ``threshold_bp``. Deterministic.
+        """
+        from app.ai.provider import _content_tokens
+        from app.models.identity import User as _User
+
+        await self._get_owned_exam(exam_id, user)
+        questions = await self.list_questions(exam_id)
+        essay_qids = {q.id for q in questions if q.qtype != "multiple_choice"}
+        if not essay_qids:
+            return []
+        rows = (
+            await self.session.execute(
+                select(StudentAnswer, ExamAttempt, _User)
+                .join(ExamAttempt, ExamAttempt.id == StudentAnswer.attempt_id)
+                .join(_User, _User.id == ExamAttempt.user_id)
+                .where(
+                    StudentAnswer.question_id.in_(essay_qids),
+                    StudentAnswer.graded_at.is_not(None),
+                )
+            )
+        ).all()
+        # Group answers by question.
+        by_q: dict[uuid.UUID, list[tuple]] = {}
+        for sa, attempt, owner in rows:
+            if not (sa.answer_text or "").strip():
+                continue
+            by_q.setdefault(sa.question_id, []).append((sa, attempt, owner))
+
+        query_by_q = {q.id: q for q in questions}
+        findings: list[dict] = []
+        for qid, entries in by_q.items():
+            tokens = [
+                set(_content_tokens(sa.answer_text or "")) for sa, _a, _o in entries
+            ]
+            for i in range(len(entries)):
+                for j in range(i + 1, len(entries)):
+                    a_set, b_set = tokens[i], tokens[j]
+                    if not a_set or not b_set:
+                        continue
+                    inter = len(a_set & b_set)
+                    union = len(a_set | b_set)
+                    sim_bp = int(round(inter / union * 10_000)) if union else 0
+                    if sim_bp >= threshold_bp:
+                        findings.append(
+                            {
+                                "question_id": str(qid),
+                                "prompt": query_by_q[qid].prompt,
+                                "a_attempt_id": str(entries[i][1].id),
+                                "a_user_id": str(entries[i][1].user_id),
+                                "a_name": entries[i][2].full_name,
+                                "b_attempt_id": str(entries[j][1].id),
+                                "b_user_id": str(entries[j][1].user_id),
+                                "b_name": entries[j][2].full_name,
+                                "similarity_bp": sim_bp,
+                            }
+                        )
+        findings.sort(key=lambda f: f["similarity_bp"], reverse=True)
+        return findings
+
     async def attempt_flag(self, attempt_id: uuid.UUID) -> tuple[bool, str | None, int]:
         """(is_flagged, reason, violation_count) for the results view."""
         attempt = await self.session.get(ExamAttempt, attempt_id)
@@ -646,6 +712,7 @@ class ExamService:
                 "score_bp": sa.score_bp,
                 "max_score_bp": sa.max_score_bp,
                 "feedback": sa.feedback,
+                "similarity_bp": sa.similarity_bp,
             }
 
         out: list[tuple[ExamAttempt, str | None, dict[uuid.UUID, dict]]] = []

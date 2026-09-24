@@ -387,6 +387,23 @@ async def exam_results(
     return out
 
 
+@router.get("/exams/{exam_id}/plagiarism")
+async def plagiarism_report(
+    exam_id: uuid.UUID, user: TeacherUser, db: DbSession, threshold_bp: int = 7000
+):
+    """Cross-student plagiarism report for the exam's essay answers (owner only).
+
+    Deterministic (Jaccard over content tokens), no AI calls, offline-safe.
+    """
+    if threshold_bp < 0 or threshold_bp > 10_000:
+        raise ConflictError("threshold_bp must be between 0 and 10000")
+    async with transaction(db):
+        findings = await ExamService(db).plagiarism_report(
+            exam_id, user, threshold_bp=threshold_bp
+        )
+    return {"threshold_bp": threshold_bp, "findings": findings}
+
+
 @router.get("/exams/{exam_id}/results/review", response_model=ExamResultsReviewOut)
 async def exam_results_review(
     exam_id: uuid.UUID,

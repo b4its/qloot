@@ -235,6 +235,7 @@ class ReviewAnswerOut(BaseModel):
     score_bp: int | None
     max_score_bp: int
     feedback: str | None
+    similarity_bp: int | None = None
 
 
 class ExamResultReviewRow(ExamResultRow):
