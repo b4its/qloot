@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, ForbiddenError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.models.identity import User
 from app.models.learning import Course, CourseMember, Lesson, LessonProgress
 
@@ -237,6 +237,28 @@ class CourseService:
         self._authorize(course, user)
         await self.session.delete(lesson)
         await self.session.flush()
+
+    async def reorder_lessons(
+        self, course_id: uuid.UUID, user: User, lesson_ids: list[uuid.UUID]
+    ) -> list[Lesson]:
+        """Rewrite every lesson's ``position`` atomically from the given order.
+
+        Rejects an order that does not exactly cover the course's lessons, so a
+        partial/dup list can never corrupt positions.
+        """
+        course = await self.get(course_id)
+        self._authorize(course, user)
+        lessons = {
+            lesson.id: lesson for lesson in await self.list_lessons(course_id, limit=1000)
+        }
+        if set(lesson_ids) != set(lessons) or len(lesson_ids) != len(lessons):
+            raise ValidationError(
+                "Reorder must list every lesson of the course exactly once"
+            )
+        for i, lesson_id in enumerate(lesson_ids):
+            lessons[lesson_id].position = i
+        await self.session.flush()
+        return [lessons[lid] for lid in lesson_ids]
 
     async def set_progress(
         self, lesson_id: uuid.UUID, user: User, *, progress_percent: int, completed: bool

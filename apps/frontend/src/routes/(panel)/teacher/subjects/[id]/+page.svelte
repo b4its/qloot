@@ -156,6 +156,24 @@
     }
   }
 
+  async function moveLesson(index: number, delta: number) {
+    const next = index + delta;
+    if (next < 0 || next >= lessons.length) return;
+    const ordered = lessons.map((l) => l.id);
+    [ordered[index], ordered[next]] = [ordered[next], ordered[index]];
+    error = "";
+    message = "";
+    busy = "lesson-reorder";
+    try {
+      await api.post(`/courses/${courseId}/lessons/reorder`, { lesson_ids: ordered });
+      await loadLessons();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengubah urutan";
+    } finally {
+      busy = "";
+    }
+  }
+
   onMount(() => {
     loadCourse();
     loadLessons();
@@ -272,6 +290,22 @@
                     aria-label="Sunting materi"
                   >
                     <Icon name="pen" size="11px" />
+                  </button>
+                  <button
+                    class="btn-icon"
+                    on:click={() => moveLesson(i, -1)}
+                    disabled={i === 0 || busy === "lesson-reorder"}
+                    aria-label="Naikkan urutan"
+                  >
+                    <Icon name="arrow-up" size="11px" />
+                  </button>
+                  <button
+                    class="btn-icon"
+                    on:click={() => moveLesson(i, 1)}
+                    disabled={i === lessons.length - 1 || busy === "lesson-reorder"}
+                    aria-label="Turunkan urutan"
+                  >
+                    <Icon name="arrow-down" size="11px" />
                   </button>
                   <button
                     class="btn-icon !text-tertiary hover:!border-tertiary"

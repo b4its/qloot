@@ -19,6 +19,7 @@ from app.schemas.learning import (
     CourseUpdate,
     LessonCreate,
     LessonOut,
+    LessonReorder,
     LessonUpdate,
     ProgressOut,
     ProgressUpdate,
@@ -135,6 +136,18 @@ async def update_lesson(
 async def delete_lesson(lesson_id: uuid.UUID, user: TeacherUser, db: DbSession):
     async with transaction(db):
         await CourseService(db).delete_lesson(lesson_id, user)
+
+
+@router.post("/courses/{course_id}/lessons/reorder", response_model=list[LessonOut])
+async def reorder_lessons(
+    course_id: uuid.UUID, payload: LessonReorder, user: TeacherUser, db: DbSession
+):
+    """Rewrite lesson positions from an explicit order (atomic)."""
+    async with transaction(db):
+        lessons = await CourseService(db).reorder_lessons(
+            course_id, user, payload.lesson_ids
+        )
+    return lessons
 
 
 @router.post("/lessons/{lesson_id}/progress", response_model=ProgressOut)

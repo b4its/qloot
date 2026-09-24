@@ -15,7 +15,7 @@ from app.ai.provider import (
     get_ai_provider,
 )
 from app.core.config import settings
-from app.core.errors import ForbiddenError, NotFoundError, ValidationError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.models.exam import GradingJob, Question
 from app.models.identity import User
@@ -251,9 +251,30 @@ class MaterialService:
         return storage.presigned_get_url(material.storage_key, expires_seconds=ttl_seconds)
 
     async def delete(self, material_id: uuid.UUID, user: User) -> None:
-        """Delete a material (owner or admin) and its stored object."""
+        """Delete a material (owner or admin) and its stored object.
+
+        Refuses while the material still has AI draft questions awaiting review
+        (409), so approving them after the source is gone can never orphan them.
+        """
+        from sqlalchemy import func, select
+
         material = await self.get(material_id)
         self._authorize(material, user)
+        pending = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(Question)
+                .where(
+                    Question.material_id == material_id,
+                    Question.review_status == "pending",
+                )
+            )
+        ).scalar_one()
+        if pending:
+            raise ConflictError(
+                "Materi masih punya draf soal yang menunggu tinjauan. "
+                "Setujui atau tolak drafnya sebelum menghapus."
+            )
         key = material.storage_key
         await self.session.delete(material)
         await self.session.flush()

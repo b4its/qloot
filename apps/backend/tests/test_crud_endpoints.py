@@ -591,3 +591,82 @@ async def test_task_crud_and_delete_guard(client, engine):
         await s.execute(delete(TaskCompletion).where(TaskCompletion.task_id == task_id))
         await s.execute(delete(Task).where(Task.id == task_id))
         await s.commit()
+
+
+async def test_lesson_reorder_is_atomic(client):
+    """C38: reorder rewrites every lesson position from the given order."""
+    await _register(client, "reorder_t@ex.com", "teacher")
+    course = await client.post(
+        "/api/v1/courses", json={"title": "Reorder 1A", "class_code": "1A", "class_type": "IPA"}
+    )
+    course_id = course.json()["id"]
+    ids = []
+    for i in range(3):
+        lesson = await client.post(
+            f"/api/v1/courses/{course_id}/lessons", json={"title": f"L{i}", "position": i}
+        )
+        ids.append(lesson.json()["id"])
+
+    reversed_ids = list(reversed(ids))
+    r = await client.post(
+        f"/api/v1/courses/{course_id}/lessons/reorder", json={"lesson_ids": reversed_ids}
+    )
+    assert r.status_code == 200, r.text
+    listing = await client.get(f"/api/v1/courses/{course_id}/lessons")
+    order = [x["id"] for x in listing.json()]
+    assert order == reversed_ids
+
+    # A partial list is rejected (never corrupts positions).
+    bad = await client.post(
+        f"/api/v1/courses/{course_id}/lessons/reorder", json={"lesson_ids": ids[:2]}
+    )
+    assert bad.status_code == 422, bad.text
+
+
+async def test_material_delete_blocked_with_pending_drafts(client):
+    """C38: deleting a material with pending AI drafts is refused with 409."""
+    from sqlalchemy import select
+
+    from app.models.exam import Question
+
+    await _register(client, "matdel_t@ex.com", "teacher")
+    import io
+
+    from tests.pdf_util import make_pdf
+
+    up = await client.post(
+        "/api/v1/materials/upload",
+        files={"file": ("m.pdf", io.BytesIO(make_pdf("Materi fisika tentang gerak benda.")), "application/pdf")},
+        data={"title": "M"},
+    )
+    material_id = up.json()["id"]
+
+    # Insert a pending draft question referencing the material directly in the DB.
+    sm = client._sm  # type: ignore[attr-defined]
+    async with sm() as s:
+        me = (await client.get("/api/v1/auth/me")).json()["id"]
+        import uuid as _uuid
+
+        s.add(
+            Question(
+                material_id=_uuid.UUID(material_id),
+                owner_id=_uuid.UUID(me),
+                prompt="Draf soal menunggu tinjauan?",
+                source="ai",
+                review_status="pending",
+            )
+        )
+        await s.commit()
+
+    r = await client.delete(f"/api/v1/materials/{material_id}")
+    assert r.status_code == 409, r.text
+
+    # Clean up the draft so it does not leak into other tests.
+    async with sm() as s:
+        for q in (
+            await s.execute(
+                select(Question).where(Question.material_id == _uuid.UUID(material_id))
+            )
+        ).scalars().all():
+            await s.delete(q)
+        await s.commit()

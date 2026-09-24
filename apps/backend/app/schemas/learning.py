@@ -72,6 +72,12 @@ class LessonUpdate(BaseModel):
     is_published: bool | None = None
 
 
+class LessonReorder(BaseModel):
+    """A full, explicit lesson order to rewrite positions from."""
+
+    lesson_ids: list[uuid.UUID] = Field(min_length=1)
+
+
 class LessonOut(ORMModel):
     id: uuid.UUID
     course_id: uuid.UUID
