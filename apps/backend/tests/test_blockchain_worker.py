@@ -6,7 +6,11 @@ import uuid
 
 import pytest
 
-from app.blockchain.worker_logic import process_outbox_item, refresh_confirmations
+from app.blockchain.worker_logic import (
+    process_outbox_item,
+    refresh_confirmations,
+    resubmit_stuck_transactions,
+)
 from app.models import Quest, User
 from app.models.wallet import BlockchainTransaction, RewardAllocation, TransactionOutbox
 from app.services.reward_engine import RewardEngine
@@ -366,3 +370,116 @@ async def test_reverted_tx_compensates_ledger_and_is_listed_as_failed(session):
         )
     ).scalar_one()
     assert failed.status == "done"  # outbox itself is done; the *tx* failed
+
+
+class _StuckClient:
+    """Chain client stub: zero confirmations, deterministic resubmit."""
+
+    def __init__(self):
+        self.resends = 0
+
+    def get_confirmations(self, _tx_hash):
+        return 0
+
+    def build_call(self, _method, _arguments):
+        return object()
+
+    async def resend(self, _fn, *, nonce, fee_bump_percent):
+        from app.blockchain.client import TxReceipt
+
+        self.resends += 1
+        return TxReceipt(
+            tx_hash="0x" + "ab" * 32, status=0, dry_run=False, nonce=nonce
+        )
+
+
+async def _make_stuck_tx(session, student, amount=100):
+    """Create a submitted tx with a nonce and an old submitted_at."""
+    from datetime import UTC, datetime, timedelta
+
+    tx = BlockchainTransaction(
+        idempotency_key="0x" + uuid.uuid4().hex + uuid.uuid4().hex[:2],
+        network="localhost",
+        chain_id=31337,
+        from_address="0x" + "0" * 40,
+        method="rewardUser",
+        arguments={
+            "reward_key": "0x" + uuid.uuid4().hex + uuid.uuid4().hex,
+            "amount": amount,
+            "allocation_id": None,
+        },
+        status="submitted",
+        transaction_hash="0x" + "cd" * 32,
+        nonce=7,
+        submitted_at=datetime.now(UTC) - timedelta(seconds=10_000),
+    )
+    session.add(tx)
+    await session.flush()
+    return tx
+
+
+async def test_stuck_transaction_is_resubmitted_with_same_nonce(session, monkeypatch):
+    from app.blockchain import worker_logic
+
+    student = await _mk_user(session, "stuck1@q.com")
+    tx = await _make_stuck_tx(session, student)
+    stub = _StuckClient()
+    monkeypatch.setattr(worker_logic, "get_chain_client", lambda: stub)
+
+    n = await resubmit_stuck_transactions(session)
+    assert n >= 1
+    refreshed = await session.get(BlockchainTransaction, tx.id)
+    assert refreshed.resubmit_count == 1
+    assert refreshed.nonce == 7  # same nonce (replacement)
+    assert refreshed.transaction_hash == "0x" + "ab" * 32
+    assert stub.resends >= 1
+
+
+async def test_stuck_transaction_is_dropped_after_max_and_compensated(session, monkeypatch):
+    from app.blockchain import worker_logic
+    from app.core.config import settings
+
+    owner = await _mk_user(session, "stuck_owner@q.com")
+    student = await _mk_user(session, "stuck2@q.com")
+    quest = Quest(title="StuckQuest", owner_id=owner.id, status="open")
+    session.add(quest)
+    await session.flush()
+
+    engine = RewardEngine(session)
+    alloc = await engine.allocate_quest_reward(
+        quest=quest, user=student, rank=1, amount=100, score_bp=9000
+    )
+    balance_before = await engine.balance(student.id)
+
+    from datetime import UTC, datetime, timedelta
+
+    tx = BlockchainTransaction(
+        idempotency_key="0x" + uuid.uuid4().hex + uuid.uuid4().hex[:2],
+        network="localhost",
+        chain_id=31337,
+        from_address="0x" + "0" * 40,
+        method="rewardUser",
+        arguments={"allocation_id": str(alloc.id), "amount": 100, "reward_key": "0x0"},
+        status="submitted",
+        transaction_hash="0x" + "ee" * 32,
+        nonce=9,
+        resubmit_count=settings.tx_max_resubmits,
+        submitted_at=datetime.now(UTC) - timedelta(seconds=10_000),
+    )
+    session.add(tx)
+    await session.flush()
+
+    stub = _StuckClient()
+    monkeypatch.setattr(worker_logic, "get_chain_client", lambda: stub)
+
+    n = await resubmit_stuck_transactions(session)
+    assert n >= 1
+    refreshed = await session.get(BlockchainTransaction, tx.id)
+    assert refreshed.status == "dropped"
+    assert stub.resends == 0  # dropped, not resent
+
+    # Ledger compensated: the off-chain credit is reversed.
+    assert await engine.balance(student.id) == 0
+    assert balance_before == 100
+    refreshed_alloc = await session.get(RewardAllocation, alloc.id)
+    assert refreshed_alloc.status == "failed"

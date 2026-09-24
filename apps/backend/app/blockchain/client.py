@@ -156,6 +156,7 @@ class TxReceipt:
     block_number: int | None = None
     gas_used: int | None = None
     dry_run: bool = True
+    nonce: int | None = None
 
 
 class ChainClient:
@@ -358,9 +359,84 @@ class ChainClient:
                 tx_hash=tx_hash.hex(),
                 status=0,
                 dry_run=False,
+                nonce=nonce,
             )
         except Exception as exc:  # noqa: BLE001
             raise ChainError("Failed to submit transaction") from exc
+
+    async def resend(
+        self,
+        fn,
+        *,
+        nonce: int,
+        fee_bump_percent: int,
+    ) -> TxReceipt:
+        """Resubmit a stuck transaction with the *same* nonce and a higher fee.
+
+        Replacement semantics: miners pick the higher-fee tx for the nonce, so
+        the original is effectively cancelled. Only valid when the original was
+        never mined (that's exactly what "stuck" means).
+        """
+        assert self._w3 is not None and self._account is not None
+        try:
+            async with self._nonce_lock:
+                tx = fn.build_transaction(
+                    {
+                        "from": self._account.address,
+                        "nonce": nonce,
+                        "chainId": settings.chain_id,
+                        **self.estimate_fees(fee_bump_percent=fee_bump_percent),
+                    }
+                )
+                signed = self._account.sign_transaction(tx)
+                tx_hash = self._w3.eth.send_raw_transaction(signed.raw_transaction)
+            return TxReceipt(
+                tx_hash=tx_hash.hex(), status=0, dry_run=False, nonce=nonce
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise ChainError("Failed to resubmit transaction") from exc
+
+    def build_call(self, method: str, arguments: dict):
+        """Rebuild a contract function call from a stored tx method+arguments.
+
+        Used by the resubmit path so a stuck tx can be re-signed with a higher
+        fee without persisting the raw (unsigned) transaction.
+        """
+        args = arguments or {}
+        if method == "rewardUser":
+            asset = args.get("asset", "OPT")
+            idem = (
+                int(args["reward_key"], 16)
+                if str(args.get("reward_key", "")).startswith("0x")
+                else _stable_uint(str(args.get("reward_key", "")))
+            )
+            recipient = args.get("to") or settings.treasury_address
+            return self._asset(asset).functions.rewardUser(
+                self._w3.to_checksum_address(recipient),
+                int(args["amount"]),
+                _b32(args.get("reward_type", "reward")),
+                idem & ((1 << 256) - 1),
+            )
+        if method == "mint":
+            return self._asset(args.get("asset", "OPT")).functions.mint(
+                self._w3.to_checksum_address(args["to"]), int(args["amount"])
+            )
+        if method == "burn":
+            return self._asset(args.get("asset", "OPT")).functions.burn(
+                self._w3.to_checksum_address(args.get("from", self.operator_address)),
+                int(args["amount"]),
+            )
+        if method == "pause":
+            return self._asset(args.get("asset", "OPT")).functions.pause()
+        if method == "unpause":
+            return self._asset(args.get("asset", "OPT")).functions.unpause()
+        if method == "swapOptFor" and self._orx is not None:
+            return self._orx.functions.swapOptFor(
+                ORX_ASSET_IDS[args["asset"].upper()], int(args["amount"])
+            )
+        if method == "payAiRequest" and self._orx is not None:
+            return self._orx.functions.payAiRequest(int(args["requests"]))
+        raise ChainError(f"Cannot rebuild call for method {method}")
 
     def estimate_fees(self, *, fee_bump_percent: int = 0) -> dict[str, int]:
         """Build EIP-1559 fee fields with a configurable buffer (WEB3-06).

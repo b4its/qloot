@@ -194,6 +194,7 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
         tx.transaction_hash = receipt.tx_hash
         tx.block_number = receipt.block_number
         tx.gas_used = receipt.gas_used
+        tx.nonce = receipt.nonce
         tx.submitted_at = datetime.now(UTC)
         tx.status = "submitted" if not receipt.dry_run else "pending"
         tx.error_code = None
@@ -289,6 +290,67 @@ async def _refund_swap(engine, item, payload: dict) -> None:
         asset_amount=int(payload.get("amount", 0)),
         swap_key=item.idempotency_key,
     )
+
+
+async def resubmit_stuck_transactions(session: AsyncSession, limit: int = 20) -> int:
+    """Resubmit transactions stuck past ``tx_stuck_seconds`` (WEB3-06b).
+
+    A tx that was broadcast but never mined is resubmitted with the *same*
+    nonce and a higher fee (replacement). After ``tx_max_resubmits`` attempts
+    it reaches the terminal ``dropped`` state and its financial effect is
+    reversed (the ledger is compensated), so no ``submitted`` row can hang
+    forever while its outbox row is already ``done``.
+    """
+    from datetime import timedelta
+
+    from app.core import metrics
+
+    client = get_chain_client()
+    cutoff = datetime.now(UTC) - timedelta(seconds=settings.tx_stuck_seconds)
+    stmt = (
+        select(BlockchainTransaction)
+        .where(BlockchainTransaction.status == "submitted")
+        .where(BlockchainTransaction.submitted_at.is_not(None))
+        .where(BlockchainTransaction.submitted_at < cutoff)
+        .where(BlockchainTransaction.nonce.is_not(None))
+        .order_by(BlockchainTransaction.submitted_at)
+        .limit(limit)
+        .with_for_update(skip_locked=True)
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    processed = 0
+    for tx in rows:
+        # Only actually stuck if it still has zero confirmations.
+        if client.get_confirmations(tx.transaction_hash or "") > 0:
+            continue
+        if tx.resubmit_count >= settings.tx_max_resubmits:
+            tx.status = "dropped"
+            tx.error_code = "dropped"
+            tx.error_message = "Transaction never mined after resubmits"
+            await _mark_reverted(session, tx)
+            processed += 1
+            continue
+        if tx.nonce is None:
+            continue
+        try:
+            fn = client.build_call(tx.method, tx.arguments or {})
+            receipt = await client.resend(
+                fn, nonce=int(tx.nonce), fee_bump_percent=settings.tx_fee_bump_percent
+            )
+        except Exception as exc:  # noqa: BLE001 - try again next sweep
+            log.warning("resubmit_failed", tx=str(tx.id), error=str(exc))
+            continue
+        tx.transaction_hash = receipt.tx_hash
+        tx.nonce = receipt.nonce
+        tx.resubmit_count += 1
+        tx.submitted_at = datetime.now(UTC)
+        tx.last_checked_at = datetime.now(UTC)
+        metrics.incr("blockchain_resubmitted_total", method=tx.method)
+        processed += 1
+    if processed:
+        await session.flush()
+        log.info("transactions_resubmitted", count=processed)
+    return processed
 
 
 async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:

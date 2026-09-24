@@ -209,6 +209,8 @@ class BlockchainTransaction(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(16), default="created", nullable=False)
     error_code: Mapped[str | None] = mapped_column(String(64))
     error_message: Mapped[str | None] = mapped_column(Text)
+    # WEB3-06b: how many times a stuck tx has been resubmitted with a fee bump.
+    resubmit_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
