@@ -24,9 +24,7 @@
   $: isCounselor = hasRole($auth.user, "teacher") || hasRole($auth.user, "admin");
 
   function tasksOf(m: Milestone): MilestoneTask[] {
-    return (m.tasks ?? []).map((t) =>
-      typeof t === "string" ? { title: t, done: false } : t,
-    );
+    return (m.tasks ?? []).map((t) => (typeof t === "string" ? { title: t, done: false } : t));
   }
 
   async function load() {
@@ -454,10 +452,8 @@
             ></textarea>
           </label>
         </div>
-        <button
-          class="btn-primary mt-2 !py-1.5"
-          on:click={addMilestone}
-          disabled={!newTitle.trim()}>Tambah tonggak</button
+        <button class="btn-primary mt-2 !py-1.5" on:click={addMilestone} disabled={!newTitle.trim()}
+          >Tambah tonggak</button
         >
       </div>
     </div>

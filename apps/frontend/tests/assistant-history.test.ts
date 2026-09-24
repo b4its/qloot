@@ -29,9 +29,7 @@ beforeEach(() => {
 describe("assistant conversation history (CARE-01)", () => {
   it("loads the conversation list on mount", async () => {
     render(AssistantPage);
-    await waitFor(() =>
-      expect(get).toHaveBeenCalledWith("/career/assistant/conversations"),
-    );
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/career/assistant/conversations"));
   });
 
   it("sends the active conversation_id on follow-up turns", async () => {

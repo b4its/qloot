@@ -50,8 +50,6 @@ describe("assistant chat accessibility (UIX-02)", () => {
 
   it("renders the greeting on mount", async () => {
     render(AssistantPage);
-    await waitFor(() =>
-      expect(document.body.textContent).toContain("Asisten Qlo"),
-    );
+    await waitFor(() => expect(document.body.textContent).toContain("Asisten Qlo"));
   });
 });

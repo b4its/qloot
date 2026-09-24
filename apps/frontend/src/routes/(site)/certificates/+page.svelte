@@ -55,9 +55,7 @@
     anchoring = true;
     error = "";
     try {
-      const updated = await api.post<Certificate>(
-        `/certificates/${active.credential_id}/anchor`,
-      );
+      const updated = await api.post<Certificate>(`/certificates/${active.credential_id}/anchor`);
       active = updated;
       certs = certs.map((c) => (c.id === updated.id ? updated : c));
     } catch (e) {
@@ -301,7 +299,9 @@
                 {/if}
               </p>
             {:else if active.anchor_status === "anchoring" || active.anchor_status === "submitted"}
-              <p class="text-xs muted"><Icon name="spinner" spin size="11px" /> Menunggu konfirmasi chain…</p>
+              <p class="text-xs muted">
+                <Icon name="spinner" spin size="11px" /> Menunggu konfirmasi chain…
+              </p>
             {:else if active.anchor_status === "failed"}
               <p class="text-xs text-tertiary">Anchor gagal — QTC dikembalikan. Coba lagi.</p>
             {:else}

@@ -527,9 +527,9 @@ class MockProvider(AIProvider):
         scored = []
         for idx, s in enumerate(sentences):
             toks = set(_content_tokens(s))
-            score = sum(freq.get(t, 0) for t in toks)
+            raw_score: float = sum(freq.get(t, 0) for t in toks)
             # Normalise by length so a very long sentence doesn't dominate.
-            score = score / (len(toks) or 1)
+            score = raw_score / (len(toks) or 1)
             scored.append((score, idx, s))
 
         # Highest score first; tie-break by original position (deterministic).

@@ -122,15 +122,14 @@ class WithdrawalService:
             )
         )
         # Enqueue the on-chain burn only now (approval is the gate).
+        wd_user = await self.session.get(User, wd.user_id) if wd.user_id else None
         self.session.add(
             TransactionOutbox(
                 topic="withdrawal",
                 idempotency_key=tx_idempotency_key("withdrawal", str(wd.id)),
                 payload={
                     "withdrawal_id": str(wd.id),
-                    "user_ref": (await self.session.get(User, wd.user_id)).chain_user_ref
-                    if wd.user_id
-                    else "",
+                    "user_ref": wd_user.chain_user_ref if wd_user else "",
                     "destination": wd.destination_address,
                     "amount": wd.amount,
                     "token_id": wd.token_id,

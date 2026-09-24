@@ -66,19 +66,24 @@
     {:else if config}
       <dl class="grid gap-x-8 gap-y-4 sm:grid-cols-2">
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Lingkungan</dt><dd class="font-medium">{config.env}</dd>
+          <dt class="muted">Lingkungan</dt>
+          <dd class="font-medium">{config.env}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Provider AI</dt><dd class="font-medium">{config.ai_provider}</dd>
+          <dt class="muted">Provider AI</dt>
+          <dd class="font-medium">{config.ai_provider}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Jaringan blockchain</dt><dd class="font-medium">{config.blockchain}</dd>
+          <dt class="muted">Jaringan blockchain</dt>
+          <dd class="font-medium">{config.blockchain}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Mode dry-run</dt><dd class="font-medium">{bool(config.dry_run)}</dd>
+          <dt class="muted">Mode dry-run</dt>
+          <dd class="font-medium">{bool(config.dry_run)}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Konfirmasi on-chain</dt><dd class="font-medium">{config.confirmations}</dd>
+          <dt class="muted">Konfirmasi on-chain</dt>
+          <dd class="font-medium">{config.confirmations}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
           <dt class="muted">Cap hadiah per transaksi</dt>
@@ -89,13 +94,16 @@
           <dd class="font-medium">{config.reward_ranks.join(", ")}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Zona waktu platform</dt><dd class="font-medium">{config.platform_timezone}</dd>
+          <dt class="muted">Zona waktu platform</dt>
+          <dd class="font-medium">{config.platform_timezone}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Rate limiting</dt><dd class="font-medium">{bool(config.rate_limit_enabled)}</dd>
+          <dt class="muted">Rate limiting</dt>
+          <dd class="font-medium">{bool(config.rate_limit_enabled)}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">CSRF token</dt><dd class="font-medium">{bool(config.csrf_enabled)}</dd>
+          <dt class="muted">CSRF token</dt>
+          <dd class="font-medium">{bool(config.csrf_enabled)}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
           <dt class="muted">Probe Redis (readiness)</dt>
@@ -106,7 +114,8 @@
           <dd class="font-medium">{bool(config.readiness_check_storage)}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
-          <dt class="muted">Storage lokal</dt><dd class="font-medium">{bool(config.use_local_storage)}</dd>
+          <dt class="muted">Storage lokal</dt>
+          <dd class="font-medium">{bool(config.use_local_storage)}</dd>
         </div>
         <div class="flex items-center justify-between border-b py-2">
           <dt class="muted">Masa berlaku sesi (detik)</dt>

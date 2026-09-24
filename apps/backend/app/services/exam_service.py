@@ -681,8 +681,8 @@ class ExamService:
                     )
                     continue
                 p = sum(ratios.values()) / answered
-                xs = list(ratios.values())
-                ys = [total_by_attempt[a_id] for a_id in ratios]
+                xs = [float(v) for v in ratios.values()]
+                ys = [float(total_by_attempt[a_id]) for a_id in ratios]
                 disc = _point_biserial(xs, ys)
                 qstats.append(
                     {

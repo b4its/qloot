@@ -75,9 +75,7 @@
   async function openThread(c: Consultation) {
     openId = c.id;
     try {
-      thread = await api.get<ConsultationMessage[]>(
-        `/career/consultations/${c.id}/messages`,
-      );
+      thread = await api.get<ConsultationMessage[]>(`/career/consultations/${c.id}/messages`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pesan";
     }
@@ -138,7 +136,8 @@
                 <span class={`badge ${statusBadge[c.status] ?? "badge-neutral"}`}
                   >{statusLabel(c.status)}</span
                 >
-                <button class="btn-ghost !py-1 text-xs" on:click={() => openThread(c)}>Pesan</button>
+                <button class="btn-ghost !py-1 text-xs" on:click={() => openThread(c)}>Pesan</button
+                >
                 {#if c.status === "pending"}
                   <button class="btn-ghost !py-1 text-xs" on:click={() => cancel(c)}>Batal</button>
                 {/if}

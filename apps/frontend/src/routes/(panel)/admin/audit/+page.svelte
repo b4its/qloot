@@ -104,7 +104,8 @@
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr>
-            <th class="py-1">Waktu</th><th>Tindakan</th><th>Entitas</th><th>Aktor</th><th>Request</th
+            <th class="py-1">Waktu</th><th>Tindakan</th><th>Entitas</th><th>Aktor</th><th
+              >Request</th
             ><th>Data</th>
           </tr>
         </thead>

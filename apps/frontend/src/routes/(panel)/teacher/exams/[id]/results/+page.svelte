@@ -94,13 +94,10 @@
     error = "";
     try {
       // The input is a percent (0-100); convert to basis points.
-      await api.post(
-        `/attempts/${attemptId}/answers/${ans.question_id}/override`,
-        {
-          score_bp: Math.max(0, Math.min(10000, Math.round(draft.score * 100))),
-          feedback: draft.feedback || null,
-        },
-      );
+      await api.post(`/attempts/${attemptId}/answers/${ans.question_id}/override`, {
+        score_bp: Math.max(0, Math.min(10000, Math.round(draft.score * 100))),
+        feedback: draft.feedback || null,
+      });
       message = "Nilai jawaban diperbarui.";
       await load();
     } catch (e) {

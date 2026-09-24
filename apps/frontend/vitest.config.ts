@@ -12,6 +12,13 @@ export default defineConfig({
     },
     globals: true,
     setupFiles: ["./tests/setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      include: ["src/lib/**"],
+      // CI-02: floor set below the current base so it holds the line.
+      thresholds: { lines: 30, functions: 30, branches: 30, statements: 30 },
+    },
   },
   resolve: {
     // `browser` condition makes Svelte resolve its client runtime so

@@ -116,9 +116,12 @@
             {#each failed as f}
               <tr class="border-b last:border-0">
                 <td class="px-5 py-3">{f.method}</td>
-                <td class="px-5 py-3"><span class="badge badge-magenta">{f.error_code ?? "failed"}</span></td>
-                <td class="px-5 py-3 max-w-[280px] truncate text-xs muted" title={f.error_message ?? ""}
-                  >{f.error_message ?? "—"}</td
+                <td class="px-5 py-3"
+                  ><span class="badge badge-magenta">{f.error_code ?? "failed"}</span></td
+                >
+                <td
+                  class="px-5 py-3 max-w-[280px] truncate text-xs muted"
+                  title={f.error_message ?? ""}>{f.error_message ?? "—"}</td
                 >
                 <td class="px-5 py-3 font-mono text-xs">
                   {#if f.allocation_id}alokasi {(f.allocation_id ?? "").slice(0, 8)}…
@@ -132,53 +135,52 @@
       {/if}
     </div>
   {:else}
-
-  <div class="card mt-6 overflow-x-auto !p-0">
-    {#if loading}
-      <div class="space-y-2 p-5">
-        {#each Array(6) as _}<div class="skeleton h-8"></div>{/each}
-      </div>
-    {:else if txs.length === 0}
-      <p class="p-5 muted">Belum ada transaksi.</p>
-    {:else}
-      <table class="w-full text-sm">
-        <thead class="mono-label border-b text-left">
-          <tr
-            ><th class="px-5 py-3">Metode</th><th class="px-5 py-3">Status</th><th class="px-5 py-3"
-              >Hash</th
-            ><th class="px-5 py-3 text-right">Konf</th><th class="px-5 py-3 text-right">Waktu</th
-            ></tr
-          >
-        </thead>
-        <tbody>
-          {#each txs as tx}
-            {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, chainId)}
-            <tr class="border-b last:border-0">
-              <td class="px-5 py-3">{tx.method}</td>
-              <td class="px-5 py-3">
-                <span
-                  class="badge"
-                  class:badge-mint={tx.status === "confirmed"}
-                  class:badge-amber={tx.status !== "confirmed"}>{statusLabel(tx.status)}</span
-                >
-              </td>
-              <td class="px-5 py-3 font-mono text-xs">
-                {#if url}<a
-                    class="text-primary"
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer">{shortHash(tx.transaction_hash)} ↗</a
+    <div class="card mt-6 overflow-x-auto !p-0">
+      {#if loading}
+        <div class="space-y-2 p-5">
+          {#each Array(6) as _}<div class="skeleton h-8"></div>{/each}
+        </div>
+      {:else if txs.length === 0}
+        <p class="p-5 muted">Belum ada transaksi.</p>
+      {:else}
+        <table class="w-full text-sm">
+          <thead class="mono-label border-b text-left">
+            <tr
+              ><th class="px-5 py-3">Metode</th><th class="px-5 py-3">Status</th><th
+                class="px-5 py-3">Hash</th
+              ><th class="px-5 py-3 text-right">Konf</th><th class="px-5 py-3 text-right">Waktu</th
+              ></tr
+            >
+          </thead>
+          <tbody>
+            {#each txs as tx}
+              {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, chainId)}
+              <tr class="border-b last:border-0">
+                <td class="px-5 py-3">{tx.method}</td>
+                <td class="px-5 py-3">
+                  <span
+                    class="badge"
+                    class:badge-mint={tx.status === "confirmed"}
+                    class:badge-amber={tx.status !== "confirmed"}>{statusLabel(tx.status)}</span
                   >
-                {:else}{shortHash(tx.transaction_hash)}{/if}
-              </td>
-              <td class="px-5 py-3 text-right">{tx.confirmation_count}</td>
-              <td class="px-5 py-3 text-right text-xs muted">{formatDate(tx.created_at)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-  </div>
+                </td>
+                <td class="px-5 py-3 font-mono text-xs">
+                  {#if url}<a
+                      class="text-primary"
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer">{shortHash(tx.transaction_hash)} ↗</a
+                    >
+                  {:else}{shortHash(tx.transaction_hash)}{/if}
+                </td>
+                <td class="px-5 py-3 text-right">{tx.confirmation_count}</td>
+                <td class="px-5 py-3 text-right text-xs muted">{formatDate(tx.created_at)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {/if}
+    </div>
   {/if}
 
   <Pagination

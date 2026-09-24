@@ -287,13 +287,13 @@
 
   {#if material?.extraction_status === "empty"}
     <p class="alert-error mt-4" role="alert">
-      <Icon name="triangle-exclamation" size="12px" /> PDF ini tidak memuat teks yang bisa dibaca
-      (kemungkinan hasil pindai). Pembuatan soal otomatis akan gagal — unggah PDF berbasis teks.
+      <Icon name="triangle-exclamation" size="12px" /> PDF ini tidak memuat teks yang bisa dibaca (kemungkinan
+      hasil pindai). Pembuatan soal otomatis akan gagal — unggah PDF berbasis teks.
     </p>
   {:else if material?.extraction_status === "ocr"}
     <p class="card mt-4 text-sm">
-      <Icon name="circle-info" size="12px" /> Teks diekstrak via OCR; periksa hasilnya sebelum
-      membuat soal.
+      <Icon name="circle-info" size="12px" /> Teks diekstrak via OCR; periksa hasilnya sebelum membuat
+      soal.
     </p>
   {/if}
 
@@ -354,7 +354,11 @@
       {#if generated.length}
         {#if generated.some((g) => (g.review_status ?? "pending") === "pending")}
           <div class="mt-3 flex justify-end">
-            <button class="btn-secondary !py-1 text-xs" on:click={approveAllDrafts} disabled={bulkBusy}>
+            <button
+              class="btn-secondary !py-1 text-xs"
+              on:click={approveAllDrafts}
+              disabled={bulkBusy}
+            >
               <Icon name="check-double" size="11px" /> Setujui semua draf
             </button>
           </div>

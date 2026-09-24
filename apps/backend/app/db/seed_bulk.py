@@ -200,7 +200,7 @@ async def _get_or_create_user(
     from app.core.config import settings
     from app.core.security import hash_password
     from app.models.identity import Role, User, UserRole
-    from app.services.auth_service import _compute_chain_user_ref  # type: ignore
+    from app.services.auth_service import _compute_chain_user_ref
 
     existing = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
     if existing is not None:
@@ -268,7 +268,7 @@ async def seed_accounts(session: AsyncSession):
         ).scalar_one()
     )
 
-    teachers = []
+    teachers: list[User] = []
     i = 1
     while teacher_count + len(teachers) < 5:
         # Skip the curated "teacher2" slot name by using teacherN@ numbering.

@@ -47,9 +47,7 @@
     error = "";
     message = "";
     try {
-      const res = await api.post<{ drifted: DriftRow[]; count: number }>(
-        "/admin/ledger/reconcile",
-      );
+      const res = await api.post<{ drifted: DriftRow[]; count: number }>("/admin/ledger/reconcile");
       drift = res.drifted;
       message =
         res.count === 0
@@ -90,9 +88,11 @@
       <p class="mono-label mb-2">Drift terakhir diperbaiki ({drift.length})</p>
       <table class="w-full text-sm">
         <thead class="text-left muted"
-          ><tr><th class="py-1">Akun</th><th>Ref</th><th class="text-right">Cached</th><th
+          ><tr
+            ><th class="py-1">Akun</th><th>Ref</th><th class="text-right">Cached</th><th
               class="text-right">Seharusnya</th
-            ></tr></thead
+            ></tr
+          ></thead
         >
         <tbody>
           {#each drift as d}

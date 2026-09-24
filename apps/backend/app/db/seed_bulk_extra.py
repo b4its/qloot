@@ -478,7 +478,7 @@ async def seed_progress_boards(session: AsyncSession, students, teachers) -> Non
 
     if await _count(session, UserBadge) < TARGET:
         badges = await _pick(session, Badge, 300)
-        existing_ub = {
+        existing_ub: set[tuple[object, object]] = {
             (b.user_id, b.badge_id) for b in (await session.execute(select(UserBadge))).scalars()
         }
         made = 0
@@ -521,7 +521,7 @@ async def seed_progress_boards(session: AsyncSession, students, teachers) -> Non
 
     if await _count(session, LeaderboardEntry) < TARGET:
         boards = await _pick(session, Leaderboard, 300)
-        existing_le = {
+        existing_le: set[tuple[object, object]] = {
             (e.leaderboard_id, e.user_id)
             for e in (await session.execute(select(LeaderboardEntry))).scalars()
         }
@@ -828,7 +828,6 @@ async def seed_misc(session: AsyncSession, students, teachers) -> None:
             rank = (i // len(students)) % 3 + 1
             major = majors[rank % len(majors)]
             i += 1
-            key = (student.id, major, rank)
             # CI-04: vary the status so every state the UI renders has data.
             # A third stay draft, a third are in_review, a third approved.
             status = ["draft", "in_review", "approved"][i % 3]
@@ -850,7 +849,6 @@ async def seed_misc(session: AsyncSession, students, teachers) -> None:
                     created_at=datetime.now(UTC) - timedelta(hours=i),
                 )
             )
-            _ = key
             made += 1
             if made % 50 == 0:
                 await session.flush()

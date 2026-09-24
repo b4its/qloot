@@ -20,7 +20,10 @@ test("student can list exams and open one", async ({ page }) => {
   await loginAsStudent(page);
   await page.goto("/exams");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const first = page.getByRole("link").filter({ hasText: /ujian|exam/i }).first();
+  const first = page
+    .getByRole("link")
+    .filter({ hasText: /ujian|exam/i })
+    .first();
   if (await first.count()) {
     await first.click();
     await page.waitForURL(/\/exams\/[^/]+$/);
@@ -31,7 +34,10 @@ test("student can list exams and open one", async ({ page }) => {
 test("starting an attempt opens the attempt page with a timer", async ({ page }) => {
   await loginAsStudent(page);
   await page.goto("/exams");
-  const first = page.getByRole("link").filter({ hasText: /ujian|exam/i }).first();
+  const first = page
+    .getByRole("link")
+    .filter({ hasText: /ujian|exam/i })
+    .first();
   if (!(await first.count())) test.skip();
   await first.click();
   await page.waitForURL(/\/exams\/[^/]+$/);

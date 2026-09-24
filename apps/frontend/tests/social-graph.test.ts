@@ -14,6 +14,6 @@ describe("community follow graph and following feed (COMM-06)", () => {
   });
 
   it("loads the viewer's following ids", () => {
-    expect(communitySrc).toContain('/me/following');
+    expect(communitySrc).toContain("/me/following");
   });
 });

@@ -76,8 +76,8 @@ def ocr_pdf(data: bytes) -> str:
     if not settings.material_ocr_enabled:
         return ""
     try:
-        import pytesseract  # type: ignore[import-not-found]
-        from pdf2image import convert_from_bytes  # type: ignore[import-not-found]
+        import pytesseract
+        from pdf2image import convert_from_bytes
 
         images = convert_from_bytes(data, dpi=200)
         return "\n".join(pytesseract.image_to_string(img) for img in images)

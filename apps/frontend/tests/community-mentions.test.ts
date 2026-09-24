@@ -12,7 +12,7 @@ describe("community @mentions (COMM-04)", () => {
   it("escapes HTML before linking (injection-safe)", () => {
     // The escaper must run before the mention anchor is inserted.
     const escIdx = communitySrc.indexOf(".replace(/&/g");
-    const linkIdx = communitySrc.indexOf("href=\"/community?mention=");
+    const linkIdx = communitySrc.indexOf('href="/community?mention=');
     expect(escIdx).toBeGreaterThanOrEqual(0);
     expect(linkIdx).toBeGreaterThan(escIdx);
   });

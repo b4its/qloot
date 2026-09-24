@@ -50,9 +50,7 @@
   async function openConversation(id: string) {
     if (busy) return;
     try {
-      const detail = await api.get<AssistantConversation>(
-        `/career/assistant/conversations/${id}`,
-      );
+      const detail = await api.get<AssistantConversation>(`/career/assistant/conversations/${id}`);
       conversationId = id;
       messages = (detail.messages ?? []).map((m) => ({
         role: m.role === "user" ? "user" : "bot",
@@ -178,7 +176,9 @@
     </div>
     <div class="flex flex-col items-end gap-2">
       <div class="flex items-center gap-2">
-        <button class="btn-ghost" on:click={newConversation} disabled={busy}>+ Percakapan baru</button>
+        <button class="btn-ghost" on:click={newConversation} disabled={busy}
+          >+ Percakapan baru</button
+        >
         <a href="/career" class="btn-ghost">← Halaman karier</a>
       </div>
       {#if ortBalance !== null || (freeRemaining !== null && freeRemaining > 0)}
@@ -186,16 +186,17 @@
           <span class="mono-label">Kredit AI</span>
           <span class="ml-2 font-semibold">{ortBalance ?? 0} ORT</span>
           {#if freeRemaining}
-            <span class="ml-2 muted"
-              >· {freeRemaining} gratis tersisa</span
-            >
+            <span class="ml-2 muted">· {freeRemaining} gratis tersisa</span>
           {/if}
         </div>
       {/if}
     </div>
   </div>
   <p class="mt-2 text-xs muted">
-    Setiap permintaan menggunakan 1 ORT. Punya saldo 0? <a href="/wallet" class="text-primary hover:underline">Tukar OPT → ORT di dompet</a>.
+    Setiap permintaan menggunakan 1 ORT. Punya saldo 0? <a
+      href="/wallet"
+      class="text-primary hover:underline">Tukar OPT → ORT di dompet</a
+    >.
   </p>
 
   {#if error}

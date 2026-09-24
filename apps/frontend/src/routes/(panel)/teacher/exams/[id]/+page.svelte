@@ -450,7 +450,13 @@
         </label>
         <label class="block">
           <span class="mono-label">Maks. percobaan (0 = tak terbatas)</span>
-          <input class="input mt-1" type="number" min="0" max="100" bind:value={form.max_attempts} />
+          <input
+            class="input mt-1"
+            type="number"
+            min="0"
+            max="100"
+            bind:value={form.max_attempts}
+          />
         </label>
       </div>
       <div class="mt-3 flex flex-wrap items-center gap-4">
@@ -764,7 +770,12 @@
           {:else if newQ.qtype === "numeric"}
             <div class="flex items-center gap-2">
               <span class="mono-label">Nilai</span>
-              <input class="input !w-28 !py-1" type="number" step="any" bind:value={newQ.numericValue} />
+              <input
+                class="input !w-28 !py-1"
+                type="number"
+                step="any"
+                bind:value={newQ.numericValue}
+              />
               <span class="mono-label">Toleransi</span>
               <input
                 class="input !w-24 !py-1"

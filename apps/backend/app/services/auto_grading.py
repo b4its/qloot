@@ -68,13 +68,13 @@ def score_auto_answer(question: Question, answer_text: str | None) -> float:
         return 1.0 if chosen and chosen == correct else 0.0
 
     if qtype == "multi_select":
-        correct = {str(c).strip().upper() for c in (key.get("correct") or [])}
-        chosen = set(_labels(_answer_obj(answer_text)))
-        if not correct:
+        correct_set = {str(c).strip().upper() for c in (key.get("correct") or [])}
+        chosen_set = set(_labels(_answer_obj(answer_text)))
+        if not correct_set:
             return 0.0
-        hits = len(chosen & correct)
-        wrong = len(chosen - correct)
-        return max(0.0, min(1.0, (hits - wrong) / len(correct)))
+        hits = len(chosen_set & correct_set)
+        wrong = len(chosen_set - correct_set)
+        return max(0.0, min(1.0, (hits - wrong) / len(correct_set)))
 
     if qtype == "numeric":
         raw = _answer_obj(answer_text)
@@ -102,19 +102,21 @@ def score_auto_answer(question: Question, answer_text: str | None) -> float:
 
     if qtype == "ordering":
         correct_order = [str(x).strip().upper() for x in (key.get("order") or [])]
-        chosen = _labels(_answer_obj(answer_text))
+        chosen_order = _labels(_answer_obj(answer_text))
         n = len(correct_order)
         if n == 0:
             return 0.0
-        in_place = sum(1 for i, item in enumerate(chosen[:n]) if item == correct_order[i])
+        in_place = sum(
+            1 for i, item in enumerate(chosen_order[:n]) if item == correct_order[i]
+        )
         return in_place / n
 
     if qtype == "matching":
         pairs = {str(k): str(v) for k, v in (key.get("pairs") or {}).items()}
-        chosen = _answer_obj(answer_text)
-        if not isinstance(chosen, dict) or not pairs:
+        chosen_pairs = _answer_obj(answer_text)
+        if not isinstance(chosen_pairs, dict) or not pairs:
             return 0.0
-        hits = sum(1 for k, v in pairs.items() if str(chosen.get(k, "")) == v)
+        hits = sum(1 for k, v in pairs.items() if str(chosen_pairs.get(k, "")) == v)
         return hits / len(pairs)
 
     # Unknown/unsupported type: no credit rather than a crash.
