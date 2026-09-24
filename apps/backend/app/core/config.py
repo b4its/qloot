@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     ai_api_key: str = ""
     ai_generation_model: str = "gemini-2.0-flash"
     ai_scoring_model: str = "gemini-2.0-flash"
+    # Embedding model + vector dimension for the material RAG index. The mock
+    # provider produces deterministic vectors of ``ai_embedding_dim``; real
+    # providers fail fast if the embedding model is not configured.
+    ai_embedding_model: str = "text-embedding-3-small"
+    ai_embedding_dim: int = 256
     ai_http_timeout_seconds: int = 60
     ai_max_upload_bytes: int = 10 * 1024 * 1024
     ai_max_questions: int = 20

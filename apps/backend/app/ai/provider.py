@@ -11,6 +11,7 @@ All return validated structures; parsing is defensive (fixes SayGenFix §4.10).
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -368,6 +369,14 @@ class AIProvider:
     async def answer(self, ctx: QAContext) -> AnswerResult:  # pragma: no cover
         raise NotImplementedError
 
+    async def embed(self, texts: list[str]) -> list[list[float]]:  # pragma: no cover
+        """Return one embedding vector per input text (same order).
+
+        Used to build the material RAG index and to embed queries. Every
+        provider must implement this so retrieval works with any backend.
+        """
+        raise NotImplementedError
+
 
 class MockProvider(AIProvider):
     """Deterministic provider: no network, stable output for tests/demo.
@@ -582,6 +591,27 @@ class MockProvider(AIProvider):
         answer = f"Berdasarkan materi: {_truncate_on_word(best, 400)}"
         return AnswerResult(answer=answer, confidence_bp=confidence)
 
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        """Deterministic, process-stable embedding via token hashing.
+
+        Uses ``hashlib`` (stable across runs, unlike Python's ``hash``) so the
+        same text always yields the same unit vector. Cosine similarity of these
+        vectors is a faithful bag-of-tokens similarity, which is enough for the
+        mock RAG retrieval to be deterministic and testable offline.
+        """
+        dim = max(1, settings.ai_embedding_dim)
+        out: list[list[float]] = []
+        for text in texts:
+            vec = [0.0] * dim
+            for tok in _content_tokens(text or ""):
+                h = int.from_bytes(hashlib.sha256(tok.encode("utf-8")).digest()[:8], "big")
+                vec[h % dim] += 1.0
+            norm = sum(v * v for v in vec) ** 0.5
+            if norm > 0:
+                vec = [v / norm for v in vec]
+            out.append(vec)
+        return out
+
 
 class OpenAICompatProvider(AIProvider):
     """Any OpenAI-compatible chat-completions endpoint.
@@ -640,6 +670,31 @@ class OpenAICompatProvider(AIProvider):
     async def _chat(self, model: str, system: str, user: str) -> dict:
         """Like _chat_raw but requires a JSON object (for structured tasks)."""
         return _loads_lenient(await self._chat_raw(model, system, user))
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        """POST /embeddings on the OpenAI-compatible endpoint (with retry)."""
+        if not settings.ai_embedding_model:
+            raise AIProviderError(
+                "AI_EMBEDDING_MODEL is not configured; cannot build the RAG index"
+            )
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                resp = await self._client.post(
+                    "/embeddings",
+                    json={"model": settings.ai_embedding_model, "input": texts},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                vectors = [row["embedding"] for row in data["data"]]
+                if len(vectors) != len(texts):
+                    raise AIProviderError("Embedding response length mismatch")
+                return [[float(x) for x in v] for v in vectors]
+            except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+                last_exc = exc
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2**attempt))
+        raise AIProviderError("Embedding request failed") from last_exc
 
     async def generate_questions(self, ctx: GenerationContext) -> GeneratedQuestions:
         system = (
@@ -764,6 +819,38 @@ class GeminiProvider(AIProvider):
         except (KeyError, IndexError, TypeError) as exc:
             raise AIProviderError("Unexpected Gemini response shape") from exc
         return _loads_lenient(text)
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        """POST /models/{model}:batchEmbedContents (with retry)."""
+        if not settings.ai_embedding_model:
+            raise AIProviderError(
+                "AI_EMBEDDING_MODEL is not configured; cannot build the RAG index"
+            )
+        url = f"/models/{settings.ai_embedding_model}:batchEmbedContents"
+        body = {
+            "requests": [
+                {
+                    "model": f"models/{settings.ai_embedding_model}",
+                    "content": {"parts": [{"text": t}]},
+                }
+                for t in texts
+            ]
+        }
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                resp = await self._client.post(url, json=body)
+                resp.raise_for_status()
+                data = resp.json()
+                vectors = [row["values"] for row in data["embeddings"]]
+                if len(vectors) != len(texts):
+                    raise AIProviderError("Embedding response length mismatch")
+                return [[float(x) for x in v] for v in vectors]
+            except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+                last_exc = exc
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2**attempt))
+        raise AIProviderError("Embedding request failed") from last_exc
 
     async def generate_questions(self, ctx: GenerationContext) -> GeneratedQuestions:
         prompt = (
@@ -945,6 +1032,18 @@ def summarize_text(text: str, *, max_chars: int = 200_000) -> str:
 
 def text_fingerprint(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()[:32]
+
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Cosine similarity of two vectors; 0.0 when either is empty/zero."""
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
 
 
 def provider_name() -> str:
