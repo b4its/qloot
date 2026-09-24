@@ -27,6 +27,8 @@
     author_id: string;
     author_name: string;
     body: string;
+    parent_id?: string | null;
+    edited_at?: string | null;
     created_at: string;
   }
 
@@ -169,6 +171,35 @@
       }, 2000);
     } catch {
       error = "Gagal menyalin tautan";
+    }
+  }
+
+  /** COMM-02: reply to a specific comment (nested). */
+  async function replyTo(p: Post, parentId: string) {
+    const text = prompt("Balasan Anda?");
+    if (!text || text.trim().length < 1) return;
+    error = "";
+    try {
+      await api.post(`/community/posts/${p.id}/comments`, {
+        body: text.trim(),
+        parent_id: parentId,
+      });
+      await loadComments(p);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal membalas";
+    }
+  }
+
+  /** COMM-02: edit your own comment. */
+  async function editComment(p: Post, c: Comment) {
+    const text = prompt("Ubah komentar", c.body);
+    if (!text || text.trim().length < 1 || text === c.body) return;
+    error = "";
+    try {
+      await api.patch(`/community/comments/${c.id}`, { body: text.trim() });
+      await loadComments(p);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengubah komentar";
     }
   }
 
@@ -390,33 +421,51 @@
               {#each f.comments ?? [] as c (c.id)}
                 <div class="flex items-start gap-2 text-sm">
                   <Icon name="user" size="11px" class="mt-1 muted" />
-                  <div class="flex-1">
-                    <p>
-                      <span class="font-medium">{c.author_name}</span>
-                      <span class="text-xs muted"> · {relativeTime(c.created_at)}</span>
-                    </p>
-                    <p class="text-ink2">{c.body}</p>
-                  </div>
-                  {#if user && (c.author_id === user.id || user.roles?.includes("admin"))}
-                    <button
-                      class="btn-icon flex-none !text-tertiary hover:!border-tertiary"
-                      on:click={() => deleteComment(f, c)}
-                      disabled={busy === `cd-${c.id}`}
-                      aria-label="Hapus komentar"
-                    >
-                      <Icon name="trash" size="10px" />
-                    </button>
-                  {:else}
-                    <button
-                      class="btn-icon flex-none"
-                      on:click={() => reportTarget("comment", c.id)}
-                      aria-label="Laporkan komentar"
-                    >
-                      <Icon name="flag" size="10px" />
-                    </button>
-                  {/if}
-                </div>
-              {/each}
+                   <div class="flex-1">
+                     <p>
+                       <span class="font-medium">{c.author_name}</span>
+                       <span class="text-xs muted"> · {relativeTime(c.created_at)}</span>
+                       {#if c.edited_at}<span class="text-xs muted"> · disunting</span>{/if}
+                       {#if c.parent_id}<span class="text-xs muted"> · balasan</span>{/if}
+                     </p>
+                     <p class="text-ink2">{c.body}</p>
+                   </div>
+                   <div class="flex flex-none items-center gap-1">
+                     <button
+                       class="btn-icon"
+                       on:click={() => replyTo(f, c.id)}
+                       aria-label="Balas komentar"
+                     >
+                       <Icon name="reply" size="10px" />
+                     </button>
+                     {#if user && (c.author_id === user.id || user.roles?.includes("admin"))}
+                       <button
+                         class="btn-icon"
+                         on:click={() => editComment(f, c)}
+                         aria-label="Ubah komentar"
+                       >
+                         <Icon name="pen" size="10px" />
+                       </button>
+                       <button
+                         class="btn-icon !text-tertiary hover:!border-tertiary"
+                         on:click={() => deleteComment(f, c)}
+                         disabled={busy === `cd-${c.id}`}
+                         aria-label="Hapus komentar"
+                       >
+                         <Icon name="trash" size="10px" />
+                       </button>
+                     {:else}
+                       <button
+                         class="btn-icon"
+                         on:click={() => reportTarget("comment", c.id)}
+                         aria-label="Laporkan komentar"
+                       >
+                         <Icon name="flag" size="10px" />
+                       </button>
+                     {/if}
+                   </div>
+                 </div>
+               {/each}
               {#if (f.comments ?? []).length === 0}
                 <p class="text-xs muted">Belum ada komentar.</p>
               {/if}

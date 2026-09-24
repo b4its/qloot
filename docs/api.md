@@ -231,6 +231,7 @@ POST   /community/posts/{post_id}/like
 GET    /community/posts/{post_id}/comments
 POST   /community/posts/{post_id}/comments
 DELETE /community/comments/{comment_id} (author/admin)
+PATCH  /community/comments/{comment_id} (author/admin: edit, stamps edited_at)
 POST   /community/reports                 (one report per user per object)
 GET    /community/reports                 (admin moderation queue)
 POST   /community/reports/{report_id}/moderate   (admin: hide|delete|dismiss)

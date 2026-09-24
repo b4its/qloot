@@ -11,6 +11,7 @@ from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.community import (
     CommentCreate,
+    CommentEdit,
     CommentOut,
     CommunityStatsOut,
     ModerationAction,
@@ -88,12 +89,34 @@ async def list_comments(
 )
 async def add_comment(post_id: uuid.UUID, payload: CommentCreate, user: CurrentUser, db: DbSession):
     async with transaction(db):
-        comment = await CommunityService(db).add_comment(user, post_id, body=payload.body)
+        comment = await CommunityService(db).add_comment(
+            user, post_id, body=payload.body, parent_id=payload.parent_id
+        )
         return CommentOut(
             id=comment.id,
             author_id=comment.author_id,
             author_name=user.full_name,
             body=comment.body,
+            parent_id=comment.parent_id,
+            edited_at=comment.edited_at,
+            created_at=comment.created_at,
+        )
+
+
+@router.patch("/comments/{comment_id}", response_model=CommentOut)
+async def edit_comment(
+    comment_id: uuid.UUID, payload: CommentEdit, user: CurrentUser, db: DbSession
+):
+    """Edit your own comment; stamps ``edited_at`` (COMM-02)."""
+    async with transaction(db):
+        comment = await CommunityService(db).edit_comment(user, comment_id, body=payload.body)
+        return CommentOut(
+            id=comment.id,
+            author_id=comment.author_id,
+            author_name=user.full_name,
+            body=comment.body,
+            parent_id=comment.parent_id,
+            edited_at=comment.edited_at,
             created_at=comment.created_at,
         )
 

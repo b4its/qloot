@@ -15,6 +15,11 @@ class PostCreate(BaseModel):
 
 class CommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=1000)
+    parent_id: uuid.UUID | None = None
+
+
+class CommentEdit(BaseModel):
+    body: str = Field(min_length=1, max_length=1000)
 
 
 class CommentOut(BaseModel):
@@ -22,7 +27,9 @@ class CommentOut(BaseModel):
     author_id: uuid.UUID
     author_name: str
     body: str
+    parent_id: uuid.UUID | None = None
     hidden: bool = False
+    edited_at: datetime | None = None
     created_at: datetime
 
 

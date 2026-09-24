@@ -71,8 +71,13 @@ class CommunityComment(Base):
     author_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    # COMM-02: nested replies (NULL = top-level comment).
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("community_comments.id", ondelete="CASCADE")
+    )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

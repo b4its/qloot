@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,9 @@ TOPICS: tuple[str, ...] = (
     "Karier & Portofolio",
     "Tanya Jawab",
 )
+
+# COMM-02: maximum nesting depth for comment replies.
+MAX_COMMENT_DEPTH = 3
 
 
 class CommunityService:
@@ -101,7 +105,9 @@ class CommunityService:
                 "author_id": c.author_id,
                 "author_name": name,
                 "body": c.body,
+                "parent_id": c.parent_id,
                 "hidden": c.hidden,
+                "edited_at": c.edited_at,
                 "created_at": c.created_at,
             }
             for c, name in rows
@@ -114,11 +120,35 @@ class CommunityService:
         log.info("community_post_created", post=str(post.id), user=str(user.id))
         return post
 
-    async def add_comment(self, user: User, post_id: uuid.UUID, *, body: str) -> CommunityComment:
+    async def add_comment(
+        self,
+        user: User,
+        post_id: uuid.UUID,
+        *,
+        body: str,
+        parent_id: uuid.UUID | None = None,
+    ) -> CommunityComment:
         post = await self.session.get(CommunityPost, post_id)
         if post is None:
             raise NotFoundError("Post not found")
-        comment = CommunityComment(post_id=post_id, author_id=user.id, body=body)
+        # COMM-02: nested replies, but bounded depth so threads stay readable.
+        if parent_id is not None:
+            parent = await self.session.get(CommunityComment, parent_id)
+            if parent is None or parent.post_id != post_id:
+                raise NotFoundError("Parent comment not found")
+            # Depth of the *new* comment = 1 (this comment) + its ancestors.
+            depth = 2
+            cursor: CommunityComment | None = parent
+            while cursor is not None and cursor.parent_id is not None:
+                depth += 1
+                if depth > MAX_COMMENT_DEPTH:
+                    break
+                cursor = await self.session.get(CommunityComment, cursor.parent_id)
+            if depth > MAX_COMMENT_DEPTH:
+                raise ValidationError(f"Balasan maksimum {MAX_COMMENT_DEPTH} tingkat")
+        comment = CommunityComment(
+            post_id=post_id, author_id=user.id, body=body, parent_id=parent_id
+        )
         self.session.add(comment)
         post.comment_count = (post.comment_count or 0) + 1
         await self.session.flush()
@@ -134,6 +164,20 @@ class CommunityService:
                 body=body[:140],
                 data={"post_id": str(post_id), "comment_id": str(comment.id)},
             )
+        return comment
+
+    async def edit_comment(
+        self, user: User, comment_id: uuid.UUID, *, body: str
+    ) -> CommunityComment:
+        """Author edits their own comment; marks it edited (COMM-02)."""
+        comment = await self.session.get(CommunityComment, comment_id)
+        if comment is None:
+            raise NotFoundError("Comment not found")
+        if not user.has_role("admin") and comment.author_id != user.id:
+            raise ForbiddenError("You can only edit your own comments")
+        comment.body = body
+        comment.edited_at = datetime.now(UTC)
+        await self.session.flush()
         return comment
 
     async def toggle_like(self, user: User, post_id: uuid.UUID) -> tuple[CommunityPost, bool]:
