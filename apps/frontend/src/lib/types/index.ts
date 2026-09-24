@@ -103,6 +103,8 @@ export interface Exam {
   course_id?: string | null;
   duration_minutes: number;
   max_attempts?: number;
+  shuffle_questions?: boolean;
+  shuffle_options?: boolean;
   status: string;
   is_active: boolean;
   passing_score_bp: number;
@@ -129,6 +131,7 @@ export interface Attempt {
   started_at: string;
   submitted_at?: string | null;
   graded_at?: string | null;
+  expires_at?: string | null;
 }
 
 export interface Answer {

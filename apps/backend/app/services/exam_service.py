@@ -189,6 +189,36 @@ class ExamService:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def attempt_questions(
+        self, attempt_id: uuid.UUID, user: User
+    ) -> list[tuple[Question, list[QuestionOption]]]:
+        """Questions + options for a specific attempt, deterministically shuffled.
+
+        The shuffle seed is the attempt id, so re-loading the same attempt yields
+        the same order (no jitter), while two different attempts see different
+        orders. Option **labels stay canonical**, so grading (which compares the
+        submitted label to the question's correct_answer) is unaffected.
+        """
+        import random
+
+        attempt = await self._get_own_attempt(attempt_id, user)
+        if attempt.user_id != user.id and not user.has_role("teacher", "admin"):
+            raise ForbiddenError("You cannot access this attempt")
+        exam = await self.session.get(Exam, attempt.exam_id)
+        questions = await self.list_questions(attempt.exam_id)
+        rows: list[tuple[Question, list[QuestionOption]]] = []
+        for q in questions:
+            opts = await self.options_for(q.id)
+            if exam is not None and exam.shuffle_options and len(opts) > 1:
+                rng = random.Random(f"{attempt.id}:opt:{q.id}")
+                opts = opts[:]
+                rng.shuffle(opts)
+            rows.append((q, opts))
+        if exam is not None and exam.shuffle_questions and len(rows) > 1:
+            rng = random.Random(f"{attempt.id}:q")
+            rng.shuffle(rows)
+        return rows
+
     async def _replace_options(self, question: Question, options: list[dict]) -> None:
         """Replace a question's options wholesale (atomic: delete + insert)."""
         if len(options) < 2:

@@ -19,7 +19,14 @@
   let message = "";
   let busy = "";
 
-  let form = { title: "", duration_minutes: 60, passing_score_bp: 6000, max_attempts: 1 };
+  let form = {
+    title: "",
+    duration_minutes: 60,
+    passing_score_bp: 6000,
+    max_attempts: 1,
+    shuffle_questions: false,
+    shuffle_options: false,
+  };
 
   let questions: Question[] = [];
   let questionsLoading = false;
@@ -65,6 +72,8 @@
         duration_minutes: exam.duration_minutes,
         passing_score_bp: exam.passing_score_bp,
         max_attempts: exam.max_attempts ?? 1,
+        shuffle_questions: exam.shuffle_questions ?? false,
+        shuffle_options: exam.shuffle_options ?? false,
       };
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
@@ -298,6 +307,16 @@
         <label class="block">
           <span class="mono-label">Maks. percobaan (0 = tak terbatas)</span>
           <input class="input mt-1" type="number" min="0" max="100" bind:value={form.max_attempts} />
+        </label>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-4">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" bind:checked={form.shuffle_questions} />
+          <span>Acak urutan soal per siswa</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" bind:checked={form.shuffle_options} />
+          <span>Acak urutan opsi jawaban</span>
         </label>
       </div>
       <div class="mt-3 flex items-center justify-between">

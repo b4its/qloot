@@ -182,6 +182,25 @@ async def get_attempt(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession):
     return await ExamService(db).get_attempt(attempt_id, user)
 
 
+@router.get("/attempts/{attempt_id}/questions", response_model=list[QuestionOut])
+async def attempt_questions(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    """Questions + options for this attempt (deterministically shuffled).
+
+    Answer keys are never revealed here; the shuffle is per-attempt and stable.
+    """
+    service = ExamService(db)
+    rows = await service.attempt_questions(attempt_id, user)
+    out: list[QuestionOut] = []
+    for q, opts in rows:
+        base = QuestionOut.model_validate(q)
+        base.options = [
+            OptionOut(id=o.id, label=o.label, text=o.text, position=o.position, is_correct=None)
+            for o in opts
+        ]
+        out.append(base.model_copy(update={"correct_answer": None}))
+    return out
+
+
 @router.put("/attempts/{attempt_id}/answers/{question_id}", response_model=AnswerOut)
 async def save_answer(
     attempt_id: uuid.UUID,

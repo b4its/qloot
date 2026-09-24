@@ -8,6 +8,8 @@
 
   let exam: Exam | null = null;
   let attempt: Attempt | null = null;
+  // Attempt-scoped, deterministically shuffled questions/options.
+  let questions: NonNullable<Exam["questions"]> = [];
   let answers: Record<string, string> = {};
   let saved: Record<string, "idle" | "saving" | "saved" | "error"> = {};
   let loading = true;
@@ -33,6 +35,10 @@
     try {
       exam = await api.get<Exam>(`/exams/${examId}`);
       attempt = await api.get<Attempt>(`/attempts/${attemptId}`);
+      // Prefer the attempt-scoped (shuffled) question set.
+      questions = await api
+        .get<NonNullable<Exam["questions"]>>(`/attempts/${attemptId}/questions`)
+        .catch(() => exam?.questions ?? []);
       const res = await api.get<{ answers: Answer[] }>(`/attempts/${attemptId}/result`);
       for (const a of res.answers) {
         if (a.answer_text) {
@@ -50,7 +56,10 @@
 
   function startTimer() {
     if (!exam || !attempt) return;
-    const deadline = new Date(attempt.started_at).getTime() + exam.duration_minutes * 60_000;
+    // Prefer the server-authoritative expiry; fall back to started_at+duration.
+    const deadline = attempt.expires_at
+      ? new Date(attempt.expires_at).getTime()
+      : new Date(attempt.started_at).getTime() + exam.duration_minutes * 60_000;
     const update = () => {
       secondsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
       if (secondsLeft === 0) {
@@ -89,7 +98,7 @@
     }
     try {
       if (exam) {
-        for (const q of exam.questions ?? []) await saveAnswer(q.id);
+        for (const q of questions) await saveAnswer(q.id);
       }
       await api.post(`/attempts/${attemptId}/submit`);
       finished = true;
@@ -157,12 +166,12 @@
 
     <div class="grid gap-4 lg:grid-cols-[1fr_220px]">
       <div class="space-y-4">
-        {#each exam.questions ?? [] as q, i}
+        {#each questions as q, i}
           {#if i === current}
             <div class="card">
               <div class="flex items-center justify-between">
                 <h2 class="hud font-display text-lg font-bold">
-                  Soal {i + 1} dari {exam.questions?.length}
+                  Soal {i + 1} dari {questions.length}
                 </h2>
                 <span class="text-xs muted">
                   {#if saved[q.id] === "saving"}Menyimpan…
@@ -214,7 +223,7 @@
                 >
                 <button
                   class="btn-primary"
-                  disabled={i === (exam.questions?.length ?? 0) - 1}
+                  disabled={i === questions.length - 1}
                   on:click={() => (current = i + 1)}>Berikutnya →</button
                 >
               </div>
@@ -226,7 +235,7 @@
       <aside class="card h-fit">
         <h2 class="hud font-display text-lg font-bold">Navigasi</h2>
         <div class="mt-3 grid grid-cols-5 gap-2">
-          {#each exam.questions ?? [] as q, i}
+          {#each questions as q, i}
             <button
               class="h-9 w-9 rounded-sm border font-mono text-sm transition-colors"
               class:border-primary={i === current}

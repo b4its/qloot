@@ -50,6 +50,10 @@ class Exam(Base, TimestampMixin):
     # Maximum attempts per student (0 = unlimited). Default 1 preserves the
     # historical "single attempt" behaviour for existing/seed exams.
     max_attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # Anti-cheat: shuffle question order and/or option order per attempt (seed =
+    # attempt id) so two students do not see an identical paper.
+    shuffle_questions: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    shuffle_options: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="draft", nullable=False, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     passing_score_bp: Mapped[int] = mapped_column(Integer, default=6000, nullable=False)
