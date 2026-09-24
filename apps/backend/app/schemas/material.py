@@ -19,6 +19,7 @@ class MaterialOut(ORMModel):
     size_bytes: int
     checksum_sha256: str
     status: str
+    extraction_status: str = "ok"
     created_at: datetime
 
 

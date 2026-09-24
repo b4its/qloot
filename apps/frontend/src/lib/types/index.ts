@@ -343,6 +343,7 @@ export interface Material {
   content_type: string;
   size_bytes: number;
   status: string;
+  extraction_status?: string;
   created_at: string;
 }
 

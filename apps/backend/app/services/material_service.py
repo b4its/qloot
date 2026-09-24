@@ -66,6 +66,27 @@ def extract_pdf_text(data: bytes) -> str:
         raise ValidationError("Could not read PDF content") from exc
 
 
+def ocr_pdf(data: bytes) -> str:
+    """Optional OCR fallback for scanned PDFs.
+
+    Only runs when ``settings.material_ocr_enabled`` is set and the optional
+    dependencies (tesseract + pdf2image) are importable. Returns "" when OCR is
+    unavailable so the caller marks the material ``empty`` instead of failing.
+    """
+    if not settings.material_ocr_enabled:
+        return ""
+    try:
+        import pytesseract  # type: ignore[import-not-found]
+        from pdf2image import convert_from_bytes  # type: ignore[import-not-found]
+
+        images = convert_from_bytes(data, dpi=200)
+        return "\n".join(pytesseract.image_to_string(img) for img in images)
+    except Exception as exc:  # noqa: BLE001 - OCR is best-effort
+        log.warning("ocr_failed", error=str(exc))
+        return ""
+
+
+
 class MaterialService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -91,6 +112,16 @@ class MaterialService:
         key = build_key(owner.id, filename)
         storage.put(key, content, "application/pdf")
         text = extract_pdf_text(content)
+        # Signal extraction quality at upload time: a scanned PDF yields (almost)
+        # no text, so warn immediately instead of failing late in generation.
+        extraction_status = "ok"
+        if len(text.strip()) < settings.material_min_text_chars:
+            ocr_text = ocr_pdf(content)
+            if len(ocr_text.strip()) >= settings.material_min_text_chars:
+                text = ocr_text
+                extraction_status = "ocr"
+            else:
+                extraction_status = "empty"
 
         material = LearningMaterial(
             owner_id=owner.id,
@@ -103,6 +134,7 @@ class MaterialService:
             storage_key=key,
             extracted_text=text[:500_000],
             status="ready",
+            extraction_status=extraction_status,
         )
         self.session.add(material)
         await self.session.flush()

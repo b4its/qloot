@@ -129,6 +129,12 @@ class LearningMaterial(Base, TimestampMixin):
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
     extracted_text: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="uploaded", nullable=False)
+    # Extraction quality: "ok", "empty" (a scanned PDF with little/no text) or
+    # "ocr" when an OCR fallback produced the text. Surfaced so the teacher is
+    # warned at upload time instead of failing late during generation.
+    extraction_status: Mapped[str] = mapped_column(
+        String(16), default="ok", nullable=False
+    )
 
     lesson: Mapped[Lesson | None] = relationship(back_populates="materials")
 

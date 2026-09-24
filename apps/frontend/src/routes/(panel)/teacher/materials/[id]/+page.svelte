@@ -251,6 +251,18 @@
 
   <PageAlerts {message} {error} />
 
+  {#if material?.extraction_status === "empty"}
+    <p class="alert-error mt-4" role="alert">
+      <Icon name="triangle-exclamation" size="12px" /> PDF ini tidak memuat teks yang bisa dibaca
+      (kemungkinan hasil pindai). Pembuatan soal otomatis akan gagal — unggah PDF berbasis teks.
+    </p>
+  {:else if material?.extraction_status === "ocr"}
+    <p class="card mt-4 text-sm">
+      <Icon name="circle-info" size="12px" /> Teks diekstrak via OCR; periksa hasilnya sebelum
+      membuat soal.
+    </p>
+  {/if}
+
   {#if loading}
     <div class="mt-6 space-y-3">
       <div class="skeleton h-24"></div>

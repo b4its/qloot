@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     material_chunk_chars: int = 1200
     material_rag_top_k: int = 8
     material_rag_max_chars: int = 20_000
+    # Minimum extracted characters for a material to be considered usable.
+    material_min_text_chars: int = 20
+    # Optional OCR fallback for scanned PDFs. Off by default (needs tesseract);
+    # when off, a text-less PDF is marked extraction_status="empty" and warned.
+    material_ocr_enabled: bool = False
     ai_http_timeout_seconds: int = 60
     ai_max_upload_bytes: int = 10 * 1024 * 1024
     ai_max_questions: int = 20
