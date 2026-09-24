@@ -156,4 +156,24 @@ describe("teacher exam results review", () => {
     // The key text is shown too.
     expect(screen.getAllByText(/Jakarta/).length).toBeGreaterThan(0);
   });
+
+  it("offers a per-answer override control on a graded sheet", async () => {
+    render(ResultsPage, {});
+    await fireEvent.click(await screen.findByText("Andi Benar"));
+    expect(await screen.findByText("Override nilai (%)")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /simpan/i }).length).toBeGreaterThan(0);
+  });
+
+  it("calls the override endpoint when saving a score", async () => {
+    const post = api.post as unknown as ReturnType<typeof vi.fn>;
+    post.mockResolvedValue({});
+    render(ResultsPage, {});
+    await fireEvent.click(await screen.findByText("Andi Benar"));
+    const save = (await screen.findAllByRole("button", { name: /simpan/i }))[0];
+    await fireEvent.click(save);
+    expect(post).toHaveBeenCalledWith(
+      expect.stringContaining("/override"),
+      expect.objectContaining({ score_bp: expect.any(Number) }),
+    );
+  });
 });

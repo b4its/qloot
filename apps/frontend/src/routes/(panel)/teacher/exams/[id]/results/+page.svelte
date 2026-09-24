@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { ExamResultsReview, ExamResultReviewRow } from "$lib/types";
+  import type { ExamResultsReview, ExamResultReviewRow, ReviewAnswer } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import { bpToPercent, statusLabel } from "$lib/utils/format";
@@ -58,6 +58,58 @@
     return v === true ? "Benar" : v === false ? "Salah" : "—";
   }
 
+  // --- regrade + per-answer override ---
+  let busy = "";
+  let message = "";
+  // Per-answer draft overrides keyed by `${attemptId}:${questionId}`.
+  let overrides: Record<string, { score: number; feedback: string }> = {};
+  function draftFor(attemptId: string, ans: ReviewAnswer) {
+    const k = `${attemptId}:${ans.question_id}`;
+    if (!overrides[k]) {
+      overrides[k] = {
+        score: Math.round((ans.score_bp ?? 0) / 100),
+        feedback: ans.feedback ?? "",
+      };
+    }
+    return overrides[k];
+  }
+
+  async function regrade(attemptId: string) {
+    busy = attemptId;
+    error = "";
+    try {
+      await api.post(`/attempts/${attemptId}/regrade`);
+      message = "Penilaian ulang diantrekan.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menilai ulang";
+    } finally {
+      busy = "";
+    }
+  }
+
+  async function overrideAnswer(attemptId: string, ans: ReviewAnswer) {
+    const draft = draftFor(attemptId, ans);
+    busy = `${attemptId}:${ans.question_id}`;
+    error = "";
+    try {
+      // The input is a percent (0-100); convert to basis points.
+      await api.post(
+        `/attempts/${attemptId}/answers/${ans.question_id}/override`,
+        {
+          score_bp: Math.max(0, Math.min(10000, Math.round(draft.score * 100))),
+          feedback: draft.feedback || null,
+        },
+      );
+      message = "Nilai jawaban diperbarui.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menyimpan nilai";
+    } finally {
+      busy = "";
+    }
+  }
+
   onMount(load);
 </script>
 
@@ -72,7 +124,7 @@
     backLabel="Kelola ujian"
   />
 
-  <PageAlerts {error} />
+  <PageAlerts {error} {message} />
 
   {#if loading}
     <div class="mt-6 space-y-2">
@@ -125,6 +177,13 @@
 
           {#if openAttempt === a.id}
             <div class="border-t px-5 py-4">
+              {#if a.status === "submitted" || a.status === "grading_failed"}
+                <button
+                  class="btn-ghost mb-3 !py-1 text-xs"
+                  on:click={() => regrade(a.id)}
+                  disabled={busy === a.id}>{busy === a.id ? "…" : "Nilai ulang"}</button
+                >
+              {/if}
               {#if a.answers.length === 0}
                 <p class="text-sm muted">Peserta ini tidak menjawab soal apa pun.</p>
               {:else}
@@ -176,6 +235,30 @@
                       {/if}
                       {#if ans.feedback && ans.qtype !== "multiple_choice"}
                         <p class="mt-1 text-xs muted">Umpan balik: {ans.feedback}</p>
+                      {/if}
+                      {#if a.status === "graded" || a.status === "submitted"}
+                        {@const d = draftFor(a.id, ans)}
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                          <span class="mono-label">Override nilai (%)</span>
+                          <input
+                            class="input !w-20 !py-1 text-sm"
+                            type="number"
+                            min="0"
+                            max="100"
+                            bind:value={d.score}
+                          />
+                          <input
+                            class="input !py-1 text-sm"
+                            placeholder="Umpan balik"
+                            bind:value={d.feedback}
+                          />
+                          <button
+                            class="btn-secondary !py-1 text-xs"
+                            on:click={() => overrideAnswer(a.id, ans)}
+                            disabled={busy === `${a.id}:${ans.question_id}`}
+                            >{busy === `${a.id}:${ans.question_id}` ? "…" : "Simpan"}</button
+                          >
+                        </div>
                       {/if}
                     </li>
                   {/each}
