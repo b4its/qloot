@@ -25,6 +25,7 @@ from app.models.identity import EmailChangeToken, PasswordResetToken, User
 from app.models.identity import Session as SessionModel
 from app.models.wallet import WalletAccount
 from app.repositories.users import SessionRepository, UserRepository
+from app.services.audit import record as audit_record
 
 log = get_logger("auth")
 
@@ -122,23 +123,68 @@ class AuthService:
         if user is None:
             # Constant-ish work to reduce user enumeration timing signal.
             hash_password("dummy-password-for-timing")
+            # AUTH-05: record the failed attempt (no actor — the account does
+            # not exist) and persist it independently of the raised error.
+            audit_record(
+                self.session,
+                actor_id=None,
+                action="auth.login_failed",
+                entity_type="user",
+                entity_id=email.lower(),
+                data={"reason": "no_such_account", "ip": ip_address},
+            )
+            await self._commit_side_effect()
             raise AuthError("Invalid credentials")
 
         if user.locked_until is not None and user.locked_until > now:
+            audit_record(
+                self.session,
+                actor_id=user.id,
+                action="auth.login_blocked_locked",
+                entity_type="user",
+                entity_id=str(user.id),
+                data={"ip": ip_address},
+            )
+            await self._commit_side_effect()
             raise AuthError("Account temporarily locked. Try again later.")
 
         if not verify_password(password, user.password_hash):
             # Persist the failure counter in its own committed step so the
             # attempted lock is not rolled back by the raised AuthError.
             user.failed_login_count += 1
+            audit_record(
+                self.session,
+                actor_id=user.id,
+                action="auth.login_failed",
+                entity_type="user",
+                entity_id=str(user.id),
+                data={"reason": "bad_password", "ip": ip_address},
+            )
             if user.failed_login_count >= settings.login_max_attempts:
                 user.locked_until = now + timedelta(seconds=settings.login_lockout_seconds)
                 user.failed_login_count = 0
+                audit_record(
+                    self.session,
+                    actor_id=user.id,
+                    action="auth.account_locked",
+                    entity_type="user",
+                    entity_id=str(user.id),
+                    data={"locked_until": user.locked_until.isoformat()},
+                )
                 log.warning("account_locked", user_id=str(user.id))
             await self._commit_side_effect()
             raise AuthError("Invalid credentials")
 
         if not user.is_active:
+            audit_record(
+                self.session,
+                actor_id=user.id,
+                action="auth.login_failed",
+                entity_type="user",
+                entity_id=str(user.id),
+                data={"reason": "inactive"},
+            )
+            await self._commit_side_effect()
             raise AuthError("Account is disabled")
 
         # Successful login: reset counters, maybe rehash.
@@ -149,6 +195,14 @@ class AuthService:
             user.password_hash = hash_password(password)
 
         token = await self._issue_session(user, user_agent=user_agent, ip_address=ip_address)
+        audit_record(
+            self.session,
+            actor_id=user.id,
+            action="auth.login",
+            entity_type="user",
+            entity_id=str(user.id),
+            data={"ip": ip_address},
+        )
         log.info("user_login", user_id=str(user.id))
         return user, token
 
@@ -157,9 +211,24 @@ class AuthService:
         session = await self.sessions.get_by_token_hash(token_hash)
         if session is not None:
             await self.sessions.revoke(session)
+            audit_record(
+                self.session,
+                actor_id=session.user_id,
+                action="auth.logout",
+                entity_type="session",
+                entity_id=str(session.id),
+            )
 
     async def logout_all(self, user_id: uuid.UUID) -> None:
-        await self.sessions.revoke_all_for_user(user_id)
+        revoked = await self.sessions.revoke_all_for_user(user_id)
+        audit_record(
+            self.session,
+            actor_id=user_id,
+            action="auth.logout_all",
+            entity_type="user",
+            entity_id=str(user_id),
+            data={"revoked": revoked},
+        )
 
     async def list_sessions(
         self, user_id: uuid.UUID, *, limit: int = 100, offset: int = 0
@@ -171,6 +240,13 @@ class AuthService:
         if session is None or session.user_id != user_id:
             raise NotFoundError("Session not found")
         await self.sessions.revoke(session)
+        audit_record(
+            self.session,
+            actor_id=user_id,
+            action="auth.session_revoked",
+            entity_type="session",
+            entity_id=str(session_id),
+        )
 
     async def request_password_reset(self, email: str) -> str | None:
         user = await self.users.get_by_email(email)
@@ -205,6 +281,13 @@ class AuthService:
         user.password_hash = hash_password(new_password)
         token.used_at = datetime.now(UTC)
         await self.sessions.revoke_all_for_user(user.id)
+        audit_record(
+            self.session,
+            actor_id=user.id,
+            action="auth.password_reset",
+            entity_type="user",
+            entity_id=str(user.id),
+        )
         await self.session.flush()
 
     async def change_password(
@@ -226,6 +309,13 @@ class AuthService:
             raise AuthError("Current password is incorrect")
         user.password_hash = hash_password(new_password)
         await self.sessions.revoke_all_for_user(user.id, except_token_hash=keep_session_token_hash)
+        audit_record(
+            self.session,
+            actor_id=user.id,
+            action="auth.password_changed",
+            entity_type="user",
+            entity_id=str(user.id),
+        )
         await self.session.flush()
 
     async def update_profile(
@@ -285,6 +375,14 @@ class AuthService:
             raise NotFoundError("User not found")
         user.email = token.new_email
         token.used_at = datetime.now(UTC)
+        audit_record(
+            self.session,
+            actor_id=user.id,
+            action="auth.email_changed",
+            entity_type="user",
+            entity_id=str(user.id),
+            data={"new_email": token.new_email},
+        )
         await self.session.flush()
         return user
 

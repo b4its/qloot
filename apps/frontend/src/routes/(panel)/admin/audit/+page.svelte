@@ -14,6 +14,7 @@
     action: string;
     entity_type?: string | null;
     entity_id?: string | null;
+    request_id?: string | null;
     data?: Record<string, unknown> | null;
     created_at: string;
   }
@@ -26,14 +27,19 @@
   let loading = true;
   let page = 1;
   let hasMore = false;
+  // AUTH-05: filter the audit trail by event kind (e.g. auth.login).
+  let actionFilter = "";
 
   async function load() {
     loading = true;
     error = "";
     try {
-      logs = await api.get<AuditRow[]>(
-        `/admin/audit-logs?limit=${PAGE}&offset=${(page - 1) * PAGE}`,
-      );
+      const qs = new URLSearchParams({
+        limit: String(PAGE),
+        offset: String((page - 1) * PAGE),
+      });
+      if (actionFilter) qs.set("action", actionFilter);
+      logs = await api.get<AuditRow[]>(`/admin/audit-logs?${qs.toString()}`);
       hasMore = logs.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat audit log";
@@ -46,6 +52,11 @@
     const next = page + delta;
     if (next < 1 || (delta > 0 && !hasMore)) return;
     page = next;
+    load();
+  }
+
+  function applyFilter() {
+    page = 1;
     load();
   }
 
@@ -65,6 +76,25 @@
 
   <PageAlerts {error} />
 
+  <form class="mt-6 flex flex-wrap items-end gap-3" on:submit|preventDefault={applyFilter}>
+    <label class="flex flex-col text-xs">
+      <span class="muted mb-1">Filter tindakan</span>
+      <select class="input !w-auto" bind:value={actionFilter} on:change={applyFilter}>
+        <option value="">Semua tindakan</option>
+        <option value="auth.login">auth.login</option>
+        <option value="auth.login_failed">auth.login_failed</option>
+        <option value="auth.account_locked">auth.account_locked</option>
+        <option value="auth.logout">auth.logout</option>
+        <option value="auth.logout_all">auth.logout_all</option>
+        <option value="auth.session_revoked">auth.session_revoked</option>
+        <option value="auth.password_reset">auth.password_reset</option>
+        <option value="auth.password_changed">auth.password_changed</option>
+        <option value="auth.email_changed">auth.email_changed</option>
+      </select>
+    </label>
+    <button class="btn-primary !py-1.5" type="submit" disabled={loading}>Terapkan</button>
+  </form>
+
   <div class="card mt-6 overflow-x-auto">
     {#if loading}
       <div class="space-y-2">
@@ -74,7 +104,8 @@
       <table class="w-full text-sm">
         <thead class="text-left muted">
           <tr>
-            <th class="py-1">Waktu</th><th>Tindakan</th><th>Entitas</th><th>Aktor</th><th>Data</th>
+            <th class="py-1">Waktu</th><th>Tindakan</th><th>Entitas</th><th>Aktor</th><th>Request</th
+            ><th>Data</th>
           </tr>
         </thead>
         <tbody>
@@ -84,10 +115,11 @@
               <td>{l.action}</td>
               <td class="text-xs">{l.entity_type ?? ""} {l.entity_id?.slice(0, 8) ?? ""}</td>
               <td class="font-mono text-xs">{l.actor_id?.slice(0, 8) ?? "system"}…</td>
+              <td class="font-mono text-xs muted">{l.request_id?.slice(0, 8) ?? "—"}</td>
               <td class="text-xs muted">{l.data ? JSON.stringify(l.data) : ""}</td>
             </tr>
           {/each}
-          {#if logs.length === 0}<tr><td colspan="5" class="py-2 muted">Belum ada catatan.</td></tr
+          {#if logs.length === 0}<tr><td colspan="6" class="py-2 muted">Belum ada catatan.</td></tr
             >{/if}
         </tbody>
       </table>

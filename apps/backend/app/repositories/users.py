@@ -114,15 +114,18 @@ class SessionRepository:
 
     async def revoke_all_for_user(
         self, user_id: uuid.UUID, *, except_token_hash: str | None = None
-    ) -> None:
+    ) -> int:
         stmt = select(SessionModel).where(
             SessionModel.user_id == user_id, SessionModel.revoked_at.is_(None)
         )
+        revoked = 0
         for s in (await self.session.execute(stmt)).scalars().all():
             if except_token_hash is not None and s.token_hash == except_token_hash:
                 continue
             s.revoked_at = datetime.now(UTC)
+            revoked += 1
         await self.session.flush()
+        return revoked
 
 
 def func_lower_email(email: str):

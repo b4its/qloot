@@ -425,3 +425,117 @@ async def test_failed_transactions_view_consolidates_terminal_failures(client, e
     # Shape check: every row carries the failure fields the UI renders.
     for row in r.json():
         assert {"id", "method", "status", "error_code"} <= set(row)
+
+
+async def _audit_rows(client, action):
+    from sqlalchemy import select
+
+    from app.models.identity import AuditLog
+
+    sm = client._sm  # type: ignore[attr-defined]
+    async with sm() as s:
+        return (
+            await s.execute(select(AuditLog).where(AuditLog.action == action))
+        ).scalars().all()
+
+
+async def test_successful_login_is_audited_with_request_id(client):
+    """AUTH-05: a successful login writes an ``auth.login`` audit row, and the
+    row carries the request_id bound by the request-context middleware."""
+    await _register(client, "audit_login@ex.com", "student")
+    await client.post("/api/v1/auth/logout")
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "audit_login@ex.com", "password": "Password123!"},
+    )
+    assert login.status_code == 200, login.text
+
+    rows = await _audit_rows(client, "auth.login")
+    assert len(rows) >= 1, "successful login must be audited"
+    assert all(r.request_id for r in rows), "audit row must carry a request_id"
+
+
+async def test_failed_login_is_audited_even_when_request_fails(client):
+    """AUTH-05: a failed login is persisted even though the endpoint raises 401
+    (the audit row must survive the transaction rollback)."""
+    await _register(client, "audit_fail@ex.com", "student")
+    await client.post("/api/v1/auth/logout")
+
+    bad = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "audit_fail@ex.com", "password": "wrong-password"},
+    )
+    assert bad.status_code == 401, bad.text
+
+    rows = await _audit_rows(client, "auth.login_failed")
+    assert len(rows) >= 1, "failed login must be audited despite the 401"
+
+
+async def test_logout_all_is_audited(client):
+    """AUTH-05: sign-out-everywhere writes an ``auth.logout_all`` audit row."""
+    await _register(client, "audit_logoutall@ex.com", "student")
+    before = len(await _audit_rows(client, "auth.logout_all"))
+    r = await client.post("/api/v1/auth/logout-all")
+    assert r.status_code == 200, r.text
+    after = await _audit_rows(client, "auth.logout_all")
+    assert len(after) == before + 1
+    assert after[-1].actor_id is not None
+
+
+async def test_password_reset_is_audited(client):
+    """AUTH-05: a completed password reset writes ``auth.password_reset``."""
+    await _register(client, "audit_reset@ex.com", "student")
+    await client.post("/api/v1/auth/logout")
+    forgot = await client.post(
+        "/api/v1/auth/forgot-password", json={"email": "audit_reset@ex.com"}
+    )
+    token = forgot.json()["reset_token"]
+    assert token
+    r = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": token, "new_password": "NewPassword123!"},
+    )
+    assert r.status_code == 200, r.text
+    rows = await _audit_rows(client, "auth.password_reset")
+    assert len(rows) >= 1
+
+
+async def test_admin_audit_endpoint_exposes_and_filters_request_id(client):
+    """AUTH-05: the admin audit endpoint returns request_id and can filter by
+    action so auth events are queryable."""
+    await _register(client, "audit_admin2@ex.com", "admin")
+    all_rows = await client.get("/api/v1/admin/audit-logs?limit=20")
+    assert all_rows.status_code == 200, all_rows.text
+    assert "request_id" in all_rows.json()[0]
+
+    filtered = await client.get("/api/v1/admin/audit-logs?action=auth.login&limit=20")
+    assert filtered.status_code == 200, filtered.text
+    assert all(row["action"] == "auth.login" for row in filtered.json())
+
+
+async def test_admin_mutations_carry_request_id(client):
+    """AUTH-05: admin audit writes persist the request_id from context (it was
+    previously only set by the seeder)."""
+    from sqlalchemy import select
+
+    from app.models.identity import AuditLog
+
+    await _register(client, "audit_admin3@ex.com", "admin")
+    await client.post(
+        "/api/v1/admin/users",
+        json={
+            "email": "created_by_admin_audit@ex.com",
+            "full_name": "Created",
+            "password": "Password123!",
+            "role": "teacher",
+        },
+    )
+    sm = client._sm  # type: ignore[attr-defined]
+    async with sm() as s:
+        row = (
+            await s.execute(
+                select(AuditLog).where(AuditLog.action == "user.create").limit(1)
+            )
+        ).scalar_one_or_none()
+    assert row is not None
+    assert row.request_id, "admin audit row must carry a request_id"

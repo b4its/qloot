@@ -18,6 +18,7 @@ from app.models.identity import AuditLog, Role, User, UserRole
 from app.models.quest import Quest
 from app.models.wallet import RewardAllocation, TransactionOutbox
 from app.schemas.auth import AdminUserCreate, UserOut
+from app.services.audit import current_request_id
 
 router = APIRouter()
 
@@ -109,6 +110,7 @@ async def create_user(payload: AdminUserCreate, admin: AdminUser, db: DbSession)
                 entity_type="user",
                 entity_id=str(user.id),
                 data={"role": payload.role},
+                request_id=current_request_id(),
             )
         )
     return UserOut(
@@ -147,6 +149,7 @@ async def set_user_role(user_id: uuid.UUID, payload: RoleUpdate, admin: AdminUse
                 entity_type="user",
                 entity_id=str(user.id),
                 data={"new_role": payload.role},
+                request_id=current_request_id(),
             )
         )
         await db.flush()
@@ -183,6 +186,7 @@ async def set_user_active(
                 entity_type="user",
                 entity_id=str(user.id),
                 data={"is_active": payload.is_active},
+                request_id=current_request_id(),
             )
         )
         await db.flush()
@@ -264,6 +268,7 @@ async def adjust_reward(payload: RewardAdjustRequest, admin: AdminUser, db: DbSe
                     "reason": payload.reason,
                     "idempotency_key": payload.idempotency_key,
                 },
+                request_id=current_request_id(),
             )
         )
     return {"status": "adjusted", "user_id": str(target.id), "amount": payload.amount}
@@ -332,6 +337,7 @@ async def retry_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
                 entity_type="reward_allocation",
                 entity_id=str(allocation.id),
                 data=None,
+                request_id=current_request_id(),
             )
         )
     return {"status": "retried" if ok else "queued", "reward_id": str(reward_id)}
@@ -367,6 +373,7 @@ async def cancel_reward(reward_id: uuid.UUID, admin: AdminUser, db: DbSession):
                 entity_type="reward_allocation",
                 entity_id=str(allocation.id),
                 data=None,
+                request_id=current_request_id(),
             )
         )
     return {"status": "cancelled", "reward_id": str(reward_id)}
@@ -391,6 +398,7 @@ async def blockchain_pause(admin: AdminUser, db: DbSession, asset: str = "OPT"):
                 entity_type="contract",
                 entity_id=asset,
                 data={"asset": asset},
+                request_id=current_request_id(),
             )
         )
     return {"status": "pause_queued", "asset": asset}
@@ -415,6 +423,7 @@ async def blockchain_unpause(admin: AdminUser, db: DbSession, asset: str = "OPT"
                 entity_type="contract",
                 entity_id=asset,
                 data={"asset": asset},
+                request_id=current_request_id(),
             )
         )
     return {"status": "unpause_queued", "asset": asset}
@@ -422,9 +431,16 @@ async def blockchain_unpause(admin: AdminUser, db: DbSession, asset: str = "OPT"
 
 @router.get("/audit-logs")
 async def audit_logs(
-    admin: AdminUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+    admin: AdminUser,
+    db: DbSession,
+    action: str | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
 ):
-    stmt = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+    stmt = select(AuditLog).order_by(AuditLog.created_at.desc())
+    if action:
+        stmt = stmt.where(AuditLog.action == action)
+    stmt = stmt.limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     return [
         {
@@ -433,6 +449,7 @@ async def audit_logs(
             "action": a.action,
             "entity_type": a.entity_type,
             "entity_id": a.entity_id,
+            "request_id": a.request_id,
             "data": a.data,
             "created_at": a.created_at,
         }
@@ -552,6 +569,7 @@ async def run_reconciliation(admin: AdminUser, db: DbSession):
                 entity_type="ledger",
                 entity_id="all",
                 data={"drifted": len(drifted)},
+                request_id=current_request_id(),
             )
         )
     return {"drifted": drifted, "count": len(drifted)}
