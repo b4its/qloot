@@ -912,6 +912,33 @@ async def seed_misc(session: AsyncSession, students, teachers) -> None:
                 )
             )
         await session.flush()
+
+    # CARE-06: consultation threads so the BK panel has demo conversations.
+    from app.models.career import Consultation, ConsultationMessage
+
+    if await _count(session, ConsultationMessage) < TARGET:
+        consults = list((await session.execute(select(Consultation).limit(400))).scalars())
+        for i, c in enumerate(consults[: TARGET // 2]):
+            session.add(
+                ConsultationMessage(
+                    id=det_uuid("cmsg", str(c.id), "s", str(i)),
+                    consultation_id=c.id,
+                    sender_id=c.user_id,
+                    body="Terima kasih, saya ingin bertanya soal jurusan.",
+                    created_at=datetime.now(UTC) - timedelta(hours=i),
+                )
+            )
+            if c.counselor_user_id is not None:
+                session.add(
+                    ConsultationMessage(
+                        id=det_uuid("cmsg", str(c.id), "t", str(i)),
+                        consultation_id=c.id,
+                        sender_id=c.counselor_user_id,
+                        body="Siap, kita bahas pada sesi berikutnya ya.",
+                        created_at=datetime.now(UTC) - timedelta(hours=i) + timedelta(minutes=5),
+                    )
+                )
+        await session.flush()
     log.info("bulk_misc_ready")
 
 

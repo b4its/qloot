@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { Consultation, Counselor } from "$lib/types";
+  import type { Consultation, ConsultationMessage, Counselor } from "$lib/types";
   import { formatDate, statusLabel } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
   import { paginate } from "$lib/utils/format";
@@ -11,15 +11,20 @@
   let counselors: Counselor[] = [];
   let loading = true;
   let error = "";
-  let form = { counselor: "", topic: "", notes: "" };
+  let form = { counselor_user_id: "", topic: "", notes: "" };
   let busy = false;
   let currentPage = 1;
+  // CARE-06: the message thread for the consultation currently open.
+  let openId = "";
+  let thread: ConsultationMessage[] = [];
+  let draft = "";
   $: totalPages = Math.max(1, Math.ceil(consultations.length / PAGE_SIZE));
   $: if (currentPage > totalPages) currentPage = 1;
   $: pagedConsultations = paginate(consultations, currentPage, PAGE_SIZE);
 
   const statusBadge: Record<string, string> = {
     pending: "badge-amber",
+    accepted: "badge-indigo",
     completed: "badge-mint",
     cancelled: "badge-magenta",
   };
@@ -29,7 +34,7 @@
     try {
       consultations = await api.get<Consultation[]>("/career/consultations?limit=200");
       counselors = await api.get<Counselor[]>("/career/counselors");
-      if (counselors.length) form.counselor = counselors[0].name;
+      if (counselors.length) form.counselor_user_id = counselors[0].user_id ?? "";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat konsultasi";
     } finally {
@@ -41,7 +46,12 @@
     busy = true;
     error = "";
     try {
-      await api.post("/career/consultations", form);
+      await api.post("/career/consultations", {
+        counselor_user_id: form.counselor_user_id || null,
+        counselor: form.counselor_user_id ? null : counselors[0]?.name,
+        topic: form.topic,
+        notes: form.notes,
+      });
       form = { ...form, topic: "", notes: "" };
       await load();
     } catch (e) {
@@ -58,6 +68,29 @@
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membatalkan sesi";
+    }
+  }
+
+  async function openThread(c: Consultation) {
+    openId = c.id;
+    try {
+      thread = await api.get<ConsultationMessage[]>(
+        `/career/consultations/${c.id}/messages`,
+      );
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat pesan";
+    }
+  }
+
+  async function sendMessage() {
+    if (!draft.trim() || !openId) return;
+    try {
+      await api.post(`/career/consultations/${openId}/messages`, { body: draft.trim() });
+      draft = "";
+      const c = consultations.find((x) => x.id === openId);
+      if (c) await openThread(c);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengirim pesan";
     }
   }
 
@@ -104,6 +137,7 @@
                 <span class={`badge ${statusBadge[c.status] ?? "badge-neutral"}`}
                   >{statusLabel(c.status)}</span
                 >
+                <button class="btn-ghost !py-1 text-xs" on:click={() => openThread(c)}>Pesan</button>
                 {#if c.status === "pending"}
                   <button class="btn-ghost !py-1 text-xs" on:click={() => cancel(c)}>Batal</button>
                 {/if}
@@ -120,14 +154,47 @@
           onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
         />
       {/if}
+
+      {#if openId}
+        <div class="mt-4 border-t pt-4">
+          <div class="flex items-center justify-between">
+            <p class="mono-label">Utas pesan</p>
+            <button class="btn-ghost !py-1 text-xs" on:click={() => (openId = "")}>Tutup</button>
+          </div>
+          <ul class="mt-2 max-h-64 space-y-2 overflow-y-auto text-sm">
+            {#each thread as m (m.id)}
+              <li class="rounded-sm border p-2">{m.body}</li>
+            {/each}
+            {#if thread.length === 0}<li class="muted text-xs">Belum ada pesan.</li>{/if}
+          </ul>
+          <div class="mt-2 flex items-center gap-2">
+            <label class="sr-only" for="consult-msg">Pesan konsultasi</label>
+            <input
+              id="consult-msg"
+              class="input"
+              bind:value={draft}
+              placeholder="Tulis pesan…"
+              on:keydown={(e) => e.key === "Enter" && sendMessage()}
+            />
+            <button class="btn-primary !py-1.5" on:click={sendMessage} disabled={!draft.trim()}>
+              Kirim
+            </button>
+          </div>
+        </div>
+      {/if}
     </div>
 
     <div class="card h-fit">
       <h2 class="hud font-display text-lg font-bold">Pesan sesi</h2>
       <div class="mt-3 space-y-3">
-        <select class="input" bind:value={form.counselor}>
-          {#each counselors as c}<option value={c.name}>{c.name} — {c.role}</option>{/each}
-        </select>
+        <label class="flex flex-col text-xs">
+          <span class="muted mb-1">Pembimbing</span>
+          <select class="input" bind:value={form.counselor_user_id}>
+            {#each counselors as c}
+              <option value={c.user_id ?? ""}>{c.name} — {c.role}</option>
+            {/each}
+          </select>
+        </label>
         <input class="input" placeholder="Topik" bind:value={form.topic} />
         <textarea
           class="input min-h-[80px]"
@@ -144,7 +211,7 @@
           {#each counselors as c}
             <li>
               <p class="font-medium">{c.name}</p>
-              <p class="text-xs muted">{c.role} · {c.focus}</p>
+              <p class="text-xs muted">{c.role}</p>
             </li>
           {/each}
         </ul>

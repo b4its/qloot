@@ -270,8 +270,15 @@ GET   /career/counselors
 GET   /career/consultations
 POST  /career/consultations
 POST  /career/consultations/{consultation_id}/cancel
+GET   /career/consultations/managed                 (teacher: assigned/open requests)
+POST  /career/consultations/{consultation_id}/accept     (teacher)
+POST  /career/consultations/{consultation_id}/complete   (teacher)
+POST  /career/consultations/{consultation_id}/reschedule (teacher)
+GET   /career/consultations/{consultation_id}/messages
+POST  /career/consultations/{consultation_id}/messages
 
-GET   /career/resources            (?category=course|extracurricular|material)POST  /career/assistant            (body may carry conversation_id to continue)
+GET   /career/resources            (?category=course|extracurricular|material)
+POST  /career/assistant            (body may carry conversation_id to continue)
 POST  /career/assistant/stream     (Server-Sent Events; JSON endpoint is the fallback)
 GET   /career/assistant/conversations
 GET   /career/assistant/conversations/{conversation_id}

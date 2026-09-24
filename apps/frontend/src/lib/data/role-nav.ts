@@ -60,6 +60,12 @@ export const teacherNav: RoleNavItem[] = [
     icon: "ranking-star",
     desc: "Periksa papan peringkat",
   },
+  {
+    href: "/teacher/consultations",
+    label: "Konsultasi BK",
+    icon: "comments",
+    desc: "Terima, jadwalkan ulang, dan balas konsultasi siswa",
+  },
 ];
 
 export const adminNav: RoleNavItem[] = [

@@ -16,7 +16,10 @@ from app.schemas.career import (
     ChatIn,
     ChatOut,
     ConsultationIn,
+    ConsultationMessageIn,
+    ConsultationMessageOut,
     ConsultationOut,
+    ConsultationReschedule,
     CounselorOut,
     DashboardOut,
     GradeIn,
@@ -202,14 +205,20 @@ async def list_consultations(
 
 @router.get("/counselors", response_model=list[CounselorOut])
 async def counselors(user: CurrentUser, db: DbSession):
-    return [CounselorOut(**c) for c in CareerService(db).counselors()]
+    """Real teachers/admins available as counselors (CARE-06)."""
+    return [CounselorOut(**c) for c in await CareerService(db).list_available_counselors()]
 
 
 @router.post("/consultations", response_model=ConsultationOut)
 async def create_consultation(payload: ConsultationIn, user: CurrentUser, db: DbSession):
     async with transaction(db):
         return await CareerService(db).create_consultation(
-            user, counselor=payload.counselor, topic=payload.topic, notes=payload.notes
+            user,
+            counselor_user_id=payload.counselor_user_id,
+            counselor=payload.counselor,
+            topic=payload.topic,
+            notes=payload.notes,
+            scheduled_at=payload.scheduled_at,
         )
 
 
@@ -217,6 +226,76 @@ async def create_consultation(payload: ConsultationIn, user: CurrentUser, db: Db
 async def cancel_consultation(consultation_id: uuid.UUID, user: CurrentUser, db: DbSession):
     async with transaction(db):
         return await CareerService(db).cancel_consultation(user.id, consultation_id)
+
+
+# --- counselor (BK) side ---------------------------------------------------
+@router.get("/consultations/managed", response_model=list[ConsultationOut])
+async def managed_consultations(
+    teacher: TeacherUser,
+    db: DbSession,
+    status: str | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
+    """Consultations assigned to (or open for) the calling counselor (CARE-06)."""
+    return await CareerService(db).list_counselor_consultations(
+        teacher, status=status, limit=limit, offset=offset
+    )
+
+
+@router.post("/consultations/{consultation_id}/accept", response_model=ConsultationOut)
+async def accept_consultation(consultation_id: uuid.UUID, teacher: TeacherUser, db: DbSession):
+    async with transaction(db):
+        return await CareerService(db).respond_consultation(teacher, consultation_id, "accept")
+
+
+@router.post("/consultations/{consultation_id}/complete", response_model=ConsultationOut)
+async def complete_consultation(consultation_id: uuid.UUID, teacher: TeacherUser, db: DbSession):
+    async with transaction(db):
+        return await CareerService(db).respond_consultation(teacher, consultation_id, "complete")
+
+
+@router.post("/consultations/{consultation_id}/reschedule", response_model=ConsultationOut)
+async def reschedule_consultation(
+    consultation_id: uuid.UUID,
+    payload: ConsultationReschedule,
+    teacher: TeacherUser,
+    db: DbSession,
+):
+    async with transaction(db):
+        return await CareerService(db).reschedule_consultation(
+            teacher, consultation_id, payload.scheduled_at
+        )
+
+
+@router.get(
+    "/consultations/{consultation_id}/messages",
+    response_model=list[ConsultationMessageOut],
+)
+async def consultation_messages(
+    consultation_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 200,
+    offset: OffsetParam = 0,
+):
+    return await CareerService(db).list_consultation_messages(
+        user, consultation_id, limit=limit, offset=offset
+    )
+
+
+@router.post(
+    "/consultations/{consultation_id}/messages",
+    response_model=ConsultationMessageOut,
+    status_code=201,
+)
+async def post_consultation_message(
+    consultation_id: uuid.UUID, payload: ConsultationMessageIn, user: CurrentUser, db: DbSession
+):
+    async with transaction(db):
+        return await CareerService(db).add_consultation_message(
+            user, consultation_id, payload.body
+        )
 
 
 # --- resource library ------------------------------------------------------

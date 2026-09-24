@@ -19,13 +19,14 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.models.assistant import AssistantConversation, AssistantMessage
 from app.models.career import (
     AcademicGrade,
     CareerRecommendation,
     Consultation,
+    ConsultationMessage,
     PersonalityResult,
     ResourceItem,
     RoadmapMilestone,
@@ -980,28 +981,94 @@ class CareerService:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def list_available_counselors(self) -> list[dict]:
+        """Real teachers/admins available as counselors (CARE-06).
+
+        Not a hardcoded tuple: any user holding the teacher or admin role can
+        counsel. Falls back to the legacy display-only catalog only when no
+        teacher account exists yet (e.g. an empty development database).
+        """
+        from app.models.identity import Role, User, UserRole
+
+        stmt = (
+            select(User)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(Role.name.in_(["teacher", "admin"]), User.is_active.is_(True))
+            .order_by(User.full_name)
+        )
+        users = list((await self.session.execute(stmt)).scalars().unique().all())
+        if users:
+            return [
+                {
+                    "user_id": str(u.id),
+                    "name": u.full_name,
+                    "role": "Guru BK / Pembimbing",
+                    "focus": "Konsultasi jurusan, akademik, dan karier",
+                }
+                for u in users
+            ]
+        return [{"user_id": None, "name": n, "role": r, "focus": f} for n, r, f in CONSULTANTS]
+
+    async def _resolve_counselor(
+        self, counselor_user_id: uuid.UUID | None
+    ) -> tuple[str, uuid.UUID | None]:
+        """Return (display_name, user_id) for the chosen counselor."""
+        from app.models.identity import User
+
+        if counselor_user_id is not None:
+            user = await self.session.get(User, counselor_user_id)
+            if user is None or not (user.has_role("teacher") or user.has_role("admin")):
+                raise ValidationError("Counselor must be a teacher or admin")
+            return user.full_name, user.id
+        available = await self.list_available_counselors()
+        if not available:
+            raise ConflictError("No counselor available")
+        first = available[0]
+        return first["name"], uuid.UUID(first["user_id"]) if first["user_id"] else None
+
     async def create_consultation(
-        self, user: User, *, counselor: str, topic: str, notes: str | None
+        self,
+        user: User,
+        *,
+        counselor_user_id: uuid.UUID | None = None,
+        counselor: str | None = None,
+        topic: str,
+        notes: str | None,
+        scheduled_at: datetime | None = None,
     ) -> Consultation:
-        valid = {n for n, _r, _f in CONSULTANTS}
-        if counselor not in valid:
-            raise ConflictError(f"Unknown counselor. Choose one of: {', '.join(sorted(valid))}")
-        # Deterministic slot: first free weekday slot 3 days out, so repeat
-        # bookings don't pile onto the exact same timestamp.
-        slot = datetime.now(UTC) + timedelta(days=3)
-        existing_today = len(
-            [
+        """Book a consultation with a chosen slot (CARE-06).
+
+        ``scheduled_at`` is the slot the student picked; when omitted a default
+        is derived deterministically from existing bookings with the same
+        counselor so repeat bookings do not overlap.
+        """
+        name, resolved_id = await self._resolve_counselor(counselor_user_id)
+        if counselor:
+            # Legacy free-text path: the name must be a known counselor.
+            valid = {n for n, _r, _f in CONSULTANTS} | {
+                c["name"] for c in await self.list_available_counselors()
+            }
+            if counselor not in valid:
+                raise ConflictError(f"Unknown counselor. Choose one of: {', '.join(sorted(valid))}")
+            if resolved_id is None:
+                name = counselor
+
+        if scheduled_at is None:
+            slot = datetime.now(UTC) + timedelta(days=3)
+            existing = [
                 c
                 for c in await self.list_consultations(user.id)
-                if c.status == "pending" and c.counselor == counselor
+                if c.status in ("pending", "accepted") and c.counselor == name
             ]
-        )
-        scheduled = slot + timedelta(hours=existing_today)  # one-hour spacing
+            scheduled_at = slot + timedelta(hours=len(existing))
+
         c = Consultation(
             user_id=user.id,
-            counselor=counselor,
+            counselor=name,
+            counselor_user_id=resolved_id,
             topic=topic,
-            scheduled_at=scheduled,
+            scheduled_at=scheduled_at,
             status="pending",
             notes=notes,
         )
@@ -1011,8 +1078,26 @@ class CareerService:
             user_id=user.id,
             kind="system",
             title="Sesi BK terjadwal",
-            body=f"Konsultasi dengan {counselor} dijadwalkan. Cek detail di menu Karier.",
+            body=f"Konsultasi dengan {name} dijadwalkan. Cek detail di menu Karier.",
         )
+        if resolved_id is not None:
+            await NotificationService(self.session).notify(
+                user_id=resolved_id,
+                kind="system",
+                title="Permintaan konsultasi baru",
+                body=f"{user.full_name} mengajukan konsultasi: {topic}.",
+            )
+        return c
+
+    async def _get_consultation_for(
+        self, consultation_id: uuid.UUID, *, user: User
+    ) -> Consultation:
+        c = await self.session.get(Consultation, consultation_id)
+        if c is None:
+            raise NotFoundError("Consultation not found")
+        is_counselor = c.counselor_user_id == user.id or user.has_role("admin")
+        if c.user_id != user.id and not is_counselor:
+            raise NotFoundError("Consultation not found")
         return c
 
     async def cancel_consultation(
@@ -1021,9 +1106,105 @@ class CareerService:
         c = await self.session.get(Consultation, consultation_id)
         if c is None or c.user_id != user_id:
             raise NotFoundError("Consultation not found")
+        if c.status == "completed":
+            raise ConflictError("A completed consultation cannot be cancelled")
         c.status = "cancelled"
         await self.session.flush()
         return c
+
+    async def respond_consultation(
+        self, counselor: User, consultation_id: uuid.UUID, action: str
+    ) -> Consultation:
+        """Counselor accepts/reschedules/completes a consultation (CARE-06)."""
+        c = await self.session.get(Consultation, consultation_id)
+        if c is None:
+            raise NotFoundError("Consultation not found")
+        if c.counselor_user_id not in (None, counselor.id) and not counselor.has_role("admin"):
+            raise ForbiddenError("Not your consultation")
+        if action == "accept":
+            c.counselor_user_id = counselor.id
+            c.counselor = counselor.full_name
+            c.status = "accepted"
+        elif action == "complete":
+            c.counselor_user_id = counselor.id
+            c.counselor = counselor.full_name
+            c.status = "completed"
+            c.completed_at = datetime.now(UTC)
+        else:
+            raise ValidationError("Unknown action")
+        await self.session.flush()
+        await NotificationService(self.session).notify(
+            user_id=c.user_id,
+            kind="system",
+            title="Status konsultasi diperbarui",
+            body=f"Konsultasi dengan {c.counselor} kini berstatus {c.status}.",
+        )
+        return c
+
+    async def reschedule_consultation(
+        self, counselor: User, consultation_id: uuid.UUID, scheduled_at: datetime
+    ) -> Consultation:
+        c = await self.session.get(Consultation, consultation_id)
+        if c is None:
+            raise NotFoundError("Consultation not found")
+        if c.counselor_user_id not in (None, counselor.id) and not counselor.has_role("admin"):
+            raise ForbiddenError("Not your consultation")
+        c.counselor_user_id = counselor.id
+        c.counselor = counselor.full_name
+        c.scheduled_at = scheduled_at
+        c.status = "accepted"
+        await self.session.flush()
+        await NotificationService(self.session).notify(
+            user_id=c.user_id,
+            kind="system",
+            title="Konsultasi dijadwalkan ulang",
+            body=f"{c.counselor} mengubah jadwal konsultasi Anda.",
+        )
+        return c
+
+    async def list_counselor_consultations(
+        self, counselor: User, *, status: str | None = None, limit: int = 100, offset: int = 0
+    ) -> list[Consultation]:
+        stmt = select(Consultation).order_by(Consultation.created_at.desc())
+        if not counselor.has_role("admin"):
+            stmt = stmt.where(Consultation.counselor_user_id == counselor.id)
+        if status:
+            stmt = stmt.where(Consultation.status == status)
+        stmt = stmt.limit(limit).offset(offset)
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def add_consultation_message(
+        self, user: User, consultation_id: uuid.UUID, body: str
+    ) -> ConsultationMessage:
+        c = await self._get_consultation_for(consultation_id, user=user)
+        msg = ConsultationMessage(
+            consultation_id=c.id, sender_id=user.id, body=body[:4000]
+        )
+        self.session.add(msg)
+        await self.session.flush()
+        # Notify the other party.
+        other = c.counselor_user_id if user.id == c.user_id else c.user_id
+        if other is not None:
+            await NotificationService(self.session).notify(
+                user_id=other,
+                kind="system",
+                title="Pesan konsultasi baru",
+                body=body[:140],
+            )
+        return msg
+
+    async def list_consultation_messages(
+        self, user: User, consultation_id: uuid.UUID, *, limit: int = 200, offset: int = 0
+    ) -> list[ConsultationMessage]:
+        c = await self._get_consultation_for(consultation_id, user=user)
+        stmt = (
+            select(ConsultationMessage)
+            .where(ConsultationMessage.consultation_id == c.id)
+            .order_by(ConsultationMessage.created_at, ConsultationMessage.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
 
     def counselors(self) -> list[dict]:
         return [{"name": n, "role": r, "focus": f} for n, r, f in CONSULTANTS]

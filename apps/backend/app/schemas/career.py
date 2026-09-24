@@ -97,27 +97,50 @@ class RoadmapReorder(BaseModel):
 
 
 class ConsultationIn(BaseModel):
-    counselor: str = Field(min_length=2, max_length=128)
+    # CARE-06: book a real counselor user at a chosen slot. ``counselor`` is
+    # kept as an optional free-text fallback for legacy clients.
+    counselor_user_id: uuid.UUID | None = None
+    counselor: str | None = Field(default=None, max_length=128)
     topic: str = Field(min_length=2, max_length=255)
     notes: str | None = Field(default=None, max_length=1000)
+    scheduled_at: datetime | None = None
 
 
 class ConsultationOut(ORMModel):
     id: uuid.UUID
     counselor: str
+    counselor_user_id: uuid.UUID | None = None
     topic: str
     scheduled_at: datetime | None
     status: str
     notes: str | None
+    completed_at: datetime | None = None
+    created_at: datetime
+
+
+class ConsultationReschedule(BaseModel):
+    scheduled_at: datetime
+
+
+class ConsultationMessageIn(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class ConsultationMessageOut(ORMModel):
+    id: uuid.UUID
+    sender_id: uuid.UUID
+    body: str
     created_at: datetime
 
 
 class CounselorOut(BaseModel):
     """A school guidance counsellor (BK) that students can book."""
 
+    user_id: uuid.UUID | None = None
     name: str
     role: str
-    focus: str
+    # Free-text focus kept for the legacy display catalog.
+    focus: str = ""
 
 
 class PendingReviewOut(BaseModel):

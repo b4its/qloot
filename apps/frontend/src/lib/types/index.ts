@@ -615,9 +615,10 @@ export interface Milestone {
 }
 
 export interface Counselor {
+  user_id?: string | null;
   name: string;
   role: string;
-  focus: string;
+  focus?: string;
 }
 
 /** A student whose study-path plan awaits the counselor's approval. */
@@ -631,10 +632,19 @@ export interface PendingReview {
 export interface Consultation {
   id: string;
   counselor: string;
+  counselor_user_id?: string | null;
   topic: string;
   scheduled_at?: string | null;
   status: string;
   notes?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+}
+
+export interface ConsultationMessage {
+  id: string;
+  sender_id: string;
+  body: string;
   created_at: string;
 }
 
