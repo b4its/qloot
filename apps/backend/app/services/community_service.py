@@ -6,6 +6,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import Float as SAFloat
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,6 +62,7 @@ class CommunityService:
         *,
         viewer_id: uuid.UUID | None,
         topic: str | None = None,
+        sort: str = "new",
         limit: int = 30,
         offset: int = 0,
         include_hidden_for: uuid.UUID | None = None,
@@ -77,7 +79,23 @@ class CommunityService:
             stmt = stmt.where(CommunityPost.hidden.is_(False))
         if topic:
             stmt = stmt.where(CommunityPost.topic == topic)
-        stmt = stmt.order_by(CommunityPost.created_at.desc()).limit(limit).offset(offset)
+
+        engaged = CommunityPost.like_count * 2 + CommunityPost.comment_count
+        if sort == "top":
+            # Highest engagement first (deterministic tie-break by recency).
+            stmt = stmt.order_by(engaged.desc(), CommunityPost.created_at.desc())
+        elif sort == "hot":
+            # Engagement with deterministic time decay: age in hours (min 1).
+            age_hours = func.greatest(
+                func.extract("epoch", func.now() - CommunityPost.created_at) / 3600.0,
+                1.0,
+            )
+            hot = func.cast(engaged, SAFloat) / age_hours
+            stmt = stmt.order_by(hot.desc(), CommunityPost.created_at.desc())
+        else:
+            stmt = stmt.order_by(CommunityPost.created_at.desc())
+
+        stmt = stmt.limit(limit).offset(offset)
         posts = list((await self.session.execute(stmt)).scalars().all())
         return await self._decorate(posts, viewer_id)
 

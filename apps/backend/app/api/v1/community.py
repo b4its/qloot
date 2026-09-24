@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, status
 
 from app.api.deps import AdminUser, CurrentUser, DbSession, LimitParam, OffsetParam
+from app.core.errors import ValidationError
 from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.community import (
@@ -32,12 +33,16 @@ async def list_posts(
     user: CurrentUser,
     db: DbSession,
     topic: str | None = None,
+    sort: str = "new",
     limit: LimitParam = 30,
     offset: OffsetParam = 0,
 ):
+    if sort not in ("new", "hot", "top"):
+        raise ValidationError("sort must be new|hot|top")
     return await CommunityService(db).list_posts(
         viewer_id=user.id,
         topic=topic,
+        sort=sort,
         limit=limit,
         offset=offset,
         include_hidden_for=user.id,

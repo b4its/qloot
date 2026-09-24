@@ -223,7 +223,7 @@ surname ("Budi Santoso" → "Budi S."); a revoked credential reports
 ## Community (social feed)
 
 ```
-GET    /community/posts                 (?topic=&limit=&offset=)
+GET    /community/posts                 (?topic=&sort=new|hot|top&limit=&offset=)
 POST   /community/posts
 GET    /community/posts/{post_id}
 DELETE /community/posts/{post_id}       (author/admin)

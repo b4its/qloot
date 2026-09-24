@@ -55,6 +55,8 @@
   let draft = "";
   let posting = false;
   let activeTopic = "";
+  // COMM-05: feed ranking — newest (default), hot (decayed engagement), top.
+  let sort: "new" | "hot" | "top" = "new";
   let openComments = new Set<string>();
   let commentDraft: Record<string, string> = {};
   let busy = "";
@@ -74,6 +76,7 @@
         offset: String((page - 1) * PAGE),
       });
       if (activeTopic) params.set("topic", activeTopic);
+      params.set("sort", sort);
       [posts, topics, stats] = await Promise.all([
         api.get<Post[]>(`/community/posts?${params.toString()}`),
         api.get<Topic[]>("/community/topics"),
@@ -341,6 +344,24 @@
         >
           <Icon name={topicIcon[t.name] ?? "hashtag"} size="11px" />
           {t.name} · {t.posts}
+        </button>
+      {/each}
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+      <span class="muted">Urutkan:</span>
+      {#each [["new", "Terbaru"], ["hot", "Populer"], ["top", "Teratas"]] as [key, label]}
+        <button
+          class="btn-pill !py-1"
+          class:!border-primary={sort === key}
+          class:!text-primary={sort === key}
+          on:click={() => {
+            sort = key as "new" | "hot" | "top";
+            page = 1;
+            load();
+          }}
+        >
+          {label}
         </button>
       {/each}
     </div>
