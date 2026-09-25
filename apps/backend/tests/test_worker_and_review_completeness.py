@@ -74,11 +74,13 @@ async def test_refund_swap_returns_opt_and_claws_back_asset(session):
     assert await engine.balance(student.id) == 100
     assert await engine.asset_balance(student.id, "QTC") == 0
 
-    # Idempotent: a second refund for the same key must not double-credit OPT.
+    # Idempotent: a second refund for the same key must not double-credit OPT
+    # nor double-claw-back the target asset.
     await engine.refund_swap(
         user_id=student.id, opt_cost=30, asset="QTC", asset_amount=10, swap_key="swap-key-1"
     )
     assert await engine.balance(student.id) == 100
+    assert await engine.asset_balance(student.id, "QTC") == 0
 
 
 async def test_refund_ai_request_returns_ort(session):

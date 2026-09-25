@@ -847,7 +847,11 @@ class RewardEngine:
                 )
             )
         ).scalar_one_or_none()
-        if dup is None and opt_cost > 0:
+        # Already refunded: nothing to do (the target-asset claw-back below must
+        # not run twice).
+        if dup is not None:
+            return
+        if opt_cost > 0:
             new_balance = account.cached_balance + opt_cost
             self.session.add(
                 WalletLedgerEntry(
@@ -863,7 +867,8 @@ class RewardEngine:
             )
             account.cached_balance = new_balance
             await self.session.flush()
-        # Claw back the credited target asset (best-effort: clamp at 0).
+        # Claw back the credited target asset (best-effort: clamp at 0). Only
+        # reached on the first (idempotent) refund for this swap_key.
         if asset and asset_amount > 0:
             row = await self._locked_asset_row(user_id, asset)
             row.cached_balance = max(0, row.cached_balance - asset_amount)
