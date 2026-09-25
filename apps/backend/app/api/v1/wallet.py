@@ -318,20 +318,12 @@ async def transfer(payload: TransferRequest, user: CurrentUser, db: DbSession):
         # (reference_type, reference_id, entry_type) uniqueness.
         nonce = uuid.uuid4().hex[:16]
         ref = tx_idempotency_key("transfer", str(user.id), str(payload.to_user_id), nonce)[:64]
-        from app.models.wallet import WalletLedgerEntry as LE
-
-        account.cached_balance -= payload.amount
-        db.add(
-            LE(
-                account_id=account.id,
-                token_id=account.token_id,
-                entry_type="debit",
-                amount=payload.amount,
-                balance_after=account.cached_balance,
-                reference_type="transfer_out",
-                reference_id=ref,
-                description=payload.note or "Internal transfer",
-            )
+        # Balance mutations go through RewardEngine (no ad-hoc ledger writes).
+        await engine.debit_for_transfer(
+            user=user,
+            amount=payload.amount,
+            reference_id=ref,
+            description=payload.note or "Internal transfer",
         )
         await engine.credit(
             user=recipient,

@@ -411,6 +411,47 @@ class RewardEngine:
         await self.session.flush()
         return entry
 
+    async def debit_for_transfer(
+        self, *, user: User, amount: int, reference_id: str, description: str | None = None
+    ) -> WalletLedgerEntry:
+        """Debit a user's balance for an internal transfer out (idempotent).
+
+        ``reference_id`` is the transfer's unique reference, so a retry with the
+        same id never double-debits. Keeps every balance mutation inside
+        RewardEngine (no ad-hoc ledger writes in routers).
+        """
+        account = await self.get_or_create_account(user.id)
+        if account.is_frozen:
+            raise ConflictError("Wallet is frozen")
+        dup = (
+            await self.session.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_type == "transfer_out",
+                    WalletLedgerEntry.reference_id == reference_id,
+                    WalletLedgerEntry.entry_type == "debit",
+                )
+            )
+        ).scalar_one_or_none()
+        if dup is not None:
+            return dup
+        if account.cached_balance < amount:
+            raise ConflictError("Insufficient balance")
+        new_balance = account.cached_balance - amount
+        entry = WalletLedgerEntry(
+            account_id=account.id,
+            token_id=account.token_id,
+            entry_type="debit",
+            amount=amount,
+            balance_after=new_balance,
+            reference_type="transfer_out",
+            reference_id=reference_id,
+            description=description or "Internal transfer",
+        )
+        self.session.add(entry)
+        account.cached_balance = new_balance
+        await self.session.flush()
+        return entry
+
     async def debit_withdrawal_fee(
         self, *, user_id: uuid.UUID, amount: int, withdrawal_id: uuid.UUID
     ) -> WalletLedgerEntry | None:

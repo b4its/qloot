@@ -84,6 +84,52 @@ async def test_cannot_answer_question_from_another_exam(client):
     assert resp.status_code == 404
 
 
+async def test_debit_for_transfer_is_idempotent_per_reference(engine):
+    """RewardEngine.debit_for_transfer debits once per reference_id (all balance
+    mutations go through the engine, idempotently)."""
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.core.security import hash_password
+    from app.models.identity import User
+    from app.models.wallet import WalletLedgerEntry
+    from app.services.reward_engine import RewardEngine
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        user = User(
+            email=f"debit_idem_{uuid.uuid4().hex[:6]}@ex.com",
+            full_name="Debit Idem",
+            password_hash=hash_password("Password123!"),
+            chain_user_ref="0x" + uuid.uuid4().hex,
+        )
+        s.add(user)
+        await s.flush()
+        eng = RewardEngine(s)
+        await eng.credit(
+            user=user,
+            amount=100,
+            reference_type="testfund",
+            reference_id="seed-debit",
+            reward_key_value="seed-debit",
+            token_id=0,
+        )
+        first = await eng.debit_for_transfer(user=user, amount=30, reference_id="ref-X")
+        second = await eng.debit_for_transfer(user=user, amount=30, reference_id="ref-X")
+        assert first.id == second.id  # idempotent: no second entry
+        rows = (
+            await s.execute(
+                select(WalletLedgerEntry).where(
+                    WalletLedgerEntry.reference_id == "ref-X",
+                    WalletLedgerEntry.entry_type == "debit",
+                )
+            )
+        ).scalars().all()
+        assert len(rows) == 1
+        assert await eng.balance(user.id) == 70
+        await s.rollback()
+
+
 async def test_repeated_transfers_do_not_collide(client, engine):
     """Two identical transfers to the same recipient must both succeed."""
     from sqlalchemy.ext.asyncio import async_sessionmaker
