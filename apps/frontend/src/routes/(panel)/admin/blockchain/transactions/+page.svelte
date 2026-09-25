@@ -32,6 +32,36 @@
   }
   let failed: FailedTx[] = [];
 
+  // Tx detail (gas + events) opened from a row.
+  interface TxDetail {
+    method: string;
+    status: string;
+    gas_limit?: number | null;
+    gas_used?: number | null;
+    effective_gas_price?: number | null;
+    arguments_hash?: string | null;
+    error_message?: string | null;
+    explorer_url?: string | null;
+    events?: { name: string; args: Record<string, unknown> | null }[];
+  }
+  let detailHash = "";
+  let detail: TxDetail | null = null;
+  let detailLoading = false;
+
+  async function openDetail(tx: BlockchainTx) {
+    if (!tx.transaction_hash) return;
+    detailHash = tx.transaction_hash;
+    detail = null;
+    detailLoading = true;
+    try {
+      detail = await api.get<TxDetail>(`/blockchain/transactions/${tx.transaction_hash}`);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat detail transaksi";
+    } finally {
+      detailLoading = false;
+    }
+  }
+
   async function load() {
     loading = true;
     error = "";
@@ -149,7 +179,7 @@
               ><th class="px-5 py-3">Metode</th><th class="px-5 py-3">Status</th><th
                 class="px-5 py-3">Hash</th
               ><th class="px-5 py-3 text-right">Konf</th><th class="px-5 py-3 text-right">Waktu</th
-              ></tr
+              ><th class="px-5 py-3"></th></tr
             >
           </thead>
           <tbody>
@@ -175,12 +205,61 @@
                 </td>
                 <td class="px-5 py-3 text-right">{tx.confirmation_count}</td>
                 <td class="px-5 py-3 text-right text-xs muted">{formatDate(tx.created_at)}</td>
+                <td class="px-5 py-3 text-right">
+                  <button
+                    class="btn-ghost !py-1 text-xs"
+                    on:click={() => openDetail(tx)}
+                    disabled={!tx.transaction_hash}>Detail</button
+                  >
+                </td>
               </tr>
             {/each}
           </tbody>
         </table>
       {/if}
     </div>
+
+    {#if detailHash}
+      <div class="card mt-4">
+        <div class="flex items-center justify-between">
+          <p class="mono-label">Detail transaksi {shortHash(detailHash)}</p>
+          <button class="btn-ghost !py-1 text-xs" on:click={() => (detailHash = "")}>Tutup</button>
+        </div>
+        {#if detailLoading}
+          <p class="mt-2 muted text-sm">Memuat…</p>
+        {:else if detail}
+          <dl class="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+            <div class="flex justify-between border-b py-1">
+              <dt class="muted">Gas limit</dt>
+              <dd>{detail.gas_limit ?? "—"}</dd>
+            </div>
+            <div class="flex justify-between border-b py-1">
+              <dt class="muted">Gas terpakai</dt>
+              <dd>{detail.gas_used ?? "—"}</dd>
+            </div>
+            <div class="flex justify-between border-b py-1">
+              <dt class="muted">Harga gas efektif</dt>
+              <dd>{detail.effective_gas_price ?? "—"}</dd>
+            </div>
+            <div class="flex justify-between border-b py-1">
+              <dt class="muted">Hash argumen</dt>
+              <dd class="font-mono text-xs">{detail.arguments_hash?.slice(0, 18) ?? "—"}…</dd>
+            </div>
+          </dl>
+          {#if detail.error_message}
+            <p class="alert-error mt-2 text-xs">{detail.error_message}</p>
+          {/if}
+          {#if detail.events && detail.events.length}
+            <p class="mono-label mt-3">Event</p>
+            <ul class="mt-1 space-y-1 text-xs">
+              {#each detail.events as ev}
+                <li class="font-mono">{ev.name}</li>
+              {/each}
+            </ul>
+          {/if}
+        {/if}
+      </div>
+    {/if}
   {/if}
 
   <Pagination

@@ -157,6 +157,8 @@ class TxReceipt:
     gas_used: int | None = None
     dry_run: bool = True
     nonce: int | None = None
+    gas_limit: int | None = None
+    effective_gas_price: int | None = None
 
 
 class ChainClient:
@@ -345,12 +347,13 @@ class ChainClient:
                 # are not yet mined; "latest" would return a stale nonce and
                 # cause replacements/drops under rapid submission.
                 nonce = self._w3.eth.get_transaction_count(self._account.address, "pending")
+                fees = self.estimate_fees(fee_bump_percent=fee_bump_percent)
                 tx = fn.build_transaction(
                     {
                         "from": self._account.address,
                         "nonce": nonce,
                         "chainId": settings.chain_id,
-                        **self.estimate_fees(fee_bump_percent=fee_bump_percent),
+                        **fees,
                     }
                 )
                 signed = self._account.sign_transaction(tx)
@@ -360,6 +363,8 @@ class ChainClient:
                 status=0,
                 dry_run=False,
                 nonce=nonce,
+                gas_limit=fees.get("gas"),
+                effective_gas_price=fees.get("maxFeePerGas"),
             )
         except Exception as exc:  # noqa: BLE001
             raise ChainError("Failed to submit transaction") from exc
@@ -562,6 +567,7 @@ class ChainClient:
                 status=int(r.get("status", 0)),
                 block_number=r.get("blockNumber"),
                 gas_used=r.get("gasUsed"),
+                effective_gas_price=r.get("effectiveGasPrice"),
                 dry_run=False,
             )
         except Exception:  # noqa: BLE001

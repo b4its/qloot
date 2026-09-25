@@ -99,6 +99,8 @@ async def test_outbox_processed_into_transaction(session):
     assert tx.transaction_hash is not None
     assert tx.method == "rewardUser"
     assert tx.idempotency_key
+    # Dead-surface fix: the tx now records a deterministic arguments hash.
+    assert tx.arguments_hash and tx.arguments_hash.startswith("0x")
 
     refreshed_alloc = await session.get(RewardAllocation, alloc.id)
     assert refreshed_alloc.blockchain_transaction_id == tx.id
@@ -574,3 +576,43 @@ async def test_reorg_rolls_back_a_confirmed_transaction(session, monkeypatch):
     assert refreshed.error_code == "reorged"
     # Compensation applied.
     assert await engine.balance(student.id) == 0
+
+
+async def test_transaction_detail_exposes_gas_fields(client):
+    """The admin tx-detail endpoint surfaces gas_limit/gas_used/
+    effective_gas_price/arguments_hash so those columns are read, not dead."""
+    from tests.helpers import register_actor
+
+    await register_actor(client, "txdetail_admin@ex.com", "admin")
+
+    # Create a confirmed tx with gas metadata, then read it via the endpoint.
+    from app.db.session import get_sessionmaker
+
+    sm = get_sessionmaker()
+    tx_hash = "0x" + uuid.uuid4().hex + uuid.uuid4().hex[:2]
+    async with sm() as s:
+        s.add(
+            BlockchainTransaction(
+                idempotency_key="0x" + uuid.uuid4().hex + uuid.uuid4().hex[:2],
+                network="localhost",
+                chain_id=31337,
+                from_address="0x" + "0" * 40,
+                method="rewardUser",
+                arguments={"amount": 1},
+                arguments_hash="0x" + "ab" * 32,
+                transaction_hash=tx_hash,
+                status="confirmed",
+                gas_limit=21000,
+                gas_used=20000,
+                effective_gas_price=1_000_000_000,
+            )
+        )
+        await s.commit()
+
+    r = await client.get(f"/api/v1/blockchain/transactions/{tx_hash}")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["gas_limit"] == 21000
+    assert body["gas_used"] == 20000
+    assert body["effective_gas_price"] == 1_000_000_000
+    assert body["arguments_hash"] == "0x" + "ab" * 32

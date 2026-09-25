@@ -8,6 +8,8 @@ confirms it.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from datetime import UTC, datetime
 
@@ -33,6 +35,12 @@ async def _existing_tx(session: AsyncSession, key: str) -> BlockchainTransaction
             select(BlockchainTransaction).where(BlockchainTransaction.idempotency_key == key)
         )
     ).scalar_one_or_none()
+
+
+def _arguments_hash(payload: dict | None) -> str:
+    """Deterministic 0x-hash of a tx's arguments for quick dedup/audit lookup."""
+    canonical = json.dumps(payload or {}, sort_keys=True, separators=(",", ":"), default=str)
+    return "0x" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _require(payload: dict, *keys: str) -> None:
@@ -93,6 +101,7 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
             contract_address=settings.asset_address(asset_key) or None,
             method=item.topic,
             arguments=item.payload,
+            arguments_hash=_arguments_hash(item.payload),
             status="queued",
         )
         session.add(tx)
@@ -194,6 +203,8 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
         tx.transaction_hash = receipt.tx_hash
         tx.block_number = receipt.block_number
         tx.gas_used = receipt.gas_used
+        tx.gas_limit = receipt.gas_limit
+        tx.effective_gas_price = receipt.effective_gas_price
         tx.nonce = receipt.nonce
         tx.submitted_at = datetime.now(UTC)
         tx.status = "submitted" if not receipt.dry_run else "pending"
@@ -381,6 +392,11 @@ async def refresh_confirmations(session: AsyncSession, limit: int = 50) -> int:
                 tx.confirmed_at = datetime.now(UTC)
                 if receipt.block_number is not None:
                     tx.block_number = receipt.block_number
+                # Backfill authoritative mined gas figures.
+                if receipt.gas_used is not None:
+                    tx.gas_used = receipt.gas_used
+                if receipt.effective_gas_price is not None:
+                    tx.effective_gas_price = receipt.effective_gas_price
                 await _mark_confirmed(session, tx)
                 await _record_event(session, tx)
             elif receipt is not None and receipt.status == 0:
