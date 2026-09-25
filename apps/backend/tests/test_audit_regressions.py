@@ -566,3 +566,18 @@ async def test_admin_config_summary_excludes_secrets(client):
     # No secret-bearing keys leak into the summary.
     leaked = {"session_secret", "database_url", "redis_url", "rpc_url", "minio_secret_key"}
     assert not (leaked & set(body))
+
+
+def test_admin_reward_cancel_route_is_not_hijacked():
+    """Regression: a stray decorator once made POST /admin/rewards/{id}/cancel
+    resolve to list_withdrawals instead of cancel_reward. Assert the route is
+    bound to the intended handler."""
+    from app.main import app
+
+    spec = app.openapi()
+    op = spec["paths"]["/api/v1/admin/rewards/{reward_id}/cancel"]["post"]
+    assert op["operationId"].startswith("cancel_reward"), op["operationId"]
+    # And the withdrawals list must stay a GET on its own path.
+    wd = spec["paths"]["/api/v1/admin/withdrawals"]
+    assert set(wd) == {"get"}, wd
+    assert wd["get"]["operationId"].startswith("list_withdrawals")

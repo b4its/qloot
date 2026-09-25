@@ -504,9 +504,6 @@ async def show_config(admin: AdminUser):
 
 
 # --- withdrawal review -----------------------------------------------------
-@router.post("/rewards/{reward_id}/cancel")
-
-
 @router.get("/withdrawals")
 async def list_withdrawals(
     admin: AdminUser,
