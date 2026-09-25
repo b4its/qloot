@@ -47,6 +47,26 @@
     }
   }
 
+  /** CARE-06: reschedule a consultation to a new slot (ISO datetime). */
+  async function reschedule(c: Consultation) {
+    const when = prompt("Jadwal baru (YYYY-MM-DDTHH:MM)", c.scheduled_at ?? "");
+    if (!when) return;
+    error = "";
+    message = "";
+    busy = c.id;
+    try {
+      await api.post(`/career/consultations/${c.id}/reschedule`, {
+        scheduled_at: new Date(when).toISOString(),
+      });
+      message = "Konsultasi dijadwalkan ulang.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menjadwalkan ulang";
+    } finally {
+      busy = "";
+    }
+  }
+
   async function openThread(c: Consultation) {
     openId = c.id;
     try {
@@ -131,6 +151,13 @@
                   class="btn-primary !py-1 text-xs"
                   on:click={() => act(c, "complete")}
                   disabled={busy === c.id}>Selesaikan</button
+                >
+              {/if}
+              {#if c.status === "pending" || c.status === "accepted"}
+                <button
+                  class="btn-ghost !py-1 text-xs"
+                  on:click={() => reschedule(c)}
+                  disabled={busy === c.id}>Jadwalkan ulang</button
                 >
               {/if}
             </div>

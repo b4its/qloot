@@ -65,6 +65,24 @@
     }
   }
 
+  /** CARE-07: edit a catalog entry (title/description) via PATCH. */
+  async function editResource(item: ResourceItem) {
+    const title = prompt("Judul baru", item.title);
+    if (title === null || !title.trim()) return;
+    const description = prompt("Deskripsi baru (opsional)", item.description ?? "") ?? "";
+    error = "";
+    try {
+      await api.patch(`/career/resources/${item.code}`, {
+        title: title.trim(),
+        description,
+      });
+      message = "Sumber daya diperbarui.";
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui sumber daya";
+    }
+  }
+
   function search() {
     load();
   }
@@ -141,6 +159,13 @@
               <td>{r.category}</td>
               <td>{r.title}</td>
               <td class="text-right">
+                <button
+                  class="btn-icon"
+                  aria-label="Ubah sumber daya"
+                  on:click={() => editResource(r)}
+                >
+                  <Icon name="pen" size="12px" />
+                </button>
                 <button
                   class="btn-icon !text-tertiary"
                   aria-label="Hapus sumber daya"

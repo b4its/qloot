@@ -9,6 +9,14 @@
   let course: Course | null = null;
   let lessons: Lesson[] = [];
   let progress: Record<string, Progress> = {};
+  // Aggregate course progress + resume pointer (C37).
+  let courseProgress: {
+    percent: number;
+    completed_lessons: number;
+    total_lessons: number;
+    next_lesson_id: string | null;
+    next_lesson_title: string | null;
+  } | null = null;
   let loading = true;
   let error = "";
   let busy = "";
@@ -20,6 +28,7 @@
     try {
       course = await api.get<Course>(`/courses/${courseId}`);
       lessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`);
+      courseProgress = await api.get(`/courses/${courseId}/progress`);
       const all = await api.get<Progress[]>("/me/learning-progress?limit=200");
       progress = Object.fromEntries(
         all.filter((p) => p.course_id === courseId).map((p) => [p.lesson_id, p]),
@@ -61,6 +70,29 @@
     <p class="mono-label mt-4">Pelajaran</p>
     <h1 class="mt-2 font-display text-3xl font-bold">{course.title}</h1>
     <p class="mt-1 muted">{course.description}</p>
+
+    {#if courseProgress}
+      <div class="card mt-4">
+        <div class="flex items-center justify-between">
+          <p class="mono-label">Progres</p>
+          <span class="font-mono text-sm"
+            >{courseProgress.completed_lessons}/{courseProgress.total_lessons} ·
+            {courseProgress.percent}%</span
+          >
+        </div>
+        <div class="track mt-2 h-1.5">
+          <span style={`width:${courseProgress.percent}%`}></span>
+        </div>
+        {#if courseProgress.next_lesson_id}
+          <a
+            class="btn-primary mt-3 !py-1.5"
+            href={`/learning/${courseId}/lesson/${courseProgress.next_lesson_id}`}
+          >
+            Lanjutkan: {courseProgress.next_lesson_title ?? "pelajaran berikutnya"}
+          </a>
+        {/if}
+      </div>
+    {/if}
 
     <div class="mt-6 space-y-3">
       {#each lessons as lesson, i}

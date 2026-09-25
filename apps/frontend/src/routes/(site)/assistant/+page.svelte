@@ -69,6 +69,22 @@
     error = "";
   }
 
+  /** CARE-01: delete a saved conversation. */
+  async function removeConversation(id: string) {
+    if (!confirm("Hapus percakapan ini?")) return;
+    error = "";
+    try {
+      await api.delete(`/career/assistant/conversations/${id}`);
+      if (conversationId === id) {
+        conversationId = null;
+        messages = [GREETING];
+      }
+      await loadHistory();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus percakapan";
+    }
+  }
+
   /**
    * Stream the assistant reply via SSE (CARE-04). Falls back to the JSON
    * endpoint if the stream cannot be established.
@@ -210,14 +226,24 @@
       <p class="mono-label">Riwayat percakapan</p>
       <div class="mt-2 flex flex-wrap gap-2">
         {#each history as c (c.id)}
-          <button
-            class="btn-ghost !py-1 text-xs"
-            class:!border-primary={c.id === conversationId}
-            on:click={() => openConversation(c.id)}
-            disabled={busy}
-          >
-            {c.title}
-          </button>
+          <span class="inline-flex items-center">
+            <button
+              class="btn-ghost !py-1 text-xs"
+              class:!border-primary={c.id === conversationId}
+              on:click={() => openConversation(c.id)}
+              disabled={busy}
+            >
+              {c.title}
+            </button>
+            <button
+              class="btn-icon ml-0.5 !text-tertiary"
+              aria-label={`Hapus percakapan ${c.title}`}
+              on:click={() => removeConversation(c.id)}
+              disabled={busy}
+            >
+              <Icon name="trash" size="9px" />
+            </button>
+          </span>
         {/each}
       </div>
     </div>

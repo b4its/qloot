@@ -16,6 +16,14 @@
     updated_at: string;
   }
 
+  interface EntryRow {
+    user_id: string;
+    rank: number;
+    score_bp: number;
+    display_name?: string;
+    name?: string;
+  }
+
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
   let snapshots: SnapshotRow[] = [];
@@ -23,6 +31,9 @@
   let error = "";
   let message = "";
   let refreshing = "";
+  // Entries of the snapshot currently opened (GET /rankings/leaderboards/{id}/entries).
+  let openId = "";
+  let entries: EntryRow[] = [];
 
   let scopeId = "";
 
@@ -35,6 +46,17 @@
       error = e instanceof ApiError ? e.message : "Gagal memuat papan peringkat";
     } finally {
       loading = false;
+    }
+  }
+
+  async function openEntries(id: string) {
+    openId = id;
+    entries = [];
+    try {
+      const detail = await api.get<{ entries: EntryRow[] }>(`/rankings/leaderboards/${id}/entries`);
+      entries = detail.entries ?? [];
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat entri";
     }
   }
 
@@ -115,19 +137,49 @@
             <th>ID</th>
             <th>Periode</th>
             <th>Diperbarui</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          {#each snapshots as s}
+          {#each snapshots as s (s.id)}
             <tr class="border-t">
               <td class="py-1">{s.scope}</td>
               <td class="font-mono text-xs">{s.scope_id?.slice(0, 8) ?? "—"}</td>
               <td>{s.period}</td>
               <td class="text-xs muted">{formatDate(s.updated_at)}</td>
+              <td class="text-right">
+                <button class="btn-ghost !py-1 text-xs" on:click={() => openEntries(s.id)}
+                  >Lihat entri</button
+                >
+              </td>
             </tr>
           {/each}
         </tbody>
       </table>
+    {/if}
+
+    {#if openId}
+      <div class="mt-4 border-t pt-4">
+        <div class="flex items-center justify-between">
+          <p class="mono-label">Entri snapshot</p>
+          <button class="btn-ghost !py-1 text-xs" on:click={() => (openId = "")}>Tutup</button>
+        </div>
+        {#if entries.length === 0}
+          <p class="mt-2 muted text-sm">Tidak ada entri.</p>
+        {:else}
+          <ol class="mt-2 space-y-1 text-sm">
+            {#each entries as e (e.user_id)}
+              <li class="flex items-center justify-between border-b py-1 last:border-0">
+                <span>
+                  <span class="font-mono text-xs">#{e.rank}</span>
+                  {e.display_name ?? e.name ?? e.user_id.slice(0, 8)}
+                </span>
+                <span class="font-mono text-xs">{e.score_bp} bp</span>
+              </li>
+            {/each}
+          </ol>
+        {/if}
+      </div>
     {/if}
   </div>
 </div>
