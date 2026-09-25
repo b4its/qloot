@@ -379,7 +379,7 @@ make blockchain-down                     # hentikan + hapus Anvil & network
 make blockchain-reset                    # hapus manifest lokal + state Anvil (mulai bersih)
 make blockchain-redeploy                 # reset lalu deploy ulang ke lokal
 make blockchain-build                    # kompilasi kontrak
-make blockchain-test                     # 32 uji kontrak
+make blockchain-test                     # 47 uji kontrak
 make blockchain-deploy NETWORK=localhost # deploy OPT + QTC + ORT + ORX ke Anvil
 
 # --- Inspeksi (lokal atau sepolia) ---

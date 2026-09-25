@@ -164,11 +164,16 @@
   function onBlur() {
     reportEvent("blur");
   }
+  // Paste during an exam is a flagged violation kind on the backend.
+  function onPaste(e: ClipboardEvent) {
+    reportEvent("paste", { target: (e.target as HTMLElement)?.tagName ?? null });
+  }
 
   onMount(() => {
     window.addEventListener("beforeunload", warnBeforeUnload);
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("blur", onBlur);
+    document.addEventListener("paste", onPaste);
     load();
   });
   onDestroy(() => {
@@ -177,6 +182,7 @@
     window.removeEventListener("beforeunload", warnBeforeUnload);
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("blur", onBlur);
+    document.removeEventListener("paste", onPaste);
   });
 </script>
 

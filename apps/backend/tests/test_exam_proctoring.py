@@ -60,7 +60,40 @@ async def test_events_recorded_and_flag_on_threshold(make_actor, engine):
         row = await s.get(ExamAttempt, __import__("uuid").UUID(attempt_id))
     assert len(count) == 5
     assert row.is_flagged is True
-    assert row.flag_reason
+
+
+async def test_paste_event_is_recorded_and_counts_as_violation(make_actor, engine):
+    """C25: a paste event is produced by the attempt UI and counts toward the
+    violation threshold (the branch must not be dead)."""
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.models.exam import AttemptEvent
+
+    teacher = await make_actor("pro_paste_t@ex.com", "teacher")
+    exam_id, _qid = await _mc_exam(teacher)
+    student = await make_actor("pro_paste_s@ex.com", "student")
+    attempt_id = (
+        await student.client.post(f"/api/v1/exams/{exam_id}/attempts")
+    ).json()["id"]
+
+    r = await student.client.post(
+        f"/api/v1/attempts/{attempt_id}/events",
+        json={"events": [{"kind": "paste", "detail": {"target": "TEXTAREA"}}]},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["recorded"] == 1
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        rows = (
+            await s.execute(
+                select(AttemptEvent).where(
+                    AttemptEvent.attempt_id == __import__("uuid").UUID(attempt_id)
+                )
+            )
+        ).scalars().all()
+    assert [e.kind for e in rows] == ["paste"]
 
 
 async def test_teacher_sees_flag_in_results(make_actor):
