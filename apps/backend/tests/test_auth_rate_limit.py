@@ -87,3 +87,41 @@ async def test_limiter_falls_back_without_redis(client, enable_rate_limit, monke
         "/api/v1/auth/login", json={"email": "nobody@ex.com", "password": "nope"}
     )
     assert r.status_code in (401, 429)  # never 500
+
+
+@pytest.fixture
+def enable_ai_rate_limit(monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "csrf_enabled", False)
+    monkeypatch.setattr(settings, "rate_limit_ai", 2)
+    monkeypatch.setattr(settings, "rate_limit_window_seconds", 60)
+    rl._local.clear()  # noqa: SLF001
+    yield
+    rl._local.clear()  # noqa: SLF001
+
+
+async def test_ai_grade_is_rate_limited(client, enable_ai_rate_limit):
+    """POST /ai/grade (essay grading) must be throttled (CARE-04)."""
+    from tests.helpers import register_actor
+
+    await register_actor(client, "rl_grade@ex.com", "student")
+    codes = []
+    for _ in range(4):
+        r = await client.post("/api/v1/ai/grade", json={"attempt_id": "00000000-0000-0000-0000-000000000000"})
+        codes.append(r.status_code)
+    assert 429 in codes, codes
+
+
+async def test_material_summary_is_rate_limited(client, enable_ai_rate_limit):
+    """GET /materials/{id}/summary (AI) must be throttled (CARE-04)."""
+    from tests.helpers import register_actor
+
+    await register_actor(client, "rl_sum@ex.com", "student")
+    codes = []
+    for _ in range(4):
+        r = await client.get(
+            "/api/v1/materials/00000000-0000-0000-0000-000000000000/summary"
+        )
+        codes.append(r.status_code)
+    assert 429 in codes, codes

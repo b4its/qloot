@@ -62,7 +62,11 @@ async def regenerate_question(question_id: uuid.UUID, user: TeacherUser, db: DbS
     return AIJobOut.model_validate(job)
 
 
-@router.post("/grade", response_model=list[GradedItemOut])
+@router.post(
+    "/grade",
+    response_model=list[GradedItemOut],
+    dependencies=[Depends(rate_limit("ai"))],
+)
 async def grade_attempt(payload: GradeRequest, user: CurrentUser, db: DbSession):
     """Synchronously grade an attempt (the worker also grades on submit).
 

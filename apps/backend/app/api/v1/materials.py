@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.core.config import settings
 from app.core.errors import ValidationError
 from app.db.session import transaction
+from app.middleware.rate_limit import rate_limit
 from app.models.exam import Question, QuestionOption
 from app.schemas.exam import OptionOut, QuestionOut
 from app.schemas.material import (
@@ -144,7 +145,11 @@ async def generate_questions(
     return GenerationJobOut(job_id=job.id, status=job.status)
 
 
-@router.post("/{material_id}/generate-questions-sync", response_model=list[GeneratedQuestionOut])
+@router.post(
+    "/{material_id}/generate-questions-sync",
+    response_model=list[GeneratedQuestionOut],
+    dependencies=[Depends(rate_limit("ai"))],
+)
 async def generate_questions_sync(
     material_id: uuid.UUID,
     payload: GenerateQuestionsRequest,
@@ -228,7 +233,11 @@ async def material_questions(
     return out
 
 
-@router.get("/{material_id}/summary", response_model=SummaryOut)
+@router.get(
+    "/{material_id}/summary",
+    response_model=SummaryOut,
+    dependencies=[Depends(rate_limit("ai"))],
+)
 async def material_summary(
     material_id: uuid.UUID, user: CurrentUser, db: DbSession, language: str = "id"
 ):
@@ -237,7 +246,11 @@ async def material_summary(
     return SummaryOut(summary=result.summary, key_points=result.key_points)
 
 
-@router.post("/{material_id}/ask", response_model=AnswerOut)
+@router.post(
+    "/{material_id}/ask",
+    response_model=AnswerOut,
+    dependencies=[Depends(rate_limit("ai"))],
+)
 async def material_ask(
     material_id: uuid.UUID, payload: AskRequest, user: CurrentUser, db: DbSession
 ):
