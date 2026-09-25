@@ -71,3 +71,19 @@ async def test_rag_answers_from_end_of_long_document(client):
     assert r.status_code == 200, r.text
     answer = r.json()["answer"]
     assert "Kota Cahaya" in answer, answer
+
+
+async def test_ask_and_summary_reject_non_member(client):
+    """RBAC-negative (C41/C42): a user who neither owns the material nor is
+    enrolled in its course must get 403 from /ask and /summary."""
+    await register_actor(client, "rag_owner@ex.com", "teacher")
+    material_id = await _upload(client, "Teks materi rahasia untuk pengujian akses.")
+    await client.post("/api/v1/auth/logout")
+
+    await register_actor(client, "rag_outsider@ex.com", "student")
+    ask = await client.post(
+        f"/api/v1/materials/{material_id}/ask", json={"question": "apa isinya?"}
+    )
+    assert ask.status_code == 403, ask.text
+    summary = await client.get(f"/api/v1/materials/{material_id}/summary")
+    assert summary.status_code == 403, summary.text

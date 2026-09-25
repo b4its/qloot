@@ -717,3 +717,21 @@ async def test_course_progress_aggregate_and_resume(client):
     assert after["completed_lessons"] == 1
     assert after["percent"] == 33
     assert after["next_lesson_id"] == lids[1]
+
+
+async def test_plan_list_endpoints_reject_over_max_limit(client):
+    """§9: every list endpoint must bound pagination (limit <= 200 -> 422)."""
+    await _register(client, "crud_limit@ex.com", "admin")
+    for path in (
+        "/api/v1/community/posts?limit=500",
+        "/api/v1/community/reports?limit=500",
+        "/api/v1/career/consultations?limit=500",
+        "/api/v1/career/resources?limit=500",
+        "/api/v1/career/assistant/conversations?limit=500",
+        "/api/v1/admin/withdrawals?limit=500",
+        "/api/v1/admin/audit-logs?limit=500",
+        "/api/v1/rankings/leaderboards?limit=500",
+        "/api/v1/materials?limit=500",
+    ):
+        r = await client.get(path)
+        assert r.status_code == 422, f"{path} -> {r.status_code}"
