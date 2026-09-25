@@ -51,6 +51,22 @@
     }
   }
 
+  /** Redeem an invitation code (POST /rooms/invitations/accept). */
+  async function acceptInvitation() {
+    joinError = "";
+    joinLoading = true;
+    try {
+      const member = await api.post<{ room_id: string }>("/rooms/invitations/accept", {
+        code: joinCode.trim().toUpperCase(),
+      });
+      window.location.href = `/rooms/${member.room_id}`;
+    } catch (e) {
+      joinError = e instanceof ApiError ? e.message : "Gagal menerima undangan";
+    } finally {
+      joinLoading = false;
+    }
+  }
+
   async function createRoom() {
     error = "";
     if (newRoom.name.trim().length < 2) {
@@ -91,7 +107,7 @@
 
   <div class="card mt-6">
     <h2 class="hud font-display text-lg font-bold">Gabung dengan kode</h2>
-    <div class="mt-2 flex gap-2">
+    <div class="mt-2 flex flex-wrap gap-2">
       <input
         class="input max-w-xs uppercase"
         placeholder="ABC123"
@@ -103,7 +119,14 @@
         on:click={joinByCode}
         disabled={joinLoading || joinCode.length < 4}
       >
-        {joinLoading ? "Bergabung…" : "Gabung"}
+        {joinLoading ? "Bergabung…" : "Gabung ruang"}
+      </button>
+      <button
+        class="btn-ghost"
+        on:click={acceptInvitation}
+        disabled={joinLoading || joinCode.length < 4}
+      >
+        Terima undangan
       </button>
     </div>
     {#if joinError}<p class="alert-error mt-2">{joinError}</p>{/if}

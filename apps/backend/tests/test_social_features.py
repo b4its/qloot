@@ -230,6 +230,12 @@ async def test_room_live_and_events_and_invite(client):
     await _register(client, "guest_join@ex.com")
     accepted = await client.post("/api/v1/rooms/invitations/accept", json={"code": code})
     assert accepted.status_code == 200, accepted.text
+    # Accepting the invitation must actually place the user in the room.
+    assert accepted.json()["room_id"] == room_id
+    members = await client.get(f"/api/v1/rooms/{room_id}/participants")
+    assert members.status_code == 200, members.text
+    guest = (await client.get("/api/v1/auth/me")).json()["id"]
+    assert any(m["user_id"] == guest for m in members.json())
 
 
 async def test_teacher_analytics_and_submissions(client):

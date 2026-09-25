@@ -22,6 +22,12 @@
   let reconnectAttempts = 0;
   let destroyed = false;
   let busy = "";
+  // Invite a specific email to this room and surface the invite code.
+  let inviteEmail = "";
+  let inviteNote = "";
+  let inviteBusy = false;
+  let inviteResult: { code: string; email: string | null } | null = null;
+  let inviteError = "";
 
   const roomId = $page.params.roomId;
   $: canManage = hasRole($auth.user, "teacher");
@@ -130,6 +136,26 @@
     }
   }
 
+  /** Invite someone to this room (owner/teacher); returns a redeemable code. */
+  async function sendInvite() {
+    inviteError = "";
+    inviteResult = null;
+    inviteBusy = true;
+    try {
+      const inv = await api.post<{ code: string; email: string | null }>(
+        `/rooms/${roomId}/invite`,
+        { email: inviteEmail.trim() || null, note: inviteNote.trim() || null },
+      );
+      inviteResult = { code: inv.code, email: inv.email };
+      inviteEmail = "";
+      inviteNote = "";
+    } catch (e) {
+      inviteError = e instanceof ApiError ? e.message : "Gagal mengundang";
+    } finally {
+      inviteBusy = false;
+    }
+  }
+
   async function join() {
     await act("join", "join");
   }
@@ -211,6 +237,47 @@
         {/if}
       {/if}
     </div>
+
+    {#if canManage}
+      <div class="card mt-4">
+        <h2 class="hud font-display text-lg font-bold">Undang peserta</h2>
+        <p class="mt-1 text-xs muted">
+          Undang lewat email (opsional). Bagikan kode undangan untuk bergabung.
+        </p>
+        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+          <label class="flex flex-col text-xs">
+            <span class="muted mb-1">Email (opsional)</span>
+            <input
+              class="input"
+              type="email"
+              bind:value={inviteEmail}
+              placeholder="nama@contoh.com"
+            />
+          </label>
+          <label class="flex flex-col text-xs">
+            <span class="muted mb-1">Catatan (opsional)</span>
+            <input class="input" bind:value={inviteNote} placeholder="mis. untuk kelas XII" />
+          </label>
+        </div>
+        <button class="btn-primary mt-3 !py-1.5" on:click={sendInvite} disabled={inviteBusy}>
+          {inviteBusy ? "Mengundang…" : "Buat undangan"}
+        </button>
+        {#if inviteError}<p class="alert-error mt-2">{inviteError}</p>{/if}
+        {#if inviteResult}
+          <div class="mt-3 rounded-sm border p-3">
+            <p class="mono-label">Kode undangan</p>
+            <p class="mt-1 font-mono text-lg font-bold">{inviteResult.code}</p>
+            {#if inviteResult.email}
+              <p class="mt-1 text-xs muted">
+                Untuk: {inviteResult.email} (notifikasi terkirim jika terdaftar)
+              </p>
+            {:else}
+              <p class="mt-1 text-xs muted">Bagikan kode ini kepada peserta.</p>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     <div class="mt-6 grid gap-4 lg:grid-cols-3">
       <div class="card lg:col-span-2">
