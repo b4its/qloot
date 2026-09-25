@@ -382,8 +382,8 @@
         <div class="mt-3 border-t pt-3">
           <p class="mono-label">Konfirmasi perubahan</p>
           <p class="mt-1 text-xs muted">
-            Tidak ada email sungguhan yang dikirim (mode simulasi). Konfirmasi untuk mengubah
-            email menjadi <strong>{pendingNewEmail}</strong>.
+            Tidak ada email sungguhan yang dikirim (mode simulasi). Konfirmasi untuk mengubah email
+            menjadi <strong>{pendingNewEmail}</strong>.
           </p>
           <button
             class="btn-primary mt-2 !py-1.5"
