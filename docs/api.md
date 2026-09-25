@@ -22,6 +22,13 @@ POST   /auth/logout
 POST   /auth/refresh
 POST   /auth/forgot-password
 POST   /auth/reset-password
+POST   /auth/change-password          (in-session; requires current password)
+POST   /auth/logout-all               (revoke every session)
+PATCH  /auth/profile                  (full_name)
+POST   /auth/profile/avatar           (image upload)
+GET    /auth/avatars/{user_id}
+POST   /auth/change-email/request     (returns the token outside production)
+POST   /auth/change-email/confirm
 GET    /auth/me
 GET    /auth/sessions
 DELETE /auth/sessions/{session_id}

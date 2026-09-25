@@ -28,6 +28,13 @@
   let emailMessage = "";
   let emailError = "";
   let requestingEmailChange = false;
+  // Simulation mode: the backend returns the change token when not in
+  // production (no email transport), so the change can be completed in-session.
+  let emailChangeToken: string | null = null;
+  let pendingNewEmail = "";
+  let confirmingEmailChange = false;
+  // COMM-06: the caller's follower/following counts.
+  let followCounts: { followers: number; following: number } | null = null;
   $: user = $auth.user;
 
   async function load() {
@@ -38,6 +45,11 @@
         api.get<SessionInfo[]>("/auth/sessions"),
         api.get<GamificationProfile>("/gamification/me"),
       ]);
+      if (user?.id) {
+        followCounts = await api
+          .get<{ followers: number; following: number }>(`/users/${user.id}/follow`)
+          .catch(() => null);
+      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat sesi";
     } finally {
@@ -140,19 +152,49 @@
   async function requestEmailChange() {
     emailError = "";
     emailMessage = "";
+    emailChangeToken = null;
     if (!newEmail.includes("@")) {
       emailError = "Masukkan alamat email yang valid.";
       return;
     }
     requestingEmailChange = true;
     try {
-      await api.post("/auth/change-email/request", { new_email: newEmail });
-      emailMessage = "Tautan verifikasi telah dikirim ke email baru.";
+      const res = await api.post<{ message: string; change_token: string | null }>(
+        "/auth/change-email/request",
+        { new_email: newEmail },
+      );
+      pendingNewEmail = newEmail;
+      // Outside production the verification token is returned so the change
+      // can be confirmed in-session (mirrors the password-reset simulation).
+      emailChangeToken = res.change_token ?? null;
+      emailMessage = emailChangeToken
+        ? "Mode simulasi: konfirmasi perubahan email di bawah."
+        : "Tautan verifikasi telah dikirim ke email baru.";
       newEmail = "";
     } catch (e) {
       emailError = e instanceof ApiError ? e.message : "Gagal meminta perubahan email";
     } finally {
       requestingEmailChange = false;
+    }
+  }
+
+  /** Confirm the pending email change with the returned token. */
+  async function confirmEmailChange() {
+    if (!emailChangeToken) return;
+    emailError = "";
+    emailMessage = "";
+    confirmingEmailChange = true;
+    try {
+      const updated = await api.post<{ email: string }>("/auth/change-email/confirm", {
+        token: emailChangeToken,
+      });
+      auth.setUser({ ...user, email: updated.email } as typeof user & object);
+      emailChangeToken = null;
+      emailMessage = `Email berhasil diubah menjadi ${updated.email}.`;
+    } catch (e) {
+      emailError = e instanceof ApiError ? e.message : "Gagal mengonfirmasi perubahan email";
+    } finally {
+      confirmingEmailChange = false;
     }
   }
 
@@ -225,6 +267,12 @@
                 </button>
               {/if}
               <p class="text-sm muted">{user.email}</p>
+              {#if followCounts}
+                <p class="mt-1 text-xs muted">
+                  <strong>{followCounts.followers}</strong> pengikut ·
+                  <strong>{followCounts.following}</strong> mengikuti
+                </p>
+              {/if}
             </div>
           </div>
           <WalletChip address={user.chain_user_ref} label="Wallet address" size={34} />
@@ -330,6 +378,22 @@
           {requestingEmailChange ? "Mengirim…" : "Kirim tautan verifikasi"}
         </button>
       </div>
+      {#if emailChangeToken}
+        <div class="mt-3 border-t pt-3">
+          <p class="mono-label">Konfirmasi perubahan</p>
+          <p class="mt-1 text-xs muted">
+            Tidak ada email sungguhan yang dikirim (mode simulasi). Konfirmasi untuk mengubah
+            email menjadi <strong>{pendingNewEmail}</strong>.
+          </p>
+          <button
+            class="btn-primary mt-2 !py-1.5"
+            on:click={confirmEmailChange}
+            disabled={confirmingEmailChange}
+          >
+            {confirmingEmailChange ? "Memproses…" : "Konfirmasi perubahan email"}
+          </button>
+        </div>
+      {/if}
     </div>
 
     <div class="mt-6 card">

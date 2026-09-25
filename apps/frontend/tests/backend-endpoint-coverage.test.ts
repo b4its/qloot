@@ -5,6 +5,7 @@ import resourcesSrc from "$routes-panel/teacher/resources/+page.svelte?raw";
 import assistantSrc from "$routes-site/assistant/+page.svelte?raw";
 import teacherConsSrc from "$routes-panel/teacher/consultations/+page.svelte?raw";
 import learningSrc from "$routes-site/learning/[courseId]/+page.svelte?raw";
+import profileSrc from "$routes-site/profile/+page.svelte?raw";
 
 /**
  * Regression for C88 re-audit: endpoints that were backend-only must have a
@@ -34,5 +35,16 @@ describe("previously backend-only endpoints now have a UI caller", () => {
   it("student sees the course progress resume pointer", () => {
     expect(learningSrc).toContain("/progress`");
     expect(learningSrc).toContain("next_lesson_id");
+  });
+
+  it("profile completes the email change in-session (confirm endpoint)", () => {
+    expect(profileSrc).toContain("/auth/change-email/request");
+    expect(profileSrc).toContain("/auth/change-email/confirm");
+    expect(profileSrc).toContain("confirmEmailChange");
+  });
+
+  it("profile shows follower/following counts via the follow status endpoint", () => {
+    expect(profileSrc).toContain("/follow`");
+    expect(profileSrc).toContain("followCounts");
   });
 });
