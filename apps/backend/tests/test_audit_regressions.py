@@ -581,3 +581,74 @@ def test_admin_reward_cancel_route_is_not_hijacked():
     wd = spec["paths"]["/api/v1/admin/withdrawals"]
     assert set(wd) == {"get"}, wd
     assert wd["get"]["operationId"].startswith("list_withdrawals")
+
+
+async def test_withdrawal_review_audit_carries_request_id(client):
+    """C60 invariant: an admin withdrawal approval writes an AuditLog row that
+    carries the request_id from the request context."""
+    from sqlalchemy import delete, select
+
+    from app.models.identity import AuditLog
+
+    await _register(client, "wd_audit_user@ex.com")
+    me = (await client.get("/api/v1/auth/me")).json()
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "wd_audit_admin@ex.com", "admin")
+    # Credit the student so a withdrawal can be requested.
+    await client.post(
+        "/api/v1/admin/rewards/adjust",
+        json={
+            "user_id": me["id"],
+            "amount": 500,
+            "reason": "seed for withdrawal audit",
+            "idempotency_key": "wd-audit-seed",
+        },
+    )
+    await client.post("/api/v1/auth/logout")
+
+    await client.post(
+        "/api/v1/auth/login", json={"email": "wd_audit_user@ex.com", "password": "Password123!"}
+    )
+    created = await client.post(
+        "/api/v1/wallet/withdrawals",
+        json={"amount": 100, "destination_address": "0x" + "1" * 40},
+    )
+    assert created.status_code in (200, 201), created.text
+    wid = created.json()["id"]
+    await client.post("/api/v1/auth/logout")
+
+    await client.post(
+        "/api/v1/auth/login", json={"email": "wd_audit_admin@ex.com", "password": "Password123!"}
+    )
+    approved = await client.post(f"/api/v1/admin/withdrawals/{wid}/approve")
+    assert approved.status_code == 200, approved.text
+
+    sm = client._sm  # type: ignore[attr-defined]
+    async with sm() as s:
+        row = (
+            await s.execute(
+                select(AuditLog).where(
+                    AuditLog.action == "withdrawal.approve",
+                    AuditLog.entity_id == wid,
+                )
+            )
+        ).scalar_one_or_none()
+    assert row is not None
+    assert row.request_id, "withdrawal audit row must carry request_id"
+
+    # Clean up so sibling tests that count withdrawal rows globally stay valid.
+    from app.models.wallet import TransactionOutbox, WithdrawalRequest
+    from app.services.keys import tx_idempotency_key
+
+    async with sm() as s:
+        await s.execute(
+            delete(TransactionOutbox).where(
+                TransactionOutbox.idempotency_key
+                == tx_idempotency_key("withdrawal", wid)
+            )
+        )
+        await s.execute(
+            delete(WithdrawalRequest).where(WithdrawalRequest.id == uuid.UUID(wid))
+        )
+        await s.commit()

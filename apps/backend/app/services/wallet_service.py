@@ -15,8 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.errors import ValidationError
-from app.models.identity import AuditLog, User
+from app.models.identity import User
 from app.models.wallet import WalletAccount
+from app.services.audit import record as audit_record
 
 
 def default_wallet_address() -> str:
@@ -68,14 +69,13 @@ async def set_wallet_address(
     account = await RewardEngine(db).get_or_create_account(user.id)
     previous = account.withdrawal_address
     account.withdrawal_address = checksummed
-    db.add(
-        AuditLog(
-            actor_id=user.id,
-            action="wallet.address_change",
-            entity_type="wallet_account",
-            entity_id=str(account.id),
-            data={"previous": previous, "new": checksummed, "source": source},
-        )
+    audit_record(
+        db,
+        actor_id=user.id,
+        action="wallet.address_change",
+        entity_type="wallet_account",
+        entity_id=str(account.id),
+        data={"previous": previous, "new": checksummed, "source": source},
     )
     await db.flush()
     return account

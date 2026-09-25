@@ -21,8 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import get_logger
-from app.models.identity import AuditLog, User
+from app.models.identity import User
 from app.models.wallet import TransactionOutbox, WithdrawalRequest
+from app.services.audit import record as audit_record
 from app.services.keys import tx_idempotency_key, withdrawal_key
 from app.services.reward_engine import RewardEngine
 
@@ -112,14 +113,13 @@ class WithdrawalService:
         wd.status = "approved"
         wd.reviewed_by = admin.id
         wd.reviewed_at = datetime.now(UTC)
-        self.session.add(
-            AuditLog(
-                actor_id=admin.id,
-                action="withdrawal.approve",
-                entity_type="withdrawal",
-                entity_id=str(wd.id),
-                data={"amount": wd.amount, "fee": wd.fee_amount},
-            )
+        audit_record(
+            self.session,
+            actor_id=admin.id,
+            action="withdrawal.approve",
+            entity_type="withdrawal",
+            entity_id=str(wd.id),
+            data={"amount": wd.amount, "fee": wd.fee_amount},
         )
         # Enqueue the on-chain burn only now (approval is the gate).
         wd_user = await self.session.get(User, wd.user_id) if wd.user_id else None
@@ -154,14 +154,13 @@ class WithdrawalService:
         wd.reject_reason = reason
         wd.reviewed_by = admin.id
         wd.reviewed_at = datetime.now(UTC)
-        self.session.add(
-            AuditLog(
-                actor_id=admin.id,
-                action="withdrawal.reject",
-                entity_type="withdrawal",
-                entity_id=str(wd.id),
-                data={"reason": reason},
-            )
+        audit_record(
+            self.session,
+            actor_id=admin.id,
+            action="withdrawal.reject",
+            entity_type="withdrawal",
+            entity_id=str(wd.id),
+            data={"reason": reason},
         )
         await self._refund(wd)
         log.info("withdrawal_rejected", withdrawal_id=str(wd.id), admin=str(admin.id))

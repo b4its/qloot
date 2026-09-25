@@ -10,7 +10,6 @@ from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, Teache
 from app.core.errors import ConflictError, ForbiddenError
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit
-from app.models.identity import AuditLog
 from app.schemas.exam import (
     AnswerOut,
     AnswerUpsert,
@@ -32,6 +31,7 @@ from app.schemas.exam import (
     QuestionUpdate,
     ReviewAnswerOut,
 )
+from app.services.audit import record as audit_record
 from app.services.exam_service import ExamService
 from app.services.grading_service import GradingService
 
@@ -339,14 +339,13 @@ async def override_answer(
             score_bp=payload.score_bp,
             feedback=payload.feedback,
         )
-        db.add(
-            AuditLog(
-                actor_id=user.id,
-                action="exam.answer_override",
-                entity_type="exam_attempt",
-                entity_id=str(attempt.id),
-                data={"question_id": str(question_id), "score_bp": answer.score_bp},
-            )
+        audit_record(
+            db,
+            actor_id=user.id,
+            action="exam.answer_override",
+            entity_type="exam_attempt",
+            entity_id=str(attempt.id),
+            data={"question_id": str(question_id), "score_bp": answer.score_bp},
         )
     return answer
 
