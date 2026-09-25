@@ -115,6 +115,18 @@ async def test_ai_request_spends_ort(client, engine):
     assert over.status_code == 409, over.text
 
 
+async def test_wallet_reconciliation_endpoint_reports_integrity(client, engine):
+    """GET /wallet/reconciliation returns cached vs computed and an ok flag."""
+    user = await _register(client, "recon_me@ex.com")
+    await _credit_opt(engine, user["id"], 250, "seed-recon-me")
+
+    r = await client.get("/api/v1/wallet/reconciliation")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["ok"] is True
+    assert body["cached_balance"] == body["computed_balance"] == 250
+
+
 def test_off_chain_rates_match_on_chain_defaults():
     """WEB3-10 parity: the backend-quoted swap rate must equal the contract's
     default rate, so the OPT a user is charged off-chain equals what the proxy

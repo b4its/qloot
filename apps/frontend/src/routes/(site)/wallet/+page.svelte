@@ -33,6 +33,25 @@
   let withdrawAmount = 0;
   let withdrawAddr = "";
   let withdrawMsg = "";
+  // Ledger integrity check (GET /wallet/reconciliation).
+  let recon: { ok: boolean; cached_balance: number; computed_balance: number } | null = null;
+  let reconLoading = false;
+
+  async function checkReconciliation() {
+    reconLoading = true;
+    error = "";
+    try {
+      recon = await api.get<{
+        ok: boolean;
+        cached_balance: number;
+        computed_balance: number;
+      }>("/wallet/reconciliation");
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memeriksa saldo";
+    } finally {
+      reconLoading = false;
+    }
+  }
 
   // ORX swap (OPT -> QTC/ORT) state.
   const ORX_RATES: Record<string, number> = { ORT: 50, QTC: 1000 };
@@ -356,6 +375,20 @@
           {formatNumber(wallet.available)}
         </div>
         <div class="text-xs muted">OPT (token id {wallet.token_id})</div>
+        <button
+          class="btn-ghost mt-2 !py-1 text-xs"
+          on:click={checkReconciliation}
+          disabled={reconLoading}
+        >
+          {reconLoading ? "Memeriksa…" : "Verifikasi saldo"}
+        </button>
+        {#if recon}
+          <p class="mt-1 text-xs" class:alert-ok={recon.ok} class:alert-error={!recon.ok}>
+            {recon.ok
+              ? "Saldo cocok dengan buku besar."
+              : `Selisih: cache ${recon.cached_balance} vs ledger ${recon.computed_balance}`}
+          </p>
+        {/if}
       </div>
       <div class="card">
         <div class="mono-label">Menunggu</div>
