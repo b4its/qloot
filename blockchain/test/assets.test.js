@@ -559,4 +559,80 @@ describe("QLoot digital assets — OPT / QTC / ORT + ORX router", function () {
       await expect(orx.connect(alice).swapOptFor(2n, 1n)).to.not.be.reverted;
     });
   });
+
+  // =====================================================================
+  describe("branch coverage: asset guards (WEB3-13)", function () {
+    it("burn reverts when neither owner-of-tokens nor approved (NotAuthorizedToBurn)", async function () {
+      // alice has tokens, attacker tries to burn alice's balance.
+      await opt.connect(minter).mint(alice.address, 5n);
+      await expect(
+        opt.connect(attacker).burn(alice.address, 1n)
+      ).to.be.revertedWithCustomError(opt, "NotAuthorizedToBurn");
+    });
+
+    it("setLimits reverts MaxMintPerTxZero when the per-tx cap is 0", async function () {
+      await expect(
+        opt.connect(admin).setLimits(0n, 1000n)
+      ).to.be.revertedWithCustomError(opt, "MaxMintPerTxZero");
+    });
+
+    it("setMaxSupply(0) makes an unlimited asset (no cap)", async function () {
+      // Give QTC a finite cap, then reset to 0 (unlimited).
+      const qtc2 = await upgrades.deployProxy(
+        await ethers.getContractFactory("QlootChain"),
+        ["QlootChain", "QTC", URI, admin.address],
+        { kind: "uups", initializer: "initialize" }
+      );
+      await qtc2.waitForDeployment();
+      const cap = await qtc2.maxSupply();
+      expect(cap).to.equal(QTC_MAX_SUPPLY);
+      await qtc2.connect(admin).setMaxSupply(0n);
+      expect(await qtc2.maxSupply()).to.equal(0n);
+    });
+  });
+
+  // =====================================================================
+  describe("branch coverage: router guards (WEB3-13)", function () {
+    it("anchorDocument reverts ZeroAnchorKey for an empty key", async function () {
+      await expect(
+        orx.connect(admin).anchorOnQtc(ZERO_HASH, docHash())
+      ).to.be.revertedWithCustomError(qtc, "ZeroAnchorKey");
+    });
+
+    it("setAssets reverts ZeroAddress", async function () {
+      await expect(
+        orx.connect(admin).setAssets(ZERO, await qtc.getAddress(), await ort.getAddress())
+      ).to.be.revertedWithCustomError(orx, "ZeroAddress");
+    });
+
+    it("setAssets success re-points assets and emits AssetsUpdated", async function () {
+      await expect(
+        orx
+          .connect(admin)
+          .setAssets(await opt.getAddress(), await qtc.getAddress(), await ort.getAddress())
+      ).to.emit(orx, "AssetsUpdated");
+    });
+
+    it("router Burn/Mint reject zero account and zero amount", async function () {
+      await expect(
+        opt.connect(admin).routerBurn(ZERO, 1n)
+      ).to.be.revertedWithCustomError(opt, "ZeroAccount");
+      await expect(
+        opt.connect(admin).routerBurn(alice.address, 0n)
+      ).to.be.revertedWithCustomError(opt, "ZeroAmount");
+      await expect(
+        opt.connect(admin).routerMint(ZERO, 1n)
+      ).to.be.revertedWithCustomError(opt, "ZeroAccount");
+    });
+
+    it("swap from an unsupported id reverts UnsupportedAsset", async function () {
+      await expect(
+        orx.connect(alice).swapOptFor(99n, 1n)
+      ).to.be.revertedWithCustomError(orx, "UnsupportedAsset");
+    });
+  });
 });
+
+function docHash() {
+  return ethers.keccak256(ethers.toUtf8Bytes("doc"));
+}
