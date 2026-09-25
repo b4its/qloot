@@ -472,7 +472,7 @@ class CommunityService:
         return out
 
     async def moderate(
-        self, admin: User, report_id: uuid.UUID, action: str, *, reason: str | None = None
+        self, admin: User, report_id: uuid.UUID, action: str
     ) -> CommunityReport:
         """Admin resolves a report: hide | delete | dismiss (COMM-01)."""
 
@@ -489,7 +489,6 @@ class CommunityService:
                 if post is not None:
                     if action == "hide":
                         post.hidden = True
-                        post.hidden_reason = (reason or "Dilaporkan")[:255]
                     else:
                         await self.session.delete(post)
             else:

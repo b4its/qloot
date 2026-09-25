@@ -126,7 +126,8 @@ async def test_moderation_is_audited(client):
 
     await _register(client, "mod_admin5@ex.com", "admin")
     await client.post(
-        f"/api/v1/community/reports/{report_id}/moderate", json={"action": "hide"}
+        f"/api/v1/community/reports/{report_id}/moderate",
+        json={"action": "hide", "reason": "Spam berulang"},
     )
 
     from sqlalchemy import select
@@ -145,3 +146,6 @@ async def test_moderation_is_audited(client):
         ).scalar_one_or_none()
     assert row is not None
     assert row.request_id
+    # The moderator's reason is recorded on the audit row (the report + audit
+    # are the reason's single source of truth).
+    assert row.data and row.data.get("reason") == "Spam berulang"

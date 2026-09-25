@@ -46,9 +46,9 @@ class CommunityPost(Base):
     like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     comment_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # COMM-01: moderation state. A hidden post is removed from feeds but stays
-    # visible to its author (and to admins in the moderation queue).
+    # visible to its author (and to admins in the moderation queue). The reason
+    # lives on the report + moderation audit row, not here.
     hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    hidden_reason: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

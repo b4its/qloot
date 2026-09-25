@@ -23,6 +23,7 @@ from app.schemas.community import (
     ReportOut,
     TopicOut,
 )
+from app.services.audit import record as audit_record
 from app.services.community_service import CommunityService
 
 router = APIRouter(prefix="/community", tags=["community"])
@@ -188,22 +189,19 @@ async def moderate_report(
     report_id: uuid.UUID, payload: ModerationAction, admin: AdminUser, db: DbSession
 ):
     async with transaction(db):
-        rep = await CommunityService(db).moderate(
-            admin, report_id, payload.action, reason=payload.reason
-        )
-        # Audit the moderation action.
-        from app.models.identity import AuditLog
-        from app.services.audit import current_request_id
-
-        db.add(
-            AuditLog(
-                actor_id=admin.id,
-                action=f"community.{payload.action}",
-                entity_type="community_report",
-                entity_id=str(report_id),
-                data={"target_type": rep.target_type, "target_id": str(rep.target_id)},
-                request_id=current_request_id(),
-            )
+        rep = await CommunityService(db).moderate(admin, report_id, payload.action)
+        # Audit the moderation action (reason, when given, is recorded here).
+        audit_record(
+            db,
+            actor_id=admin.id,
+            action=f"community.{payload.action}",
+            entity_type="community_report",
+            entity_id=str(report_id),
+            data={
+                "target_type": rep.target_type,
+                "target_id": str(rep.target_id),
+                "reason": payload.reason,
+            },
         )
         await db.flush()
         return ReportOut(
