@@ -7,6 +7,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import Icon from "$lib/components/Icon.svelte";
 
   interface AdminWithdrawal {
     id: string;
@@ -30,6 +31,18 @@
   let page = 1;
   let hasMore = false;
   let statusFilter = "requested";
+  let query = "";
+  let rejecting: AdminWithdrawal | null = null;
+  let rejectReason = "";
+
+  const STATUS_TABS: { value: string; label: string }[] = [
+    { value: "requested", label: "Menunggu" },
+    { value: "approved", label: "Disetujui" },
+    { value: "submitted", label: "Terkirim" },
+    { value: "confirmed", label: "Selesai" },
+    { value: "rejected", label: "Ditolak" },
+    { value: "", label: "Semua" },
+  ];
 
   async function load() {
     loading = true;
@@ -69,11 +82,12 @@
     }
   }
 
-  async function reject(id: string) {
-    const reason = window.prompt("Alasan penolakan (opsional):") ?? "";
+  async function reject(id: string, reason: string) {
     error = "";
     message = "";
     busy = id;
+    rejecting = null;
+    rejectReason = "";
     try {
       await api.post(`/admin/withdrawals/${id}/reject`, { reason: reason.trim() || null });
       message = "Penarikan ditolak; dana dikembalikan.";
@@ -86,6 +100,17 @@
   }
 
   onMount(load);
+
+  // --- metrics over the current page -----------------------------------------
+  $: pageTotal = items.reduce((s, w) => s + w.amount, 0);
+  $: pageFees = items.reduce((s, w) => s + (w.fee_amount ?? 0), 0);
+  $: requestedCount = items.filter((w) => w.status === "requested").length;
+
+  $: filtered = items.filter((w) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    return w.user_id.toLowerCase().includes(q) || w.destination_address.toLowerCase().includes(q);
+  });
 </script>
 
 <svelte:head><title>Penarikan — QLoot</title></svelte:head>
@@ -101,25 +126,70 @@
 
   <PageAlerts {message} {error} />
 
-  <div class="mt-4 flex items-center gap-2">
-    <label class="mono-label" for="wf">Status</label>
-    <select
-      id="wf"
-      class="input !w-48"
-      bind:value={statusFilter}
-      on:change={() => {
-        page = 1;
-        load();
-      }}
-    >
-      <option value="requested">Menunggu review</option>
-      <option value="approved">Disetujui</option>
-      <option value="rejected">Ditolak</option>
-      <option value="submitted">Terkirim</option>
-      <option value="confirmed">Selesai</option>
-      <option value="">Semua</option>
-    </select>
+  <!-- Status tabs -->
+  <div
+    class="mt-4 flex flex-wrap gap-1 rounded-sm border p-1 w-fit"
+    role="tablist"
+    aria-label="Status"
+  >
+    {#each STATUS_TABS as t (t.value)}
+      <button
+        role="tab"
+        aria-selected={statusFilter === t.value}
+        class="btn-ghost !px-3 !py-1.5 text-xs"
+        class:bg-primary={statusFilter === t.value}
+        class:!text-white={statusFilter === t.value}
+        on:click={() => {
+          statusFilter = t.value;
+          page = 1;
+          load();
+        }}
+      >
+        {t.label}
+      </button>
+    {/each}
   </div>
+
+  <!-- Metrics over the current page -->
+  {#if !loading && items.length > 0}
+    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Menunggu (halaman ini)</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="requested-count">
+          {requestedCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total OPT</p>
+        <p class="mt-1 font-display text-3xl font-bold">{formatNumber(pageTotal)}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total fee</p>
+        <p class="mt-1 font-display text-3xl font-bold text-secondary">{formatNumber(pageFees)}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Baris</p>
+        <p class="mt-1 font-display text-3xl font-bold">{items.length}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Search -->
+  {#if !loading && items.length > 0}
+    <div class="mt-4 relative max-w-md">
+      <Icon
+        name="magnifying-glass"
+        size="12px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input text-xs !py-1.5 !pl-8 w-full"
+        placeholder="Cari ID pengguna atau alamat tujuan..."
+        bind:value={query}
+        aria-label="Cari penarikan"
+      />
+    </div>
+  {/if}
 
   <div class="card mt-4 overflow-x-auto">
     {#if loading}
@@ -128,6 +198,8 @@
       </div>
     {:else if items.length === 0}
       <p class="py-2 muted">Tidak ada permintaan penarikan.</p>
+    {:else if filtered.length === 0}
+      <p class="py-2 muted">Tidak ada penarikan yang cocok dengan pencarianmu.</p>
     {:else}
       <table class="w-full text-sm">
         <thead class="text-left muted">
@@ -138,10 +210,12 @@
           >
         </thead>
         <tbody>
-          {#each items as w}
+          {#each filtered as w (w.id)}
             <tr class="border-t">
               <td class="py-1 font-mono text-xs">{w.user_id.slice(0, 8)}…</td>
-              <td class="font-mono text-xs">{w.destination_address.slice(0, 10)}…</td>
+              <td class="font-mono text-xs" title={w.destination_address}
+                >{w.destination_address.slice(0, 10)}…</td
+              >
               <td class="text-right font-mono">
                 {formatNumber(w.amount)}{#if w.fee_amount}
                   <span class="text-xs muted">(+{formatNumber(w.fee_amount)} fee)</span>{/if}
@@ -163,8 +237,8 @@
                   >
                   <button
                     class="btn-ghost !text-tertiary"
-                    on:click={() => reject(w.id)}
-                    disabled={busy === w.id}>{busy === w.id ? "…" : "Tolak"}</button
+                    on:click={() => (rejecting = w)}
+                    disabled={busy === w.id}>Tolak</button
                   >
                 {:else if w.reject_reason}
                   <span class="text-xs muted">{w.reject_reason}</span>
@@ -187,3 +261,40 @@
     onNext={() => go(1)}
   />
 </div>
+
+<!-- Reject confirmation modal -->
+{#if rejecting}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">Tolak Permintaan Penarikan</h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        Tolak penarikan <strong class="mono">{formatNumber(rejecting.amount)} OPT</strong> ke
+        <span class="mono">{rejecting.destination_address.slice(0, 12)}…</span>?
+      </p>
+      <p class="text-xs muted leading-relaxed">
+        Dana yang diminta akan dikembalikan ke saldo pengguna.
+      </p>
+      <label class="block">
+        <span class="mono-label text-[10px]">Alasan (opsional)</span>
+        <input
+          class="input mt-1 w-full text-sm"
+          placeholder="mis. alamat tidak valid"
+          bind:value={rejectReason}
+        />
+      </label>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (rejecting = null)}>Tutup</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => rejecting && reject(rejecting.id, rejectReason)}
+          data-role="confirm-reject"
+        >
+          Ya, Tolak
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
