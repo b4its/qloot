@@ -24,11 +24,13 @@
     "Saya tetap tenang dalam situasi sulit.",
   ];
 
-  let answers: number[] = new Array(statements.length).fill(3);
+  // 0 = unanswered so the progress bar reflects real completion.
+  let answers: number[] = new Array(statements.length).fill(0);
   let result: Personality | null = null;
   let loading = true;
   let saving = false;
   let error = "";
+  let message = "";
 
   const labels = ["Sangat tidak setuju", "Tidak setuju", "Netral", "Setuju", "Sangat setuju"];
 
@@ -52,10 +54,13 @@
   }
 
   async function submit() {
+    if (!allAnswered || saving) return;
     saving = true;
     error = "";
+    message = "";
     try {
       result = await api.post<Personality>("/career/personality", { answers });
+      message = "Profil kepribadian diperbarui.";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menilai tes";
     } finally {
@@ -63,7 +68,23 @@
     }
   }
 
+  function retake() {
+    answers = new Array(statements.length).fill(0);
+    result = null;
+    message = "";
+    error = "";
+  }
+
   $: answered = answers.filter((a) => a > 0).length;
+  $: completionPct = Math.round((answered / statements.length) * 100);
+  $: allAnswered = answered === statements.length;
+
+  // Rank the traits so the UI can surface the dominant one and a short profile.
+  $: ranked = result
+    ? [...traits].map((t) => ({ ...t, value: result![t.key] })).sort((a, b) => b.value - a.value)
+    : [];
+  $: dominant = ranked[0] ?? null;
+  $: lowest = ranked.length ? ranked[ranked.length - 1] : null;
 
   onMount(load);
 </script>
@@ -88,14 +109,42 @@
       {error}
     </p>
   {/if}
+  {#if message}
+    <p class="alert-ok mt-4">{message}</p>
+  {/if}
 
   <div class="mt-6 grid gap-4 lg:grid-cols-3">
     <div class="card lg:col-span-2">
-      <h2 class="hud font-display text-lg font-bold">Kuesioner</h2>
-      <div class="mt-2 flex items-center justify-between text-xs muted">
-        <span>{answered} / {statements.length} terjawab</span>
-        <span>skala 1 – 5</span>
+      <div class="flex items-center justify-between">
+        <h2 class="hud font-display text-lg font-bold">Kuesioner</h2>
+        <span class="mono-label">{answered} / {statements.length} · {completionPct}%</span>
       </div>
+
+      <!-- Progress bar -->
+      <div
+        class="mt-2 h-2 w-full overflow-hidden rounded-full"
+        style="background: rgb(var(--line))"
+        role="progressbar"
+        aria-valuenow={answered}
+        aria-valuemin={0}
+        aria-valuemax={statements.length}
+        aria-label="Progres kuesioner"
+      >
+        <div
+          class="h-full rounded-full transition-all {allAnswered ? 'bg-mint' : 'bg-primary'}"
+          style={`width: ${completionPct}%`}
+        ></div>
+      </div>
+
+      <div class="mt-1 flex items-center justify-between text-xs muted">
+        <span>skala 1 – 5</span>
+        {#if !allAnswered}
+          <span>{statements.length - answered} pertanyaan tersisa</span>
+        {:else}
+          <span class="text-mint">Semua terjawab</span>
+        {/if}
+      </div>
+
       <div class="mt-3 space-y-4">
         {#each statements as s, i}
           <div>
@@ -111,37 +160,70 @@
                   class:hover:border-primary={answers[i] !== li + 1}
                   on:click={() => (answers[i] = li + 1)}
                   title={lbl}
+                  aria-label={`Pertanyaan ${i + 1}: ${lbl}`}
+                  aria-pressed={answers[i] === li + 1}
                 >
                   {li + 1}
                 </button>
               {/each}
-              <span class="ml-2 self-center text-[11px] muted">{labels[answers[i] - 1]}</span>
+              {#if answers[i] > 0}
+                <span class="ml-2 self-center text-[11px] muted">{labels[answers[i] - 1]}</span>
+              {:else}
+                <span class="ml-2 self-center text-[11px] muted">Belum dijawab</span>
+              {/if}
             </div>
           </div>
         {/each}
       </div>
-      <button class="btn-primary mt-5 w-full" on:click={submit} disabled={saving}>
-        {saving ? "Menilai …" : "Kirim & lihat hasil"}
+      <button
+        class="btn-primary mt-5 w-full"
+        on:click={submit}
+        disabled={saving || !allAnswered}
+        data-role="submit"
+      >
+        {saving ? "Menilai …" : allAnswered ? "Kirim & lihat hasil" : "Jawab semua pertanyaan dulu"}
       </button>
     </div>
 
     <div class="card h-fit">
-      <h2 class="hud font-display text-lg font-bold">Hasilmu</h2>
+      <div class="flex items-center justify-between">
+        <h2 class="hud font-display text-lg font-bold">Hasilmu</h2>
+        {#if result && !loading}
+          <button class="btn-ghost !py-1 text-xs" on:click={retake}>
+            <Icon name="rotate" size="11px" /> Ulangi
+          </button>
+        {/if}
+      </div>
       {#if loading}
         <Skeleton rows={4} />
       {:else if result}
         <div class="mt-3 space-y-3">
-          {#each traits as t}
-            {@const value = result[t.key]}
+          {#if dominant}
+            <div class="rounded-sm border p-3">
+              <p class="mono-label text-[10px]">Ciri dominan</p>
+              <p class="mt-1 flex items-center gap-2 font-semibold">
+                <Icon name={dominant.icon} size="13px" class="text-primary" />
+                {dominant.label}
+                <span class="mono ml-auto text-sm">{dominant.value}</span>
+              </p>
+              {#if lowest && lowest.key !== dominant.key}
+                <p class="mt-1 text-xs muted">
+                  Terendah: {lowest.label} ({lowest.value})
+                </p>
+              {/if}
+            </div>
+          {/if}
+
+          {#each ranked as t}
             <div>
               <div class="flex items-center justify-between text-sm">
                 <span class="inline-flex items-center gap-2"
                   ><Icon name={t.icon} size="12px" class="text-primary" /> {t.label}</span
                 >
-                <span class="font-mono">{value}</span>
+                <span class="font-mono">{t.value}</span>
               </div>
               <div class="track mt-1 h-1.5">
-                <span style={`width:${value}%`}></span>
+                <span style={`width:${t.value}%`} class:!bg-mint={t.key === dominant?.key}></span>
               </div>
             </div>
           {/each}
