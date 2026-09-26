@@ -96,7 +96,11 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   mis. ujian dengan attempt atau quest yang sudah difinalisasi). Panel guru (pelajaran,
   materi, ujian, quest, peringkat) konsisten: strip metrik, pencarian, filter status,
   drag-and-drop unggah PDF dengan metrik kualitas ekstraksi, dan konfirmasi untuk
-  tindakan ireversibel (mis. finalisasi quest).
+  tindakan ireversibel (mis. finalisasi quest). **Panel admin** kini juga sadar-operasi:
+  beranda menampilkan metrik + peringatan kesehatan (hadiah gagal, saldo negatif) dengan
+  pintasan ke modul terkait; halaman pengguna/hadiah/penarikan/moderasi/audit memiliki
+  pencarian (sebagian server-side), filter status, strip metrik, dan konfirmasi untuk
+  tindakan destruktif.
 - **Paginasi konsisten** — semua endpoint daftar dibatasi (`limit ≤ 200`) dan mendukung
   `offset`; komponen `Pagination.svelte` dipakai ulang di seluruh halaman berdata banyak.
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
