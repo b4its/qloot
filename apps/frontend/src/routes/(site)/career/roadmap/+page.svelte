@@ -166,6 +166,16 @@
   $: status = recs.length ? recs[0].status : "none";
   $: top = recs[0];
 
+  // --- roadmap progress metrics ----------------------------------------------
+  $: completedMilestones = milestones.filter((m) => m.status === "completed").length;
+  $: inProgressMilestones = milestones.filter((m) => m.status === "in_progress").length;
+  $: roadmapPct = milestones.length
+    ? Math.round(milestones.reduce((s, m) => s + m.progress_percent, 0) / milestones.length)
+    : 0;
+  $: allTasks = milestones.flatMap((m) => tasksOf(m));
+  $: doneTasks = allTasks.filter((t) => t.done).length;
+  $: taskPct = allTasks.length ? Math.round((doneTasks / allTasks.length) * 100) : 0;
+
   onMount(load);
 </script>
 
@@ -351,13 +361,80 @@
     {/if}
 
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">Peta jalan tonggak</h2>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="hud font-display text-lg font-bold">Peta jalan tonggak</h2>
+        {#if milestones.length}
+          <span class="mono-label">{completedMilestones}/{milestones.length} tonggak selesai</span>
+        {/if}
+      </div>
       {#if !milestones.length}
         <p class="mt-2 muted">Peta jalan aktif setelah disetujui pembimbing.</p>
       {/if}
 
       {#if milestones.length}
-        <ol class="mt-3 space-y-4">
+        <!-- Progress metrics -->
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Tonggak</p>
+            <p class="mt-1 font-display text-3xl font-bold">{milestones.length}</p>
+          </div>
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Selesai</p>
+            <p
+              class="mt-1 font-display text-3xl font-bold text-mint"
+              data-role="completed-milestones"
+            >
+              {completedMilestones}
+            </p>
+          </div>
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Progres peta jalan</p>
+            <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="roadmap-pct">
+              {roadmapPct}%
+            </p>
+          </div>
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Tugas</p>
+            <p class="mt-1 font-display text-3xl font-bold" data-role="task-count">
+              {doneTasks}/{allTasks.length}
+            </p>
+          </div>
+        </div>
+
+        <!-- Overall task progress bar -->
+        {#if allTasks.length}
+          <div class="mt-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="muted">Penyelesaian tugas</span>
+              <span class="mono">{taskPct}%</span>
+            </div>
+            <div
+              class="mt-1.5 h-2 w-full overflow-hidden rounded-full"
+              style="background: rgb(var(--line))"
+              role="progressbar"
+              aria-valuenow={doneTasks}
+              aria-valuemin={0}
+              aria-valuemax={allTasks.length}
+              aria-label="Penyelesaian tugas peta jalan"
+            >
+              <div
+                class="h-full rounded-full transition-all {taskPct >= 100
+                  ? 'bg-mint'
+                  : 'bg-primary'}"
+                style={`width: ${taskPct}%`}
+              ></div>
+            </div>
+          </div>
+        {/if}
+
+        {#if inProgressMilestones > 0}
+          <p class="mt-3 flex items-center gap-1.5 text-xs text-primary">
+            <Icon name="circle-play" size="11px" />
+            {inProgressMilestones} tonggak sedang berjalan
+          </p>
+        {/if}
+
+        <ol class="mt-4 space-y-4">
           {#each milestones as m, i (m.id)}
             <li
               class="border-l-2 pl-4"
