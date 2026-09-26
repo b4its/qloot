@@ -631,6 +631,8 @@ export interface PendingReview {
 
 export interface Consultation {
   id: string;
+  user_id?: string | null;
+  student_name?: string | null;
   counselor: string;
   counselor_user_id?: string | null;
   topic: string;
@@ -644,6 +646,7 @@ export interface Consultation {
 export interface ConsultationMessage {
   id: string;
   sender_id: string;
+  sender_name?: string | null;
   body: string;
   created_at: string;
 }

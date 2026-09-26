@@ -22,9 +22,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, utcnow
+from app.models.identity import User
 
 
 class AcademicGrade(Base, TimestampMixin):
@@ -129,6 +130,7 @@ class Consultation(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    user: Mapped[User | None] = relationship(foreign_keys=[user_id], lazy="selectin")
     # The display name kept for legacy rows; the real counselor is a user (CARE-06).
     counselor: Mapped[str] = mapped_column(String(128), nullable=False)
     counselor_user_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -142,6 +144,10 @@ class Consultation(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
+
+    @property
+    def student_name(self) -> str | None:
+        return self.user.full_name if self.user else None
 
 
 class ConsultationMessage(Base):
@@ -163,10 +169,15 @@ class ConsultationMessage(Base):
     sender_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    sender: Mapped[User | None] = relationship(foreign_keys=[sender_id], lazy="selectin")
     body: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
+
+    @property
+    def sender_name(self) -> str | None:
+        return self.sender.full_name if self.sender else None
 
 
 class ResourceItem(Base):

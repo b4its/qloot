@@ -24,4 +24,11 @@ describe("counselor consultation workflow (CARE-06)", () => {
   it("books a real counselor user (not just a name)", () => {
     expect(siteSrc).toContain("counselor_user_id");
   });
+
+  it("surfaces student name and chat bubble styling in the UI", () => {
+    expect(panelSrc).toContain("c.student_name");
+    expect(panelSrc).toContain("m.sender_id === $auth.user?.id");
+    expect(siteSrc).toContain("m.sender_id === $auth.user?.id");
+    expect(panelSrc).toContain("rescheduleTarget");
+  });
 });

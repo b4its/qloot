@@ -114,6 +114,8 @@ class ConsultationIn(BaseModel):
 
 class ConsultationOut(ORMModel):
     id: uuid.UUID
+    user_id: uuid.UUID | None = None
+    student_name: str | None = None
     counselor: str
     counselor_user_id: uuid.UUID | None = None
     topic: str
@@ -135,6 +137,7 @@ class ConsultationMessageIn(BaseModel):
 class ConsultationMessageOut(ORMModel):
     id: uuid.UUID
     sender_id: uuid.UUID
+    sender_name: str | None = None
     body: str
     created_at: datetime
 

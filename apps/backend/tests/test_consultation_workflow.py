@@ -66,7 +66,8 @@ async def test_teacher_accepts_and_completes_a_consultation(client):
     await _login(client, "cons_t3@ex.com")
     managed = await client.get("/api/v1/career/consultations/managed")
     assert managed.status_code == 200, managed.text
-    assert any(c["id"] == cid for c in managed.json())
+    target_c = next(c for c in managed.json() if c["id"] == cid)
+    assert target_c["student_name"] == "Consult User"
 
     acc = await client.post(f"/api/v1/career/consultations/{cid}/accept")
     assert acc.status_code == 200, acc.text
@@ -94,8 +95,10 @@ async def test_consultation_thread_is_two_way_and_scoped(client):
         f"/api/v1/career/consultations/{cid}/messages", json={"body": "Halo Bu/Bapak"}
     )
     assert m.status_code == 201, m.text
+    assert m.json()["sender_name"] == "Consult User"
     thread = await client.get(f"/api/v1/career/consultations/{cid}/messages")
     assert len(thread.json()) == 1
+    assert thread.json()[0]["sender_name"] == "Consult User"
 
     # A different student cannot read or write the thread.
     await client.post("/api/v1/auth/logout")
