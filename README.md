@@ -104,7 +104,10 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   beranda menampilkan metrik + peringatan kesehatan (hadiah gagal, saldo negatif) dengan
   pintasan ke modul terkait; halaman pengguna/hadiah/penarikan/moderasi/audit memiliki
   pencarian (sebagian server-side), filter status, strip metrik, dan konfirmasi untuk
-  tindakan destruktif.
+  tindakan destruktif. Halaman **hasil ujian** guru punya pencarian peserta + filter
+  lulus/gagal/terindikasi; **konsultasi BK** guru punya metrik + tab status + pencarian
+  siswa. Feed **komunitas** mendukung pencarian bebas (`q`) atas isi pos & nama penulis;
+  **dompet** menampilkan riwayat penarikan berlabel status + filter + total.
 - **Paginasi konsisten** — semua endpoint daftar dibatasi (`limit ≤ 200`) dan mendukung
   `offset`; komponen `Pagination.svelte` dipakai ulang di seluruh halaman berdata banyak.
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
