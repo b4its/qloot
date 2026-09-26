@@ -86,7 +86,11 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
 - **Panduan karier (simulasi)** — dashboard akademik (nilai, tren, radar minat, insight AI),
   tes kepribadian Big Five, rekomendasi jurusan AI dengan persetujuan guru BK
   (human-in-the-loop), roadmap milestone, ruang konsultasi BK, perpustakaan sumber, dan
-  asisten AI berbasis aturan (fallback KB saat provider tidak tersedia).
+  asisten AI berbasis aturan (fallback KB saat provider tidak tersedia). Modul karier
+  kian maksimal: tes kepribadian dengan gerbang progres + ciri dominan, roadmap dengan
+  metrik progres & bar tugas, ruang konsultasi dengan metrik/filter status + konfirmasi
+  batal, perpustakaan dengan filter biaya/penyedia, dan asisten dengan pencarian riwayat,
+  salin jawaban, serta indikator mengetik saat streaming.
 - **Reward Web3** — treasury **wallet bersama** (custodial), **ledger double-entry** dengan
   saldo terfokus per-pengguna, idempotent reward keys, outbox → blockchain worker → indexer,
   tautan explorer, dan penarikan (withdrawal) ke wallet pribadi.
