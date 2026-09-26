@@ -145,6 +145,10 @@ GET /rankings/me?period=all|weekly|monthly
 GET /rankings/leaderboards                          # list materialized snapshots
 GET /rankings/leaderboards/{leaderboard_id}/entries  # read one snapshot
 POST /rankings/leaderboards/refresh?scope=global|room|quest[&scope_id=...]  # admin
+
+GET /gamification/me                                # caller's XP, level, next-level progress
+GET /gamification/levels                            # public level & XP rankings
+GET /gamification/levels/{user_id}                  # public user level & activity breakdown card
 ```
 
 All boards exclude flagged (disqualified) attempts and inactive users, and
@@ -200,6 +204,7 @@ POST  /admin/blockchain/pause
 POST  /admin/blockchain/unpause
 GET   /admin/audit-logs               (?action= filter; X-Total-Count)
 GET   /admin/config
+POST  /admin/notifications            (broadcast system notification to all users)
 ```
 
 Community moderation (`/community`, role `admin`):
@@ -238,6 +243,7 @@ milestones (`xp_500` … `xp_25000`) awarded automatically by
 GET  /certificates
 POST /certificates/sync
 GET  /certificates/verify/{credential_id}          (public; name is masked)
+GET  /certificates/{credential_id}/render          (official printable HTML document)
 POST /certificates/{credential_id}/revoke          (admin)
 ```
 
