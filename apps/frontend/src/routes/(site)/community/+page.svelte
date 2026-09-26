@@ -68,6 +68,36 @@
   /** Post id whose share link was just copied (shows a transient "Tersalin"). */
   let copiedId = "";
 
+  interface UserLevelCard {
+    xp: number;
+    level: number;
+    progress: number;
+    quest_wins: number;
+    tasks_completed: number;
+    breakdown: { exams: number; quests: number; tasks: number; badges: number };
+  }
+  let inspectingUser: { id: string; name: string } | null = null;
+  let inspectingLevel: UserLevelCard | null = null;
+  let inspectingLoading = false;
+
+  async function inspectUserLevel(id: string, name: string) {
+    inspectingUser = { id, name };
+    inspectingLoading = true;
+    inspectingLevel = null;
+    try {
+      inspectingLevel = await api.get<UserLevelCard>(`/gamification/levels/${id}`);
+    } catch {
+      inspectingLevel = null;
+    } finally {
+      inspectingLoading = false;
+    }
+  }
+
+  function closeInspectUserLevel() {
+    inspectingUser = null;
+    inspectingLevel = null;
+  }
+
   $: user = $auth.user;
 
   async function load() {
@@ -445,7 +475,15 @@
             <div class="flex items-center gap-3">
               <WalletChip address={f.handle} label={f.author_name} size={30} />
               <div>
-                <p class="text-sm font-medium">{f.author_name}</p>
+                <button
+                  type="button"
+                  class="text-sm font-medium hover:text-primary transition-colors text-left flex items-center gap-1.5"
+                  on:click={() => inspectUserLevel(f.author_id, f.author_name)}
+                  title="Lihat level & statistik pengguna"
+                >
+                  <span>{f.author_name}</span>
+                  <Icon name="medal" size="10px" class="text-secondary" />
+                </button>
                 <p class="text-xs muted">
                   {relativeTime(f.created_at)} · <span class="text-secondary">{f.topic}</span>
                 </p>
@@ -504,7 +542,14 @@
                   <Icon name="user" size="11px" class="mt-1 muted" />
                   <div class="flex-1">
                     <p>
-                      <span class="font-medium">{c.author_name}</span>
+                      <button
+                        type="button"
+                        class="font-medium hover:text-primary transition-colors text-left"
+                        on:click={() => inspectUserLevel(c.author_id, c.author_name)}
+                        title="Lihat level pengguna"
+                      >
+                        {c.author_name}
+                      </button>
                       <span class="text-xs muted"> · {relativeTime(c.created_at)}</span>
                       {#if c.edited_at}<span class="text-xs muted"> · disunting</span>{/if}
                       {#if c.parent_id}<span class="text-xs muted"> · balasan</span>{/if}
@@ -619,3 +664,86 @@
     </div>
   </aside>
 </div>
+
+{#if inspectingUser}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div class="card w-full max-w-sm holo !p-6">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <p class="mono-label">Profil Gamifikasi</p>
+          <h3 class="font-display text-lg font-bold">{inspectingUser.name}</h3>
+        </div>
+        <button class="btn-icon" on:click={closeInspectUserLevel} aria-label="Tutup">
+          <Icon name="xmark" size="14px" />
+        </button>
+      </div>
+
+      <div class="py-4">
+        {#if inspectingLoading}
+          <div class="skeleton h-24"></div>
+        {:else if inspectingLevel}
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="mono-label">Level</span>
+                <p class="font-display text-3xl font-extrabold text-primary">
+                  Lv. {inspectingLevel.level}
+                </p>
+              </div>
+              <div class="text-right">
+                <span class="mono-label">Total XP</span>
+                <p class="font-mono text-xl font-bold">
+                  {inspectingLevel.xp.toLocaleString("id-ID")} XP
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs muted mb-1">
+                <span>Progres Level</span>
+                <span>{Math.round(inspectingLevel.progress * 100)}%</span>
+              </div>
+              <div class="h-2 w-full rounded-full bg-surface-2 overflow-hidden">
+                <div
+                  class="h-full bg-primary"
+                  style="width: {Math.round(inspectingLevel.progress * 100)}%"
+                ></div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs border-t pt-3">
+              <div class="card !p-2">
+                <span class="mono-label">Ujian</span>
+                <p class="font-semibold">{inspectingLevel.breakdown?.exams ?? 0} XP</p>
+              </div>
+              <div class="card !p-2">
+                <span class="mono-label">Quest</span>
+                <p class="font-semibold">{inspectingLevel.breakdown?.quests ?? 0} XP</p>
+              </div>
+              <div class="card !p-2">
+                <span class="mono-label">Tugas</span>
+                <p class="font-semibold">{inspectingLevel.breakdown?.tasks ?? 0} XP</p>
+              </div>
+              <div class="card !p-2">
+                <span class="mono-label">Badge</span>
+                <p class="font-semibold">{inspectingLevel.breakdown?.badges ?? 0} XP</p>
+              </div>
+            </div>
+
+            {#if inspectingLevel.quest_wins > 0}
+              <p class="text-xs text-mint">
+                🏆 Memenangkan {inspectingLevel.quest_wins} quest
+              </p>
+            {/if}
+          </div>
+        {:else}
+          <p class="text-xs muted text-center py-4">Data gamifikasi pengguna tidak tersedia.</p>
+        {/if}
+      </div>
+
+      <div class="pt-2 flex justify-end border-t">
+        <button class="btn-ghost text-xs" on:click={closeInspectUserLevel}>Tutup</button>
+      </div>
+    </div>
+  </div>
+{/if}

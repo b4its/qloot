@@ -12,6 +12,7 @@ import adminBlockchainSrc from "$routes-panel/admin/blockchain/+page.svelte?raw"
 import roomPageSrc from "$routes-site/rooms/[roomId]/+page.svelte?raw";
 import certPageSrc from "$routes-site/certificates/+page.svelte?raw";
 import verifyPageSrc from "$routes-site/verify/[credentialId]/+page.svelte?raw";
+import communitySrc from "$routes-site/community/+page.svelte?raw";
 
 /**
  * Regression for C88 re-audit: endpoints that were backend-only must have a
@@ -37,6 +38,11 @@ describe("previously backend-only endpoints now have a UI caller", () => {
     expect(certPageSrc).toContain("/certificates/sync");
     expect(certPageSrc).toContain("syncCertificates");
     expect(verifyPageSrc).toContain("/certificates/${credentialId}/render");
+  });
+
+  it("community members can inspect public user level cards (GET /gamification/levels/{user_id})", () => {
+    expect(communitySrc).toContain("/gamification/levels/");
+    expect(communitySrc).toContain("inspectUserLevel");
   });
   it("admin can open a materialized leaderboard snapshot's entries", () => {
     expect(leaderboardsSrc).toContain("/rankings/leaderboards/${id}/entries");
