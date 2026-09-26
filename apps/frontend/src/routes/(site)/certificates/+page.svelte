@@ -15,6 +15,8 @@
   let copied = false;
   let revoking = false;
   let anchoring = false;
+  let syncing = false;
+  let syncNotice = "";
   let listPage = 1;
   $: listTotalPages = Math.max(1, Math.ceil(certs.length / LIST_PAGE_SIZE));
   $: if (listPage > listTotalPages) listPage = 1;
@@ -28,6 +30,27 @@
   function pick(c: Certificate) {
     active = c;
     copied = false;
+  }
+
+  /** Re-check all completed courses and issue any missing certificates. */
+  async function syncCertificates() {
+    if (syncing) return;
+    syncing = true;
+    error = "";
+    syncNotice = "";
+    try {
+      const synced = await api.post<Certificate[]>("/certificates/sync");
+      certs = await api.get<Certificate[]>("/certificates?limit=200");
+      if (certs.length > 0 && !active) {
+        active = certs[0];
+      }
+      syncNotice = `Sinkronisasi selesai: ${synced.length} sertifikat berhasil diperiksa/diterbitkan.`;
+      setTimeout(() => (syncNotice = ""), 4000);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menyinkronkan sertifikat";
+    } finally {
+      syncing = false;
+    }
   }
 
   /** Admin-only: revoke the active credential (idempotent server-side). */
@@ -192,6 +215,15 @@
       Setiap sertifikat memiliki ID unik dan tautan verifikasi. Bagikan ke LinkedIn, portofolio,
       atau simpan sebagai aset digital.
     </p>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button class="btn-ghost text-xs" on:click={syncCertificates} disabled={syncing}>
+        <Icon name="rotate" size="12px" />
+        {syncing ? "Menyinkronkan…" : "Sinkronkan Sertifikat"}
+      </button>
+      {#if syncNotice}
+        <span class="text-xs text-mint font-medium">{syncNotice}</span>
+      {/if}
+    </div>
   </div>
 </section>
 

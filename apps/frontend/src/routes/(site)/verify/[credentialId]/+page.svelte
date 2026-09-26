@@ -78,6 +78,16 @@
               <p class="text-sm muted">Belum di-anchor on-chain.</p>
             {/if}
           </div>
+          <div class="sm:col-span-2 pt-2">
+            <a
+              class="btn-secondary inline-flex items-center gap-2 text-xs"
+              href={`/api/v1/certificates/${credentialId}/render`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icon name="file-lines" size="12px" /> Buka Dokumen Resmi (Cetak / PDF)
+            </a>
+          </div>
         </div>
       {:else}
         <p class="alert-error mt-5">

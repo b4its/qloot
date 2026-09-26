@@ -10,6 +10,8 @@ import profileSrc from "$routes-site/profile/+page.svelte?raw";
 import adminNotificationsSrc from "$routes-panel/admin/notifications/+page.svelte?raw";
 import adminBlockchainSrc from "$routes-panel/admin/blockchain/+page.svelte?raw";
 import roomPageSrc from "$routes-site/rooms/[roomId]/+page.svelte?raw";
+import certPageSrc from "$routes-site/certificates/+page.svelte?raw";
+import verifyPageSrc from "$routes-site/verify/[credentialId]/+page.svelte?raw";
 
 /**
  * Regression for C88 re-audit: endpoints that were backend-only must have a
@@ -29,6 +31,12 @@ describe("previously backend-only endpoints now have a UI caller", () => {
   it("room page renders the live leaderboard (GET /rooms/{room_id}/live)", () => {
     expect(roomPageSrc).toContain("/rooms/${roomId}/live");
     expect(roomPageSrc).toContain("liveBoard");
+  });
+
+  it("student can sync certificates and view rendered certificate document", () => {
+    expect(certPageSrc).toContain("/certificates/sync");
+    expect(certPageSrc).toContain("syncCertificates");
+    expect(verifyPageSrc).toContain("/certificates/${credentialId}/render");
   });
   it("admin can open a materialized leaderboard snapshot's entries", () => {
     expect(leaderboardsSrc).toContain("/rankings/leaderboards/${id}/entries");
