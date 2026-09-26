@@ -74,7 +74,10 @@ describe("student exams page — multiple-choice vs essay split", () => {
   beforeEach(() => {
     cleanup();
     auth.setUser(null);
-    (api.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(exams);
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/attempts")) return Promise.resolve([]);
+      return Promise.resolve(exams);
+    });
   });
   afterEach(() => auth.setUser(null));
 
