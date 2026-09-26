@@ -39,6 +39,15 @@ class UserBadgeOut(BaseModel):
     meta: dict | None = None
 
 
+class BadgeProgressOut(BaseModel):
+    """A catalogued badge plus the caller's progress toward unlocking it."""
+
+    badge: BadgeOut
+    current: int
+    target: int
+    unlocked: bool
+
+
 class NotificationCreate(BaseModel):
     """Admin/broadcast notification."""
 

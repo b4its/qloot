@@ -11,6 +11,7 @@ from app.db.session import transaction
 from app.schemas.common import Message
 from app.schemas.social import (
     BadgeOut,
+    BadgeProgressOut,
     FollowStatusOut,
     NotificationCreate,
     NotificationOut,
@@ -122,6 +123,25 @@ async def my_badges(
     return [
         UserBadgeOut(badge=BadgeOut.model_validate(badge), awarded_at=ub.awarded_at, meta=ub.meta)
         for ub, badge in rows
+    ]
+
+
+@router.get("/badges/progress", response_model=list[BadgeProgressOut])
+async def badge_progress(user: CurrentUser, db: DbSession):
+    """Every catalogued badge with the caller's progress toward unlocking it.
+
+    Lets the badge page render progress bars for locked badges (e.g. 3/5 rooms
+    joined) instead of only a binary locked/unlocked state.
+    """
+    items = await BadgeService(db).progress_for_user(user.id)
+    return [
+        BadgeProgressOut(
+            badge=BadgeOut.model_validate(item["badge"]),
+            current=item["current"],
+            target=item["target"],
+            unlocked=item["unlocked"],
+        )
+        for item in items
     ]
 
 

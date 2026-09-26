@@ -1,14 +1,22 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
-  import type { Badge, UserBadge } from "$lib/types";
-  import { relativeTime } from "$lib/utils/format";
+  import type { Badge, UserBadge, BadgeProgress } from "$lib/types";
+  import { relativeTime, formatDate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import { reveal } from "$lib/actions/reveal";
 
   let catalog: Badge[] = [];
   let earned: UserBadge[] = [];
+  let progress: BadgeProgress[] = [];
   let loading = true;
   let error = "";
+
+  // Search & filters
+  let query = "";
+  let rarityFilter: "all" | "legendary" | "epic" | "rare" | "common" = "all";
+  let statusFilter: "all" | "unlocked" | "locked" = "all";
+  let sortBy: "rarity" | "points" | "progress" | "name" = "rarity";
 
   // Map badge codes to Font Awesome icons (backend stores an emoji `icon`).
   const codeIcon: Record<string, string> = {
@@ -19,24 +27,12 @@
     room_regular: "tent",
     perfect_exam: "star",
     learner: "book-open-reader",
+    xp_500: "star",
+    xp_2000: "star",
+    xp_5000: "gem",
+    xp_10000: "graduation-cap",
+    xp_25000: "trophy",
   };
-
-  onMount(async () => {
-    loading = true;
-    error = "";
-    try {
-      [catalog, earned] = await Promise.all([
-        api.get<Badge[]>("/badges"),
-        api.get<UserBadge[]>("/me/badges"),
-      ]);
-    } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal memuat badge";
-    } finally {
-      loading = false;
-    }
-  });
-
-  $: earnedCodes = new Set(earned.map((e) => e.badge.code));
 
   const rarityOrder: Record<string, number> = { legendary: 0, epic: 1, rare: 2, common: 3 };
   const rarityLabel: Record<string, string> = {
@@ -51,71 +47,298 @@
     rare: "badge-mint",
     common: "badge-neutral",
   };
-  $: sortedCatalog = [...catalog].sort(
-    (a, b) => (rarityOrder[a.rarity ?? "common"] ?? 3) - (rarityOrder[b.rarity ?? "common"] ?? 3),
-  );
+  const rarityTint: Record<string, string> = {
+    legendary: "border-amber/40",
+    epic: "border-indigo/40",
+    rare: "border-mint/40",
+    common: "",
+  };
+
+  async function load() {
+    loading = true;
+    error = "";
+    try {
+      const [catalogRes, earnedRes, progressRes] = await Promise.all([
+        api.get<Badge[]>("/badges"),
+        api.get<UserBadge[]>("/me/badges"),
+        api.get<BadgeProgress[]>("/badges/progress").catch(() => [] as BadgeProgress[]),
+      ]);
+      catalog = catalogRes;
+      earned = earnedRes;
+      progress = progressRes;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memuat badge";
+    } finally {
+      loading = false;
+    }
+  }
+
+  onMount(load);
+
+  $: earnedByCode = new Map(earned.map((e) => [e.badge.code, e]));
+  $: progressByCode = new Map(progress.map((p) => [p.badge.code, p]));
+
+  /** Progress toward a badge, falling back when the endpoint is unavailable. */
+  function progressFor(b: Badge): BadgeProgress {
+    return (
+      progressByCode.get(b.code) ?? {
+        badge: b,
+        current: earnedByCode.has(b.code) ? 1 : 0,
+        target: 1,
+        unlocked: earnedByCode.has(b.code),
+      }
+    );
+  }
+
+  function isUnlocked(b: Badge): boolean {
+    return earnedByCode.has(b.code) || progressFor(b).unlocked;
+  }
+
+  function pct(p: BadgeProgress): number {
+    if (p.target <= 0) return 0;
+    return Math.min(100, Math.max(0, Math.round((p.current / p.target) * 100)));
+  }
+
+  $: totalPoints = earned.reduce((s, e) => s + e.badge.points, 0);
+  $: unlockedCount = catalog.filter((b) => isUnlocked(b)).length;
+  $: completionPct = catalog.length ? Math.round((unlockedCount / catalog.length) * 100) : 0;
+  $: rarityCounts = catalog.reduce<Record<string, number>>((acc, b) => {
+    const r = b.rarity ?? "common";
+    acc[r] = (acc[r] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  $: filtered = catalog
+    .filter((b) => {
+      if (query.trim()) {
+        const q = query.toLowerCase().trim();
+        const hit =
+          b.name.toLowerCase().includes(q) || (b.description ?? "").toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (rarityFilter !== "all" && (b.rarity ?? "common") !== rarityFilter) return false;
+      if (statusFilter === "unlocked" && !isUnlocked(b)) return false;
+      if (statusFilter === "locked" && isUnlocked(b)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "points") return b.points - a.points;
+      if (sortBy === "progress") {
+        const pa = pct(progressFor(a));
+        const pb = pct(progressFor(b));
+        return pb - pa;
+      }
+      return (rarityOrder[a.rarity ?? "common"] ?? 3) - (rarityOrder[b.rarity ?? "common"] ?? 3);
+    });
+
+  function resetFilters() {
+    query = "";
+    rarityFilter = "all";
+    statusFilter = "all";
+    sortBy = "rarity";
+  }
 </script>
 
 <svelte:head><title>Badge — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-  <p class="mono-label">Pencapaian</p>
-  <h1 class="mt-2 font-display text-4xl font-bold">Badge</h1>
-  <p class="mt-2 muted">Koleksi pencapaian yang kamu buka dengan belajar dan berkompetisi.</p>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mono-label">Pencapaian</p>
+      <h1 class="mt-2 font-display text-4xl font-bold">Badge</h1>
+      <p class="mt-2 max-w-2xl muted">
+        Koleksi pencapaian yang kamu buka dengan belajar dan berkompetisi. Badge terkunci
+        menampilkan progres menuju syaratnya.
+      </p>
+    </div>
+  </div>
 
   {#if error}
     <p class="alert-error mt-4">{error}</p>
   {/if}
 
   {#if loading}
-    <div class="mt-6 grid gap-4 sm:grid-cols-3">
-      {#each Array(3) as _}<div class="skeleton h-24"></div>{/each}
+    <div class="mt-6 grid gap-4 sm:grid-cols-4">
+      {#each Array(4) as _}<div class="skeleton h-24"></div>{/each}
+    </div>
+    <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {#each Array(6) as _}<div class="skeleton h-44"></div>{/each}
+    </div>
+  {:else if catalog.length === 0}
+    <div class="card mt-8 grid place-items-center py-16 text-center">
+      <Icon name="award" size="28px" class="muted" />
+      <p class="mt-3 font-semibold">Belum ada badge</p>
+      <p class="text-sm muted">Katalog badge akan muncul di sini.</p>
     </div>
   {:else}
-    <div class="mt-6 grid gap-4 sm:grid-cols-3">
-      <div class="card">
-        <p class="mono-label">Diperoleh</p>
-        <p class="mt-2 font-display text-3xl font-bold text-highlight">{earned.length}</p>
+    <!-- Overview metrics -->
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Diperoleh</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight">{unlockedCount}</p>
       </div>
-      <div class="card">
-        <p class="mono-label">Tersedia</p>
-        <p class="mt-2 font-display text-3xl font-bold">{catalog.length}</p>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total Badge</p>
+        <p class="mt-1 font-display text-3xl font-bold">{catalog.length}</p>
       </div>
-      <div class="card">
-        <p class="mono-label">Poin badge</p>
-        <p class="mt-2 font-display text-3xl font-bold">
-          {earned.reduce((s, e) => s + e.badge.points, 0)}
-        </p>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Kelengkapan</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint">{completionPct}%</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Poin Badge</p>
+        <p class="mt-1 font-display text-3xl font-bold">{totalPoints}</p>
       </div>
     </div>
 
-    <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {#each sortedCatalog as b}
-        {@const owned = earned.find((e) => e.badge.code === b.code)}
-        <div class="nft card" class:opacity-50={!earnedCodes.has(b.code)}>
-          <div class="flex items-center justify-between">
-            <span class="brand-mark grid h-12 w-12 place-items-center rounded-sm">
-              <Icon name={codeIcon[b.code] ?? "award"} size="20px" />
-            </span>
-            {#if owned}
-              <span class="badge badge-mint"><Icon name="circle-check" size="10px" /> Diraih</span>
-            {:else}
-              <span class="badge badge-neutral"><Icon name="lock" size="10px" /> Terkunci</span>
-            {/if}
-          </div>
-          <h2 class="mt-3 font-display text-lg font-bold">{b.name}</h2>
-          <p class="text-sm muted">{b.description}</p>
-          <div class="mt-3 flex items-center justify-between border-t pt-3 text-xs muted">
-            <span class="flex items-center gap-2">
-              <span class="mono">{b.points} POIN</span>
-              <span class="badge {rarityClass[b.rarity ?? 'common']}"
-                >{rarityLabel[b.rarity ?? "common"]}</span
-              >
-            </span>
-            {#if owned}<span>· {relativeTime(owned.awarded_at)}</span>{/if}
-          </div>
-        </div>
-      {/each}
+    <!-- Search & filters -->
+    <div class="mt-6 flex flex-wrap items-center gap-2">
+      <div class="relative w-full sm:w-64">
+        <Icon
+          name="magnifying-glass"
+          size="12px"
+          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+        />
+        <input
+          class="input text-xs !py-1.5 !pl-9 w-full"
+          placeholder="Cari badge..."
+          bind:value={query}
+          aria-label="Cari badge"
+        />
+        {#if query}
+          <button
+            type="button"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+            on:click={() => (query = "")}
+            aria-label="Bersihkan pencarian"
+          >
+            ✕
+          </button>
+        {/if}
+      </div>
+
+      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={statusFilter === "all"}
+          class:text-[#05060A]={statusFilter === "all"}
+          class:muted={statusFilter !== "all"}
+          on:click={() => (statusFilter = "all")}>Semua</button
+        >
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={statusFilter === "unlocked"}
+          class:text-[#05060A]={statusFilter === "unlocked"}
+          class:muted={statusFilter !== "unlocked"}
+          on:click={() => (statusFilter = "unlocked")}>Diraih</button
+        >
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={statusFilter === "locked"}
+          class:text-[#05060A]={statusFilter === "locked"}
+          class:muted={statusFilter !== "locked"}
+          on:click={() => (statusFilter = "locked")}>Terkunci</button
+        >
+      </div>
+
+      <select
+        class="input text-xs !py-1.5 w-auto"
+        bind:value={rarityFilter}
+        aria-label="Filter rarity"
+      >
+        <option value="all">Semua rarity</option>
+        <option value="legendary">Legendaris ({rarityCounts["legendary"] ?? 0})</option>
+        <option value="epic">Epik ({rarityCounts["epic"] ?? 0})</option>
+        <option value="rare">Langka ({rarityCounts["rare"] ?? 0})</option>
+        <option value="common">Umum ({rarityCounts["common"] ?? 0})</option>
+      </select>
+
+      <select class="input text-xs !py-1.5 w-auto" bind:value={sortBy} aria-label="Urutkan">
+        <option value="rarity">Urut: Rarity</option>
+        <option value="progress">Urut: Progres</option>
+        <option value="points">Urut: Poin</option>
+        <option value="name">Urut: Nama</option>
+      </select>
     </div>
+
+    {#if filtered.length === 0}
+      <div class="card mt-6 text-center py-12 space-y-3">
+        <p class="muted text-sm">Tidak ada badge yang cocok dengan filter atau pencarianmu.</p>
+        <button class="btn-ghost !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
+      </div>
+    {:else}
+      <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {#each filtered as b, i (b.code)}
+          {@const owned = earnedByCode.get(b.code)}
+          {@const prog = progressFor(b)}
+          {@const unlocked = isUnlocked(b)}
+          <div
+            use:reveal={{ delay: i * 25 }}
+            class="nft card border {rarityTint[b.rarity ?? 'common']}"
+            class:opacity-70={!unlocked}
+            data-badge={b.code}
+            data-unlocked={unlocked}
+          >
+            <div class="flex items-center justify-between">
+              <span class="brand-mark grid h-12 w-12 place-items-center rounded-sm">
+                <Icon name={codeIcon[b.code] ?? "award"} size="20px" />
+              </span>
+              {#if unlocked}
+                <span class="badge badge-mint" data-role="status">
+                  <Icon name="circle-check" size="10px" /> Diraih
+                </span>
+              {:else}
+                <span class="badge badge-neutral" data-role="status">
+                  <Icon name="lock" size="10px" /> Terkunci
+                </span>
+              {/if}
+            </div>
+
+            <h2 class="mt-3 font-display text-lg font-bold">{b.name}</h2>
+            <p class="text-sm muted">{b.description}</p>
+
+            <!-- Progress toward the criterion (shown for locked badges too) -->
+            {#if !unlocked}
+              <div class="mt-3">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="muted">Progres</span>
+                  <span class="mono">{prog.current}/{prog.target}</span>
+                </div>
+                <div
+                  class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
+                  style="background: rgb(var(--line))"
+                  role="progressbar"
+                  aria-valuenow={prog.current}
+                  aria-valuemin={0}
+                  aria-valuemax={prog.target}
+                  aria-label={`Progres ${b.name}`}
+                >
+                  <div
+                    class="h-full rounded-full bg-primary transition-all"
+                    style={`width: ${pct(prog)}%`}
+                  ></div>
+                </div>
+              </div>
+            {/if}
+
+            <div class="mt-3 flex items-center justify-between border-t pt-3 text-xs muted">
+              <span class="flex items-center gap-2">
+                <span class="mono">{b.points} POIN</span>
+                <span class="badge {rarityClass[b.rarity ?? 'common']}">
+                  {rarityLabel[b.rarity ?? "common"]}
+                </span>
+              </span>
+              {#if owned}<span title={formatDate(owned.awarded_at)}
+                  >· {relativeTime(owned.awarded_at)}</span
+                >{/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
   {/if}
 </div>

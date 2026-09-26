@@ -302,6 +302,150 @@ class BadgeService:
             (await self.session.execute(select(Badge).order_by(Badge.points))).scalars().all()
         )
 
+    async def _raw_progress(self, user_id: uuid.UUID) -> dict[str, int]:
+        """Count the raw activity each badge's criterion is derived from.
+
+        Every value mirrors the exact condition under which the badge is
+        awarded elsewhere in the codebase, so the progress bar and the award
+        can never disagree.
+        """
+        from app.models.exam import ExamAttempt, Question, StudentAnswer
+        from app.models.learning import LessonProgress
+        from app.models.quest import QuestAttempt, QuestWinner
+        from app.models.room import RoomMember
+        from app.models.wallet import WalletAccount
+
+        async def _count(stmt) -> int:
+            return int((await self.session.execute(stmt)).scalar_one())
+
+        quest_attempts = await _count(
+            select(func.count())
+            .select_from(QuestAttempt)
+            .where(QuestAttempt.user_id == user_id)
+        )
+        rooms_joined = await _count(
+            select(func.count()).select_from(RoomMember).where(RoomMember.user_id == user_id)
+        )
+        lessons_done = await _count(
+            select(func.count())
+            .select_from(LessonProgress)
+            .where(LessonProgress.user_id == user_id, LessonProgress.completed.is_(True))
+        )
+        top_3_wins = await _count(
+            select(func.count())
+            .select_from(QuestWinner)
+            .where(QuestWinner.user_id == user_id, QuestWinner.rank <= 3)
+        )
+        perfect_exams = await _count(
+            select(func.count())
+            .select_from(ExamAttempt)
+            .where(
+                ExamAttempt.user_id == user_id,
+                ExamAttempt.score_bp >= 10_000,
+                ExamAttempt.is_flagged.is_(False),
+            )
+        )
+        # "Quiz master": an attempt with at least one multiple-choice question
+        # where *every* MC answer is fully correct (mirrors grading_service's
+        # award condition — the overall score may still be < 100% with essays).
+        mc_attempts = (
+            select(StudentAnswer.attempt_id)
+            .join(Question, Question.id == StudentAnswer.question_id)
+            .where(Question.qtype == "multiple_choice")
+            .group_by(StudentAnswer.attempt_id)
+            .having(func.count() > 0)
+            .having(
+                func.bool_and(StudentAnswer.score_bp == StudentAnswer.max_score_bp)
+            )
+            .subquery()
+        )
+        quiz_master = await _count(
+            select(func.count())
+            .select_from(mc_attempts)
+            .join(ExamAttempt, ExamAttempt.id == mc_attempts.c.attempt_id)
+            .where(ExamAttempt.user_id == user_id, ExamAttempt.is_flagged.is_(False))
+        )
+        earned_opt = await _count(
+            select(func.count())
+            .select_from(WalletAccount)
+            .where(WalletAccount.user_id == user_id, WalletAccount.cached_balance > 0)
+        )
+        return {
+            "quest_attempts": quest_attempts,
+            "rooms_joined": rooms_joined,
+            "lessons_done": lessons_done,
+            "top_3_wins": top_3_wins,
+            "perfect_exams": perfect_exams,
+            "quiz_master": quiz_master,
+            "earned_opt": earned_opt,
+        }
+
+    async def progress_for_user(self, user_id: uuid.UUID) -> list[dict]:
+        """Return every catalogued badge with the caller's progress toward it.
+
+        Shape per item: ``{badge, current, target, unlocked}``. ``target`` is
+        the threshold the criterion is measured against; ``unlocked`` is True
+        when the user already holds the badge (authoritative), otherwise it is
+        derived from ``current >= target``.
+        """
+        from app.services.gamification_service import GamificationService
+
+        await self.ensure_catalog()
+        badges = await self.catalog()
+        raw = await self._raw_progress(user_id)
+
+        owned_codes = {
+            code
+            for (code,) in (
+                await self.session.execute(
+                    select(Badge.code)
+                    .select_from(UserBadge)
+                    .join(Badge, Badge.id == UserBadge.badge_id)
+                    .where(UserBadge.user_id == user_id)
+                )
+            ).all()
+        }
+
+        xp = int((await GamificationService(self.session).xp_for_user(user_id))["xp"])
+
+        def criterion(code: str) -> tuple[int, int]:
+            if code == "first_quest":
+                return raw["quest_attempts"], 1
+            if code == "room_regular":
+                return raw["rooms_joined"], 5
+            if code == "learner":
+                return raw["lessons_done"], 5
+            if code == "top_3":
+                return raw["top_3_wins"], 1
+            if code == "perfect_exam":
+                return raw["perfect_exams"], 1
+            if code == "quiz_master":
+                return raw["quiz_master"], 1
+            if code == "first_reward":
+                return raw["earned_opt"], 1
+            if code.startswith("xp_"):
+                try:
+                    threshold = int(code.removeprefix("xp_"))
+                except ValueError:
+                    threshold = 0
+                return xp, threshold
+            return 0, 1
+
+        out: list[dict] = []
+        for badge in badges:
+            current, target = criterion(badge.code)
+            current = min(current, target)
+            out.append(
+                {
+                    "badge": badge,
+                    "current": current,
+                    "target": target,
+                    "unlocked": badge.code in owned_codes or current >= target,
+                }
+            )
+        return out
+
+
 
 class FollowService:
     """Follow graph: follow/unfollow with counts and a follow notification."""

@@ -384,6 +384,13 @@ export interface UserBadge {
   meta?: Record<string, unknown> | null;
 }
 
+export interface BadgeProgress {
+  badge: Badge;
+  current: number;
+  target: number;
+  unlocked: boolean;
+}
+
 export interface Certificate {
   id: string;
   credential_id: string;
