@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -69,12 +69,28 @@ class QuestService:
             return quest
         raise NotFoundError("Quest not found")
 
-    async def list_all(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Quest]:
-        stmt = select(Quest).order_by(Quest.created_at.desc()).limit(limit).offset(offset)
+    async def list_all(
+        self,
+        user: User,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        q: str | None = None,
+        status: str | None = None,
+    ) -> list[Quest]:
+        stmt = select(Quest).order_by(Quest.created_at.desc())
         if not user.has_role("teacher", "admin"):
             stmt = stmt.where(Quest.status.in_(("open", "finalized")))
         elif not user.has_role("admin"):
             stmt = stmt.where(Quest.owner_id == user.id)
+
+        if q is not None and q.strip():
+            term = f"%{q.strip()}%"
+            stmt = stmt.where(or_(Quest.title.ilike(term), Quest.description.ilike(term)))
+        if status is not None and status.strip():
+            stmt = stmt.where(Quest.status == status.strip())
+
+        stmt = stmt.limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def list_expired_open(self, *, limit: int = 20) -> list[Quest]:

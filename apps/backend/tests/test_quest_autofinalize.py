@@ -209,3 +209,41 @@ async def test_sweep_ignores_quests_without_closes_at_or_still_open(session):
     for quest_id in (no_deadline.id, future.id):
         refreshed = await session.get(Quest, quest_id)
         assert refreshed.status == "open"
+
+
+async def test_list_all_quests_with_search_and_status_filter(session):
+    owner = await _user(session, "quest_filter_teacher@q.com", "teacher")
+    service = QuestService(session)
+    q1 = await service.create(
+        owner,
+        [{"rank": 1, "reward_amount": 50}],
+        title="Tantangan Logika Boolean",
+        description="Soal logika proposisional",
+        status="open",
+    )
+    q2 = await service.create(
+        owner,
+        [{"rank": 1, "reward_amount": 100}],
+        title="Tantangan Graf & Pohon",
+        description="Struktur data lanjut",
+        status="finalized",
+    )
+    await session.commit()
+
+    # Search by q
+    res_q = await service.list_all(owner, q="Boolean")
+    assert any(q.id == q1.id for q in res_q)
+    assert not any(q.id == q2.id for q in res_q)
+
+    # Search non-matching
+    res_none = await service.list_all(owner, q="NonExistentQuestTerm999")
+    assert len(res_none) == 0
+
+    # Filter by status
+    res_open = await service.list_all(owner, status="open")
+    assert any(q.id == q1.id for q in res_open)
+    assert all(q.status == "open" for q in res_open)
+
+    res_finalized = await service.list_all(owner, status="finalized")
+    assert any(q.id == q2.id for q in res_finalized)
+    assert all(q.status == "finalized" for q in res_finalized)
