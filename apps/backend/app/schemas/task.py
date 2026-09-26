@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 from app.schemas.common import ORMModel
 
@@ -19,6 +19,13 @@ class TaskCreate(BaseModel):
     quest_id: uuid.UUID | None = None
     starts_at: datetime | None = None
     ends_at: datetime | None = None
+    is_active: bool = True
+
+    @model_validator(mode="after")
+    def _window_ordered(self) -> TaskCreate:
+        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
 
 
 class TaskUpdate(BaseModel):
@@ -29,6 +36,12 @@ class TaskUpdate(BaseModel):
     is_active: bool | None = None
     starts_at: datetime | None = None
     ends_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _window_ordered(self) -> TaskUpdate:
+        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
 
 
 class TaskOut(ORMModel):

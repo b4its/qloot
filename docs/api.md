@@ -130,10 +130,21 @@ POST   /quests/{quest_id}/finalize   (owner)
 GET    /quests/{quest_id}/winners
 
 GET    /tasks
+GET    /tasks?q=&kind=&status=&scope=mine   # mgmt view (teacher/admin): own tasks, any state
+GET    /tasks/me/completions                 # caller's completions (period-scoped)
 POST   /tasks                        (teacher)
 PATCH  /tasks/{task_id}              (owner)
 POST   /tasks/{task_id}/complete
 ```
+
+`GET /tasks` is role-aware: learners see only tasks that are active *and*
+currently inside their start/end window, while teachers/admins get a management
+view of their own tasks (admins: all) including drafts, deactivated, and
+future-scheduled ones. Managers may filter with `status=` (`available`,
+`scheduled`, `expired`, `active`, `inactive`) and `scope=mine`; `q` searches
+title/description and `kind` matches `daily|weekly|learning|exam`. Clearing a
+schedule on `PATCH` is done by sending an explicit `null` for `starts_at`/
+`ends_at`; an inverted window (`ends_at <= starts_at`) is rejected (422).
 
 ## Rankings
 

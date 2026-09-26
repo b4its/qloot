@@ -226,8 +226,9 @@ aplikasi mengarahkan guru/admin ke panel; dari panel ada tautan **Kembali ke apl
    publikasikan, atau hapus ujian yang belum dikerjakan.
 5. **Quest** — atur hadiah per peringkat, publikasikan, lalu finalisasi pemenang; hapus
    quest yang belum difinalisasi.
-6. **Tugas** — buat tugas harian/mingguan, atur hadiah OPT, aktif/nonaktifkan, sunting, atau
-   hapus (ditinjau saat belum ada yang menyelesaikan).
+6. **Tugas** — buat tugas harian/mingguan, atur hadiah OPT dan jadwal (mulai/berakhir),
+   aktif/nonaktifkan, sunting, atau hapus (ditinjau saat belum ada yang menyelesaikan);
+   tersedia pencarian, filter jenis/status, dan metrik ringkas.
 7. **Jawaban** — lihat jawaban siswa (esai & pilihan ganda), feedback, dan analitik (berpaginasi).
 
 **Sebagai siswa:**
