@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
 from app.core.errors import ConflictError, ForbiddenError
@@ -142,11 +142,18 @@ async def delete_question(question_id: uuid.UUID, user: TeacherUser, db: DbSessi
 
 @router.get("/questions/bank", response_model=list[QuestionOut])
 async def question_bank(
-    user: TeacherUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+    user: TeacherUser,
+    db: DbSession,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
+    qtype: str | None = Query(None, description="Filter by question type"),
+    query: str | None = Query(None, description="Search question prompt"),
 ):
     """List the caller's questions across all exams (the question bank)."""
     service = ExamService(db)
-    rows = await service.list_question_bank(user, limit=limit, offset=offset)
+    rows = await service.list_question_bank(
+        user, limit=limit, offset=offset, qtype=qtype, query=query
+    )
     out: list[QuestionOut] = []
     for q in rows:
         out.append(await _question_out(service, q, reveal_answers=True))

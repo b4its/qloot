@@ -87,3 +87,60 @@ async def test_cannot_attach_someone_elses_question(make_actor):
         f"/api/v1/exams/{exam_b}/questions/attach", json={"question_id": q["id"]}
     )
     assert r.status_code == 403, r.text
+
+
+async def test_bank_filters_by_qtype_and_query(make_actor):
+    teacher = await make_actor("bank_filter_t@ex.com", "teacher")
+    exam = await _exam(teacher, "Filter Exam")
+
+    # Add a multiple_choice question
+    await teacher.client.post(
+        f"/api/v1/exams/{exam}/questions",
+        json={
+            "prompt": "Berapakah hasil dari 5 dikali 5?",
+            "qtype": "multiple_choice",
+            "options": [
+                {"text": "25", "is_correct": True},
+                {"text": "20", "is_correct": False},
+            ],
+        },
+    )
+
+    # Add an essay question
+    await teacher.client.post(
+        f"/api/v1/exams/{exam}/questions",
+        json={
+            "prompt": "Jelaskan siklus fotosintesis pada tumbuhan hijau secara detail.",
+            "qtype": "essay",
+            "correct_answer": "Fotosintesis membutuhkan cahaya matahari, CO2, dan air.",
+        },
+    )
+
+    # Filter by qtype=essay
+    res_essay = await teacher.client.get("/api/v1/questions/bank?qtype=essay")
+    assert res_essay.status_code == 200
+    essay_data = res_essay.json()
+    assert len(essay_data) == 1
+    assert "fotosintesis" in essay_data[0]["prompt"]
+    assert essay_data[0]["qtype"] == "essay"
+
+    # Filter by qtype=multiple_choice
+    res_mc = await teacher.client.get("/api/v1/questions/bank?qtype=multiple_choice")
+    assert res_mc.status_code == 200
+    mc_data = res_mc.json()
+    assert len(mc_data) == 1
+    assert "5 dikali 5" in mc_data[0]["prompt"]
+    assert mc_data[0]["qtype"] == "multiple_choice"
+
+    # Search query
+    res_search = await teacher.client.get("/api/v1/questions/bank?query=tumbuhan")
+    assert res_search.status_code == 200
+    search_data = res_search.json()
+    assert len(search_data) == 1
+    assert "fotosintesis" in search_data[0]["prompt"]
+
+    # Search non-matching query
+    res_empty = await teacher.client.get("/api/v1/questions/bank?query=tidak_ditemukan_xyz")
+    assert res_empty.status_code == 200
+    assert len(res_empty.json()) == 0
+

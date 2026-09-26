@@ -353,6 +353,8 @@ GET    /exams/{exam_id}/results/review      # teacher: per-student answers + cor
 
 POST   /exams/{exam_id}/questions          # qtype=essay|multiple_choice (+ options[] for MC)
 POST   /exams/{exam_id}/questions/reorder  # atomic question reordering
+POST   /exams/{exam_id}/questions/attach   # copy bank question into this exam
+GET    /questions/bank                     # teacher: list question bank (supports qtype, query, limit, offset)
 PATCH  /questions/{question_id}            # replace MC options atomically
 DELETE /questions/{question_id}
 

@@ -315,7 +315,13 @@ class ExamService:
         return question
 
     async def list_question_bank(
-        self, user: User, *, limit: int = 50, offset: int = 0
+        self,
+        user: User,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        qtype: str | None = None,
+        query: str | None = None,
     ) -> list[Question]:
         """Every question a teacher owns, regardless of which exam it is on.
 
@@ -325,6 +331,10 @@ class ExamService:
         stmt = select(Question).order_by(Question.created_at.desc())
         if not user.has_role("admin"):
             stmt = stmt.where(Question.owner_id == user.id)
+        if qtype:
+            stmt = stmt.where(Question.qtype == qtype)
+        if query and query.strip():
+            stmt = stmt.where(Question.prompt.ilike(f"%{query.strip()}%"))
         stmt = stmt.limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 

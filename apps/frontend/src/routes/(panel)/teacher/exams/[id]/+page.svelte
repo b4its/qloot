@@ -373,6 +373,17 @@
     rejected: "Ditolak",
   };
 
+  const QTYPE_BADGES: Record<string, string> = {
+    essay: "Esai",
+    multiple_choice: "PG",
+    true_false: "B/S",
+    multi_select: "Pilih Banyak",
+    numeric: "Angka",
+    fill_blank: "Isian",
+    matching: "Cocokkan",
+    ordering: "Urutkan",
+  };
+
   // --- question bank import ---
   interface BankQuestion {
     id: string;
@@ -382,20 +393,36 @@
   let bank: BankQuestion[] = [];
   let bankOpen = false;
   let bankLoading = false;
+  let bankQuery = "";
+  let bankQtype = "";
+
+  async function loadBank() {
+    bankLoading = true;
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      if (bankQtype) params.set("qtype", bankQtype);
+      if (bankQuery.trim()) params.set("query", bankQuery.trim());
+      bank = await api.get<BankQuestion[]>(`/questions/bank?${params.toString()}`);
+    } catch {
+      bank = [];
+    } finally {
+      bankLoading = false;
+    }
+  }
 
   async function toggleBank() {
     bankOpen = !bankOpen;
     if (bankOpen && bank.length === 0) {
-      bankLoading = true;
-      try {
-        bank = await api.get<BankQuestion[]>("/questions/bank?limit=50");
-      } catch {
-        bank = [];
-      } finally {
-        bankLoading = false;
-      }
+      await loadBank();
     }
   }
+
+  $: filteredBank = bank.filter((bq) => {
+    const matchQuery =
+      !bankQuery.trim() || bq.prompt.toLowerCase().includes(bankQuery.trim().toLowerCase());
+    const matchType = !bankQtype || bq.qtype === bankQtype;
+    return matchQuery && matchType;
+  });
 
   async function importFromBank(questionId: string) {
     error = "";
@@ -640,9 +667,7 @@
               <li class="flex items-start justify-between gap-2 border-b pb-1 last:border-0">
                 <span
                   >{i + 1}.
-                  <span class="badge badge-indigo"
-                    >{q.qtype === "multiple_choice" ? "PG" : "Esai"}</span
-                  >
+                  <span class="badge badge-indigo">{QTYPE_BADGES[q.qtype] ?? q.qtype}</span>
                   {#if q.review_status && q.review_status !== "approved"}
                     <span
                       class="badge"
@@ -724,25 +749,60 @@
             {bankOpen ? "Tutup bank soal" : "Impor dari bank soal"}
           </button>
           {#if bankOpen}
-            {#if bankLoading}
-              <div class="skeleton mt-2 h-8"></div>
-            {:else if bank.length === 0}
-              <p class="mt-2 text-xs muted">Bank soal kosong.</p>
-            {:else}
-              <ul class="mt-2 max-h-52 space-y-1 overflow-y-auto">
-                {#each bank as bq}
-                  <li class="flex items-center justify-between gap-2 text-sm">
-                    <span class="truncate">{bq.prompt}</span>
-                    <button
-                      class="btn-ghost !py-0.5 text-xs"
-                      on:click={() => importFromBank(bq.id)}
-                      disabled={busy === `bank-${bq.id}`}
-                      >{busy === `bank-${bq.id}` ? "…" : "Impor"}</button
+            <div class="mt-2 space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <input
+                  class="input !py-1 text-xs flex-1 min-w-[140px]"
+                  placeholder="Cari dalam bank soal..."
+                  bind:value={bankQuery}
+                />
+                <select class="input !w-auto !py-1 text-xs" bind:value={bankQtype}>
+                  <option value="">Semua tipe</option>
+                  <option value="essay">Esai</option>
+                  <option value="multiple_choice">Pilihan ganda</option>
+                  <option value="true_false">Benar/Salah</option>
+                  <option value="multi_select">Pilih banyak</option>
+                  <option value="numeric">Angka</option>
+                  <option value="fill_blank">Isian singkat</option>
+                  <option value="matching">Mencocokkan</option>
+                  <option value="ordering">Mengurutkan</option>
+                </select>
+              </div>
+
+              {#if bankLoading}
+                <div class="skeleton h-8"></div>
+              {:else if filteredBank.length === 0}
+                <p class="text-xs muted">
+                  {bank.length === 0
+                    ? "Bank soal kosong."
+                    : "Tidak ada soal yang cocok dengan filter."}
+                </p>
+              {:else}
+                <ul class="max-h-52 space-y-1 overflow-y-auto">
+                  {#each filteredBank as bq}
+                    {@const isAlreadyAttached = questions.some((q) => q.prompt === bq.prompt)}
+                    <li
+                      class="flex items-center justify-between gap-2 text-sm rounded p-1 hover:bg-surface-elevated/40"
                     >
-                  </li>
-                {/each}
-              </ul>
-            {/if}
+                      <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span class="badge badge-indigo text-[10px] shrink-0">
+                          {QTYPE_BADGES[bq.qtype] ?? bq.qtype}
+                        </span>
+                        <span class="truncate text-xs">{bq.prompt}</span>
+                      </div>
+                      <button
+                        class="btn-ghost !py-0.5 text-xs shrink-0"
+                        on:click={() => importFromBank(bq.id)}
+                        disabled={busy === `bank-${bq.id}` || isAlreadyAttached}
+                        title={isAlreadyAttached ? "Soal sudah ada pada ujian ini" : "Impor soal"}
+                      >
+                        {busy === `bank-${bq.id}` ? "…" : isAlreadyAttached ? "Ada" : "Impor"}
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            </div>
           {/if}
         </div>
 
