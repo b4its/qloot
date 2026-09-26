@@ -17,6 +17,7 @@
   let message = "";
   let busy = "";
   let statusFilter = "";
+  let query = "";
   let openId = "";
   let thread: ConsultationMessage[] = [];
   let draft = "";
@@ -28,7 +29,31 @@
     cancelled: "badge-magenta",
   };
 
+  const STATUS_TABS: { value: string; label: string }[] = [
+    { value: "", label: "Semua" },
+    { value: "pending", label: "Menunggu" },
+    { value: "accepted", label: "Diterima" },
+    { value: "completed", label: "Selesai" },
+    { value: "cancelled", label: "Dibatalkan" },
+  ];
+
   $: activeConsultation = consultations.find((x) => x.id === openId);
+
+  // --- metrics + client-side search (over the fetched set) -------------------
+  $: pendingCount = consultations.filter((c) => c.status === "pending").length;
+  $: acceptedCount = consultations.filter((c) => c.status === "accepted").length;
+  $: completedCount = consultations.filter((c) => c.status === "completed").length;
+
+  $: filtered = consultations.filter((c) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    return c.topic.toLowerCase().includes(q) || (c.student_name ?? "").toLowerCase().includes(q);
+  });
+
+  function setStatus(value: string) {
+    statusFilter = value;
+    void load();
+  }
 
   let rescheduleTarget: Consultation | null = null;
   let rescheduleInput = "";
@@ -136,18 +161,65 @@
 
   <PageAlerts {message} {error} />
 
-  <div class="mt-6 flex flex-wrap items-end gap-3">
-    <label class="flex flex-col text-xs">
-      <span class="muted mb-1">Status</span>
-      <select class="input !w-auto" bind:value={statusFilter} on:change={load}>
-        <option value="">Semua</option>
-        <option value="pending">Menunggu</option>
-        <option value="accepted">Diterima</option>
-        <option value="completed">Selesai</option>
-        <option value="cancelled">Dibatalkan</option>
-      </select>
-    </label>
-    <button class="btn-ghost !py-1.5" on:click={load} disabled={loading}>Muat ulang</button>
+  <!-- Metrics -->
+  {#if !loading && consultations.length > 0}
+    <div class="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total</p>
+        <p class="mt-1 font-display text-3xl font-bold" data-role="total-count">
+          {consultations.length}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Menunggu</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="pending-count">
+          {pendingCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Diterima</p>
+        <p class="mt-1 font-display text-3xl font-bold text-primary">{acceptedCount}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Selesai</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint">{completedCount}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Status tabs + search -->
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <div
+      class="flex flex-wrap gap-1 rounded-sm border p-1 w-fit"
+      role="tablist"
+      aria-label="Status"
+    >
+      {#each STATUS_TABS as t (t.value)}
+        <button
+          role="tab"
+          aria-selected={statusFilter === t.value}
+          class="btn-ghost !px-3 !py-1.5 text-xs"
+          class:bg-primary={statusFilter === t.value}
+          class:!text-white={statusFilter === t.value}
+          on:click={() => setStatus(t.value)}
+        >
+          {t.label}
+        </button>
+      {/each}
+    </div>
+    <div class="relative w-full sm:w-64">
+      <Icon
+        name="magnifying-glass"
+        size="12px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input text-xs !py-1.5 !pl-8 w-full"
+        placeholder="Cari topik atau nama siswa..."
+        bind:value={query}
+        aria-label="Cari konsultasi"
+      />
+    </div>
   </div>
 
   <div class="card mt-6">
@@ -157,9 +229,11 @@
       </div>
     {:else if consultations.length === 0}
       <p class="muted">Belum ada konsultasi.</p>
+    {:else if filtered.length === 0}
+      <p class="muted">Tidak ada konsultasi yang cocok dengan pencarianmu.</p>
     {:else}
       <ul class="divide-y">
-        {#each consultations as c (c.id)}
+        {#each filtered as c (c.id)}
           <li
             class="flex flex-wrap items-center justify-between gap-3 py-3 rounded-lg hover:bg-surface-elevated/30 px-2 transition-colors"
           >
