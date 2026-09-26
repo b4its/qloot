@@ -11,7 +11,7 @@
   let participants: RoomMember[] = [];
   let ranking: RankingResponse | null = null;
   let liveBoard: LiveEntry[] = [];
-  let boardTab: "live" | "all" = "live";
+  let boardTab: "all" | "live" = "all";
   let loading = true;
   let error = "";
   let connected = false;
