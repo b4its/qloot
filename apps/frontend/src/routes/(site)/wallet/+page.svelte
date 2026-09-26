@@ -98,6 +98,36 @@
   let transferBusy = false;
   let withdrawBusy = false;
 
+  let copiedAddr = false;
+  async function copyToClipboard(text: string) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      copiedAddr = true;
+      setTimeout(() => (copiedAddr = false), 2000);
+    } catch {}
+  }
+
+  function setWithdrawPercent(pct: number) {
+    if (!wallet) return;
+    withdrawAmount = Math.max(0, Math.floor((wallet.available * pct) / 100));
+  }
+
+  function setTransferPercent(pct: number) {
+    if (!wallet) return;
+    transferAmount = Math.max(0, Math.floor((wallet.available * pct) / 100));
+  }
+
+  function setSwapAmount(amount: number) {
+    swapAmount = Math.max(1, amount);
+  }
+
+  function setMaxSwap() {
+    const rate = ORX_RATES[swapAsset] ?? 50;
+    const maxUnits = Math.floor((assetBalance("OPT") || 0) / rate);
+    swapAmount = Math.max(0, maxUnits);
+  }
+
   async function searchRecipients() {
     recipientBusy = true;
     try {
@@ -446,6 +476,29 @@
           <label class="block">
             <span class="mono-label">Jumlah ({swapAsset})</span>
             <input class="input mt-1" type="number" min="1" bind:value={swapAmount} />
+            <div class="mt-1 flex items-center gap-1 text-[11px]">
+              <span class="muted">Preset:</span>
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-1.5 text-[11px]"
+                on:click={() => setSwapAmount(1)}>1</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-1.5 text-[11px]"
+                on:click={() => setSwapAmount(5)}>5</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-1.5 text-[11px]"
+                on:click={() => setSwapAmount(10)}>10</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-1.5 text-[11px] text-primary"
+                on:click={setMaxSwap}>Maks</button
+              >
+            </div>
           </label>
           <button
             class="btn-primary"
@@ -491,9 +544,15 @@
           >
           <span class="text-sm muted">OPT tersedia</span>
           {#if wallet.withdrawal_address}
-            <span class="badge badge-indigo font-mono text-xs"
-              >→ {shortHash(wallet.withdrawal_address, 6)}</span
+            <button
+              type="button"
+              class="btn-ghost !py-0.5 !px-2 text-xs inline-flex items-center gap-1 font-mono hover:text-primary transition-colors"
+              on:click={() => copyToClipboard(wallet?.withdrawal_address ?? "")}
+              title="Salin alamat dompet"
             >
+              <Icon name={copiedAddr ? "circle-check" : "copy"} size="11px" />
+              <span>{copiedAddr ? "Tersalin!" : shortHash(wallet.withdrawal_address, 6)}</span>
+            </button>
           {:else}
             <span class="badge badge-neutral text-xs">belum ada alamat pribadi</span>
           {/if}
@@ -551,13 +610,38 @@
       <div class="card">
         <h2 class="hud font-display text-lg font-bold">Tarik ke dompet pribadi</h2>
         <div class="mt-3 space-y-3">
-          <input
-            class="input"
-            type="number"
-            min="1"
-            placeholder="Jumlah (OPT)"
-            bind:value={withdrawAmount}
-          />
+          <div>
+            <input
+              class="input"
+              type="number"
+              min="1"
+              placeholder="Jumlah (OPT)"
+              bind:value={withdrawAmount}
+            />
+            <div class="mt-1 flex items-center gap-1.5 text-xs">
+              <span class="muted">Cepat:</span>
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs"
+                on:click={() => setWithdrawPercent(25)}>25%</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs"
+                on:click={() => setWithdrawPercent(50)}>50%</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs"
+                on:click={() => setWithdrawPercent(75)}>75%</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs text-primary font-medium"
+                on:click={() => setWithdrawPercent(100)}>Maks</button
+              >
+            </div>
+          </div>
           <label class="block">
             <span class="mono-label">Kirim ke wallet</span>
             <input
@@ -660,13 +744,38 @@
               </ul>
             {/if}
           {/if}
-          <input
-            class="input"
-            type="number"
-            min="1"
-            placeholder="Jumlah (OPT)"
-            bind:value={transferAmount}
-          />
+          <div>
+            <input
+              class="input"
+              type="number"
+              min="1"
+              placeholder="Jumlah (OPT)"
+              bind:value={transferAmount}
+            />
+            <div class="mt-1 flex items-center gap-1.5 text-xs">
+              <span class="muted">Cepat:</span>
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs"
+                on:click={() => setTransferPercent(25)}>25%</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs"
+                on:click={() => setTransferPercent(50)}>50%</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs"
+                on:click={() => setTransferPercent(75)}>75%</button
+              >
+              <button
+                type="button"
+                class="btn-ghost !py-0.5 !px-2 text-xs text-primary font-medium"
+                on:click={() => setTransferPercent(100)}>Maks</button
+              >
+            </div>
+          </div>
           <input class="input" placeholder="Catatan (opsional)" bind:value={transferNote} />
           <button
             class="btn-primary"
