@@ -8,6 +8,7 @@ import learningSrc from "$routes-site/learning/[courseId]/+page.svelte?raw";
 import profileSrc from "$routes-site/profile/+page.svelte?raw";
 
 import adminNotificationsSrc from "$routes-panel/admin/notifications/+page.svelte?raw";
+import adminBlockchainSrc from "$routes-panel/admin/blockchain/+page.svelte?raw";
 
 /**
  * Regression for C88 re-audit: endpoints that were backend-only must have a
@@ -17,6 +18,11 @@ describe("previously backend-only endpoints now have a UI caller", () => {
   it("admin can broadcast notifications (POST /admin/notifications)", () => {
     expect(adminNotificationsSrc).toContain("/admin/notifications");
     expect(adminNotificationsSrc).toContain("sendBroadcast");
+  });
+
+  it("admin sees blockchain contracts and allocations (GET /blockchain/contract and /blockchain/allocations)", () => {
+    expect(adminBlockchainSrc).toContain("/blockchain/contract");
+    expect(adminBlockchainSrc).toContain("/blockchain/allocations");
   });
   it("admin can open a materialized leaderboard snapshot's entries", () => {
     expect(leaderboardsSrc).toContain("/rankings/leaderboards/${id}/entries");

@@ -10,7 +10,34 @@
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
+  interface ContractDeployment {
+    network: string;
+    chain_id: number;
+    name: string;
+    address: string;
+    treasury?: string | null;
+    tx_hash?: string | null;
+  }
+
+  interface ContractData {
+    assets: Record<string, { name: string; symbol: string; address?: string }>;
+    treasury?: string | null;
+    deployments: ContractDeployment[];
+  }
+
+  interface Allocation {
+    id: string;
+    reward_key: string;
+    user_id: string;
+    amount: number;
+    status: string;
+    quest_id?: string | null;
+    tx_id?: string | null;
+  }
+
   let status: BlockchainStatus | null = null;
+  let contractData: ContractData | null = null;
+  let allocations: Allocation[] = [];
   let error = "";
   let message = "";
   let loading = true;
@@ -37,7 +64,14 @@
     error = "";
     try {
       // Admin-only endpoint: includes contract/treasury addresses.
-      status = await api.get<BlockchainStatus>("/blockchain/status/admin");
+      const [st, cd, al] = await Promise.all([
+        api.get<BlockchainStatus>("/blockchain/status/admin"),
+        api.get<ContractData>("/blockchain/contract"),
+        api.get<Allocation[]>("/blockchain/allocations?limit=10"),
+      ]);
+      status = st;
+      contractData = cd;
+      allocations = al;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat data blockchain";
     } finally {
@@ -130,6 +164,85 @@
       <button class="btn-primary" on:click={() => control("unpause")} disabled={busy === "unpause"}>
         {busy === "unpause" ? "Mengirim…" : "Lanjutkan aset"}
       </button>
+    </div>
+    {#if contractData && contractData.deployments && contractData.deployments.length > 0}
+      <div class="card mt-6">
+        <h2 class="font-display text-lg font-bold">Deployment Kontrak Aktif</h2>
+        <p class="text-xs muted mb-3">Daftar deployment kontrak on-chain yang tercatat.</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b text-muted">
+                <th class="py-2">Nama</th>
+                <th class="py-2">Jaringan (Chain ID)</th>
+                <th class="py-2">Alamat Kontrak</th>
+                <th class="py-2">Treasury</th>
+                <th class="py-2">Tx Hash</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each contractData.deployments as d}
+                <tr class="border-b last:border-0 font-mono">
+                  <td class="py-2 font-semibold font-sans">{d.name}</td>
+                  <td class="py-2">{d.network} ({d.chain_id})</td>
+                  <td class="py-2 break-all">{d.address}</td>
+                  <td class="py-2 break-all">{d.treasury ?? "—"}</td>
+                  <td class="py-2 break-all">{d.tx_hash ?? "—"}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {/if}
+
+    <div class="card mt-6">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="font-display text-lg font-bold">Alokasi Hadiah Terbaru</h2>
+          <p class="text-xs muted">
+            10 alokasi reward off-chain terbaru sebelum dimint ke blockchain.
+          </p>
+        </div>
+      </div>
+      {#if allocations.length === 0}
+        <p class="text-xs muted italic">Belum ada alokasi hadiah yang tercatat.</p>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b text-muted">
+                <th class="py-2">Reward Key</th>
+                <th class="py-2">Jumlah</th>
+                <th class="py-2">Status</th>
+                <th class="py-2">User ID</th>
+                <th class="py-2">Tx ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each allocations as a}
+                <tr class="border-b last:border-0 font-mono">
+                  <td class="py-2 truncate max-w-[200px]" title={a.reward_key}>{a.reward_key}</td>
+                  <td class="py-2 font-bold font-sans">{a.amount} OPT</td>
+                  <td class="py-2">
+                    <span
+                      class="badge {a.status === 'confirmed'
+                        ? 'badge-green'
+                        : a.status === 'failed'
+                          ? 'badge-red'
+                          : 'badge-indigo'}"
+                    >
+                      {a.status}
+                    </span>
+                  </td>
+                  <td class="py-2">{a.user_id.slice(0, 8)}…</td>
+                  <td class="py-2">{a.tx_id ? `${a.tx_id.slice(0, 8)}…` : "—"}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
     </div>
   {/if}
 
