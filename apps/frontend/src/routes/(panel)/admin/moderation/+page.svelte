@@ -7,6 +7,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import Icon from "$lib/components/Icon.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -30,6 +31,16 @@
   let statusFilter = "open";
   let page = 1;
   let hasMore = false;
+  let query = "";
+  // Destructive actions require an explicit confirmation.
+  let confirming: { report: Report; action: "hide" | "delete" } | null = null;
+
+  const STATUS_TABS: { value: string; label: string }[] = [
+    { value: "open", label: "Terbuka" },
+    { value: "actioned", label: "Ditindaklanjuti" },
+    { value: "dismissed", label: "Ditolak" },
+    { value: "", label: "Semua" },
+  ];
 
   async function load() {
     loading = true;
@@ -53,6 +64,7 @@
     busy = r.id;
     message = "";
     error = "";
+    confirming = null;
     try {
       await api.post(`/community/reports/${r.id}/moderate`, { action });
       message = `Laporan ditindaklanjuti (${action}).`;
@@ -77,6 +89,21 @@
   }
 
   onMount(load);
+
+  // --- metrics + search (over the current page) ------------------------------
+  $: openCount = reports.filter((r) => r.status === "open").length;
+  $: actionedCount = reports.filter((r) => r.status === "actioned").length;
+  $: dismissedCount = reports.filter((r) => r.status === "dismissed").length;
+  $: byType = reports.reduce<Record<string, number>>((acc, r) => {
+    acc[r.target_type] = (acc[r.target_type] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  $: filtered = reports.filter((r) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    return r.reason.toLowerCase().includes(q) || (r.body ?? "").toLowerCase().includes(q);
+  });
 </script>
 
 <svelte:head><title>Moderasi Komunitas — Admin — QLoot</title></svelte:head>
@@ -92,18 +119,71 @@
 
   <PageAlerts {message} {error} />
 
-  <form class="mt-6 flex flex-wrap items-end gap-3" on:submit|preventDefault={applyFilter}>
-    <label class="flex flex-col text-xs">
-      <span class="muted mb-1">Status</span>
-      <select class="input !w-auto" bind:value={statusFilter} on:change={applyFilter}>
-        <option value="open">Terbuka</option>
-        <option value="actioned">Ditindaklanjuti</option>
-        <option value="dismissed">Ditolak</option>
-        <option value="">Semua</option>
-      </select>
-    </label>
-    <button class="btn-ghost !py-1.5" type="submit" disabled={loading}>Terapkan</button>
-  </form>
+  <!-- Status tabs -->
+  <div
+    class="mt-4 flex flex-wrap gap-1 rounded-sm border p-1 w-fit"
+    role="tablist"
+    aria-label="Status"
+  >
+    {#each STATUS_TABS as t (t.value)}
+      <button
+        role="tab"
+        aria-selected={statusFilter === t.value}
+        class="btn-ghost !px-3 !py-1.5 text-xs"
+        class:bg-primary={statusFilter === t.value}
+        class:!text-white={statusFilter === t.value}
+        on:click={() => {
+          statusFilter = t.value;
+          applyFilter();
+        }}
+      >
+        {t.label}
+      </button>
+    {/each}
+  </div>
+
+  <!-- Metrics over the current page -->
+  {#if !loading && reports.length > 0}
+    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Terbuka</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="open-count">
+          {openCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Ditindaklanjuti</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint">{actionedCount}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Ditolak</p>
+        <p class="mt-1 font-display text-3xl font-bold">{dismissedCount}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Jenis konten</p>
+        <p class="mt-1 text-xs muted">
+          {#each Object.entries(byType) as [type, n]}
+            <span class="badge badge-indigo mr-1">{type}: {n}</span>
+          {/each}
+        </p>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="mt-4 relative max-w-md">
+      <Icon
+        name="magnifying-glass"
+        size="12px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input text-xs !py-1.5 !pl-8 w-full"
+        placeholder="Cari alasan atau isi konten..."
+        bind:value={query}
+        aria-label="Cari laporan"
+      />
+    </div>
+  {/if}
 
   <div class="card mt-6">
     {#if loading}
@@ -112,9 +192,11 @@
       </div>
     {:else if reports.length === 0}
       <p class="muted">Tidak ada laporan.</p>
+    {:else if filtered.length === 0}
+      <p class="muted">Tidak ada laporan yang cocok dengan pencarianmu.</p>
     {:else}
       <ul class="divide-y">
-        {#each reports as r (r.id)}
+        {#each filtered as r (r.id)}
           <li class="py-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -127,18 +209,23 @@
                 </p>
                 {#if r.body}<p class="mt-1 text-sm muted">“{r.body}”</p>{/if}
               </div>
-              <span class="badge badge-neutral">{r.status}</span>
+              <span
+                class="badge"
+                class:badge-mint={r.status === "actioned"}
+                class:badge-neutral={r.status === "dismissed"}
+                class:badge-amber={r.status === "open"}>{r.status}</span
+              >
             </div>
             {#if r.status === "open"}
               <div class="mt-2 flex flex-wrap gap-2">
                 <button
                   class="btn-primary !py-1 text-xs"
-                  on:click={() => moderate(r, "hide")}
+                  on:click={() => (confirming = { report: r, action: "hide" })}
                   disabled={busy === r.id}>Sembunyikan</button
                 >
                 <button
-                  class="btn-ghost !py-1 text-xs"
-                  on:click={() => moderate(r, "delete")}
+                  class="btn-ghost !py-1 text-xs !text-tertiary"
+                  on:click={() => (confirming = { report: r, action: "delete" })}
                   disabled={busy === r.id}>Hapus</button
                 >
                 <button
@@ -164,3 +251,33 @@
     onNext={() => go(1)}
   />
 </div>
+
+<!-- Moderation confirmation modal -->
+{#if confirming}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">
+          {confirming.action === "delete" ? "Hapus Konten" : "Sembunyikan Konten"}
+        </h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        {confirming.action === "delete"
+          ? "Konten yang dilaporkan akan dihapus permanen."
+          : "Konten yang dilaporkan akan disembunyikan dari feed publik."}
+      </p>
+      <p class="text-xs muted leading-relaxed">Alasan laporan: “{confirming.report.reason}”</p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (confirming = null)}>Batal</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => confirming && moderate(confirming.report, confirming.action)}
+          data-role="confirm-moderate"
+        >
+          Ya, {confirming.action === "delete" ? "Hapus" : "Sembunyikan"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
