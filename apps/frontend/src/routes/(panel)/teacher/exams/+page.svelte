@@ -23,6 +23,8 @@
   let message = "";
   let busy = "";
   let page = 1;
+  let query = "";
+  let statusFilter: "all" | "active" | "draft" = "all";
 
   $: counts = {
     all: exams.length,
@@ -30,9 +32,19 @@
     essay: exams.filter((e) => examCategory(e) === "essay").length,
     mixed: exams.filter((e) => examCategory(e) === "mixed").length,
   };
+  $: activeCount = exams.filter((e) => e.is_active).length;
+  $: draftCount = exams.length - activeCount;
+  $: totalQuestions = exams.reduce((s, e) => s + (e.question_count ?? e.questions?.length ?? 0), 0);
   // Filter over the *whole* set (not just the current page) so tab counts and
   // category filtering are accurate, then paginate the filtered list.
-  $: filteredExams = filter === "all" ? exams : exams.filter((e) => examCategory(e) === filter);
+  $: filteredExams = exams
+    .filter((e) => filter === "all" || examCategory(e) === filter)
+    .filter((e) => {
+      if (statusFilter === "active" && !e.is_active) return false;
+      if (statusFilter === "draft" && e.is_active) return false;
+      if (query.trim() && !e.title.toLowerCase().includes(query.toLowerCase().trim())) return false;
+      return true;
+    });
   $: totalPages = Math.max(1, Math.ceil(filteredExams.length / PAGE));
   $: if (page > totalPages) page = 1;
   $: visibleExams = paginate(filteredExams, page, PAGE);
@@ -46,6 +58,13 @@
 
   function selectFilter(f: Filter) {
     filter = f;
+    page = 1;
+  }
+
+  function resetFilters() {
+    query = "";
+    statusFilter = "all";
+    filter = "all";
     page = 1;
   }
 
@@ -127,6 +146,28 @@
       </a>
     </div>
   {:else}
+    <!-- Overview metrics -->
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total Ujian</p>
+        <p class="mt-1 font-display text-3xl font-bold">{exams.length}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Aktif</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="active-count">
+          {activeCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Draf</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight">{draftCount}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total Soal</p>
+        <p class="mt-1 font-display text-3xl font-bold">{totalQuestions}</p>
+      </div>
+    </div>
+
     <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Kategori ujian">
       <button
         class="btn-ghost !py-1.5"
@@ -175,14 +216,65 @@
       {/if}
     </div>
 
+    <!-- Search + status filter -->
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <div class="relative w-full sm:w-64">
+        <Icon
+          name="magnifying-glass"
+          size="12px"
+          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+        />
+        <input
+          class="input text-xs !py-1.5 !pl-9 w-full"
+          placeholder="Cari ujian..."
+          bind:value={query}
+          on:input={() => (page = 1)}
+          aria-label="Cari ujian"
+        />
+        {#if query}
+          <button
+            type="button"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+            on:click={() => {
+              query = "";
+              page = 1;
+            }}
+            aria-label="Bersihkan pencarian"
+          >
+            ✕
+          </button>
+        {/if}
+      </div>
+      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+        {#each [["all", "Semua"], ["active", "Aktif"], ["draft", "Draf"]] as [val, label]}
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+            class:bg-primary={statusFilter === val}
+            class:text-[#05060A]={statusFilter === val}
+            class:muted={statusFilter !== val}
+            on:click={() => {
+              statusFilter = val as typeof statusFilter;
+              page = 1;
+            }}
+          >
+            {label}
+          </button>
+        {/each}
+      </div>
+    </div>
+
     {#if visibleExams.length === 0}
       <div class="card mt-6 grid place-items-center py-12 text-center">
         <Icon name="file-pen" size="26px" class="muted" />
-        <p class="mt-3 font-semibold">Tidak ada ujian di kategori ini</p>
-        <p class="text-sm muted">Pilih kategori lain atau buat ujian baru.</p>
-        <a href="/teacher/exams/new" class="btn-primary mt-4">
-          <Icon name="plus" size="12px" /> Buat ujian
-        </a>
+        <p class="mt-3 font-semibold">Tidak ada ujian yang cocok</p>
+        <p class="text-sm muted">Ubah kategori, status, atau pencarianmu.</p>
+        <div class="mt-4 flex items-center gap-2">
+          <button class="btn-ghost" on:click={resetFilters}>Reset Filter</button>
+          <a href="/teacher/exams/new" class="btn-primary">
+            <Icon name="plus" size="12px" /> Buat ujian
+          </a>
+        </div>
       </div>
     {:else}
       <div class="mt-6 space-y-3">
