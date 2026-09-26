@@ -93,7 +93,10 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
 - **CRUD admin & pengajar** — guru membuat/mengubah/menghapus pelajaran, materi, ujian,
   soal, quest yang mereka miliki; admin mengelola peran pengguna serta mengaktifkan/
   menonaktifkan akun. Penghapusan dilindungi (menolak `409` bila sudah ada data anak,
-  mis. ujian dengan attempt atau quest yang sudah difinalisasi).
+  mis. ujian dengan attempt atau quest yang sudah difinalisasi). Panel guru (pelajaran,
+  materi, ujian, quest, peringkat) konsisten: strip metrik, pencarian, filter status,
+  drag-and-drop unggah PDF dengan metrik kualitas ekstraksi, dan konfirmasi untuk
+  tindakan ireversibel (mis. finalisasi quest).
 - **Paginasi konsisten** — semua endpoint daftar dibatasi (`limit ≤ 200`) dan mendukung
   `offset`; komponen `Pagination.svelte` dipakai ulang di seluruh halaman berdata banyak.
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
