@@ -23,9 +23,28 @@
   let hasMore = false;
   // Which student's answer sheet is expanded (attempt id).
   let openAttempt: string | null = null;
+  // Participant list search + filter.
+  let query = "";
+  let resultFilter: "all" | "passed" | "failed" | "flagged" = "all";
 
   $: exam = review?.exam ?? null;
   $: results = review?.results ?? [];
+
+  $: passedCount = results.filter((r) => r.passed === true).length;
+  $: failedCount = results.filter((r) => r.passed === false).length;
+  $: flaggedCount = results.filter((r) => r.is_flagged).length;
+
+  $: filteredResults = results.filter((r) => {
+    if (resultFilter === "passed" && r.passed !== true) return false;
+    if (resultFilter === "failed" && r.passed !== false) return false;
+    if (resultFilter === "flagged" && !r.is_flagged) return false;
+    if (query.trim()) {
+      const q = query.toLowerCase().trim();
+      const name = (r.display_name ?? r.user_id).toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+    return true;
+  });
 
   async function load() {
     loading = true;
@@ -261,145 +280,183 @@
     <p class="mt-4 text-xs muted">
       Klik seorang peserta untuk melihat soal, jawaban, dan benarnya.
     </p>
-    <div class="mt-3 space-y-2">
-      {#each results as a (a.id)}
-        <div class="card !p-0">
+
+    <!-- Participant search + filter -->
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[200px]">
+        <Icon
+          name="magnifying-glass"
+          size="12px"
+          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+        />
+        <input
+          class="input text-xs !py-1.5 !pl-8 w-full"
+          placeholder="Cari nama peserta..."
+          bind:value={query}
+          aria-label="Cari peserta"
+        />
+      </div>
+      <div class="flex flex-wrap items-center gap-1 rounded-sm border p-1 surface text-xs">
+        {#each [["all", `Semua (${results.length})`], ["passed", `Lulus (${passedCount})`], ["failed", `Gagal (${failedCount})`], ["flagged", `Terindikasi (${flaggedCount})`]] as [val, label]}
           <button
             type="button"
-            class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left"
-            on:click={() => toggle(a)}
-            aria-expanded={openAttempt === a.id}
+            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+            class:bg-primary={resultFilter === val}
+            class:text-[#05060A]={resultFilter === val}
+            class:muted={resultFilter !== val}
+            on:click={() => (resultFilter = val as typeof resultFilter)}
           >
-            <span class="flex items-center gap-2">
-              <Icon
-                name={openAttempt === a.id ? "chevron-down" : "chevron-right"}
-                size="11px"
-                class="muted"
-              />
-              <span class="font-semibold">
-                {a.display_name ?? `${a.user_id.slice(0, 8)}…`}
-              </span>
-              <span class="text-xs muted">Percobaan #{a.attempt_number}</span>
-            </span>
-            <span class="flex items-center gap-3">
-              <span
-                class="badge"
-                class:badge-mint={a.passed === true}
-                class:badge-magenta={a.passed === false}
-                class:badge-neutral={a.passed === null || a.passed === undefined}
-              >
-                {statusLabel(a.status)}
-              </span>
-              <span class="font-mono text-sm">
-                {a.score_bp !== null && a.score_bp !== undefined ? bpToPercent(a.score_bp) : "—"}
-              </span>
-              {#if a.is_flagged}
-                <span class="badge badge-magenta" title={a.flag_reason ?? ""}>
-                  <Icon name="triangle-exclamation" size="10px" /> Terindikasi
-                </span>
-              {/if}
-            </span>
+            {label}
           </button>
-
-          {#if openAttempt === a.id}
-            <div class="border-t px-5 py-4">
-              {#if a.status === "submitted" || a.status === "grading_failed"}
-                <button
-                  class="btn-ghost mb-3 !py-1 text-xs"
-                  on:click={() => regrade(a.id)}
-                  disabled={busy === a.id}>{busy === a.id ? "…" : "Nilai ulang"}</button
-                >
-              {/if}
-              {#if a.answers.length === 0}
-                <p class="text-sm muted">Peserta ini tidak menjawab soal apa pun.</p>
-              {:else}
-                <ol class="space-y-3 text-sm">
-                  {#each a.answers as ans}
-                    <li class="border-b pb-3 last:border-0 last:pb-0">
-                      <div class="flex items-start justify-between gap-3">
-                        <p class="font-medium">
-                          <span class="mono-label mr-1"
-                            >{ans.qtype === "multiple_choice" ? "PG" : "Esai"}</span
-                          >
-                          {ans.prompt}
-                        </p>
-                        <span class="flex flex-none items-center gap-2">
-                          {#if ans.qtype === "multiple_choice"}
-                            <span
-                              class="badge"
-                              class:badge-mint={ans.is_correct === true}
-                              class:badge-magenta={ans.is_correct === false}
-                              class:badge-neutral={ans.is_correct === null ||
-                                ans.is_correct === undefined}
-                            >
-                              {correctnessLabel(ans.is_correct)}
-                            </span>
-                          {/if}
-                          <span class="mono text-xs muted">
-                            {bpToPercent(ans.score_bp)} / {bpToPercent(ans.max_score_bp, 0)}
-                          </span>
-                        </span>
-                      </div>
-                      <p class="mt-1 text-ink2">
-                        <span class="mono-label">Jawaban:</span>
-                        {#if ans.qtype === "multiple_choice"}
-                          {#if ans.answer_text}
-                            <span class="mono">{ans.answer_text}.</span>
-                            {ans.answer_display ?? "(opsi tidak dikenal)"}
-                          {:else}
-                            <span class="muted">tidak dijawab</span>
-                          {/if}
-                        {:else}
-                          {ans.answer_text ?? "(tanpa jawaban)"}
-                        {/if}
-                      </p>
-                      {#if ans.qtype === "multiple_choice" && ans.is_correct === false && ans.correct_answer}
-                        <p class="mt-0.5 text-xs text-tertiary">
-                          Kunci: <span class="mono">{ans.correct_answer}.</span>
-                          {ans.correct_display ?? ""}
-                        </p>
-                      {/if}
-                      {#if ans.feedback && ans.qtype !== "multiple_choice"}
-                        <p class="mt-1 text-xs muted">Umpan balik: {ans.feedback}</p>
-                      {/if}
-                      {#if ans.similarity_bp !== null && ans.similarity_bp !== undefined}
-                        <p class="mt-0.5 text-xs muted">
-                          Kemiripan dengan acuan: {bpToPercent(ans.similarity_bp)}
-                        </p>
-                      {/if}
-                      {#if a.status === "graded" || a.status === "submitted"}
-                        {@const d = draftFor(a.id, ans)}
-                        <div class="mt-2 flex flex-wrap items-center gap-2">
-                          <span class="mono-label">Override nilai (%)</span>
-                          <input
-                            class="input !w-20 !py-1 text-sm"
-                            type="number"
-                            min="0"
-                            max="100"
-                            bind:value={d.score}
-                          />
-                          <input
-                            class="input !py-1 text-sm"
-                            placeholder="Umpan balik"
-                            bind:value={d.feedback}
-                          />
-                          <button
-                            class="btn-secondary !py-1 text-xs"
-                            on:click={() => overrideAnswer(a.id, ans)}
-                            disabled={busy === `${a.id}:${ans.question_id}`}
-                            >{busy === `${a.id}:${ans.question_id}` ? "…" : "Simpan"}</button
-                          >
-                        </div>
-                      {/if}
-                    </li>
-                  {/each}
-                </ol>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {/each}
+        {/each}
+      </div>
     </div>
+
+    {#if filteredResults.length === 0}
+      <div class="card mt-3 grid place-items-center py-10 text-center">
+        <p class="muted text-sm">Tidak ada peserta yang cocok dengan filtermu.</p>
+      </div>
+    {:else}
+      <div class="mt-3 space-y-2">
+        {#each filteredResults as a (a.id)}
+          <div class="card !p-0">
+            <button
+              type="button"
+              class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left"
+              on:click={() => toggle(a)}
+              aria-expanded={openAttempt === a.id}
+            >
+              <span class="flex items-center gap-2">
+                <Icon
+                  name={openAttempt === a.id ? "chevron-down" : "chevron-right"}
+                  size="11px"
+                  class="muted"
+                />
+                <span class="font-semibold">
+                  {a.display_name ?? `${a.user_id.slice(0, 8)}…`}
+                </span>
+                <span class="text-xs muted">Percobaan #{a.attempt_number}</span>
+              </span>
+              <span class="flex items-center gap-3">
+                <span
+                  class="badge"
+                  class:badge-mint={a.passed === true}
+                  class:badge-magenta={a.passed === false}
+                  class:badge-neutral={a.passed === null || a.passed === undefined}
+                >
+                  {statusLabel(a.status)}
+                </span>
+                <span class="font-mono text-sm">
+                  {a.score_bp !== null && a.score_bp !== undefined ? bpToPercent(a.score_bp) : "—"}
+                </span>
+                {#if a.is_flagged}
+                  <span class="badge badge-magenta" title={a.flag_reason ?? ""}>
+                    <Icon name="triangle-exclamation" size="10px" /> Terindikasi
+                  </span>
+                {/if}
+              </span>
+            </button>
+
+            {#if openAttempt === a.id}
+              <div class="border-t px-5 py-4">
+                {#if a.status === "submitted" || a.status === "grading_failed"}
+                  <button
+                    class="btn-ghost mb-3 !py-1 text-xs"
+                    on:click={() => regrade(a.id)}
+                    disabled={busy === a.id}>{busy === a.id ? "…" : "Nilai ulang"}</button
+                  >
+                {/if}
+                {#if a.answers.length === 0}
+                  <p class="text-sm muted">Peserta ini tidak menjawab soal apa pun.</p>
+                {:else}
+                  <ol class="space-y-3 text-sm">
+                    {#each a.answers as ans}
+                      <li class="border-b pb-3 last:border-0 last:pb-0">
+                        <div class="flex items-start justify-between gap-3">
+                          <p class="font-medium">
+                            <span class="mono-label mr-1"
+                              >{ans.qtype === "multiple_choice" ? "PG" : "Esai"}</span
+                            >
+                            {ans.prompt}
+                          </p>
+                          <span class="flex flex-none items-center gap-2">
+                            {#if ans.qtype === "multiple_choice"}
+                              <span
+                                class="badge"
+                                class:badge-mint={ans.is_correct === true}
+                                class:badge-magenta={ans.is_correct === false}
+                                class:badge-neutral={ans.is_correct === null ||
+                                  ans.is_correct === undefined}
+                              >
+                                {correctnessLabel(ans.is_correct)}
+                              </span>
+                            {/if}
+                            <span class="mono text-xs muted">
+                              {bpToPercent(ans.score_bp)} / {bpToPercent(ans.max_score_bp, 0)}
+                            </span>
+                          </span>
+                        </div>
+                        <p class="mt-1 text-ink2">
+                          <span class="mono-label">Jawaban:</span>
+                          {#if ans.qtype === "multiple_choice"}
+                            {#if ans.answer_text}
+                              <span class="mono">{ans.answer_text}.</span>
+                              {ans.answer_display ?? "(opsi tidak dikenal)"}
+                            {:else}
+                              <span class="muted">tidak dijawab</span>
+                            {/if}
+                          {:else}
+                            {ans.answer_text ?? "(tanpa jawaban)"}
+                          {/if}
+                        </p>
+                        {#if ans.qtype === "multiple_choice" && ans.is_correct === false && ans.correct_answer}
+                          <p class="mt-0.5 text-xs text-tertiary">
+                            Kunci: <span class="mono">{ans.correct_answer}.</span>
+                            {ans.correct_display ?? ""}
+                          </p>
+                        {/if}
+                        {#if ans.feedback && ans.qtype !== "multiple_choice"}
+                          <p class="mt-1 text-xs muted">Umpan balik: {ans.feedback}</p>
+                        {/if}
+                        {#if ans.similarity_bp !== null && ans.similarity_bp !== undefined}
+                          <p class="mt-0.5 text-xs muted">
+                            Kemiripan dengan acuan: {bpToPercent(ans.similarity_bp)}
+                          </p>
+                        {/if}
+                        {#if a.status === "graded" || a.status === "submitted"}
+                          {@const d = draftFor(a.id, ans)}
+                          <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <span class="mono-label">Override nilai (%)</span>
+                            <input
+                              class="input !w-20 !py-1 text-sm"
+                              type="number"
+                              min="0"
+                              max="100"
+                              bind:value={d.score}
+                            />
+                            <input
+                              class="input !py-1 text-sm"
+                              placeholder="Umpan balik"
+                              bind:value={d.feedback}
+                            />
+                            <button
+                              class="btn-secondary !py-1 text-xs"
+                              on:click={() => overrideAnswer(a.id, ans)}
+                              disabled={busy === `${a.id}:${ans.question_id}`}
+                              >{busy === `${a.id}:${ans.question_id}` ? "…" : "Simpan"}</button
+                            >
+                          </div>
+                        {/if}
+                      </li>
+                    {/each}
+                  </ol>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
     <Pagination
       page={currentPage}
       pageSize={PAGE}

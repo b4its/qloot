@@ -176,4 +176,23 @@ describe("teacher exam results review", () => {
       expect.objectContaining({ score_bp: expect.any(Number) }),
     );
   });
+
+  it("searches participants by name", async () => {
+    render(ResultsPage, {});
+    await screen.findByText("Andi Benar");
+
+    const input = screen.getByLabelText("Cari peserta") as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: "budi" } });
+    expect(await screen.findByText("Budi Salah")).toBeTruthy();
+    expect(screen.queryByText("Andi Benar")).toBeNull();
+  });
+
+  it("filters to failed participants only", async () => {
+    render(ResultsPage, {});
+    await screen.findByText("Andi Benar");
+
+    await fireEvent.click(screen.getByRole("button", { name: /^Gagal/ }));
+    expect(await screen.findByText("Budi Salah")).toBeTruthy();
+    expect(screen.queryByText("Andi Benar")).toBeNull();
+  });
 });
