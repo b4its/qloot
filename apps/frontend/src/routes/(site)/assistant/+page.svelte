@@ -25,6 +25,22 @@
   // CARE-01: the active conversation; follow-ups are answered with context.
   let conversationId: string | null = null;
   let history: AssistantConversation[] = [];
+  let historyQuery = "";
+  let copiedIndex: number | null = null;
+
+  $: filteredHistory = history.filter((c) =>
+    !historyQuery.trim() ? true : c.title.toLowerCase().includes(historyQuery.toLowerCase().trim()),
+  );
+
+  async function copyMessage(text: string, index: number) {
+    try {
+      await navigator.clipboard?.writeText(text);
+      copiedIndex = index;
+      setTimeout(() => (copiedIndex = null), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
 
   const suggestions = [
     "Bedanya SNBP dan SNBT?",
@@ -223,9 +239,26 @@
 
   {#if history.length > 0}
     <div class="mt-4">
-      <p class="mono-label">Riwayat percakapan</p>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="mono-label">Riwayat percakapan · {history.length}</p>
+        {#if history.length > 3}
+          <div class="relative w-56">
+            <Icon
+              name="magnifying-glass"
+              size="11px"
+              class="absolute left-2.5 top-1/2 -translate-y-1/2 muted"
+            />
+            <input
+              class="input text-xs !py-1 !pl-8 w-full"
+              placeholder="Cari percakapan..."
+              bind:value={historyQuery}
+              aria-label="Cari percakapan"
+            />
+          </div>
+        {/if}
+      </div>
       <div class="mt-2 flex flex-wrap gap-2">
-        {#each history as c (c.id)}
+        {#each filteredHistory as c (c.id)}
           <span class="inline-flex items-center">
             <button
               class="btn-ghost !py-1 text-xs"
@@ -245,6 +278,9 @@
             </button>
           </span>
         {/each}
+        {#if filteredHistory.length === 0}
+          <span class="text-xs muted">Tidak ada percakapan yang cocok.</span>
+        {/if}
       </div>
     </div>
   {/if}
@@ -261,7 +297,7 @@
       aria-live="polite"
       aria-label="Percakapan dengan Asisten Qlo"
     >
-      {#each messages as m}
+      {#each messages as m, i (i)}
         <div class="flex items-start gap-3" class:flex-row-reverse={m.role === "user"}>
           <div class="tile-neutral h-7 w-7">
             <Icon
@@ -270,15 +306,36 @@
               class={m.role === "bot" ? "text-primary" : ""}
             />
           </div>
-          <div
-            class="max-w-[80%] rounded-sm px-4 py-2 text-sm"
-            class:bg-primary={m.role === "user"}
-            class:text-[#05060A]={m.role === "user"}
-            class:tone-ink-soft={m.role === "bot"}
-            class:dark:bg-surface={m.role === "bot"}
-          >
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            <span>{@html render(m.text)}</span>
+          <div class="flex max-w-[80%] flex-col items-start gap-1">
+            <div
+              class="rounded-sm px-4 py-2 text-sm"
+              class:bg-primary={m.role === "user"}
+              class:text-[#05060A]={m.role === "user"}
+              class:tone-ink-soft={m.role === "bot"}
+              class:dark:bg-surface={m.role === "bot"}
+            >
+              {#if m.role === "bot" && !m.text && busy}
+                <span class="inline-flex items-center gap-1" aria-label="Asisten sedang menulis">
+                  <span class="typing-dot"></span>
+                  <span class="typing-dot"></span>
+                  <span class="typing-dot"></span>
+                </span>
+              {:else}
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                <span>{@html render(m.text)}</span>
+              {/if}
+            </div>
+            {#if m.role === "bot" && m.text && !busy}
+              <button
+                type="button"
+                class="text-[10px] muted hover:text-foreground"
+                on:click={() => copyMessage(m.text, i)}
+                aria-label="Salin jawaban"
+              >
+                <Icon name={copiedIndex === i ? "check" : "copy"} size="9px" />
+                {copiedIndex === i ? "Tersalin" : "Salin"}
+              </button>
+            {/if}
           </div>
         </div>
       {/each}
