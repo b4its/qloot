@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, select
 
 from app.api.deps import AdminUser, DbSession, LimitParam, OffsetParam
 from app.blockchain.worker_logic import process_outbox_item
@@ -486,14 +486,36 @@ async def audit_logs(
     db: DbSession,
     response: Response,
     action: str | None = None,
+    q: str | None = None,
     limit: LimitParam = 100,
     offset: OffsetParam = 0,
 ):
+    """Audit trail with an exact ``action`` filter and a free-text ``q`` search.
+
+    ``q`` matches the action, entity type/id, actor id, or request id
+    (case-insensitive), so an operator can trace a single event without knowing
+    its exact slug. ``X-Total-Count`` reflects the filtered set.
+    """
+    conditions = []
+    if action:
+        conditions.append(AuditLog.action == action)
+    if q and q.strip():
+        pattern = f"%{q.strip().lower()}%"
+        conditions.append(
+            func.lower(AuditLog.action).like(pattern)
+            | func.lower(func.coalesce(AuditLog.entity_type, "")).like(pattern)
+            | func.lower(func.coalesce(AuditLog.entity_id, "")).like(pattern)
+            | func.lower(
+                func.coalesce(cast(AuditLog.actor_id, String), "")
+            ).like(pattern)
+            | func.lower(func.coalesce(AuditLog.request_id, "")).like(pattern)
+        )
+
     count_stmt = select(func.count()).select_from(AuditLog)
     stmt = select(AuditLog).order_by(AuditLog.created_at.desc())
-    if action:
-        count_stmt = count_stmt.where(AuditLog.action == action)
-        stmt = stmt.where(AuditLog.action == action)
+    for cond in conditions:
+        count_stmt = count_stmt.where(cond)
+        stmt = stmt.where(cond)
     total = (await db.execute(count_stmt)).scalar_one()
     response.headers["X-Total-Count"] = str(total)
     stmt = stmt.limit(limit).offset(offset)
