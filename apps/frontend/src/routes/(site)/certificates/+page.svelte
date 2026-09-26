@@ -18,9 +18,31 @@
   let syncing = false;
   let syncNotice = "";
   let listPage = 1;
-  $: listTotalPages = Math.max(1, Math.ceil(certs.length / LIST_PAGE_SIZE));
+  let listQuery = "";
+  let listStatus: "all" | "active" | "anchored" | "revoked" = "all";
+
+  // --- overview metrics ------------------------------------------------------
+  $: anchoredCount = certs.filter((c) => c.anchor_status === "anchored").length;
+  $: revokedCount = certs.filter((c) => c.revoked_at).length;
+  $: activeCount = certs.length - revokedCount;
+
+  // --- filtered certificate list ---------------------------------------------
+  $: filteredCerts = certs.filter((c) => {
+    if (listStatus === "active" && c.revoked_at) return false;
+    if (listStatus === "revoked" && !c.revoked_at) return false;
+    if (listStatus === "anchored" && c.anchor_status !== "anchored") return false;
+    if (listQuery.trim()) {
+      const q = listQuery.toLowerCase().trim();
+      if (!c.course_title.toLowerCase().includes(q) && !c.credential_id.toLowerCase().includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  $: listTotalPages = Math.max(1, Math.ceil(filteredCerts.length / LIST_PAGE_SIZE));
   $: if (listPage > listTotalPages) listPage = 1;
-  $: pagedCerts = paginate(certs, listPage, LIST_PAGE_SIZE);
+  $: pagedCerts = paginate(filteredCerts, listPage, LIST_PAGE_SIZE);
 
   const verifyUrl = (id: string) =>
     typeof location !== "undefined" ? `${location.origin}/verify/${id}` : `/verify/${id}`;
@@ -247,6 +269,29 @@
       >
     </div>
   {:else}
+    <!-- Overview metrics -->
+    {#if certs.length > 0}
+      <div class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">Total</p>
+          <p class="mt-1 font-display text-3xl font-bold">{certs.length}</p>
+        </div>
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">Aktif</p>
+          <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="active-count">
+            {activeCount}
+          </p>
+        </div>
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">On-chain</p>
+          <p class="mt-1 font-display text-3xl font-bold text-secondary">{anchoredCount}</p>
+        </div>
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">Dicabut</p>
+          <p class="mt-1 font-display text-3xl font-bold">{revokedCount}</p>
+        </div>
+      </div>
+    {/if}
     <div class="grid gap-8 lg:grid-cols-[1fr_320px]">
       <!-- large badge -->
       <div class="grad-border">
@@ -362,29 +407,89 @@
 
         {#if certs.length > 1}
           <div class="card">
-            <p class="mono-label mb-3">Sertifikat lain ({certs.length})</p>
-            <ul class="space-y-2">
-              {#each pagedCerts as c}
-                <li>
+            <div class="flex items-center justify-between">
+              <p class="mono-label">Sertifikat lain ({certs.length})</p>
+              {#if anchoredCount > 0}
+                <span class="badge badge-indigo"
+                  ><Icon name="shield-halved" size="9px" /> {anchoredCount} on-chain</span
+                >
+              {/if}
+            </div>
+
+            <!-- List search + status filter -->
+            <div class="mt-3 space-y-2">
+              <div class="relative">
+                <Icon
+                  name="magnifying-glass"
+                  size="11px"
+                  class="absolute left-2.5 top-1/2 -translate-y-1/2 muted"
+                />
+                <input
+                  class="input text-xs !py-1.5 !pl-8 w-full"
+                  placeholder="Cari sertifikat..."
+                  bind:value={listQuery}
+                  on:input={() => (listPage = 1)}
+                  aria-label="Cari sertifikat"
+                />
+              </div>
+              <div class="flex flex-wrap gap-1">
+                {#each [["all", "Semua"], ["active", "Aktif"], ["anchored", "On-chain"], ["revoked", "Dicabut"]] as [val, label]}
                   <button
-                    class="flex w-full items-center justify-between gap-2 rounded-sm border px-3 py-2 text-left text-sm transition-colors"
-                    class:border-primary={c.id === active?.id}
-                    on:click={() => pick(c)}
+                    type="button"
+                    class="badge"
+                    class:badge-mint={listStatus === val}
+                    class:badge-neutral={listStatus !== val}
+                    on:click={() => {
+                      listStatus = val as typeof listStatus;
+                      listPage = 1;
+                    }}
                   >
-                    <span class="truncate">{c.course_title}</span>
-                    <Icon name="chevron-right" size="10px" class="flex-none muted" />
+                    {label}
                   </button>
-                </li>
-              {/each}
-            </ul>
-            <Pagination
-              page={listPage}
-              pageSize={LIST_PAGE_SIZE}
-              total={certs.length}
-              label="sertifikat"
-              onPrev={() => (listPage = Math.max(1, listPage - 1))}
-              onNext={() => (listPage = Math.min(listTotalPages, listPage + 1))}
-            />
+                {/each}
+              </div>
+            </div>
+
+            {#if filteredCerts.length === 0}
+              <p class="mt-4 text-center text-xs muted">Tidak ada sertifikat yang cocok.</p>
+            {:else}
+              <ul class="mt-2 space-y-2">
+                {#each pagedCerts as c (c.id)}
+                  <li>
+                    <button
+                      class="flex w-full items-center justify-between gap-2 rounded-sm border px-3 py-2 text-left text-sm transition-colors"
+                      class:border-primary={c.id === active?.id}
+                      on:click={() => pick(c)}
+                    >
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate">{c.course_title}</span>
+                        <span class="flex items-center gap-1.5">
+                          {#if c.revoked_at}
+                            <span class="text-[10px] text-tertiary">Dicabut</span>
+                          {:else if c.anchor_status === "anchored"}
+                            <span class="text-[10px] text-secondary">On-chain</span>
+                          {:else}
+                            <span class="text-[10px] muted">Aktif</span>
+                          {/if}
+                          <span class="text-[10px] muted"
+                            >· #{String(c.edition_number).padStart(4, "0")}</span
+                          >
+                        </span>
+                      </span>
+                      <Icon name="chevron-right" size="10px" class="flex-none muted" />
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+              <Pagination
+                page={listPage}
+                pageSize={LIST_PAGE_SIZE}
+                total={filteredCerts.length}
+                label="sertifikat"
+                onPrev={() => (listPage = Math.max(1, listPage - 1))}
+                onNext={() => (listPage = Math.min(listTotalPages, listPage + 1))}
+              />
+            {/if}
           </div>
         {/if}
       </aside>
