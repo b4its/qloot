@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { Course } from "$lib/types";
+  import type { Course, Progress } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
@@ -10,11 +10,16 @@
   import { reveal } from "$lib/actions/reveal";
 
   const PAGE_SIZE = 12;
+  type Sort = "recent" | "title" | "progress" | "lessons";
+
   let subjects: Course[] = [];
+  let progress: Progress[] = [];
   let loading = true;
   let error = "";
   let query = "";
   let classFilter = "all";
+  let subjectFilter = "all";
+  let sortBy: Sort = "recent";
   let currentPage = 1;
   // Track the last-seen ?q= param so we only overwrite the box when the URL
   // itself changes (header search / /paths deep links), not while typing.
@@ -30,25 +35,72 @@
   $: user = $auth.user;
   $: canManage = hasRole(user, "teacher");
   $: classes = [...new Set(subjects.map((s) => s.class_code).filter(Boolean))] as string[];
-  $: filtered = subjects.filter((s) => {
-    const q = query.toLowerCase();
-    const matchesQuery =
-      !q ||
-      s.title.toLowerCase().includes(q) ||
-      (s.subject ?? "").toLowerCase().includes(q) ||
-      (s.owner_name ?? "").toLowerCase().includes(q);
-    const matchesClass = classFilter === "all" || s.class_code === classFilter;
-    return matchesQuery && matchesClass;
-  });
+  $: subjectOptions = [...new Set(subjects.map((s) => s.subject).filter(Boolean))] as string[];
+
+  // --- per-course learning progress ------------------------------------------
+  /** Completed lesson count per course from the student's progress rows. */
+  $: completedByCourse = progress.reduce<Record<string, number>>((acc, p) => {
+    if (p.completed) acc[p.course_id] = (acc[p.course_id] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  function courseProgress(c: Course): { done: number; total: number; pct: number } {
+    const total = c.lesson_count ?? 0;
+    const done = Math.min(completedByCourse[c.id] ?? 0, total);
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { done, total, pct };
+  }
+
+  $: filtered = subjects
+    .filter((s) => {
+      const q = query.toLowerCase();
+      const matchesQuery =
+        !q ||
+        s.title.toLowerCase().includes(q) ||
+        (s.subject ?? "").toLowerCase().includes(q) ||
+        (s.owner_name ?? "").toLowerCase().includes(q);
+      const matchesClass = classFilter === "all" || s.class_code === classFilter;
+      const matchesSubject = subjectFilter === "all" || s.subject === subjectFilter;
+      return matchesQuery && matchesClass && matchesSubject;
+    })
+    .sort((a, b) => {
+      if (sortBy === "title") return a.title.localeCompare(b.title);
+      if (sortBy === "lessons") return (b.lesson_count ?? 0) - (a.lesson_count ?? 0);
+      if (sortBy === "progress") return courseProgress(b).pct - courseProgress(a).pct;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
   // Reset to the first page whenever the filter set changes.
   $: totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   $: if (currentPage > totalPages) currentPage = 1;
   $: paged = paginate(filtered, currentPage, PAGE_SIZE);
 
+  // --- overview metrics ------------------------------------------------------
+  $: totalLessons = subjects.reduce((sum, s) => sum + (s.lesson_count ?? 0), 0);
+  $: completedLessons = progress.filter((p) => p.completed).length;
+  $: overallPct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  $: finishedCourses = subjects.filter((c) => {
+    const { done, total } = courseProgress(c);
+    return total > 0 && done >= total;
+  }).length;
+
+  function resetFilters() {
+    query = "";
+    classFilter = "all";
+    subjectFilter = "all";
+    sortBy = "recent";
+    currentPage = 1;
+  }
+
   async function load() {
     loading = true;
     try {
-      subjects = await api.get<Course[]>("/courses?limit=200");
+      const [cs, pr] = await Promise.all([
+        api.get<Course[]>("/courses?limit=200"),
+        api.get<Progress[]>("/me/learning-progress?limit=200").catch(() => [] as Progress[]),
+      ]);
+      subjects = cs;
+      progress = pr;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
@@ -84,37 +136,18 @@
       {/if}
     </div>
 
-    <div class="mt-6 flex flex-wrap items-center gap-3">
-      <div class="relative flex-1 min-w-[220px]">
-        <Icon
-          name="magnifying-glass"
-          size="13px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input !pl-9"
-          placeholder="Cari pelajaran, mata pelajaran, atau guru…"
-          bind:value={query}
-          aria-label="Cari pelajaran"
-        />
-      </div>
-      {#if classes.length > 1}
-        <select class="input !w-auto" bind:value={classFilter} aria-label="Filter kelas">
-          <option value="all">Semua kelas</option>
-          {#each classes as c}<option value={c}>{c}</option>{/each}
-        </select>
-      {/if}
-    </div>
-
     {#if error}
       <p class="alert-error mt-4">{error}</p>
     {/if}
 
     {#if loading}
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {#each Array(4) as _}<div class="skeleton h-24"></div>{/each}
+      </div>
       <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {#each Array(6) as _}<div class="skeleton h-44"></div>{/each}
       </div>
-    {:else if filtered.length === 0}
+    {:else if subjects.length === 0}
       <div class="card mt-8 grid place-items-center py-16 text-center">
         <Icon name="book-open" size="28px" class="muted" />
         <p class="mt-3 font-semibold">Belum ada pelajaran</p>
@@ -124,43 +157,150 @@
         </p>
       </div>
     {:else}
-      <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {#each paged as s, i}
-          <a
-            href={`/courses/${s.id}`}
-            use:reveal={{ delay: i * 40 }}
-            class="card lift flex flex-col"
-          >
-            <div class="flex items-center justify-between">
-              <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
-                <Icon name="book-open-reader" size="17px" />
-              </span>
-              <span class="badge badge-indigo"
-                >{s.class_code ?? "UMUM"}{s.class_type ? ` · ${s.class_type}` : ""}</span
-              >
-            </div>
-            <h2 class="mt-3 font-display text-lg font-bold">{s.title}</h2>
-            {#if s.subject}<p class="mono-label mt-1">{s.subject}</p>{/if}
-            <p class="mt-2 line-clamp-2 flex-1 text-sm muted">
-              {s.description ?? "Tanpa deskripsi"}
-            </p>
-            <div class="mono-label mt-4 flex items-center gap-3 border-t pt-3">
-              <span><Icon name="user-tie" size="10px" /> {s.owner_name ?? "Guru"}</span>
-              <span>·</span>
-              <span><Icon name="book" size="10px" /> {s.lesson_count ?? 0} materi</span>
-            </div>
-          </a>
-        {/each}
+      <!-- Overview metrics -->
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">Pelajaran</p>
+          <p class="mt-1 font-display text-3xl font-bold">{subjects.length}</p>
+        </div>
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">Total Materi</p>
+          <p class="mt-1 font-display text-3xl font-bold">{totalLessons}</p>
+        </div>
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">Materi Selesai</p>
+          <p class="mt-1 font-display text-3xl font-bold text-mint">{completedLessons}</p>
+        </div>
+        <div class="card p-4">
+          <p class="mono-label text-[10px]">Progres Belajar</p>
+          <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="overall-pct">
+            {overallPct}%
+          </p>
+          {#if finishedCourses > 0}
+            <p class="text-[10px] muted">{finishedCourses} pelajaran tuntas</p>
+          {/if}
+        </div>
       </div>
-      <Pagination
-        page={currentPage}
-        pageSize={PAGE_SIZE}
-        total={filtered.length}
-        {loading}
-        label="pelajaran"
-        onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
-        onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
-      />
+
+      <!-- Search & filters -->
+      <div class="mt-6 flex flex-wrap items-center gap-3">
+        <div class="relative flex-1 min-w-[220px]">
+          <Icon
+            name="magnifying-glass"
+            size="13px"
+            class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+          />
+          <input
+            class="input !pl-9"
+            placeholder="Cari pelajaran, mata pelajaran, atau guru…"
+            bind:value={query}
+            aria-label="Cari pelajaran"
+          />
+        </div>
+        {#if classes.length > 1}
+          <select class="input !w-auto" bind:value={classFilter} aria-label="Filter kelas">
+            <option value="all">Semua kelas</option>
+            {#each classes as c}<option value={c}>{c}</option>{/each}
+          </select>
+        {/if}
+        {#if subjectOptions.length > 1}
+          <select
+            class="input !w-auto"
+            bind:value={subjectFilter}
+            aria-label="Filter mata pelajaran"
+          >
+            <option value="all">Semua mapel</option>
+            {#each subjectOptions as s}<option value={s}>{s}</option>{/each}
+          </select>
+        {/if}
+        <select class="input !w-auto" bind:value={sortBy} aria-label="Urutkan">
+          <option value="recent">Terbaru</option>
+          <option value="progress">Progres tertinggi</option>
+          <option value="lessons">Materi terbanyak</option>
+          <option value="title">Judul (A–Z)</option>
+        </select>
+      </div>
+
+      {#if filtered.length === 0}
+        <div class="card mt-8 grid place-items-center py-16 text-center">
+          <Icon name="book-open" size="28px" class="muted" />
+          <p class="mt-3 font-semibold">Tidak ada pelajaran yang cocok</p>
+          <p class="text-sm muted">Coba ubah pencarian atau filtermu.</p>
+          <button class="btn-ghost mt-3 !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
+        </div>
+      {:else}
+        <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {#each paged as s, i (s.id)}
+            {@const prog = courseProgress(s)}
+            <a
+              href={`/courses/${s.id}`}
+              use:reveal={{ delay: i * 40 }}
+              class="card lift flex flex-col"
+              data-course={s.id}
+            >
+              <div class="flex items-center justify-between">
+                <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
+                  <Icon name="book-open-reader" size="17px" />
+                </span>
+                <span class="badge badge-indigo"
+                  >{s.class_code ?? "UMUM"}{s.class_type ? ` · ${s.class_type}` : ""}</span
+                >
+              </div>
+              <h2 class="mt-3 font-display text-lg font-bold">{s.title}</h2>
+              {#if s.subject}<p class="mono-label mt-1">{s.subject}</p>{/if}
+              <p class="mt-2 line-clamp-2 flex-1 text-sm muted">
+                {s.description ?? "Tanpa deskripsi"}
+              </p>
+
+              <!-- Course progress -->
+              {#if prog.total > 0}
+                <div class="mt-3">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="muted">Progres</span>
+                    <span class="mono">{prog.done}/{prog.total}</span>
+                  </div>
+                  <div
+                    class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
+                    style="background: rgb(var(--line))"
+                    role="progressbar"
+                    aria-valuenow={prog.done}
+                    aria-valuemin={0}
+                    aria-valuemax={prog.total}
+                    aria-label={`Progres ${s.title}`}
+                  >
+                    <div
+                      class="h-full rounded-full transition-all {prog.pct >= 100
+                        ? 'bg-mint'
+                        : 'bg-primary'}"
+                      style={`width: ${prog.pct}%`}
+                    ></div>
+                  </div>
+                </div>
+              {/if}
+
+              <div class="mono-label mt-4 flex items-center gap-3 border-t pt-3">
+                <span><Icon name="user-tie" size="10px" /> {s.owner_name ?? "Guru"}</span>
+                <span>·</span>
+                <span><Icon name="book" size="10px" /> {s.lesson_count ?? 0} materi</span>
+                {#if prog.pct >= 100 && prog.total > 0}
+                  <span class="badge badge-mint ml-auto"
+                    ><Icon name="check" size="9px" /> Tuntas</span
+                  >
+                {/if}
+              </div>
+            </a>
+          {/each}
+        </div>
+        <Pagination
+          page={currentPage}
+          pageSize={PAGE_SIZE}
+          total={filtered.length}
+          {loading}
+          label="pelajaran"
+          onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
+          onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+        />
+      {/if}
     {/if}
   </div>
 </div>
