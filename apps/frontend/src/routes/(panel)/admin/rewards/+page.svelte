@@ -8,6 +8,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import Icon from "$lib/components/Icon.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -19,6 +20,9 @@
   let busy = "";
   let page = 1;
   let hasMore = false;
+  let query = "";
+  let statusFilter: "all" | "confirmed" | "pending" | "failed" = "all";
+  let confirmingCancel: Reward | null = null;
 
   async function load() {
     loading = true;
@@ -40,6 +44,26 @@
     load();
   }
 
+  // --- metrics + filtering (over the current page) ---------------------------
+  $: confirmedCount = rewards.filter((r) => r.status === "confirmed").length;
+  $: pendingCount = rewards.filter((r) => r.status === "pending").length;
+  $: failedCount = rewards.filter((r) => r.status === "failed").length;
+  $: failedTotal = rewards.filter((r) => r.status === "failed").reduce((s, r) => s + r.amount, 0);
+
+  $: filtered = rewards.filter((r) => {
+    if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (query.trim()) {
+      const q = query.toLowerCase().trim();
+      if (
+        !r.reward_key.toLowerCase().includes(q) &&
+        !(r.user_id ?? "").toLowerCase().includes(q) &&
+        !(r.reward_type ?? "").toLowerCase().includes(q)
+      )
+        return false;
+    }
+    return true;
+  });
+
   async function retry(id: string) {
     error = "";
     message = "";
@@ -59,6 +83,7 @@
     error = "";
     message = "";
     busy = id;
+    confirmingCancel = null;
     try {
       await api.post(`/admin/rewards/${id}/cancel`);
       message = "Hadiah dibatalkan.";
@@ -133,13 +158,74 @@
     </div>
   </div>
 
-  <div class="card mt-6 overflow-x-auto">
+  <!-- Metrics -->
+  {#if !loading && rewards.length > 0}
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Terkonfirmasi</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="confirmed-count">
+          {confirmedCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Tertunda</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight">{pendingCount}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Gagal</p>
+        <p class="mt-1 font-display text-3xl font-bold" class:text-danger={failedCount > 0}>
+          {failedCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">OPT tertahan (gagal)</p>
+        <p class="mt-1 font-display text-3xl font-bold">{formatNumber(failedTotal)}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Search + status filter -->
+  {#if !loading && rewards.length > 0}
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[200px]">
+        <Icon
+          name="magnifying-glass"
+          size="12px"
+          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+        />
+        <input
+          class="input text-xs !py-1.5 !pl-8 w-full"
+          placeholder="Cari kunci, pengguna, atau jenis..."
+          bind:value={query}
+          aria-label="Cari hadiah"
+        />
+      </div>
+      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+        {#each [["all", "Semua"], ["confirmed", "Terkonfirmasi"], ["pending", "Tertunda"], ["failed", "Gagal"]] as [val, label]}
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+            class:bg-primary={statusFilter === val}
+            class:text-[#05060A]={statusFilter === val}
+            class:muted={statusFilter !== val}
+            on:click={() => (statusFilter = val as typeof statusFilter)}
+          >
+            {label}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  <div class="card mt-4 overflow-x-auto">
     {#if loading}
       <div class="space-y-2">
         {#each Array(5) as _}<div class="skeleton h-8"></div>{/each}
       </div>
     {:else if rewards.length === 0}
       <p class="py-2 muted">Belum ada hadiah.</p>
+    {:else if filtered.length === 0}
+      <p class="py-2 muted">Tidak ada hadiah yang cocok dengan filtermu.</p>
     {:else}
       <table class="w-full text-sm">
         <thead class="text-left muted">
@@ -150,7 +236,7 @@
           >
         </thead>
         <tbody>
-          {#each rewards as r}
+          {#each filtered as r (r.id)}
             <tr class="border-t">
               <td class="py-1 font-mono text-xs">{r.reward_key.slice(0, 10)}…</td>
               <td class="font-mono text-xs">{(r.user_id ?? "").slice(0, 8)}…</td>
@@ -174,8 +260,8 @@
                   >{/if}
                 {#if r.status === "pending"}<button
                     class="btn-ghost"
-                    on:click={() => cancel(r.id)}
-                    disabled={busy === r.id}>{busy === r.id ? "…" : "Batal"}</button
+                    on:click={() => (confirmingCancel = r)}
+                    disabled={busy === r.id}>Batal</button
                   >{/if}
               </td>
             </tr>
@@ -195,3 +281,34 @@
     onNext={() => go(1)}
   />
 </div>
+
+<!-- Cancel confirmation modal -->
+{#if confirmingCancel}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">Konfirmasi Batalkan Hadiah</h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        Batalkan hadiah <strong class="mono">{confirmingCancel.reward_key.slice(0, 12)}…</strong>
+        senilai
+        {formatNumber(confirmingCancel.amount)} OPT?
+      </p>
+      <p class="text-xs muted leading-relaxed">
+        Hadiah yang tertunda akan dibatalkan dan tidak dikirim ke chain. Tindakan ini tercatat di
+        audit log.
+      </p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (confirmingCancel = null)}>Tutup</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => confirmingCancel && cancel(confirmingCancel.id)}
+          data-role="confirm-cancel-reward"
+        >
+          Ya, Batalkan
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
