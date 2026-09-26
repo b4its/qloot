@@ -12,6 +12,8 @@
   let questions: NonNullable<Exam["questions"]> = [];
   let answers: Record<string, string> = {};
   let saved: Record<string, "idle" | "saving" | "saved" | "error"> = {};
+  let flagged: Record<string, boolean> = {};
+  let showSubmitModal = false;
   let loading = true;
   let error = "";
   let current = 0;
@@ -22,8 +24,43 @@
   let finished = false;
   const autosaveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
+  const QTYPE_LABELS: Record<string, string> = {
+    multiple_choice: "Pilihan Ganda",
+    true_false: "Benar / Salah",
+    multi_select: "Pilihan Jamak",
+    numeric: "Jawaban Angka",
+    fill_blank: "Isian Singkat",
+    ordering: "Urutan Item",
+    matching: "Pencocokan Pasangan",
+    essay: "Esai",
+  };
+
   const examId = $page.params.examId;
   const attemptId = $page.url.searchParams.get("attempt") ?? "";
+
+  function toggleFlag(qid: string) {
+    flagged[qid] = !flagged[qid];
+    flagged = { ...flagged };
+  }
+
+  function isAnswered(qid: string, currentAnswers: Record<string, string>): boolean {
+    const raw = currentAnswers[qid];
+    if (raw === undefined || raw === null || raw === "") return false;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.length > 0;
+      if (typeof parsed === "object" && parsed !== null) return Object.keys(parsed).length > 0;
+    } catch {
+      // plain text string
+    }
+    return String(raw).trim().length > 0;
+  }
+
+  $: answeredCount = questions.filter((q) => isAnswered(q.id, answers)).length;
+  $: flaggedCount = questions.filter((q) => flagged[q.id]).length;
+  $: unansweredCount = Math.max(0, questions.length - answeredCount);
+  $: progressPercent =
+    questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   function warnBeforeUnload(e: BeforeUnloadEvent) {
     if (finished || secondsLeft <= 0) return;
@@ -46,6 +83,8 @@
           saved[a.question_id] = "saved";
         }
       }
+      answers = { ...answers };
+      saved = { ...saved };
       startTimer();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
@@ -64,7 +103,7 @@
       secondsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
       if (secondsLeft === 0) {
         if (ticker) clearInterval(ticker);
-        submit();
+        executeSubmit();
       }
     };
     update();
@@ -103,22 +142,31 @@
   }
 
   function onInput(qid: string) {
+    answers = { ...answers };
     saved[qid] = "idle";
+    saved = { ...saved };
     if (autosaveTimers[qid]) clearTimeout(autosaveTimers[qid]);
     autosaveTimers[qid] = setTimeout(() => saveAnswer(qid), 800);
   }
 
   async function saveAnswer(qid: string) {
     saved[qid] = "saving";
+    saved = { ...saved };
     try {
       await api.put(`/attempts/${attemptId}/answers/${qid}`, { answer_text: answers[qid] ?? "" });
       saved[qid] = "saved";
+      saved = { ...saved };
     } catch {
       saved[qid] = "error";
+      saved = { ...saved };
     }
   }
 
-  async function submit() {
+  function requestSubmit() {
+    showSubmitModal = true;
+  }
+
+  async function executeSubmit() {
     if (submitting || finished) return;
     submitting = true;
     submitError = "";
@@ -133,6 +181,7 @@
       }
       await api.post(`/attempts/${attemptId}/submit`);
       finished = true;
+      showSubmitModal = false;
       await goto(`/exams/${examId}/result?attempt=${attemptId}`);
     } catch (e) {
       submitError = e instanceof ApiError ? e.message : "Gagal mengirim jawaban";
@@ -140,6 +189,8 @@
       submitting = false;
     }
   }
+
+  const submit = requestSubmit;
 
   function mmss(s: number): string {
     const m = Math.floor(s / 60);
@@ -197,47 +248,90 @@
     </p>
   {:else if exam && attempt}
     <div
-      class="sticky top-16 z-20 mb-4 flex items-center justify-between rounded-sm border px-4 py-3 surface clip-corner"
+      class="sticky top-16 z-20 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border px-4 py-3 surface clip-corner"
     >
-      <h1 class="hud font-display text-lg font-bold">{exam.title}</h1>
+      <div>
+        <h1 class="hud font-display text-lg font-bold">{exam.title}</h1>
+        <p class="text-xs muted mt-0.5">
+          Terjawab: <span class="font-mono text-mint font-semibold">{answeredCount}</span> dari {questions.length}
+          soal
+        </p>
+      </div>
       <div class="flex items-center gap-3">
         <span
-          class="badge"
-          class:badge-magenta={secondsLeft < 60}
-          class:badge-amber={secondsLeft >= 60}
+          class="badge font-mono"
+          class:badge-magenta={secondsLeft < 300}
+          class:badge-amber={secondsLeft >= 300}
         >
           <Icon name="stopwatch" size="10px" />
           {mmss(secondsLeft)}
         </span>
-        <button class="btn-primary" on:click={submit} disabled={submitting}>
+        <button class="btn-primary" on:click={requestSubmit} disabled={submitting}>
           {#if submitting}<Icon name="spinner" spin size="12px" />{/if}
           {submitting ? "Mengirim…" : "Kumpulkan"}
         </button>
       </div>
     </div>
 
-    {#if submitError}
-      <div class="alert-error mb-4">
-        <span class="flex-1">{submitError}</span>
-        <button class="btn-secondary !py-1 flex-none" on:click={submit}>Coba lagi</button>
+    {#if secondsLeft > 0 && secondsLeft <= 300}
+      <div class="alert-error mb-4 flex items-center gap-2 !py-2 text-xs">
+        <Icon name="alert-triangle" size="14px" />
+        <span
+          >Peringatan: Sisa waktu pengerjaan kurang dari 5 menit! Jawaban akan dikumpulkan otomatis
+          saat waktu habis.</span
+        >
       </div>
     {/if}
 
-    <div class="grid gap-4 lg:grid-cols-[1fr_220px]">
+    {#if submitError}
+      <div class="alert-error mb-4">
+        <span class="flex-1">{submitError}</span>
+        <button class="btn-secondary !py-1 flex-none" on:click={requestSubmit}>Coba lagi</button>
+      </div>
+    {/if}
+
+    <div class="grid gap-4 lg:grid-cols-[1fr_240px]">
       <div class="space-y-4">
         {#each questions as q, i}
           {#if i === current}
             <div class="card">
-              <div class="flex items-center justify-between">
-                <h2 class="hud font-display text-lg font-bold">
-                  Soal {i + 1} dari {questions.length}
-                </h2>
-                <span class="text-xs muted">
-                  {#if saved[q.id] === "saving"}Menyimpan…
-                  {:else if saved[q.id] === "saved"}Tersimpan <Icon name="check" size="10px" />
-                  {:else if saved[q.id] === "error"}Gagal menyimpan
-                  {:else}Belum tersimpan{/if}
-                </span>
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                <div class="flex items-center gap-2">
+                  <h2 class="hud font-display text-lg font-bold">
+                    Soal {i + 1} dari {questions.length}
+                  </h2>
+                  <span class="badge border-primary/30 text-primary text-[11px]">
+                    {QTYPE_LABELS[q.qtype] ?? q.qtype}
+                  </span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    class="btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5 transition-colors border {flagged[
+                      q.id
+                    ]
+                      ? '!border-amber-400 !text-amber-400 !bg-amber-400/10'
+                      : ''}"
+                    on:click={() => toggleFlag(q.id)}
+                    title="Tandai soal ini jika masih ragu-ragu"
+                  >
+                    <Icon name="flag" size="11px" />
+                    <span>{flagged[q.id] ? "Ragu-ragu (Ditandai)" : "Tandai Ragu-ragu"}</span>
+                  </button>
+                  <span class="text-xs muted flex items-center gap-1 font-mono">
+                    {#if saved[q.id] === "saving"}
+                      <Icon name="spinner" spin size="10px" /> Menyimpan…
+                    {:else if saved[q.id] === "saved"}
+                      <span class="text-mint flex items-center gap-1"
+                        >Tersimpan <Icon name="check" size="10px" /></span
+                      >
+                    {:else if saved[q.id] === "error"}
+                      <span class="text-magenta">Gagal menyimpan</span>
+                    {:else}
+                      Belum tersimpan
+                    {/if}
+                  </span>
+                </div>
               </div>
               <p class="mt-3">{q.prompt}</p>
               {#if q.qtype === "multiple_choice"}
@@ -371,40 +465,216 @@
                   }}
                 ></textarea>
               {/if}
-              <div class="mt-3 flex justify-between">
-                <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}
-                  >← Sebelumnya</button
-                >
-                <button
-                  class="btn-primary"
-                  disabled={i === questions.length - 1}
-                  on:click={() => (current = i + 1)}>Berikutnya →</button
-                >
+              <div class="mt-6 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+                <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}>
+                  ← Sebelumnya
+                </button>
+                <div class="flex items-center gap-2">
+                  {#if i === questions.length - 1}
+                    <button class="btn-primary" on:click={requestSubmit}>
+                      Tinjau & Kumpulkan →
+                    </button>
+                  {:else}
+                    <button class="btn-secondary" on:click={() => (current = i + 1)}>
+                      Berikutnya →
+                    </button>
+                  {/if}
+                </div>
               </div>
             </div>
           {/if}
         {/each}
       </div>
 
-      <aside class="card h-fit">
-        <h2 class="hud font-display text-lg font-bold">Navigasi</h2>
-        <div class="mt-3 grid grid-cols-5 gap-2">
+      <aside class="card h-fit space-y-4">
+        <div>
+          <h2 class="hud font-display text-base font-bold">Navigasi Soal</h2>
+          <div class="mt-2 space-y-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="muted">Progres</span>
+              <span class="font-mono text-primary font-bold"
+                >{answeredCount}/{questions.length} ({progressPercent}%)</span
+              >
+            </div>
+            <div class="track h-1.5 w-full">
+              <span style={`width:${progressPercent}%`}></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-5 gap-2">
           {#each questions as q, i}
+            {@const isCur = i === current}
+            {@const isAns = isAnswered(q.id, answers)}
+            {@const isFlag = flagged[q.id]}
             <button
-              class="h-9 w-9 rounded-sm border font-mono text-sm transition-colors"
-              class:border-primary={i === current}
-              class:bg-primary={i === current}
-              class:text-[#05060A]={i === current}
-              class:border-secondary={saved[q.id] === "saved" && i !== current}
-              class:text-secondary={saved[q.id] === "saved" && i !== current}
+              class="relative h-9 w-9 rounded-sm border font-mono text-sm font-medium transition-all {isCur
+                ? 'border-primary bg-primary text-[#05060A]'
+                : isFlag
+                  ? 'border-amber-400 bg-amber-400/20 text-amber-300'
+                  : isAns
+                    ? 'border-secondary bg-secondary/10 text-secondary'
+                    : 'border-border/60 opacity-60'}"
               on:click={() => (current = i)}
+              title={`Soal #${i + 1} (${isAns ? "Terjawab" : "Belum diisi"}${isFlag ? " · Ragu-ragu" : ""})`}
             >
               {i + 1}
+              {#if isFlag}
+                <span
+                  class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-background"
+                ></span>
+              {/if}
             </button>
           {/each}
         </div>
-        <p class="mt-3 text-xs muted">Cyan = tersimpan. Klik untuk lompat.</p>
+
+        <div class="border-t pt-3 grid grid-cols-2 gap-2 text-[11px] muted">
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-xs border border-secondary bg-secondary/20"></span>
+            <span>Terjawab</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-xs border border-border bg-background opacity-60"
+            ></span>
+            <span>Belum diisi</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-xs border border-amber-400 bg-amber-400/30"></span>
+            <span>Ragu-ragu</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-xs border border-primary bg-primary"></span>
+            <span>Aktif</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn-primary w-full text-xs !py-2"
+          on:click={requestSubmit}
+          disabled={submitting}
+        >
+          Kumpulkan Ujian
+        </button>
       </aside>
     </div>
+
+    {#if showSubmitModal}
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="submit-modal-title"
+      >
+        <div class="card w-full max-w-lg space-y-4 border-primary/40 shadow-2xl">
+          <div class="flex items-start justify-between border-b pb-3">
+            <div>
+              <h2 id="submit-modal-title" class="hud font-display text-lg font-bold">
+                Konfirmasi Pengumpulan Ujian
+              </h2>
+              <p class="text-xs muted mt-0.5">{exam.title}</p>
+            </div>
+            <button
+              class="text-muted hover:text-foreground text-sm"
+              on:click={() => (showSubmitModal = false)}
+              aria-label="Tutup">✕</button
+            >
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="rounded-sm border p-2.5 surface">
+              <div class="mono-label text-[10px]">Total Soal</div>
+              <div class="font-mono text-base font-bold mt-1">{questions.length}</div>
+            </div>
+            <div class="rounded-sm border p-2.5 surface">
+              <div class="mono-label text-[10px]">Terjawab</div>
+              <div class="font-mono text-base font-bold text-mint mt-1">{answeredCount}</div>
+            </div>
+            <div class="rounded-sm border p-2.5 surface">
+              <div class="mono-label text-[10px]">Belum Diisi</div>
+              <div
+                class="font-mono text-base font-bold mt-1"
+                class:text-magenta={unansweredCount > 0}
+                class:muted={unansweredCount === 0}
+              >
+                {unansweredCount}
+              </div>
+            </div>
+          </div>
+
+          {#if unansweredCount > 0}
+            <div
+              class="rounded-sm border border-magenta/40 bg-magenta/10 p-3 text-xs text-magenta space-y-2"
+            >
+              <div class="flex items-center gap-1.5 font-bold">
+                <Icon name="alert-triangle" size="14px" />
+                <span>Masih ada {unansweredCount} soal yang belum dijawab!</span>
+              </div>
+              <p class="text-muted leading-relaxed">
+                Klik nomor soal di bawah untuk langsung menuju soal tersebut sebelum mengumpulkan:
+              </p>
+              <div class="flex flex-wrap gap-1.5 pt-1">
+                {#each questions as q, idx}
+                  {#if !isAnswered(q.id, answers)}
+                    <button
+                      type="button"
+                      class="h-7 px-2.5 rounded-xs border border-magenta/50 bg-background text-xs font-mono font-medium hover:bg-magenta/20 transition-colors"
+                      on:click={() => {
+                        current = idx;
+                        showSubmitModal = false;
+                      }}
+                    >
+                      #{idx + 1}
+                    </button>
+                  {/if}
+                {/each}
+              </div>
+            </div>
+          {:else}
+            <div
+              class="rounded-sm border border-mint/40 bg-mint/10 p-3 text-xs text-mint flex items-center gap-2"
+            >
+              <Icon name="check" size="14px" />
+              <span>Semua soal telah terjawab. Anda siap menyelesaikan ujian!</span>
+            </div>
+          {/if}
+
+          {#if flaggedCount > 0}
+            <div
+              class="rounded-sm border border-amber/40 bg-amber/10 p-2.5 text-xs text-amber flex items-center gap-2"
+            >
+              <Icon name="flag" size="12px" />
+              <span>Terdapat {flaggedCount} soal yang masih Anda tandai ragu-ragu.</span>
+            </div>
+          {/if}
+
+          {#if submitError}
+            <div class="alert-error text-xs">
+              <span>{submitError}</span>
+            </div>
+          {/if}
+
+          <div class="flex items-center justify-end gap-2 border-t pt-3">
+            <button
+              type="button"
+              class="btn-ghost text-xs"
+              disabled={submitting}
+              on:click={() => (showSubmitModal = false)}
+            >
+              Lanjut Mengerjakan
+            </button>
+            <button
+              type="button"
+              class="btn-primary text-xs"
+              disabled={submitting}
+              on:click={executeSubmit}
+            >
+              {#if submitting}<Icon name="spinner" spin size="12px" />{/if}
+              {submitting ? "Mengirim Jawaban…" : "Ya, Kumpulkan Sekarang"}
+            </button>
+          </div>
+        </div>
+      </div>
+    {/if}
   {/if}
 </div>

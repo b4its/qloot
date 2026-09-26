@@ -145,8 +145,9 @@
     <div class="mt-4 space-y-4">
       {#each answers as a, i}
         {@const q = questionFor(a.question_id)}
-        {@const isFullScore = a.max_score_bp > 0 && a.score_bp >= a.max_score_bp}
-        {@const isZeroScore = a.score_bp === 0}
+        {@const currentScore = a.score_bp ?? 0}
+        {@const isFullScore = a.max_score_bp > 0 && currentScore >= a.max_score_bp}
+        {@const isZeroScore = a.score_bp !== null && a.score_bp !== undefined && currentScore === 0}
         <div class="card transition-all">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-2">
