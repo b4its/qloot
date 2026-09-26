@@ -12,6 +12,7 @@
   import {
     formatDate,
     formatNumber,
+    relativeTime,
     shortHash,
     etherscanUrl,
     statusLabel,
@@ -307,6 +308,35 @@
     created_at: string;
   }
   let withdrawals: MyWithdrawal[] = [];
+  let withdrawalFilter: "all" | "requested" | "confirmed" | "rejected" = "all";
+
+  // Correctness: distinguish the local approval lifecycle labels the backend
+  // uses (requested → approved → submitted → confirmed / rejected / cancelled).
+  const withdrawalTone: Record<string, string> = {
+    requested: "badge-amber",
+    approved: "badge-indigo",
+    submitted: "badge-indigo",
+    confirmed: "badge-mint",
+    rejected: "badge-magenta",
+    cancelled: "badge-neutral",
+    failed: "badge-magenta",
+  };
+
+  $: filteredWithdrawals = withdrawals.filter((w) => {
+    if (withdrawalFilter === "all") return true;
+    if (withdrawalFilter === "requested")
+      return w.status === "requested" || w.status === "approved" || w.status === "submitted";
+    if (withdrawalFilter === "confirmed") return w.status === "confirmed";
+    return w.status === "rejected" || w.status === "cancelled" || w.status === "failed";
+  });
+
+  $: pendingWithdrawals = withdrawals.filter(
+    (w) => w.status === "requested" || w.status === "approved" || w.status === "submitted",
+  ).length;
+  $: confirmedWithdrawals = withdrawals.filter((w) => w.status === "confirmed").length;
+  $: totalWithdrawn = withdrawals
+    .filter((w) => w.status === "confirmed")
+    .reduce((s, w) => s + w.amount, 0);
 
   async function loadWithdrawals() {
     try {
@@ -670,27 +700,58 @@
         </div>
         {#if withdrawals.length}
           <div class="mt-4 border-t pt-4">
-            <p class="mono-label mb-2">Riwayat penarikan</p>
-            <ul class="space-y-2">
-              {#each withdrawals as w}
-                <li class="flex items-center justify-between gap-3 text-sm">
-                  <span>
-                    <span class="font-mono">{formatNumber(w.amount)} OPT</span>
-                    <span class="ml-2 badge badge-slate">{w.status}</span>
-                    {#if w.reject_reason}
-                      <span class="ml-2 text-xs muted">{w.reject_reason}</span>
-                    {/if}
-                  </span>
-                  {#if w.status === "requested"}
-                    <button
-                      class="btn-ghost !py-1 text-xs"
-                      on:click={() => cancelWithdrawal(w.id)}
-                      disabled={withdrawBusy}>Batalkan</button
-                    >
-                  {/if}
-                </li>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="mono-label">Riwayat penarikan</p>
+              <span class="mono-label text-[10px]">
+                {confirmedWithdrawals} selesai · {formatNumber(totalWithdrawn)} OPT
+              </span>
+            </div>
+
+            <!-- Status filter chips -->
+            <div class="mt-2 flex flex-wrap gap-1 text-xs">
+              {#each [["all", `Semua (${withdrawals.length})`], ["requested", `Diproses (${pendingWithdrawals})`], ["confirmed", `Selesai (${confirmedWithdrawals})`], ["rejected", "Gagal/Ditolak"]] as [val, label]}
+                <button
+                  type="button"
+                  class="btn-pill !py-1 text-xs"
+                  class:!border-primary={withdrawalFilter === val}
+                  class:!text-primary={withdrawalFilter === val}
+                  on:click={() => (withdrawalFilter = val as typeof withdrawalFilter)}
+                >
+                  {label}
+                </button>
               {/each}
-            </ul>
+            </div>
+
+            {#if filteredWithdrawals.length === 0}
+              <p class="mt-3 text-xs muted">Tidak ada penarikan dengan status ini.</p>
+            {:else}
+              <ul class="mt-3 space-y-2">
+                {#each filteredWithdrawals as w (w.id)}
+                  <li class="flex items-center justify-between gap-3 text-sm">
+                    <span class="min-w-0">
+                      <span class="font-mono">{formatNumber(w.amount)} OPT</span>
+                      <span class="ml-2 badge {withdrawalTone[w.status] ?? 'badge-neutral'}"
+                        >{statusLabel(w.status)}</span
+                      >
+                      <span class="block text-[11px] muted mt-0.5"
+                        >{relativeTime(w.created_at)} ·
+                        <span class="font-mono">{w.destination_address.slice(0, 10)}…</span></span
+                      >
+                      {#if w.reject_reason}
+                        <span class="block text-xs text-tertiary">{w.reject_reason}</span>
+                      {/if}
+                    </span>
+                    {#if w.status === "requested"}
+                      <button
+                        class="btn-ghost !py-1 text-xs shrink-0"
+                        on:click={() => cancelWithdrawal(w.id)}
+                        disabled={withdrawBusy}>Batalkan</button
+                      >
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
           </div>
         {/if}
       </div>
