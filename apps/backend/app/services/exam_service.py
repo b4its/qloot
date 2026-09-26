@@ -189,6 +189,24 @@ class ExamService:
         stmt = select(Question).where(Question.exam_id == exam_id).order_by(Question.position)
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def reorder_questions(
+        self, exam_id: uuid.UUID, user: User, question_ids: list[uuid.UUID]
+    ) -> list[Question]:
+        """Rewrite question positions atomically from the given order.
+
+        Rejects an order that does not exactly cover the exam's questions.
+        """
+        await self._get_owned_exam(exam_id, user)
+        questions = {q.id: q for q in await self.list_questions(exam_id)}
+        if set(question_ids) != set(questions) or len(question_ids) != len(questions):
+            raise ValidationError(
+                "Reorder must list every question of the exam exactly once"
+            )
+        for i, qid in enumerate(question_ids):
+            questions[qid].position = i
+        await self.session.flush()
+        return [questions[qid] for qid in question_ids]
+
     async def exam_has_essay(self, exam_id: uuid.UUID) -> bool:
         """True if the exam has any AI-graded (essay) question."""
         count = (

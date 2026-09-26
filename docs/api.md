@@ -351,6 +351,7 @@ GET    /exams/{exam_id}/results            # teacher: attempts + display_name + 
 GET    /exams/{exam_id}/results/review      # teacher: per-student answers + correctness
 
 POST   /exams/{exam_id}/questions          # qtype=essay|multiple_choice (+ options[] for MC)
+POST   /exams/{exam_id}/questions/reorder  # atomic question reordering
 PATCH  /questions/{question_id}            # replace MC options atomically
 DELETE /questions/{question_id}
 

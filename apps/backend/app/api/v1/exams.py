@@ -28,6 +28,7 @@ from app.schemas.exam import (
     OverrideAnswerIn,
     QuestionCreate,
     QuestionOut,
+    QuestionReorder,
     QuestionUpdate,
     ReviewAnswerOut,
 )
@@ -165,6 +166,22 @@ async def attach_question(
         service = ExamService(db)
         clone = await service.attach_question(exam_id, payload.question_id, user)
         out = await _question_out(service, clone, reveal_answers=True)
+    return out
+
+
+@router.post("/exams/{exam_id}/questions/reorder", response_model=list[QuestionOut])
+async def reorder_questions(
+    exam_id: uuid.UUID, payload: QuestionReorder, user: TeacherUser, db: DbSession
+):
+    """Rewrite question positions from an explicit order (atomic)."""
+    async with transaction(db):
+        service = ExamService(db)
+        questions = await service.reorder_questions(
+            exam_id, user, payload.question_ids
+        )
+        out: list[QuestionOut] = []
+        for q in questions:
+            out.append(await _question_out(service, q, reveal_answers=True))
     return out
 
 

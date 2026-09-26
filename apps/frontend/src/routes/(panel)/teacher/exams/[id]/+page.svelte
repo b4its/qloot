@@ -333,6 +333,24 @@
     }
   }
 
+  async function moveQ(index: number, delta: number) {
+    const next = index + delta;
+    if (next < 0 || next >= questions.length) return;
+    const ordered = questions.map((q) => q.id);
+    [ordered[index], ordered[next]] = [ordered[next], ordered[index]];
+    error = "";
+    message = "";
+    busy = "q-reorder";
+    try {
+      await api.post(`/exams/${examId}/questions/reorder`, { question_ids: ordered });
+      await loadQuestions();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal mengubah urutan soal";
+    } finally {
+      busy = "";
+    }
+  }
+
   /** Approve or reject an AI-generated question awaiting review. */
   async function reviewQ(q: Question, status: "approved" | "rejected") {
     error = "";
@@ -652,6 +670,22 @@
                   {/if}</span
                 >
                 <span class="flex flex-none gap-1">
+                  {#if questions.length > 1}
+                    <button
+                      class="btn-icon"
+                      disabled={i === 0 || busy === "q-reorder"}
+                      on:click={() => moveQ(i, -1)}
+                      title="Pindah ke atas"
+                      aria-label="Pindah ke atas"><Icon name="arrow-up" size="11px" /></button
+                    >
+                    <button
+                      class="btn-icon"
+                      disabled={i === questions.length - 1 || busy === "q-reorder"}
+                      on:click={() => moveQ(i, 1)}
+                      title="Pindah ke bawah"
+                      aria-label="Pindah ke bawah"><Icon name="arrow-down" size="11px" /></button
+                    >
+                  {/if}
                   {#if q.review_status === "pending"}
                     <button
                       class="btn-icon !text-secondary hover:!border-secondary"

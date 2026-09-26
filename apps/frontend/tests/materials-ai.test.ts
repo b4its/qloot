@@ -150,4 +150,3 @@ describe("teacher materials — AI question generation", () => {
     expect(await screen.findByText(/Soal lama tersimpan\?/)).toBeTruthy();
   });
 });
-
