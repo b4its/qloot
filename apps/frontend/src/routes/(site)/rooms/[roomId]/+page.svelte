@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
   import { api, wsUrl, ApiError } from "$lib/api/client";
-  import type { Room, RoomMember, RankingResponse, RoomEvent } from "$lib/types";
+  import type { Room, RoomMember, RankingResponse, RoomEvent, LiveEntry } from "$lib/types";
   import Icon from "$lib/components/Icon.svelte";
   import { auth, hasRole } from "$lib/stores/auth";
   import { statusLabel } from "$lib/utils/format";
@@ -10,6 +10,8 @@
   let room: Room | null = null;
   let participants: RoomMember[] = [];
   let ranking: RankingResponse | null = null;
+  let liveBoard: LiveEntry[] = [];
+  let boardTab: "live" | "all" = "live";
   let loading = true;
   let error = "";
   let connected = false;
@@ -58,10 +60,18 @@
 
   async function load() {
     try {
-      room = await api.get<Room>(`/rooms/${roomId}`);
-      participants = await api.get<RoomMember[]>(`/rooms/${roomId}/participants`);
-      ranking = await api.get<RankingResponse>(`/rankings/rooms/${roomId}`);
-      history = await api.get<RoomEvent[]>(`/rooms/${roomId}/events?limit=20`);
+      const [r, p, rk, h, lb] = await Promise.all([
+        api.get<Room>(`/rooms/${roomId}`),
+        api.get<RoomMember[]>(`/rooms/${roomId}/participants`),
+        api.get<RankingResponse>(`/rankings/rooms/${roomId}`),
+        api.get<RoomEvent[]>(`/rooms/${roomId}/events?limit=20`),
+        api.get<LiveEntry[]>(`/rooms/${roomId}/live`),
+      ]);
+      room = r;
+      participants = p;
+      ranking = rk;
+      history = h;
+      liveBoard = lb;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ruang";
     } finally {
@@ -281,8 +291,64 @@
 
     <div class="mt-6 grid gap-4 lg:grid-cols-3">
       <div class="card lg:col-span-2">
-        <h2 class="hud font-display text-lg font-bold">Peringkat langsung</h2>
-        {#if ranking && ranking.entries.length}
+        <div class="flex items-center justify-between">
+          <h2 class="hud font-display text-lg font-bold">Papan Peringkat</h2>
+          <div class="flex items-center gap-1 text-xs">
+            <button
+              class="px-2 py-1 rounded {boardTab === 'live'
+                ? 'bg-primary text-black font-semibold'
+                : 'btn-ghost'}"
+              on:click={() => (boardTab = "live")}
+            >
+              Langsung ({liveBoard.length})
+            </button>
+            <button
+              class="px-2 py-1 rounded {boardTab === 'all'
+                ? 'bg-primary text-black font-semibold'
+                : 'btn-ghost'}"
+              on:click={() => (boardTab = "all")}
+            >
+              Akumulasi
+            </button>
+          </div>
+        </div>
+
+        {#if boardTab === "live"}
+          {#if liveBoard.length > 0}
+            <table class="mt-3 w-full text-sm">
+              <thead class="text-left muted">
+                <tr
+                  ><th class="py-1">#</th><th>Pengguna</th><th>Kehadiran</th><th class="text-right"
+                    >Skor</th
+                  ></tr
+                >
+              </thead>
+              <tbody>
+                {#each liveBoard as e}
+                  <tr class="border-t">
+                    <td class="py-1 font-mono">{e.rank}</td>
+                    <td>
+                      {who(e.display_name, e.user_id)}
+                      {#if e.user_id === myId}<span class="mono text-xs muted">(kamu)</span>{/if}
+                    </td>
+                    <td>
+                      <span
+                        class="badge"
+                        class:badge-mint={e.is_present}
+                        class:badge-neutral={!e.is_present}
+                      >
+                        {e.is_present ? "hadir" : "tidak hadir"}
+                      </span>
+                    </td>
+                    <td class="text-right font-mono">{(e.score_bp / 100).toFixed(1)}%</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {:else}
+            <p class="mt-2 muted text-xs">Belum ada skor langsung dalam sesi ini.</p>
+          {/if}
+        {:else if ranking && ranking.entries.length}
           <table class="mt-3 w-full text-sm">
             <thead class="text-left muted">
               <tr><th class="py-1">#</th><th>Pengguna</th><th class="text-right">Skor</th></tr>
@@ -292,13 +358,13 @@
                 <tr class="border-t">
                   <td class="py-1 font-mono">{e.rank}</td>
                   <td>{who(e.display_name, e.user_id)}</td>
-                  <td class="text-right">{(e.score_bp / 100).toFixed(1)}%</td>
+                  <td class="text-right font-mono">{(e.score_bp / 100).toFixed(1)}%</td>
                 </tr>
               {/each}
             </tbody>
           </table>
         {:else}
-          <p class="mt-2 muted">Belum ada skor.</p>
+          <p class="mt-2 muted text-xs">Belum ada skor akumulasi.</p>
         {/if}
       </div>
 
