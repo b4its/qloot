@@ -88,3 +88,39 @@ async def test_cannot_lock_a_room_that_is_not_open(client):
     # Never opened -> still "draft".
     r = await client.post(f"/api/v1/rooms/{room_id}/lock")
     assert r.status_code == 409
+
+
+async def test_list_rooms_filters_by_query_status_and_visibility(client):
+    await _register(client, "filter_owner@ex.com", "teacher")
+    r1 = await client.post("/api/v1/rooms", json={"name": "Kalkulus Lanjut", "is_public": True})
+    assert r1.status_code == 201
+    r1_id = r1.json()["id"]
+    await client.post(f"/api/v1/rooms/{r1_id}/open")
+
+    r2 = await client.post("/api/v1/rooms", json={"name": "Aljabar Linear", "is_public": False})
+    assert r2.status_code == 201
+
+    # Search by q (name match)
+    res_q = await client.get("/api/v1/rooms?q=Kalkulus")
+    assert res_q.status_code == 200
+    assert any(rm["id"] == r1_id for rm in res_q.json())
+    assert not any(rm["name"] == "Aljabar Linear" for rm in res_q.json())
+
+    # Search with non-matching term
+    res_nomatch = await client.get("/api/v1/rooms?q=TermXYZ9999")
+    assert res_nomatch.status_code == 200
+    assert len(res_nomatch.json()) == 0
+
+    # Filter by status
+    res_open = await client.get("/api/v1/rooms?status=open")
+    assert res_open.status_code == 200
+    assert all(rm["status"] == "open" for rm in res_open.json())
+
+    # Filter by is_public
+    res_pub = await client.get("/api/v1/rooms?is_public=true")
+    assert res_pub.status_code == 200
+    assert all(rm["is_public"] is True for rm in res_pub.json())
+
+    res_priv = await client.get("/api/v1/rooms?is_public=false")
+    assert res_priv.status_code == 200
+    assert all(rm["is_public"] is False for rm in res_priv.json())

@@ -7,7 +7,7 @@ import string
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError
@@ -75,12 +75,31 @@ class RoomService:
             raise NotFoundError("Room not found")
         return room
 
-    async def list_all(self, user: User, *, limit: int = 50, offset: int = 0) -> list[Room]:
-        stmt = select(Room).order_by(Room.created_at.desc()).limit(limit).offset(offset)
+    async def list_all(
+        self,
+        user: User,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        q: str | None = None,
+        status: str | None = None,
+        is_public: bool | None = None,
+    ) -> list[Room]:
+        stmt = select(Room).order_by(Room.created_at.desc())
         if not user.has_role("teacher", "admin"):
             stmt = stmt.where(Room.is_public.is_(True))
         else:
             stmt = stmt.where(Room.owner_id == user.id) if not user.has_role("admin") else stmt
+
+        if q is not None and q.strip():
+            term = f"%{q.strip()}%"
+            stmt = stmt.where(or_(Room.name.ilike(term), Room.code.ilike(term)))
+        if status is not None and status.strip():
+            stmt = stmt.where(Room.status == status.strip())
+        if is_public is not None:
+            stmt = stmt.where(Room.is_public.is_(is_public))
+
+        stmt = stmt.limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def update(self, room_id: uuid.UUID, user: User, **data) -> Room:

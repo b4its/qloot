@@ -3,9 +3,10 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Room } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
-  import { statusLabel } from "$lib/utils/format";
+  import { statusLabel, paginate } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
-  import { paginate } from "$lib/utils/format";
+  import Icon from "$lib/components/Icon.svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
 
   const PAGE_SIZE = 12;
   let rooms: Room[] = [];
@@ -19,10 +20,40 @@
   let currentPage = 1;
   let newRoom = { name: "", max_participants: 100, is_public: true };
 
+  // Search & Filter state
+  let searchQuery = "";
+  let statusFilter: "all" | "open" | "closed" | "locked" = "all";
+  let typeFilter: "all" | "public" | "private" = "all";
+  let copiedCode = "";
+  let copyTimeout: ReturnType<typeof setTimeout> | null = null;
+
   $: canManage = hasRole($auth.user, "teacher");
-  $: totalPages = Math.max(1, Math.ceil(rooms.length / PAGE_SIZE));
+
+  $: filteredRooms = rooms.filter((r) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchName = r.name.toLowerCase().includes(q);
+      const matchCode = r.code.toLowerCase().includes(q);
+      if (!matchName && !matchCode) return false;
+    }
+    if (statusFilter === "open" && r.status !== "open") return false;
+    if (statusFilter === "closed" && r.status !== "closed") return false;
+    if (statusFilter === "locked" && !r.is_locked) return false;
+
+    if (typeFilter === "public" && !r.is_public) return false;
+    if (typeFilter === "private" && r.is_public) return false;
+
+    return true;
+  });
+
+  $: totalPages = Math.max(1, Math.ceil(filteredRooms.length / PAGE_SIZE));
   $: if (currentPage > totalPages) currentPage = 1;
-  $: pagedRooms = paginate(rooms, currentPage, PAGE_SIZE);
+  $: pagedRooms = paginate(filteredRooms, currentPage, PAGE_SIZE);
+
+  // Statistics counters
+  $: openRoomsCount = rooms.filter((r) => r.status === "open").length;
+  $: lockedRoomsCount = rooms.filter((r) => r.is_locked).length;
+  $: publicRoomsCount = rooms.filter((r) => r.is_public).length;
 
   async function load() {
     loading = true;
@@ -34,6 +65,39 @@
     } finally {
       loading = false;
     }
+  }
+
+  async function copyRoomCode(code: string, event?: Event) {
+    if (event) event.preventDefault();
+    try {
+      await navigator.clipboard.writeText(code);
+      copiedCode = code;
+      if (copyTimeout) clearTimeout(copyTimeout);
+      copyTimeout = setTimeout(() => {
+        copiedCode = "";
+      }, 2000);
+    } catch {
+      copiedCode = code;
+      setTimeout(() => (copiedCode = ""), 2000);
+    }
+  }
+
+  async function pasteJoinCode() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        joinCode = text.trim().slice(0, 12).toUpperCase();
+      }
+    } catch {
+      // clipboard access denied or unsupported
+    }
+  }
+
+  function resetFilters() {
+    searchQuery = "";
+    statusFilter = "all";
+    typeFilter = "all";
+    currentPage = 1;
   }
 
   async function joinByCode() {
@@ -92,37 +156,95 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Ruang — QLoot</title></svelte:head>
+<svelte:head><title>Ruang Kompetisi — QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+  <!-- Header -->
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <p class="mono-label">Kompetisi Langsung</p>
-      <h1 class="mt-2 font-display text-4xl font-bold">Ruang</h1>
+      <p class="mono-label">Kompetisi Langsung & Belajar Bersama</p>
+      <h1 class="mt-2 font-display text-4xl font-bold">Ruang Belajar</h1>
+      <p class="mt-1 text-sm muted">
+        Bergabung dalam ruang belajar interaktif, ujian real-time, dan leaderboard langsung.
+      </p>
     </div>
     {#if canManage}
-      <button class="btn-primary" on:click={() => (showCreate = !showCreate)}>＋ Buat ruang</button>
+      <button class="btn-primary" on:click={() => (showCreate = !showCreate)}>
+        <Icon name="plus" size="12px" />
+        <span>{showCreate ? "Tutup Form" : "Buat Ruang"}</span>
+      </button>
     {/if}
   </div>
 
+  <!-- Overview Metrics -->
+  {#if !loading && rooms.length > 0}
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-3">
+        <span class="mono-label text-[10px]">Total Ruang</span>
+        <div class="mt-1 font-display text-xl font-bold">{rooms.length}</div>
+      </div>
+      <div class="card p-3">
+        <span class="mono-label text-[10px]">Ruang Terbuka</span>
+        <div class="mt-1 font-display text-xl font-bold text-mint">{openRoomsCount}</div>
+      </div>
+      <div class="card p-3">
+        <span class="mono-label text-[10px]">Ruang Terkunci</span>
+        <div class="mt-1 font-display text-xl font-bold text-amber-500">{lockedRoomsCount}</div>
+      </div>
+      <div class="card p-3">
+        <span class="mono-label text-[10px]">Ruang Publik</span>
+        <div class="mt-1 font-display text-xl font-bold text-primary">{publicRoomsCount}</div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Join with Code Card -->
   <div class="card mt-6">
-    <h2 class="hud font-display text-lg font-bold">Gabung dengan kode</h2>
-    <div class="mt-2 flex flex-wrap gap-2">
-      <input
-        class="input max-w-xs uppercase"
-        placeholder="ABC123"
-        bind:value={joinCode}
-        maxlength="12"
-      />
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="hud font-display text-lg font-bold">Gabung dengan Kode</h2>
+        <p class="text-xs muted mt-0.5">
+          Punya kode akses dari guru atau teman? Masukkan kode 6 karakter di bawah ini.
+        </p>
+      </div>
+    </div>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <div class="relative w-full max-w-xs">
+        <input
+          class="input w-full uppercase font-mono tracking-wider text-base !py-1.5"
+          placeholder="MISAL: ABC123"
+          bind:value={joinCode}
+          maxlength="12"
+          on:keydown={(e) => e.key === "Enter" && joinCode.length >= 4 && joinByCode()}
+        />
+        {#if joinCode}
+          <button
+            type="button"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+            on:click={() => (joinCode = "")}
+          >
+            ✕
+          </button>
+        {/if}
+      </div>
       <button
-        class="btn-primary"
+        type="button"
+        class="btn-ghost !py-1.5 text-xs"
+        on:click={pasteJoinCode}
+        title="Tempel dari Clipboard"
+      >
+        <Icon name="paste" size="12px" />
+        <span>Tempel</span>
+      </button>
+      <button
+        class="btn-primary !py-1.5 text-xs"
         on:click={joinByCode}
         disabled={joinLoading || joinCode.length < 4}
       >
-        {joinLoading ? "Bergabung…" : "Gabung ruang"}
+        {joinLoading ? "Bergabung…" : "Gabung Ruang"}
       </button>
       <button
-        class="btn-ghost"
+        class="btn-secondary !py-1.5 text-xs"
         on:click={acceptInvitation}
         disabled={joinLoading || joinCode.length < 4}
       >
@@ -132,21 +254,54 @@
     {#if joinError}<p class="alert-error mt-2">{joinError}</p>{/if}
   </div>
 
+  <!-- Create Room Form (Teacher only) -->
   {#if showCreate}
-    <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">Ruang baru</h2>
-      <div class="mt-3 grid gap-3 sm:grid-cols-3">
-        <input class="input sm:col-span-2" placeholder="Nama ruang" bind:value={newRoom.name} />
-        <input class="input" type="number" min="2" bind:value={newRoom.max_participants} />
+    <div class="card mt-4 border-primary/40 shadow-lg">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h2 class="hud font-display text-lg font-bold">Buat Ruang Baru</h2>
+        <button class="btn-icon" on:click={() => (showCreate = false)} aria-label="Tutup">
+          <Icon name="xmark" size="12px" />
+        </button>
       </div>
-      <label class="mt-3 flex items-center gap-2 text-sm">
-        <input type="checkbox" bind:checked={newRoom.is_public} /> Ruang publik
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium muted mb-1" for="room-name">Nama Ruang</label>
+          <input
+            id="room-name"
+            class="input w-full"
+            placeholder="mis. Ruang Belajar Fisika Inti"
+            bind:value={newRoom.name}
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-medium muted mb-1" for="max-parts"
+            >Kapasitas Maksimal</label
+          >
+          <input
+            id="max-parts"
+            class="input w-full font-mono"
+            type="number"
+            min="2"
+            max="1000"
+            bind:value={newRoom.max_participants}
+          />
+        </div>
+      </div>
+      <label class="mt-3 flex items-center gap-2 text-sm cursor-pointer select-none">
+        <input type="checkbox" bind:checked={newRoom.is_public} class="rounded text-primary" />
+        <span class="font-medium">Jadikan ruang publik</span>
+        <span class="text-xs muted">(dapat ditemukan di daftar ruang oleh semua siswa)</span>
       </label>
-      <button
-        class="btn-primary mt-4"
-        on:click={createRoom}
-        disabled={createBusy || newRoom.name.length < 2}>{createBusy ? "Membuat…" : "Buat"}</button
-      >
+      <div class="mt-4 flex items-center gap-2">
+        <button
+          class="btn-primary"
+          on:click={createRoom}
+          disabled={createBusy || newRoom.name.length < 2}
+        >
+          {createBusy ? "Membuat…" : "Simpan & Masuk Ruang"}
+        </button>
+        <button class="btn-ghost" on:click={() => (showCreate = false)}>Batal</button>
+      </div>
     </div>
   {/if}
 
@@ -156,30 +311,207 @@
     </p>
   {/if}
 
+  <!-- Search & Filter Controls -->
+  <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center gap-2 flex-1">
+      <div class="relative w-full sm:w-64">
+        <input
+          type="text"
+          class="input text-xs !py-1.5 w-full"
+          placeholder="Cari nama atau kode ruang..."
+          bind:value={searchQuery}
+        />
+        {#if searchQuery}
+          <button
+            type="button"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+            on:click={() => (searchQuery = "")}
+          >
+            ✕
+          </button>
+        {/if}
+      </div>
+
+      <!-- Status filters -->
+      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={statusFilter === "all"}
+          class:text-[#05060A]={statusFilter === "all"}
+          class:muted={statusFilter !== "all"}
+          on:click={() => (statusFilter = "all")}
+        >
+          Semua ({rooms.length})
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={statusFilter === "open"}
+          class:text-[#05060A]={statusFilter === "open"}
+          class:muted={statusFilter !== "open"}
+          on:click={() => (statusFilter = "open")}
+        >
+          Buka
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={statusFilter === "locked"}
+          class:text-[#05060A]={statusFilter === "locked"}
+          class:muted={statusFilter !== "locked"}
+          on:click={() => (statusFilter = "locked")}
+        >
+          Terkunci
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={statusFilter === "closed"}
+          class:text-[#05060A]={statusFilter === "closed"}
+          class:muted={statusFilter !== "closed"}
+          on:click={() => (statusFilter = "closed")}
+        >
+          Ditutup
+        </button>
+      </div>
+
+      <!-- Type filters -->
+      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={typeFilter === "all"}
+          class:text-[#05060A]={typeFilter === "all"}
+          class:muted={typeFilter !== "all"}
+          on:click={() => (typeFilter = "all")}
+        >
+          Semua Tipe
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={typeFilter === "public"}
+          class:text-[#05060A]={typeFilter === "public"}
+          class:muted={typeFilter !== "public"}
+          on:click={() => (typeFilter = "public")}
+        >
+          Publik
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={typeFilter === "private"}
+          class:text-[#05060A]={typeFilter === "private"}
+          class:muted={typeFilter !== "private"}
+          on:click={() => (typeFilter = "private")}
+        >
+          Privat
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Room Grid Content -->
   {#if loading}
-    <p class="mt-6 muted">Memuat ruang…</p>
+    <div class="mt-6"><Skeleton rows={4} /></div>
   {:else if rooms.length === 0}
-    <div class="card mt-6 text-center"><p class="muted">Belum ada ruang tersedia.</p></div>
+    <div class="card mt-6 text-center py-12">
+      <Icon name="door-closed" size="32px" class="mx-auto text-muted mb-2" />
+      <p class="font-medium text-foreground">Belum ada ruang yang tersedia</p>
+      <p class="text-xs muted mt-1">
+        Buat ruang baru jika Anda seorang guru, atau gunakan kode gabung.
+      </p>
+    </div>
+  {:else if filteredRooms.length === 0}
+    <div class="card mt-6 text-center py-12 space-y-3">
+      <p class="muted text-sm">Tidak ada ruang yang sesuai dengan filter atau pencarian Anda.</p>
+      <button class="btn-ghost !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
+    </div>
   {:else}
     <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each pagedRooms as room}
-        <a href={`/rooms/${room.id}`} class="card lift block hover:border-primary">
-          <div class="flex items-center justify-between">
-            <h2 class="font-display text-lg font-bold">{room.name}</h2>
-            <span
-              class="badge"
-              class:badge-mint={room.status === "open"}
-              class:badge-neutral={room.status !== "open"}>{statusLabel(room.status)}</span
-            >
+        <div
+          class="card lift flex flex-col justify-between hover:border-primary/60 transition-all p-4"
+        >
+          <div>
+            <div class="flex items-start justify-between gap-2">
+              <h2 class="font-display text-lg font-bold leading-snug line-clamp-2">
+                <a href={`/rooms/${room.id}`} class="hover:text-primary transition-colors">
+                  {room.name}
+                </a>
+              </h2>
+              <div class="flex flex-col items-end gap-1 shrink-0">
+                <span
+                  class="badge text-[10px]"
+                  class:badge-mint={room.status === "open"}
+                  class:badge-amber={room.status !== "open" && room.is_locked}
+                  class:badge-neutral={room.status === "closed"}
+                >
+                  {statusLabel(room.status)}
+                </span>
+                {#if room.is_locked}
+                  <span
+                    class="badge border border-amber-500/40 text-amber-400 text-[9px] flex items-center gap-1"
+                  >
+                    <Icon name="lock" size="8px" />
+                    <span>Terkunci</span>
+                  </span>
+                {/if}
+              </div>
+            </div>
+
+            <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+              <span class="badge text-[10px] border border-surface-border">
+                {#if room.is_public}
+                  <span class="text-mint flex items-center gap-1"
+                    ><Icon name="globe" size="9px" /> Publik</span
+                  >
+                {:else}
+                  <span class="text-muted flex items-center gap-1"
+                    ><Icon name="lock" size="9px" /> Privat</span
+                  >
+                {/if}
+              </span>
+              <span class="text-[11px] muted">
+                Maks. {room.max_participants} peserta
+              </span>
+            </div>
           </div>
-          <p class="mt-2 font-mono text-sm muted">Kode: {room.code}</p>
-        </a>
+
+          <div class="mt-4 pt-3 border-t flex items-center justify-between text-xs">
+            <div class="flex items-center gap-1.5 font-mono">
+              <span class="text-[11px] muted">Kode:</span>
+              <span class="font-bold text-primary tracking-wider">{room.code}</span>
+              <button
+                type="button"
+                class="text-muted hover:text-foreground p-1 transition-colors"
+                title="Salin kode"
+                on:click={(e) => copyRoomCode(room.code, e)}
+              >
+                {#if copiedCode === room.code}
+                  <span class="text-[10px] text-mint font-sans font-bold">Tersalin!</span>
+                {:else}
+                  <Icon name="copy" size="11px" />
+                {/if}
+              </button>
+            </div>
+            <a
+              href={`/rooms/${room.id}`}
+              class="btn-ghost !py-1 !px-2.5 text-xs text-primary font-medium flex items-center gap-1"
+            >
+              <span>Masuk</span>
+              <Icon name="arrow-right" size="10px" />
+            </a>
+          </div>
+        </div>
       {/each}
     </div>
+
     <Pagination
       page={currentPage}
       pageSize={PAGE_SIZE}
-      total={rooms.length}
+      total={filteredRooms.length}
       {loading}
       label="ruang"
       onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
