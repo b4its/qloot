@@ -17,14 +17,24 @@
   let form = { counselor_user_id: "", topic: "", notes: "" };
   let busy = false;
   let currentPage = 1;
+  let statusFilter: "all" | "pending" | "accepted" | "completed" | "cancelled" = "all";
   // CARE-06: the message thread for the consultation currently open.
   let openId = "";
   let thread: ConsultationMessage[] = [];
   let draft = "";
+  let confirmingCancel: Consultation | null = null;
+
   $: activeConsultation = consultations.find((x) => x.id === openId);
-  $: totalPages = Math.max(1, Math.ceil(consultations.length / PAGE_SIZE));
+
+  // --- derived metrics + filtering -------------------------------------------
+  $: pendingCount = consultations.filter((c) => c.status === "pending").length;
+  $: acceptedCount = consultations.filter((c) => c.status === "accepted").length;
+  $: completedCount = consultations.filter((c) => c.status === "completed").length;
+
+  $: filtered = consultations.filter((c) => statusFilter === "all" || c.status === statusFilter);
+  $: totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   $: if (currentPage > totalPages) currentPage = 1;
-  $: pagedConsultations = paginate(consultations, currentPage, PAGE_SIZE);
+  $: pagedConsultations = paginate(filtered, currentPage, PAGE_SIZE);
 
   const statusBadge: Record<string, string> = {
     pending: "badge-amber",
@@ -32,6 +42,15 @@
     completed: "badge-mint",
     cancelled: "badge-magenta",
   };
+
+  type StatusFilter = "all" | "pending" | "accepted" | "completed" | "cancelled";
+  const STATUS_TABS: { value: StatusFilter; label: string }[] = [
+    { value: "all", label: "Semua" },
+    { value: "pending", label: "Menunggu" },
+    { value: "accepted", label: "Diterima" },
+    { value: "completed", label: "Selesai" },
+    { value: "cancelled", label: "Dibatalkan" },
+  ];
 
   async function load() {
     loading = true;
@@ -67,8 +86,10 @@
 
   async function cancel(c: Consultation) {
     error = "";
+    confirmingCancel = null;
     try {
       await api.post(`/career/consultations/${c.id}/cancel`);
+      if (openId === c.id) openId = "";
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membatalkan sesi";
@@ -117,6 +138,53 @@
     </p>
   {/if}
 
+  <!-- Metrics -->
+  {#if !loading && consultations.length > 0}
+    <div class="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total</p>
+        <p class="mt-1 font-display text-3xl font-bold">{consultations.length}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Menunggu</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="pending-count">
+          {pendingCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Diterima</p>
+        <p class="mt-1 font-display text-3xl font-bold text-primary">{acceptedCount}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Selesai</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint">{completedCount}</p>
+      </div>
+    </div>
+
+    <!-- Status tabs -->
+    <div
+      class="mt-4 flex flex-wrap gap-1 rounded-sm border p-1 w-fit"
+      role="tablist"
+      aria-label="Status sesi"
+    >
+      {#each STATUS_TABS as t (t.value)}
+        <button
+          role="tab"
+          aria-selected={statusFilter === t.value}
+          class="btn-ghost !px-3 !py-1.5 text-xs"
+          class:bg-primary={statusFilter === t.value}
+          class:!text-white={statusFilter === t.value}
+          on:click={() => {
+            statusFilter = t.value;
+            currentPage = 1;
+          }}
+        >
+          {t.label}
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <div class="mt-6 grid gap-4 lg:grid-cols-3">
     <div class="card lg:col-span-2">
       <h2 class="hud font-display text-lg font-bold">Sesimu</h2>
@@ -124,9 +192,11 @@
         <Skeleton rows={4} />
       {:else if !consultations.length}
         <p class="mt-2 muted">Belum ada sesi. Pesan sesi di panel kanan.</p>
+      {:else if !filtered.length}
+        <p class="mt-2 muted">Tidak ada sesi dengan status ini.</p>
       {:else}
         <ul class="mt-3 divide-y">
-          {#each pagedConsultations as c}
+          {#each pagedConsultations as c (c.id)}
             <li
               class="flex flex-wrap items-center justify-between gap-3 py-3 rounded-lg hover:bg-surface-elevated/30 px-2 transition-colors"
             >
@@ -152,7 +222,7 @@
                 {#if c.status === "pending"}
                   <button
                     class="btn-ghost !py-1 text-xs !text-danger hover:!bg-danger/10"
-                    on:click={() => cancel(c)}
+                    on:click={() => (confirmingCancel = c)}
                   >
                     Batal
                   </button>
@@ -164,7 +234,7 @@
         <Pagination
           page={currentPage}
           pageSize={PAGE_SIZE}
-          total={consultations.length}
+          total={filtered.length}
           label="sesi"
           onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
           onNext={() => (currentPage = Math.min(totalPages, currentPage + 1))}
@@ -276,3 +346,32 @@
     </div>
   </div>
 </div>
+
+<!-- Cancel confirmation modal -->
+{#if confirmingCancel}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">Batalkan Sesi Konseling</h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        Batalkan sesi <strong>"{confirmingCancel.topic}"</strong> dengan
+        {confirmingCancel.counselor}?
+      </p>
+      <p class="text-xs muted leading-relaxed">
+        Sesi yang dibatalkan tidak bisa dikembalikan; kamu dapat mengajukan sesi baru kapan saja.
+      </p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (confirmingCancel = null)}>Tutup</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => confirmingCancel && cancel(confirmingCancel)}
+          data-role="confirm-cancel-consultation"
+        >
+          Ya, Batalkan
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
