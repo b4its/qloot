@@ -17,7 +17,7 @@
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",
     "@openzeppelin/hardhat-upgrades": "^3.9.1",
     "dotenv": "^16.6.1",
-    "hardhat": "^2.29.1",
+    "hardhat": "^3.17.0",
     "solidity-coverage": "^0.8.17"
   },
   "dependencies": {
