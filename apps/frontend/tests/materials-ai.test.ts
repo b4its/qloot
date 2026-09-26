@@ -131,4 +131,23 @@ describe("teacher materials — AI question generation", () => {
       ),
     ).toBe(true);
   });
+
+  it("loads existing pending draft questions on mount", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/materials/m1") return Promise.resolve(material);
+      if (path === "/materials/m1/questions")
+        return Promise.resolve([
+          {
+            id: "q-existing",
+            prompt: "Soal lama tersimpan?",
+            correct_answer: "Ya",
+            review_status: "pending",
+          },
+        ]);
+      return Promise.resolve([]);
+    });
+    render(MaterialsPage);
+    expect(await screen.findByText(/Soal lama tersimpan\?/)).toBeTruthy();
+  });
 });
+

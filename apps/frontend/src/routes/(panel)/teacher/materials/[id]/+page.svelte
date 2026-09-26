@@ -58,6 +58,7 @@
     try {
       material = await api.get<Material>(`/materials/${materialId}`);
       renameDraft = material.filename;
+      await loadDrafts();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat materi";
     } finally {
