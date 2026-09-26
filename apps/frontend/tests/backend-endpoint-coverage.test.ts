@@ -7,11 +7,17 @@ import teacherConsSrc from "$routes-panel/teacher/consultations/+page.svelte?raw
 import learningSrc from "$routes-site/learning/[courseId]/+page.svelte?raw";
 import profileSrc from "$routes-site/profile/+page.svelte?raw";
 
+import adminNotificationsSrc from "$routes-panel/admin/notifications/+page.svelte?raw";
+
 /**
  * Regression for C88 re-audit: endpoints that were backend-only must have a
  * frontend caller so no capability is reachable only via curl.
  */
 describe("previously backend-only endpoints now have a UI caller", () => {
+  it("admin can broadcast notifications (POST /admin/notifications)", () => {
+    expect(adminNotificationsSrc).toContain("/admin/notifications");
+    expect(adminNotificationsSrc).toContain("sendBroadcast");
+  });
   it("admin can open a materialized leaderboard snapshot's entries", () => {
     expect(leaderboardsSrc).toContain("/rankings/leaderboards/${id}/entries");
     expect(leaderboardsSrc).toContain("openEntries");

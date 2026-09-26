@@ -130,6 +130,12 @@ export const adminNav: RoleNavItem[] = [
     desc: "Ringkasan runtime non-rahasia platform",
   },
   {
+    href: "/admin/notifications",
+    label: "Siaran Notifikasi",
+    icon: "bell",
+    desc: "Kirim pengumuman dan notifikasi masal ke pengguna",
+  },
+  {
     href: "/admin/moderation",
     label: "Moderasi",
     icon: "flag",
