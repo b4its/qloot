@@ -64,6 +64,7 @@ class CommunityService:
         topic: str | None = None,
         sort: str = "new",
         following_only: bool = False,
+        q: str | None = None,
         limit: int = 30,
         offset: int = 0,
         include_hidden_for: uuid.UUID | None = None,
@@ -80,6 +81,18 @@ class CommunityService:
             stmt = stmt.where(CommunityPost.hidden.is_(False))
         if topic:
             stmt = stmt.where(CommunityPost.topic == topic)
+        if q and q.strip():
+            # COMM: free-text search over the post body and the author's name.
+            from app.models.identity import User
+
+            pattern = f"%{q.strip().lower()}%"
+            author_ids = (
+                select(User.id).where(func.lower(User.full_name).like(pattern)).scalar_subquery()
+            )
+            stmt = stmt.where(
+                func.lower(CommunityPost.body).like(pattern)
+                | CommunityPost.author_id.in_(author_ids)
+            )
         if following_only and viewer_id is not None:
             # COMM-06: show only posts by people the viewer follows (plus own).
             from app.services.social_service import FollowService

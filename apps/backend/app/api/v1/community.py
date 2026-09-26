@@ -36,6 +36,7 @@ async def list_posts(
     topic: str | None = None,
     sort: str = "new",
     following: bool = False,
+    q: str | None = None,
     limit: LimitParam = 30,
     offset: OffsetParam = 0,
 ):
@@ -46,6 +47,7 @@ async def list_posts(
         topic=topic,
         sort=sort,
         following_only=following,
+        q=q,
         limit=limit,
         offset=offset,
         include_hidden_for=user.id,

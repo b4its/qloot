@@ -57,6 +57,8 @@
   let activeTopic = "";
   // COMM-05: feed ranking — newest (default), hot (decayed engagement), top.
   let sort: "new" | "hot" | "top" = "new";
+  // COMM: free-text search over post body / author name.
+  let query = "";
   // COMM-06: restrict the feed to authors the viewer follows.
   let followingOnly = false;
   let followingIds: string[] = [];
@@ -111,6 +113,7 @@
       if (activeTopic) params.set("topic", activeTopic);
       params.set("sort", sort);
       if (followingOnly) params.set("following", "true");
+      if (query.trim()) params.set("q", query.trim());
       [posts, topics, stats] = await Promise.all([
         api.get<Post[]>(`/community/posts?${params.toString()}`),
         api.get<Topic[]>("/community/topics"),
@@ -134,6 +137,23 @@
     // Close any open comment threads when the page changes.
     openComments = new Set();
     load();
+  }
+
+  // Debounced search so typing filters the feed without hammering the API.
+  let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  function onSearch() {
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      page = 1;
+      openComments = new Set();
+      void load();
+    }, 300);
+  }
+
+  function clearSearch() {
+    query = "";
+    page = 1;
+    void load();
   }
 
   async function submitPost() {
@@ -497,6 +517,37 @@
       >
         <Icon name="user-check" size="11px" /> Mengikuti
       </button>
+    </div>
+
+    <!-- Search -->
+    <div class="relative">
+      <Icon
+        name="magnifying-glass"
+        size="13px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input !pl-9"
+        placeholder="Cari diskusi atau nama penulis…"
+        bind:value={query}
+        on:input={onSearch}
+        aria-label="Cari diskusi"
+      />
+      {#if query}
+        <button
+          type="button"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+          on:click={clearSearch}
+          aria-label="Bersihkan pencarian"
+        >
+          ✕
+        </button>
+      {/if}
+      {#if query && !loading}
+        <p class="mt-1 text-xs muted" data-role="search-count">
+          {posts.length} hasil untuk "{query}"
+        </p>
+      {/if}
     </div>
 
     {#if reportNotice}
