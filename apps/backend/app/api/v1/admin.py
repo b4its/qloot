@@ -70,11 +70,46 @@ async def list_users(
     admin: AdminUser,
     db: DbSession,
     response: Response,
+    q: str | None = None,
+    role: str | None = None,
+    is_active: bool | None = None,
     limit: LimitParam = 100,
     offset: OffsetParam = 0,
 ):
-    total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
-    stmt = select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+    """List users with optional search + filters.
+
+    ``q`` matches email or full name (case-insensitive). ``role`` restricts to
+    users holding that role; ``is_active`` restricts by account status. The
+    ``X-Total-Count`` header reflects the *filtered* count so pagination stays
+    correct.
+    """
+    from app.models.identity import Role, UserRole
+
+    conditions = []
+    if q and q.strip():
+        pattern = f"%{q.strip().lower()}%"
+        conditions.append(
+            func.lower(User.email).like(pattern) | func.lower(User.full_name).like(pattern)
+        )
+    if is_active is not None:
+        conditions.append(User.is_active.is_(is_active))
+    if role:
+        # Restrict to users holding the requested role.
+        role_users = (
+            select(UserRole.user_id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(Role.name == role)
+            .scalar_subquery()
+        )
+        conditions.append(User.id.in_(role_users))
+
+    count_stmt = select(func.count()).select_from(User)
+    stmt = select(User)
+    for cond in conditions:
+        count_stmt = count_stmt.where(cond)
+        stmt = stmt.where(cond)
+    total = (await db.execute(count_stmt)).scalar_one()
+    stmt = stmt.order_by(User.created_at.desc()).limit(limit).offset(offset)
     users = (await db.execute(stmt)).scalars().all()
     # AUTH-11: expose the total so the UI can paginate with real counts
     # instead of guessing "did we get a full page?".
