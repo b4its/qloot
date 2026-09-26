@@ -297,3 +297,24 @@ async def test_assistant_personalises_jurusan_with_data(client):
     assert r.status_code == 200
     # Should reference an actual recommended major, not generic boilerplate.
     assert "Teknik" in r.json()["answer"] or "Komputer" in r.json()["answer"]
+
+
+async def test_export_grades_csv(client):
+    await _register(client, "career_csv@ex.com")
+    await client.post(
+        "/api/v1/career/grades",
+        json={"subject": "Matematika", "grade": 95, "term": "2025/2026-genap"},
+    )
+    await client.post(
+        "/api/v1/career/grades",
+        json={"subject": "Fisika", "grade": 88, "term": "2025/2026-genap"},
+    )
+    res = await client.get("/api/v1/career/grades/export.csv")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/csv")
+    assert 'filename="transkrip-nilai.csv"' in res.headers.get("content-disposition", "")
+    lines = res.text.strip().splitlines()
+    assert lines[0] == "mata_pelajaran,semester,nilai"
+    assert "Fisika,2025/2026-genap,88" in lines
+    assert "Matematika,2025/2026-genap,95" in lines
+

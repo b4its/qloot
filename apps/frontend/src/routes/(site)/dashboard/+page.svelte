@@ -295,9 +295,16 @@
       <div class="card mt-4">
         <div class="flex items-center justify-between">
           <h2 class="font-display font-bold">Nilai akademik</h2>
-          <a href="/career/roadmap" class="text-xs text-primary"
-            >Analisis jurusan <Icon name="arrow-right" size="10px" /></a
-          >
+          <div class="flex items-center gap-3">
+            {#if grades.length}
+              <a href="/api/v1/career/grades/export.csv" class="btn-ghost !py-1 text-xs" download>
+                <Icon name="download" size="11px" /> Ekspor CSV
+              </a>
+            {/if}
+            <a href="/career/roadmap" class="text-xs text-primary"
+              >Analisis jurusan <Icon name="arrow-right" size="10px" /></a
+            >
+          </div>
         </div>
         <p class="mt-1 text-xs muted">
           Masukkan nilai rapor — dipakai untuk dashboard, tren, dan rekomendasi jurusan.

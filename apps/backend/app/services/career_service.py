@@ -335,6 +335,19 @@ class CareerService:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def export_grades_csv(self, user_id: uuid.UUID) -> str:
+        """Export the student's grades report as CSV text."""
+        import csv
+        import io
+
+        grades = await self.list_grades(user_id, limit=5000)
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["mata_pelajaran", "semester", "nilai"])
+        for g in sorted(grades, key=lambda x: (x.term, x.subject)):
+            writer.writerow([g.subject, g.term, g.grade])
+        return buf.getvalue()
+
     async def upsert_grade(self, user_id: uuid.UUID, subject: str, grade: int, term: str):
         existing = (
             await self.session.execute(

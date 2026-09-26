@@ -65,6 +65,19 @@ async def upsert_grade(payload: GradeIn, user: CurrentUser, db: DbSession):
         )
 
 
+@router.get("/grades/export.csv")
+async def export_grades_csv(user: CurrentUser, db: DbSession):
+    """Export the student's grades report as CSV."""
+    from fastapi.responses import Response
+
+    csv_text = await CareerService(db).export_grades_csv(user.id)
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="transkrip-nilai.csv"'},
+    )
+
+
 @router.put("/grades/{grade_id}", response_model=GradeOut)
 async def update_grade(
     grade_id: uuid.UUID, payload: GradeUpdate, user: CurrentUser, db: DbSession

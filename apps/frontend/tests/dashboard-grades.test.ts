@@ -12,4 +12,9 @@ describe("dashboard grade edit and delete (UIX-05)", () => {
     expect(dashboardSrc).toContain("deleteGrade");
     expect(dashboardSrc).toContain("api.delete(`/career/grades/");
   });
+
+  it("offers a download link to export academic grades as CSV", () => {
+    expect(dashboardSrc).toContain("/api/v1/career/grades/export.csv");
+    expect(dashboardSrc).toContain("Ekspor CSV");
+  });
 });
