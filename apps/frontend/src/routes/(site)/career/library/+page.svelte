@@ -15,12 +15,34 @@
   let currentPage = 1;
   // CARE-07: free-text search over the catalog.
   let query = "";
+  // Local view filters (applied client-side over the fetched page set).
+  let costFilter: "all" | "free" | "paid" = "all";
+  let providerFilter = "all";
+  let sortBy: "title" | "provider" = "title";
   // The student's top recommended major (from their analysis), if any.
   let topMajor: string | null = null;
   let recommendForMajor = false;
-  $: totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+
+  // --- derived metrics + filters ---------------------------------------------
+  $: freeCount = items.filter((i) => i.is_free).length;
+  $: paidCount = items.length - freeCount;
+  $: providers = [...new Set(items.map((i) => i.provider).filter(Boolean))] as string[];
+
+  $: filtered = items
+    .filter((i) => {
+      if (costFilter === "free" && !i.is_free) return false;
+      if (costFilter === "paid" && i.is_free) return false;
+      if (providerFilter !== "all" && i.provider !== providerFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "provider") return (a.provider ?? "").localeCompare(b.provider ?? "");
+      return a.title.localeCompare(b.title);
+    });
+
+  $: totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   $: if (currentPage > totalPages) currentPage = 1;
-  $: pagedItems = paginate(items, currentPage, PAGE_SIZE);
+  $: pagedItems = paginate(filtered, currentPage, PAGE_SIZE);
 
   const tabs = [
     { key: "course", label: "Kursus", icon: "graduation-cap" },
@@ -42,14 +64,30 @@
     }
   }
 
-  function search() {
+  // Debounced server-side search so typing feels instant without hammering the API.
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+  function onSearch() {
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      currentPage = 1;
+      void load();
+    }, 250);
+  }
+
+  function resetFilters() {
+    query = "";
+    costFilter = "all";
+    providerFilter = "all";
+    sortBy = "title";
     currentPage = 1;
-    load();
+    void load();
   }
 
   async function pick(key: string) {
     category = key;
     currentPage = 1;
+    costFilter = "all";
+    providerFilter = "all";
     await load();
   }
 
@@ -115,13 +153,75 @@
     </div>
   {/if}
 
-  <form class="mt-4 flex flex-wrap items-end gap-2" on:submit|preventDefault={search}>
-    <label class="flex flex-1 flex-col text-xs">
-      <span class="muted mb-1">Cari sumber daya</span>
-      <input class="input" bind:value={query} placeholder="mis. matematika, olimpiade…" />
-    </label>
-    <button class="btn-primary !py-1.5" type="submit" disabled={loading}>Cari</button>
-  </form>
+  <!-- Metrics -->
+  {#if !loading && items.length > 0}
+    <div class="mt-6 grid grid-cols-3 gap-3">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total</p>
+        <p class="mt-1 font-display text-3xl font-bold" data-role="total-count">{items.length}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Gratis</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="free-count">
+          {freeCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Berbayar</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight">{paidCount}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Search + filters -->
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <div class="relative flex-1 min-w-[200px]">
+      <Icon
+        name="magnifying-glass"
+        size="12px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input text-xs !py-1.5 !pl-8 w-full"
+        bind:value={query}
+        on:input={onSearch}
+        placeholder="Cari sumber daya…"
+        aria-label="Cari sumber daya"
+      />
+    </div>
+    <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+      {#each [["all", "Semua"], ["free", "Gratis"], ["paid", "Berbayar"]] as [val, label]}
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={costFilter === val}
+          class:text-[#05060A]={costFilter === val}
+          class:muted={costFilter !== val}
+          on:click={() => {
+            costFilter = val as typeof costFilter;
+            currentPage = 1;
+          }}
+        >
+          {label}
+        </button>
+      {/each}
+    </div>
+    {#if providers.length > 1}
+      <select
+        class="input text-xs !py-1.5 w-auto"
+        bind:value={providerFilter}
+        on:change={() => (currentPage = 1)}
+        aria-label="Filter penyedia"
+      >
+        <option value="all">Semua penyedia</option>
+        {#each providers as p}<option value={p}>{p}</option>{/each}
+      </select>
+    {/if}
+    <select class="input text-xs !py-1.5 w-auto" bind:value={sortBy} aria-label="Urutkan">
+      <option value="title">Judul (A–Z)</option>
+      <option value="provider">Penyedia</option>
+    </select>
+  </div>
 
   {#if error}
     <p class="alert-error mt-4">
@@ -135,9 +235,14 @@
     <div class="card mt-4 text-center">
       <p class="muted">Belum ada sumber daya yang cocok.</p>
     </div>
+  {:else if !filtered.length}
+    <div class="card mt-4 text-center space-y-3">
+      <p class="muted">Tidak ada sumber daya yang cocok dengan filtermu.</p>
+      <button class="btn-ghost" on:click={resetFilters}>Reset Filter</button>
+    </div>
   {:else}
     <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {#each pagedItems as item}
+      {#each pagedItems as item (item.code)}
         <div class="card lift">
           <div class="flex items-center justify-between">
             <span class="tile h-10 w-10" aria-hidden="true"
@@ -166,7 +271,7 @@
     <Pagination
       page={currentPage}
       pageSize={PAGE_SIZE}
-      total={items.length}
+      total={filtered.length}
       {loading}
       label="sumber daya"
       onPrev={() => (currentPage = Math.max(1, currentPage - 1))}
