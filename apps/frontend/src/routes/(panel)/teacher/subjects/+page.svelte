@@ -21,6 +21,25 @@
   let busy = "";
   let page = 1;
   let hasMore = false;
+  let query = "";
+  let publishFilter: "all" | "published" | "draft" = "all";
+  let classFilter = "all";
+
+  $: classes = [...new Set(subjects.map((s) => s.class_code).filter(Boolean))] as string[];
+  $: publishedCount = subjects.filter((s) => s.is_published).length;
+  $: draftCount = subjects.length - publishedCount;
+  $: totalLessons = subjects.reduce((sum, s) => sum + (s.lesson_count ?? 0), 0);
+  $: filtered = subjects.filter((s) => {
+    if (publishFilter === "published" && !s.is_published) return false;
+    if (publishFilter === "draft" && s.is_published) return false;
+    if (classFilter !== "all" && s.class_code !== classFilter) return false;
+    if (query.trim()) {
+      const q = query.toLowerCase().trim();
+      if (!s.title.toLowerCase().includes(q) && !(s.subject ?? "").toLowerCase().includes(q))
+        return false;
+    }
+    return true;
+  });
 
   async function load() {
     loading = true;
@@ -104,50 +123,130 @@
       </a>
     </div>
   {:else}
-    <div class="card mt-6 !p-0 divide-y">
-      {#each subjects as s}
-        <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-          <div class="flex items-center gap-4">
-            <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
-              <Icon name="book-open-reader" size="17px" />
-            </span>
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="font-semibold">{s.title}</p>
-                <span class="badge badge-indigo"
-                  >Kelas {s.class_code}{s.class_type ? ` · ${s.class_type}` : ""}</span
-                >
-                {#if !s.is_published}<span class="badge badge-amber">Draf</span>{/if}
+    <!-- Overview metrics -->
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total Pelajaran</p>
+        <p class="mt-1 font-display text-3xl font-bold">{subjects.length}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Terbit</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="published-count">
+          {publishedCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Draf</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight">{draftCount}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total Materi</p>
+        <p class="mt-1 font-display text-3xl font-bold">{totalLessons}</p>
+      </div>
+    </div>
+
+    <!-- Search & filters -->
+    <div class="mt-5 flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[180px]">
+        <Icon
+          name="magnifying-glass"
+          size="12px"
+          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+        />
+        <input
+          class="input text-xs !py-1.5 !pl-8 w-full"
+          placeholder="Cari pelajaran..."
+          bind:value={query}
+          aria-label="Cari pelajaran"
+        />
+      </div>
+      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+        {#each [["all", "Semua"], ["published", "Terbit"], ["draft", "Draf"]] as [val, label]}
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+            class:bg-primary={publishFilter === val}
+            class:text-[#05060A]={publishFilter === val}
+            class:muted={publishFilter !== val}
+            on:click={() => (publishFilter = val as typeof publishFilter)}
+          >
+            {label}
+          </button>
+        {/each}
+      </div>
+      {#if classes.length > 1}
+        <select
+          class="input text-xs !py-1.5 w-auto"
+          bind:value={classFilter}
+          aria-label="Filter kelas"
+        >
+          <option value="all">Semua kelas</option>
+          {#each classes as c}<option value={c}>Kelas {c}</option>{/each}
+        </select>
+      {/if}
+    </div>
+
+    {#if filtered.length === 0}
+      <div class="card mt-4 grid place-items-center py-12 text-center">
+        <p class="muted text-sm">Tidak ada pelajaran yang cocok dengan filtermu.</p>
+        <button
+          class="btn-ghost mt-3 !py-1 text-xs"
+          on:click={() => {
+            query = "";
+            publishFilter = "all";
+            classFilter = "all";
+          }}>Reset Filter</button
+        >
+      </div>
+    {:else}
+      <div class="card mt-4 !p-0 divide-y">
+        {#each filtered as s (s.id)}
+          <div
+            class="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
+            data-subject={s.id}
+          >
+            <div class="flex items-center gap-4">
+              <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
+                <Icon name="book-open-reader" size="17px" />
+              </span>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="font-semibold">{s.title}</p>
+                  <span class="badge badge-indigo"
+                    >Kelas {s.class_code}{s.class_type ? ` · ${s.class_type}` : ""}</span
+                  >
+                  {#if !s.is_published}<span class="badge badge-amber">Draf</span>{/if}
+                </div>
+                <p class="text-xs muted">
+                  {s.subject ?? "Tanpa mata pelajaran"} · {s.lesson_count ?? 0} materi
+                </p>
               </div>
-              <p class="text-xs muted">
-                {s.subject ?? "Tanpa mata pelajaran"} · {s.lesson_count ?? 0} materi
-              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <a href={`/teacher/subjects/${s.id}`} class="btn-ghost">
+                <Icon name="pen" size="12px" /> Kelola
+              </a>
+              <button
+                class="btn-secondary"
+                on:click={() => togglePublish(s)}
+                disabled={busy === `p-${s.id}`}
+              >
+                <Icon name={s.is_published ? "eye-slash" : "upload"} size="12px" />
+                {s.is_published ? "Sembunyikan" : "Terbitkan"}
+              </button>
+              <button
+                class="btn-icon !text-tertiary hover:!border-tertiary"
+                on:click={() => remove(s)}
+                disabled={busy === `d-${s.id}`}
+                aria-label="Hapus"
+              >
+                <Icon name="trash" size="12px" />
+              </button>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <a href={`/teacher/subjects/${s.id}`} class="btn-ghost">
-              <Icon name="pen" size="12px" /> Kelola
-            </a>
-            <button
-              class="btn-secondary"
-              on:click={() => togglePublish(s)}
-              disabled={busy === `p-${s.id}`}
-            >
-              <Icon name={s.is_published ? "eye-slash" : "upload"} size="12px" />
-              {s.is_published ? "Sembunyikan" : "Terbitkan"}
-            </button>
-            <button
-              class="btn-icon !text-tertiary hover:!border-tertiary"
-              on:click={() => remove(s)}
-              disabled={busy === `d-${s.id}`}
-              aria-label="Hapus"
-            >
-              <Icon name="trash" size="12px" />
-            </button>
-          </div>
-        </div>
-      {/each}
-    </div>
+        {/each}
+      </div>
+    {/if}
   {/if}
 
   <Pagination
