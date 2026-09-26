@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
+  import Icon from "$lib/components/Icon.svelte";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
-  import type { SubmissionRow, TeacherAnalytics } from "$lib/types";
+  import type { SubmissionRow, TeacherAnalytics, Exam } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
   import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
@@ -12,24 +13,55 @@
 
   const PAGE = 20;
   let rows: SubmissionRow[] = [];
+  let exams: Exam[] = [];
   let analytics: TeacherAnalytics | null = null;
   let loading = true;
   let error = "";
   let page = 1;
   let hasMore = false;
 
+  let searchQuery = "";
+  let selectedExamId = "";
+  let statusFilter: "all" | "correct" | "incorrect" | "ungraded" = "all";
+  let inspectingRow: SubmissionRow | null = null;
+
+  const QTYPE_LABELS: Record<string, string> = {
+    multiple_choice: "Pilihan Ganda",
+    true_false: "Benar / Salah",
+    multi_select: "Pilihan Jamak",
+    numeric: "Jawaban Angka",
+    fill_blank: "Isian Singkat",
+    ordering: "Urutan Item",
+    matching: "Pencocokan Pasangan",
+    essay: "Esai",
+  };
+
   async function load() {
     loading = true;
     error = "";
     try {
       const offset = (page - 1) * PAGE;
-      rows = await api.get<SubmissionRow[]>(`/teacher/submissions?limit=${PAGE}&offset=${offset}`);
-      // Fewer than a full page means this is the last page.
+      const params = new URLSearchParams({
+        limit: String(PAGE),
+        offset: String(offset),
+      });
+      if (selectedExamId) params.set("exam_id", selectedExamId);
+      if (searchQuery.trim()) params.set("q", searchQuery.trim());
+
+      rows = await api.get<SubmissionRow[]>(`/teacher/submissions?${params.toString()}`);
       hasMore = rows.length === PAGE;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pengumpulan";
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadExams() {
+    try {
+      exams = await api.get<Exam[]>("/exams?limit=200");
+    } catch {
+      exams = [];
     }
   }
 
@@ -41,6 +73,11 @@
     }
   }
 
+  function handleSearch() {
+    page = 1;
+    load();
+  }
+
   function go(delta: number) {
     const next = page + delta;
     if (next < 1) return;
@@ -49,8 +86,55 @@
     load();
   }
 
+  $: filteredRows = rows.filter((r) => {
+    if (statusFilter === "correct") return r.is_correct === true;
+    if (statusFilter === "incorrect") return r.is_correct === false;
+    if (statusFilter === "ungraded") return r.is_correct === null || r.is_correct === undefined;
+    return true;
+  });
+
+  function exportSubmissionsCsv() {
+    if (!filteredRows.length) return;
+    const headers = [
+      "Ujian",
+      "Siswa",
+      "Tipe Soal",
+      "Soal",
+      "Jawaban Siswa",
+      "Kunci / Pilihan Benar",
+      "Status",
+      "Skor (%)",
+      "Umpan Balik AI",
+    ];
+    const lines = [headers.join(",")];
+    for (const r of filteredRows) {
+      const statusStr =
+        r.is_correct === true ? "Benar" : r.is_correct === false ? "Salah" : "Belum Dinilai";
+      const scoreStr = r.score_bp != null ? bpToPercent(r.score_bp) : "-";
+      const answerStr = (r.answer_display ?? r.answer_text ?? "").replace(/"/g, '""');
+      const correctStr = (r.correct_display ?? r.correct_answer ?? "").replace(/"/g, '""');
+      const feedbackStr = (r.feedback ?? "").replace(/"/g, '""');
+      const promptStr = (r.prompt ?? "").replace(/"/g, '""');
+      const studentStr = (r.student_name ?? r.student_id ?? "").replace(/"/g, '""');
+      const examStr = (r.exam_title ?? "").replace(/"/g, '""');
+      lines.push(
+        `"${examStr}","${studentStr}","${r.qtype}","${promptStr}","${answerStr}","${correctStr}","${statusStr}","${scoreStr}","${feedbackStr}"`,
+      );
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rekap-pengumpulan-guru-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   onMount(() => {
     load();
+    loadExams();
     loadAnalytics();
   });
 </script>
@@ -61,12 +145,23 @@
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
       <p class="mono-label">Panel Guru · Jawaban</p>
-      <h1 class="mt-2 font-display text-3xl font-bold">Pengumpulan</h1>
+      <h1 class="mt-2 font-display text-3xl font-bold">Pengumpulan Siswa</h1>
       <p class="mt-1 text-sm muted">
-        Jawaban siswa terbaru dari ujianmu, lengkap dengan feedback AI.
+        Jawaban siswa terbaru dari ujian Anda, lengkap dengan penilaian otomatis dan feedback AI.
       </p>
     </div>
-    <a href="/teacher" class="btn-ghost">← Panel Guru</a>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        class="btn-secondary !py-1.5 text-xs flex items-center gap-1.5"
+        on:click={exportSubmissionsCsv}
+        disabled={!filteredRows.length}
+      >
+        <Icon name="file-arrow-down" size="12px" />
+        <span>Ekspor CSV ({filteredRows.length})</span>
+      </button>
+      <a href="/teacher" class="btn-ghost !py-1.5 text-xs">← Panel Guru</a>
+    </div>
   </div>
 
   {#if error}
@@ -110,70 +205,196 @@
     </div>
   {/if}
 
-  {#if loading}
-    <Skeleton rows={4} />
-  {:else if !rows.length}
-    <div class="card mt-4 text-center"><p class="muted">Belum ada pengumpulan.</p></div>
-  {:else}
-    <div class="card mt-4 overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="text-left muted">
-          <tr
-            ><th class="py-1">Ujian</th><th>Siswa</th><th>Tipe</th><th>Soal</th><th>Jawaban</th><th
-              >Benar?</th
-            ><th class="text-right">Skor</th><th>Umpan balik</th></tr
+  <!-- Search & Filter Controls -->
+  <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center gap-2 flex-1">
+      <div class="relative w-full sm:w-64">
+        <input
+          type="text"
+          class="input text-xs !py-1.5 w-full"
+          placeholder="Cari siswa, ujian, atau soal..."
+          bind:value={searchQuery}
+          on:keydown={(e) => e.key === "Enter" && handleSearch()}
+        />
+        {#if searchQuery}
+          <button
+            type="button"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+            on:click={() => {
+              searchQuery = "";
+              handleSearch();
+            }}
           >
+            ✕
+          </button>
+        {/if}
+      </div>
+
+      {#if exams.length > 0}
+        <select
+          class="input text-xs !py-1.5 !w-auto"
+          bind:value={selectedExamId}
+          on:change={handleSearch}
+        >
+          <option value="">Semua Ujian</option>
+          {#each exams as e}
+            <option value={e.id}>{e.title}</option>
+          {/each}
+        </select>
+      {/if}
+    </div>
+
+    <!-- Status filter tabs -->
+    <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+        class:bg-primary={statusFilter === "all"}
+        class:text-[#05060A]={statusFilter === "all"}
+        class:muted={statusFilter !== "all"}
+        on:click={() => (statusFilter = "all")}
+      >
+        Semua ({rows.length})
+      </button>
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+        class:bg-primary={statusFilter === "correct"}
+        class:text-[#05060A]={statusFilter === "correct"}
+        class:muted={statusFilter !== "correct"}
+        on:click={() => (statusFilter = "correct")}
+      >
+        Benar
+      </button>
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+        class:bg-primary={statusFilter === "incorrect"}
+        class:text-[#05060A]={statusFilter === "incorrect"}
+        class:muted={statusFilter !== "incorrect"}
+        on:click={() => (statusFilter = "incorrect")}
+      >
+        Salah
+      </button>
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+        class:bg-primary={statusFilter === "ungraded"}
+        class:text-[#05060A]={statusFilter === "ungraded"}
+        class:muted={statusFilter !== "ungraded"}
+        on:click={() => (statusFilter = "ungraded")}
+      >
+        Esai/Manual
+      </button>
+    </div>
+  </div>
+
+  {#if loading}
+    <div class="mt-4"><Skeleton rows={4} /></div>
+  {:else if !filteredRows.length}
+    <div class="card mt-4 text-center py-12">
+      <p class="muted">
+        {searchQuery || selectedExamId || statusFilter !== "all"
+          ? "Tidak ada pengumpulan yang sesuai dengan filter atau kata kunci."
+          : "Belum ada pengumpulan jawaban dari siswa."}
+      </p>
+    </div>
+  {:else}
+    <div class="card mt-4 overflow-x-auto !p-0">
+      <table class="w-full text-sm">
+        <thead class="text-left muted surface border-b text-xs font-mono">
+          <tr>
+            <th class="py-2.5 px-4">Ujian</th>
+            <th class="py-2.5 px-4">Siswa</th>
+            <th class="py-2.5 px-4">Tipe</th>
+            <th class="py-2.5 px-4">Soal</th>
+            <th class="py-2.5 px-4">Jawaban Siswa</th>
+            <th class="py-2.5 px-4">Status</th>
+            <th class="py-2.5 px-4 text-right">Skor</th>
+            <th class="py-2.5 px-4">Umpan Balik AI</th>
+            <th class="py-2.5 px-4 text-center">Aksi</th>
+          </tr>
         </thead>
-        <tbody>
-          {#each rows as r}
-            <tr class="border-t align-top">
-              <td class="py-2">{r.exam_title}</td>
-              <td class="py-2">
+        <tbody class="divide-y divide-border/60">
+          {#each filteredRows as r}
+            <tr class="align-top hover:bg-surface/60 transition-colors">
+              <td class="py-3 px-4 font-medium max-w-[180px] truncate" title={r.exam_title}>
+                {r.exam_title}
+              </td>
+              <td class="py-3 px-4 max-w-[140px] truncate">
                 {#if r.student_name}
-                  {r.student_name}
+                  <span class="font-medium">{r.student_name}</span>
                 {:else}
-                  <span class="font-mono text-xs">{r.student_id.slice(0, 8)}…</span>
+                  <span class="font-mono text-xs muted">{r.student_id.slice(0, 8)}…</span>
                 {/if}
               </td>
-              <td>
-                <span class="badge badge-indigo"
-                  >{r.qtype === "multiple_choice" ? "PG" : "Esai"}</span
+              <td class="py-3 px-4">
+                <span
+                  class="badge border text-[10px]"
+                  class:badge-indigo={r.qtype === "multiple_choice"}
+                  class:badge-purple={r.qtype !== "multiple_choice"}
                 >
+                  {QTYPE_LABELS[r.qtype] ?? r.qtype}
+                </span>
               </td>
-              <td class="max-w-[220px]">{r.prompt}</td>
-              <td class="max-w-[260px] text-xs muted">
+              <td class="py-3 px-4 max-w-[200px] truncate text-xs" title={r.prompt}>
+                {r.prompt}
+              </td>
+              <td class="py-3 px-4 max-w-[220px] truncate text-xs muted">
                 {#if r.qtype === "multiple_choice"}
                   {#if r.answer_text}
-                    <span class="mono">{r.answer_text}.</span>
+                    <span class="font-mono text-primary font-bold">{r.answer_text}.</span>
                     {r.answer_display ?? ""}
                   {:else}
-                    <span>tidak dijawab</span>
+                    <span class="italic">tidak dijawab</span>
                   {/if}
                 {:else}
-                  {r.answer_text}
+                  {r.answer_text ?? "—"}
                 {/if}
               </td>
-              <td>
-                {#if r.qtype === "multiple_choice"}
+              <td class="py-3 px-4">
+                <span
+                  class="badge text-[10px]"
+                  class:badge-mint={r.is_correct === true}
+                  class:badge-magenta={r.is_correct === false}
+                  class:badge-neutral={r.is_correct === null || r.is_correct === undefined}
+                >
+                  {r.is_correct === true ? "Benar" : r.is_correct === false ? "Salah" : "—"}
+                </span>
+              </td>
+              <td class="py-3 px-4 text-right font-mono text-xs">
+                {#if r.score_bp != null}
                   <span
-                    class="badge"
-                    class:badge-mint={r.is_correct === true}
-                    class:badge-magenta={r.is_correct === false}
-                    class:badge-neutral={r.is_correct === null || r.is_correct === undefined}
+                    class={r.is_correct === true
+                      ? "text-mint font-bold"
+                      : r.is_correct === false
+                        ? "text-magenta"
+                        : "text-primary"}
                   >
-                    {r.is_correct === true ? "Benar" : r.is_correct === false ? "Salah" : "—"}
+                    {bpToPercent(r.score_bp)}
                   </span>
                 {:else}
-                  <span class="text-xs muted">—</span>
+                  <span class="muted">—</span>
                 {/if}
               </td>
-              <td class="text-right font-mono">{bpToPercent(r.score_bp)}</td>
-              <td class="max-w-[220px] text-xs muted">{r.feedback}</td>
+              <td class="py-3 px-4 max-w-[200px] truncate text-xs muted" title={r.feedback ?? ""}>
+                {r.feedback ?? "—"}
+              </td>
+              <td class="py-3 px-4 text-center">
+                <button
+                  type="button"
+                  class="btn-ghost !py-0.5 !px-2 text-xs"
+                  on:click={() => (inspectingRow = r)}
+                >
+                  Detail
+                </button>
+              </td>
             </tr>
           {/each}
         </tbody>
       </table>
     </div>
+
     <Pagination
       {page}
       pageSize={PAGE}
@@ -185,3 +406,105 @@
     />
   {/if}
 </div>
+
+{#if inspectingRow}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-xl space-y-4 border-primary/40 shadow-2xl">
+      <div class="flex items-start justify-between border-b pb-3">
+        <div>
+          <span class="mono-label text-primary">{inspectingRow.exam_title}</span>
+          <h2 class="font-display text-lg font-bold mt-0.5">Detail Pengumpulan Siswa</h2>
+          <p class="text-xs muted">
+            Siswa: <span class="font-medium text-foreground"
+              >{inspectingRow.student_name ?? inspectingRow.student_id}</span
+            >
+          </p>
+        </div>
+        <button class="btn-icon" on:click={() => (inspectingRow = null)} aria-label="Tutup">
+          <Icon name="xmark" size="14px" />
+        </button>
+      </div>
+
+      <div class="rounded-sm border p-3 surface space-y-1.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="badge badge-indigo text-[10px]"
+            >{QTYPE_LABELS[inspectingRow.qtype] ?? inspectingRow.qtype}</span
+          >
+          <span class="font-mono text-muted">ID Soal: {inspectingRow.question_id.slice(0, 8)}…</span
+          >
+        </div>
+        <p class="font-medium text-sm text-foreground leading-relaxed pt-1">
+          {inspectingRow.prompt}
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="rounded-sm border p-3 surface">
+          <span class="mono-label text-[10px]">Jawaban Siswa</span>
+          <p class="mt-1 font-medium text-foreground whitespace-pre-wrap">
+            {#if inspectingRow.answer_text}
+              {#if inspectingRow.qtype === "multiple_choice"}
+                <span class="font-mono text-primary font-bold">{inspectingRow.answer_text}.</span>
+                {inspectingRow.answer_display ?? ""}
+              {:else}
+                {inspectingRow.answer_text}
+              {/if}
+            {:else}
+              <span class="muted italic">Tidak dijawab</span>
+            {/if}
+          </p>
+        </div>
+
+        <div class="rounded-sm border p-3 surface">
+          <span class="mono-label text-[10px]">Kunci / Jawaban Benar</span>
+          <p class="mt-1 font-medium text-foreground">
+            {#if inspectingRow.correct_answer}
+              <span class="font-mono text-mint font-bold">{inspectingRow.correct_answer}.</span>
+              {inspectingRow.correct_display ?? ""}
+            {:else}
+              <span class="muted">—</span>
+            {/if}
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between rounded-sm border p-3 surface text-xs">
+        <div class="flex items-center gap-2">
+          <span class="mono-label">Status:</span>
+          <span
+            class="badge"
+            class:badge-mint={inspectingRow.is_correct === true}
+            class:badge-magenta={inspectingRow.is_correct === false}
+            class:badge-neutral={inspectingRow.is_correct == null}
+          >
+            {inspectingRow.is_correct === true
+              ? "Benar"
+              : inspectingRow.is_correct === false
+                ? "Salah"
+                : "Belum Dinilai"}
+          </span>
+        </div>
+        <div>
+          <span class="mono-label">Skor:</span>
+          <span class="font-mono font-bold text-sm ml-1 text-primary"
+            >{bpToPercent(inspectingRow.score_bp)}</span
+          >
+        </div>
+      </div>
+
+      {#if inspectingRow.feedback}
+        <div class="rounded-sm border border-secondary/30 bg-secondary/10 p-3 text-xs space-y-1">
+          <div class="flex items-center gap-1.5 font-bold text-secondary">
+            <Icon name="robot" size="12px" />
+            <span>Umpan Balik AI</span>
+          </div>
+          <p class="text-muted leading-relaxed whitespace-pre-wrap">{inspectingRow.feedback}</p>
+        </div>
+      {/if}
+
+      <div class="flex items-center justify-end border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (inspectingRow = null)}>Tutup</button>
+      </div>
+    </div>
+  </div>
+{/if}

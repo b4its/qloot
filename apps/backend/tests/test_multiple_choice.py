@@ -499,6 +499,27 @@ async def test_teacher_submissions_exposes_student_and_correctness(client):
     assert row["correct_display"] == "Jakarta"
     assert row["is_correct"] is True
 
+    # Filter by exam_id
+    filtered = await client.get(f"/api/v1/teacher/submissions?exam_id={exam_id}")
+    assert filtered.status_code == 200
+    assert len(filtered.json()) >= 1
+    assert any(r["question_id"] == qid for r in filtered.json())
+
+    # Filter by random exam_id should be empty
+    empty_filtered = await client.get("/api/v1/teacher/submissions?exam_id=00000000-0000-0000-0000-000000000000")
+    assert empty_filtered.status_code == 200
+    assert len(empty_filtered.json()) == 0
+
+    # Search filter matching exam or student or prompt
+    search_hit = await client.get("/api/v1/teacher/submissions?q=Ibu+kota")
+    assert search_hit.status_code == 200
+    assert any(r["question_id"] == qid for r in search_hit.json())
+
+    # Search filter with non-matching query
+    search_miss = await client.get("/api/v1/teacher/submissions?q=ZZZUnlikelySearchTerm999")
+    assert search_miss.status_code == 200
+    assert len(search_miss.json()) == 0
+
 
 async def _add_essay_question(client, exam_id, prompt="Jelaskan fotosintesis.", position=0):
     q = await client.post(

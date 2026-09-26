@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 
 from app.api.deps import DbSession, LimitParam, OffsetParam, TeacherUser
 from app.models.exam import Exam, ExamAttempt, Question, QuestionOption, StudentAnswer
@@ -18,12 +18,18 @@ router = APIRouter()
 
 @router.get("/teacher/submissions")
 async def submissions(
-    user: TeacherUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
+    user: TeacherUser,
+    db: DbSession,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
+    exam_id: uuid.UUID | None = None,
+    q: str | None = None,
 ):
     """Recent student answers across this teacher's exams, with AI feedback.
 
     Each row tells you *which student* answered, *which question*, their answer
     (option text for multiple-choice) and, for MC, whether it was correct.
+    Supports optional filtering by exam_id and search term q.
     """
     stmt = (
         select(StudentAnswer, Question, ExamAttempt, Exam.title, User.full_name)
@@ -36,10 +42,20 @@ async def submissions(
         # must not appear as if they were final answers).
         .where(ExamAttempt.status.in_(("submitted", "graded", "grading_failed")))
         .where(User.is_active.is_(True))
-        .order_by(StudentAnswer.saved_at.desc())
-        .limit(limit)
-        .offset(offset)
     )
+    if exam_id is not None:
+        stmt = stmt.where(Exam.id == exam_id)
+    if q is not None and q.strip():
+        term = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                User.full_name.ilike(term),
+                Exam.title.ilike(term),
+                Question.prompt.ilike(term),
+            )
+        )
+
+    stmt = stmt.order_by(StudentAnswer.saved_at.desc()).limit(limit).offset(offset)
     rows = (await db.execute(stmt)).all()
 
     # Resolve the chosen option text for multiple-choice answers in one query.
@@ -56,9 +72,9 @@ async def submissions(
         option_text = {(qid, label): text for qid, label, text in opt_rows}
 
     def _is_correct(sa: StudentAnswer, q: Question) -> bool | None:
-        if q.qtype != "multiple_choice" or sa.score_bp is None:
+        if sa.score_bp is None or sa.max_score_bp <= 0:
             return None
-        return sa.score_bp >= sa.max_score_bp and sa.max_score_bp > 0
+        return sa.score_bp >= sa.max_score_bp
 
     return [
         {
