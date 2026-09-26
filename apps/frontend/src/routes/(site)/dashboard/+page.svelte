@@ -7,6 +7,8 @@
     UserBadge,
     Course,
     Badge,
+    BadgeProgress,
+    NotificationPage,
     Progress,
     Attempt,
     GradeRow,
@@ -27,6 +29,8 @@
   let subjects: Course[] = [];
   let wallet: { available: number; token_id: number } | null = null;
   let gamification: GamificationProfile | null = null;
+  let badgeProgress: BadgeProgress[] = [];
+  let unread = 0;
   let loading = true;
   let error = "";
 
@@ -182,7 +186,7 @@
 
   onMount(async () => {
     try {
-      const [a, p, b, w, s, g, bc, prog, atts, gam] = await Promise.all([
+      const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np] = await Promise.all([
         api.get<AcademicDashboard>("/career/dashboard").catch(() => null),
         api.get<Personality | null>("/career/personality").catch(() => null),
         api.get<UserBadge[]>("/me/badges").catch(() => []),
@@ -193,6 +197,8 @@
         api.get<Progress[]>("/me/learning-progress").catch(() => []),
         api.get<Attempt[]>("/attempts").catch(() => []),
         api.get<GamificationProfile>("/gamification/me").catch(() => null),
+        api.get<BadgeProgress[]>("/badges/progress").catch(() => []),
+        api.get<NotificationPage>("/notifications/page?limit=1").catch(() => null),
       ]);
       acad = a;
       personality = p;
@@ -203,12 +209,26 @@
       badgeCatalog = bc;
       gamification = gam;
       activityCounts = buildActivity(prog, atts, b);
+      badgeProgress = bp;
+      unread = np?.unread ?? 0;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "";
     } finally {
       loading = false;
     }
   });
+
+  function pct(p: BadgeProgress): number {
+    if (p.target <= 0) return 0;
+    return Math.min(100, Math.max(0, Math.round((p.current / p.target) * 100)));
+  }
+
+  // The badges closest to unlocking (locked, with the least remaining) — the
+  // most motivating next goals to surface on the home screen.
+  $: nearestBadges = badgeProgress
+    .filter((p) => !p.unlocked && p.target > 0)
+    .sort((a, b) => b.current / b.target - a.current / a.target)
+    .slice(0, 3);
 
   $: user = $auth.user;
 </script>
@@ -290,6 +310,78 @@
           <p class="text-xs muted">dari {badgeCatalog.length || "—"} tersedia</p>
         </div>
       </div>
+
+      <!-- next goals: unread inbox + nearest badges -->
+      {#if unread > 0 || nearestBadges.length}
+        <div class="mt-4 grid gap-4 lg:grid-cols-2" data-role="next-goals">
+          <div class="card">
+            <div class="flex items-center justify-between">
+              <h2 class="font-display font-bold">Kotak masuk</h2>
+              <a href="/notifications" class="text-xs text-primary"
+                >Buka <Icon name="arrow-right" size="10px" /></a
+              >
+            </div>
+            {#if unread > 0}
+              <div class="mt-3 flex items-center gap-3">
+                <span class="tile-neutral h-10 w-10">
+                  <Icon name="bell" size="15px" class="text-highlight" />
+                </span>
+                <div>
+                  <p class="font-display text-2xl font-bold" data-role="unread-count">{unread}</p>
+                  <p class="text-xs muted">notifikasi belum dibaca</p>
+                </div>
+              </div>
+            {:else}
+              <div class="mt-3 flex items-center gap-3">
+                <span class="tile-neutral h-10 w-10">
+                  <Icon name="bell-slash" size="15px" class="muted" />
+                </span>
+                <p class="text-sm muted">Semua notifikasi sudah dibaca. Kerja bagus!</p>
+              </div>
+            {/if}
+          </div>
+
+          <div class="card">
+            <div class="flex items-center justify-between">
+              <h2 class="font-display font-bold">Badge terdekat</h2>
+              <a href="/badges" class="text-xs text-primary"
+                >Semua badge <Icon name="arrow-right" size="10px" /></a
+              >
+            </div>
+            {#if nearestBadges.length}
+              <ul class="mt-3 space-y-3">
+                {#each nearestBadges as p (p.badge.code)}
+                  <li>
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="inline-flex items-center gap-2">
+                        <Icon name="medal" size="11px" class="text-secondary" />
+                        <span class="font-medium">{p.badge.name}</span>
+                      </span>
+                      <span class="mono muted">{p.current}/{p.target}</span>
+                    </div>
+                    <div
+                      class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
+                      style="background: rgb(var(--line))"
+                      role="progressbar"
+                      aria-valuenow={p.current}
+                      aria-valuemin={0}
+                      aria-valuemax={p.target}
+                      aria-label={`Progres ${p.badge.name}`}
+                    >
+                      <div
+                        class="h-full rounded-full bg-secondary transition-all"
+                        style={`width: ${pct(p)}%`}
+                      ></div>
+                    </div>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="mt-3 text-sm muted">Semua badge sudah kamu raih. Luar biasa!</p>
+            {/if}
+          </div>
+        </div>
+      {/if}
 
       <!-- grades editor -->
       <div class="card mt-4">

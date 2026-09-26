@@ -17,4 +17,11 @@ describe("dashboard grade edit and delete (UIX-05)", () => {
     expect(dashboardSrc).toContain("/api/v1/career/grades/export.csv");
     expect(dashboardSrc).toContain("Ekspor CSV");
   });
+
+  it("surfaces the inbox and the nearest badges as next goals", () => {
+    expect(dashboardSrc).toContain("/notifications/page?");
+    expect(dashboardSrc).toContain("/badges/progress");
+    expect(dashboardSrc).toContain("nearestBadges");
+    expect(dashboardSrc).toContain("data-role=\"next-goals\"");
+  });
 });
