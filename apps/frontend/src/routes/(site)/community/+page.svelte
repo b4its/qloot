@@ -226,32 +226,80 @@
     );
   }
 
+  const REPORT_REASONS = [
+    "Spam atau promosi tidak relevan",
+    "Pelecehan, ujaran kebencian, atau SARA",
+    "Konten tidak pantas atau menyesatkan",
+    "Pelanggaran hak cipta atau plagiarisme",
+    "Lainnya",
+  ];
+
+  let reportingTarget: { type: "post" | "comment"; id: string } | null = null;
+  let reportCategory = REPORT_REASONS[0];
+  let reportCustomDetail = "";
+  let reportNotice = "";
+  let reportingBusy = false;
+
+  let activeReplyTarget: { post: Post; parentCommentId: string } | null = null;
+  let replyDraft = "";
+  let replyingBusy = false;
+
+  let activeEditTarget: { post: Post; comment: Comment } | null = null;
+  let editDraft = "";
+  let editingBusy = false;
+
   /** COMM-02: reply to a specific comment (nested). */
-  async function replyTo(p: Post, parentId: string) {
-    const text = prompt("Balasan Anda?");
-    if (!text || text.trim().length < 1) return;
+  function replyTo(p: Post, parentId: string) {
+    activeReplyTarget = { post: p, parentCommentId: parentId };
+    replyDraft = "";
+  }
+
+  async function submitReply() {
+    if (!activeReplyTarget || !replyDraft.trim() || replyingBusy) return;
+    replyingBusy = true;
     error = "";
     try {
-      await api.post(`/community/posts/${p.id}/comments`, {
-        body: text.trim(),
-        parent_id: parentId,
+      await api.post(`/community/posts/${activeReplyTarget.post.id}/comments`, {
+        body: replyDraft.trim(),
+        parent_id: activeReplyTarget.parentCommentId,
       });
-      await loadComments(p);
+      await loadComments(activeReplyTarget.post);
+      activeReplyTarget.post.comment_count += 1;
+      posts = posts.map((x) => (x.id === activeReplyTarget!.post.id ? activeReplyTarget!.post : x));
+      activeReplyTarget = null;
+      replyDraft = "";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membalas";
+    } finally {
+      replyingBusy = false;
     }
   }
 
   /** COMM-02: edit your own comment. */
-  async function editComment(p: Post, c: Comment) {
-    const text = prompt("Ubah komentar", c.body);
-    if (!text || text.trim().length < 1 || text === c.body) return;
+  function editComment(p: Post, c: Comment) {
+    activeEditTarget = { post: p, comment: c };
+    editDraft = c.body;
+  }
+
+  async function submitEdit() {
+    if (!activeEditTarget || !editDraft.trim() || editingBusy) return;
+    if (editDraft.trim() === activeEditTarget.comment.body) {
+      activeEditTarget = null;
+      return;
+    }
+    editingBusy = true;
     error = "";
     try {
-      await api.patch(`/community/comments/${c.id}`, { body: text.trim() });
-      await loadComments(p);
+      await api.patch(`/community/comments/${activeEditTarget.comment.id}`, {
+        body: editDraft.trim(),
+      });
+      await loadComments(activeEditTarget.post);
+      activeEditTarget = null;
+      editDraft = "";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengubah komentar";
+    } finally {
+      editingBusy = false;
     }
   }
 
@@ -272,22 +320,43 @@
   }
 
   /** COMM-01: report a post or comment (one report per object). */
-  async function reportTarget(targetType: "post" | "comment", targetId: string) {
-    const reason = prompt("Alasan melaporkan konten ini?");
-    if (!reason || reason.trim().length < 3) return;
+  function reportTarget(targetType: "post" | "comment", targetId: string) {
+    reportingTarget = { type: targetType, id: targetId };
+    reportCategory = REPORT_REASONS[0];
+    reportCustomDetail = "";
+  }
+
+  async function submitReport() {
+    if (!reportingTarget || reportingBusy) return;
+    const finalReason =
+      reportCategory === "Lainnya"
+        ? reportCustomDetail.trim()
+        : reportCustomDetail.trim()
+          ? `${reportCategory}: ${reportCustomDetail.trim()}`
+          : reportCategory;
+
+    if (finalReason.length < 3) return;
+
+    reportingBusy = true;
     error = "";
     try {
       await api.post("/community/reports", {
-        target_type: targetType,
-        target_id: targetId,
-        reason: reason.trim(),
+        target_type: reportingTarget.type,
+        target_id: reportingTarget.id,
+        reason: finalReason,
       });
-      copiedId = targetId;
+      copiedId = reportingTarget.id;
+      reportNotice = "Laporan berhasil dikirim ke tim moderator untuk ditinjau.";
       setTimeout(() => {
-        if (copiedId === targetId) copiedId = "";
-      }, 2000);
+        reportNotice = "";
+        if (copiedId === reportingTarget?.id) copiedId = "";
+      }, 4000);
+      reportingTarget = null;
+      reportCustomDetail = "";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal melaporkan konten";
+    } finally {
+      reportingBusy = false;
     }
   }
 
@@ -429,6 +498,18 @@
         <Icon name="user-check" size="11px" /> Mengikuti
       </button>
     </div>
+
+    {#if reportNotice}
+      <div class="alert-ok flex items-center justify-between text-xs">
+        <span class="flex items-center gap-1.5"
+          ><Icon name="circle-check" size="14px" /> {reportNotice}</span
+        >
+        <button
+          class="text-xs text-muted hover:text-foreground"
+          on:click={() => (reportNotice = "")}>✕</button
+        >
+      </div>
+    {/if}
 
     {#if error}
       <p class="alert-error">{error}</p>
@@ -743,6 +824,165 @@
 
       <div class="pt-2 flex justify-end border-t">
         <button class="btn-ghost text-xs" on:click={closeInspectUserLevel}>Tutup</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if reportingTarget}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-magenta/40 shadow-2xl">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <p class="mono-label text-magenta">Moderasi Komunitas</p>
+          <h3 class="font-display text-lg font-bold">
+            Laporkan {reportingTarget.type === "post" ? "Diskusi" : "Komentar"}
+          </h3>
+        </div>
+        <button class="btn-icon" on:click={() => (reportingTarget = null)} aria-label="Tutup">
+          <Icon name="xmark" size="14px" />
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <label for="report-reason-select" class="block text-xs font-medium"
+          >Pilih Alasan Pelaporan</label
+        >
+        <div id="report-reason-select" class="space-y-2">
+          {#each REPORT_REASONS as reason}
+            <label
+              class="flex cursor-pointer items-center gap-2 rounded-sm border p-2.5 text-xs transition-colors hover:border-primary/40"
+              class:border-primary={reportCategory === reason}
+              class:bg-primary-10={reportCategory === reason}
+            >
+              <input
+                type="radio"
+                name="report-reason"
+                value={reason}
+                checked={reportCategory === reason}
+                on:change={() => (reportCategory = reason)}
+              />
+              <span>{reason}</span>
+            </label>
+          {/each}
+        </div>
+
+        {#if reportCategory === "Lainnya" || reportCategory}
+          <div class="pt-1">
+            <label for="report-detail-text" class="block text-xs muted mb-1"
+              >Keterangan Tambahan (opsional)</label
+            >
+            <textarea
+              id="report-detail-text"
+              class="input min-h-[70px] text-xs"
+              placeholder="Jelaskan secara singkat detail pelanggaran..."
+              bind:value={reportCustomDetail}
+            ></textarea>
+          </div>
+        {/if}
+      </div>
+
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button type="button" class="btn-ghost text-xs" on:click={() => (reportingTarget = null)}
+          >Batal</button
+        >
+        <button
+          type="button"
+          class="btn-primary text-xs !bg-magenta !border-magenta hover:!bg-magenta/80"
+          on:click={submitReport}
+          disabled={reportingBusy}
+        >
+          {#if reportingBusy}<Icon name="spinner" spin size="12px" />{/if}
+          <span>{reportingBusy ? "Mengirim Laporan…" : "Kirim Laporan"}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if activeReplyTarget}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-primary/40 shadow-2xl">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <p class="mono-label">Balas Komentar</p>
+          <h3 class="font-display text-base font-bold">Tulis Tanggapan Anda</h3>
+        </div>
+        <button class="btn-icon" on:click={() => (activeReplyTarget = null)} aria-label="Tutup">
+          <Icon name="xmark" size="14px" />
+        </button>
+      </div>
+
+      <div>
+        <textarea
+          class="input min-h-[100px] text-xs"
+          placeholder="Tulis balasan untuk komentar ini..."
+          bind:value={replyDraft}
+          on:keydown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              submitReply();
+            }
+          }}
+        ></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button type="button" class="btn-ghost text-xs" on:click={() => (activeReplyTarget = null)}
+          >Batal</button
+        >
+        <button
+          type="button"
+          class="btn-primary text-xs"
+          on:click={submitReply}
+          disabled={replyingBusy || !replyDraft.trim()}
+        >
+          {#if replyingBusy}<Icon name="spinner" spin size="12px" />{/if}
+          <span>{replyingBusy ? "Mengirim…" : "Kirim Balasan"}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if activeEditTarget}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-primary/40 shadow-2xl">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div>
+          <p class="mono-label">Sunting Komentar</p>
+          <h3 class="font-display text-base font-bold">Ubah Isi Komentar</h3>
+        </div>
+        <button class="btn-icon" on:click={() => (activeEditTarget = null)} aria-label="Tutup">
+          <Icon name="xmark" size="14px" />
+        </button>
+      </div>
+
+      <div>
+        <textarea
+          class="input min-h-[100px] text-xs"
+          placeholder="Ubah komentar Anda..."
+          bind:value={editDraft}
+          on:keydown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              submitEdit();
+            }
+          }}
+        ></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button type="button" class="btn-ghost text-xs" on:click={() => (activeEditTarget = null)}
+          >Batal</button
+        >
+        <button
+          type="button"
+          class="btn-primary text-xs"
+          on:click={submitEdit}
+          disabled={editingBusy || !editDraft.trim()}
+        >
+          {#if editingBusy}<Icon name="spinner" spin size="12px" />{/if}
+          <span>{editingBusy ? "Menyimpan…" : "Simpan Perubahan"}</span>
+        </button>
       </div>
     </div>
   </div>
