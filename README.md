@@ -59,6 +59,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
 ## Fitur
 
 - **Pembelajaran berbasis kelas** — pelajaran per kelas, materi, progres, dan PDF upload.
+  Katalog **pelajaran** dan direktori **mata pelajaran** kini sadar-progres: pencarian,
+  filter kelas/mapel, urutan, strip metrik, dan bar kemajuan per-pelajaran (badge
+  **Tuntas** bila seluruh materi selesai).
 - **AI (mock / Gemini / OpenAI-compatible)** — pembuatan soal dari PDF, penilaian esai,
   ringkasan materi, dan tanya-jawab berbasis materi; struktur output tervalidasi, retry,
   dan provider mock deterministik untuk pengembangan offline. Asisten belajar/karier
@@ -66,7 +69,10 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
 - **Ujian** — timer otoritatif di server, autosave, submit idempoten, umpan-balik AI,
   skor kemiripan. Guru dapat membuat soal **pilihan ganda** (multiple choice) maupun esai;
   **pilihan ganda dinilai otomatis & instan** (tanpa AI) saat dikumpulkan — cocok untuk kuis
-  bergamifikasi, dengan badge **Quiz Master** bila semua jawaban PG benar.
+  bergamifikasi, dengan badge **Quiz Master** bila semua jawaban PG benar. Halaman ujian
+  siswa adalah **hub** yang menampilkan status ketersediaan (terbuka/akan datang/ditutup),
+  tenggat, pencarian, filter, urutan, dan progres percobaan (skor terbaik, percobaan
+  terpakai) per ujian.
 - **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
   pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
   quest, notifikasi, dan badge (off-chain). **Inbox notifikasi** punya pencarian, filter
