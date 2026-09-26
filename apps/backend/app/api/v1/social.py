@@ -13,8 +13,10 @@ from app.schemas.social import (
     BadgeOut,
     BadgeProgressOut,
     FollowStatusOut,
+    MarkReadBatch,
     NotificationCreate,
     NotificationOut,
+    NotificationPage,
     UnreadCount,
     UserBadgeOut,
 )
@@ -29,11 +31,43 @@ async def list_notifications(
     user: CurrentUser,
     db: DbSession,
     unread_only: bool = False,
+    kind: str | None = None,
+    q: str | None = None,
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
 ):
     return await NotificationService(db).list_for_user(
-        user.id, limit=limit, offset=offset, unread_only=unread_only
+        user.id, limit=limit, offset=offset, unread_only=unread_only, kind=kind, q=q
+    )
+
+
+@router.get("/notifications/page", response_model=NotificationPage)
+async def notifications_page(
+    user: CurrentUser,
+    db: DbSession,
+    unread_only: bool = False,
+    kind: str | None = None,
+    q: str | None = None,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
+):
+    """Notification feed bundled with totals, unread count, and per-kind counts.
+
+    One round-trip powers the whole notifications screen (items + metric strip
+    + filter chips) so the counters can never drift from the visible list.
+    """
+    svc = NotificationService(db)
+    items = await svc.list_for_user(
+        user.id, limit=limit, offset=offset, unread_only=unread_only, kind=kind, q=q
+    )
+    total = await svc.count_for_user(user.id, unread_only=unread_only, kind=kind, q=q)
+    unread = await svc.unread_count(user.id)
+    counts = await svc.kind_counts(user.id)
+    return NotificationPage(
+        items=[NotificationOut.model_validate(n) for n in items],
+        total=total,
+        unread=unread,
+        kind_counts=counts,
     )
 
 
@@ -86,6 +120,29 @@ async def mark_all_read(user: CurrentUser, db: DbSession):
     async with transaction(db):
         n = await NotificationService(db).mark_all_read(user.id)
     return Message(message=f"{n} notifications marked as read")
+
+
+@router.post("/notifications/read-batch", response_model=Message)
+async def mark_many_read(payload: MarkReadBatch, user: CurrentUser, db: DbSession):
+    """Mark a caller-chosen set of notifications read (bulk selection)."""
+    async with transaction(db):
+        n = await NotificationService(db).mark_many_read(user.id, payload.ids)
+    return Message(message=f"{n} notifications marked as read")
+
+
+@router.delete("/notifications/{notification_id}", response_model=Message)
+async def delete_notification(notification_id: uuid.UUID, user: CurrentUser, db: DbSession):
+    async with transaction(db):
+        await NotificationService(db).delete(user.id, notification_id)
+    return Message(message="Notification deleted")
+
+
+@router.post("/notifications/clear-read", response_model=Message)
+async def clear_read(user: CurrentUser, db: DbSession):
+    """Delete every already-read notification (tidy the inbox)."""
+    async with transaction(db):
+        n = await NotificationService(db).delete_all_read(user.id)
+    return Message(message=f"{n} notifications cleared")
 
 
 @router.post("/admin/notifications", response_model=Message, status_code=status.HTTP_201_CREATED)

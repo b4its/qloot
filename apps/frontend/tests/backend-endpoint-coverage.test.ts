@@ -7,13 +7,14 @@ import teacherConsSrc from "$routes-panel/teacher/consultations/+page.svelte?raw
 import learningSrc from "$routes-site/learning/[courseId]/+page.svelte?raw";
 import profileSrc from "$routes-site/profile/+page.svelte?raw";
 
-import adminNotificationsSrc from "$routes-panel/admin/notifications/+page.svelte?raw";
-import adminBlockchainSrc from "$routes-panel/admin/blockchain/+page.svelte?raw";
+import adminNotificationsSrc from "$routes-panel/admin/notifications/+page.svelte?raw";import adminBlockchainSrc from "$routes-panel/admin/blockchain/+page.svelte?raw";
 import roomPageSrc from "$routes-site/rooms/[roomId]/+page.svelte?raw";
 import certPageSrc from "$routes-site/certificates/+page.svelte?raw";
 import verifyPageSrc from "$routes-site/verify/[credentialId]/+page.svelte?raw";
 import communitySrc from "$routes-site/community/+page.svelte?raw";
 import questsSrc from "$routes-site/quests/+page.svelte?raw";
+import notificationsSrc from "$routes-site/notifications/+page.svelte?raw";
+import badgesSrc from "$routes-site/badges/+page.svelte?raw";
 
 /**
  * Regression for C88 re-audit: endpoints that were backend-only must have a
@@ -84,5 +85,18 @@ describe("previously backend-only endpoints now have a UI caller", () => {
   it("profile shows follower/following counts via the follow status endpoint", () => {
     expect(profileSrc).toContain("/follow`");
     expect(profileSrc).toContain("followCounts");
+  });
+
+  it("notifications page drives the full inbox API (page bundle, bulk read, delete, clear)", () => {
+    expect(notificationsSrc).toContain("/notifications/page?");
+    expect(notificationsSrc).toContain("/notifications/read-batch");
+    expect(notificationsSrc).toContain("/notifications/clear-read");
+    expect(notificationsSrc).toContain("api.delete(`/notifications/");
+    expect(notificationsSrc).toContain("linkFor");
+  });
+
+  it("badges page renders progress toward locked badges (GET /badges/progress)", () => {
+    expect(badgesSrc).toContain("/badges/progress");
+    expect(badgesSrc).toContain("progressFor");
   });
 });

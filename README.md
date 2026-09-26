@@ -69,10 +69,14 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   bergamifikasi, dengan badge **Quiz Master** bila semua jawaban PG benar.
 - **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
   pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
-  quest, notifikasi, dan badge (off-chain). **XP & level (simulasi deterministik)**:
-  XP dihitung dari aktivitas nyata (skor ujian terbaik, kemenangan quest, tugas, badge) —
-  tidak pernah disimpan sehingga tak bisa drift — lalu dipetakan ke level dengan progres
-  menuju level berikutnya di halaman peringkat **dan profil**.
+  quest, notifikasi, dan badge (off-chain). **Inbox notifikasi** punya pencarian, filter
+  jenis/status dibaca dengan hitungan per-jenis, aksi massal (tandai dibaca / bersihkan
+  yang sudah dibaca), penghapusan per-item, dan *deep-link* ke konteks (quest, ruang,
+  ujian, dsb.). **Halaman badge** menampilkan progres menuju syarat setiap badge terkunci
+  (mis. 3/5 ruang) dengan pencarian, filter rarity/status, dan urutan. **XP & level
+  (simulasi deterministik)**: XP dihitung dari aktivitas nyata (skor ujian terbaik, kemenangan
+  quest, tugas, badge) — tidak pernah disimpan sehingga tak bisa drift — lalu dipetakan ke
+  level dengan progres menuju level berikutnya di halaman peringkat **dan profil**.
 - **Panduan karier (simulasi)** — dashboard akademik (nilai, tren, radar minat, insight AI),
   tes kepribadian Big Five, rekomendasi jurusan AI dengan persetujuan guru BK
   (human-in-the-loop), roadmap milestone, ruang konsultasi BK, perpustakaan sumber, dan

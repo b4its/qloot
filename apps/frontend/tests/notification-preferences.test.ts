@@ -30,7 +30,8 @@ describe("notifications page — preferences (GAME-14)", () => {
     get.mockReset();
     put.mockReset();
     get.mockImplementation((path: string) => {
-      if (path.startsWith("/notifications?")) return Promise.resolve([]);
+      if (path.startsWith("/notifications/page"))
+        return Promise.resolve({ items: [], total: 0, unread: 0, kind_counts: {} });
       if (path === "/notifications/preferences") return Promise.resolve({ muted_kinds: [] });
       return Promise.resolve([]);
     });
@@ -40,6 +41,9 @@ describe("notifications page — preferences (GAME-14)", () => {
 
   it("renders a mute toggle per notification kind and persists the change", async () => {
     render(NotificationsPage);
+    // Preferences live behind a toggle to keep the inbox focus-first.
+    await waitFor(() => expect(screen.getByText("Preferensi")).toBeTruthy());
+    await fireEvent.click(screen.getByText("Preferensi"));
     await waitFor(() => expect(screen.getByText("Jenis notifikasi")).toBeTruthy());
 
     const rewardToggle = await screen.findByText("Hadiah");

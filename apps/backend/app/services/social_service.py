@@ -130,7 +130,14 @@ class NotificationService:
         return count
 
     async def list_for_user(
-        self, user_id: uuid.UUID, *, limit: int = 50, offset: int = 0, unread_only: bool = False
+        self,
+        user_id: uuid.UUID,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        unread_only: bool = False,
+        kind: str | None = None,
+        q: str | None = None,
     ) -> list[Notification]:
         stmt = (
             select(Notification)
@@ -141,7 +148,55 @@ class NotificationService:
         )
         if unread_only:
             stmt = stmt.where(Notification.read_at.is_(None))
+        if kind:
+            stmt = stmt.where(Notification.kind == kind)
+        if q and q.strip():
+            pattern = f"%{q.strip().lower()}%"
+            stmt = stmt.where(
+                func.lower(Notification.title).like(pattern)
+                | func.lower(func.coalesce(Notification.body, "")).like(pattern)
+            )
         return list((await self.session.execute(stmt)).scalars().all())
+
+    async def count_for_user(
+        self,
+        user_id: uuid.UUID,
+        *,
+        unread_only: bool = False,
+        kind: str | None = None,
+        q: str | None = None,
+    ) -> int:
+        """Total matching notifications, so the UI can page without guessing.
+
+        Mirrors ``list_for_user``'s filters exactly so the count and the page
+        can never disagree.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.user_id == user_id)
+        )
+        if unread_only:
+            stmt = stmt.where(Notification.read_at.is_(None))
+        if kind:
+            stmt = stmt.where(Notification.kind == kind)
+        if q and q.strip():
+            pattern = f"%{q.strip().lower()}%"
+            stmt = stmt.where(
+                func.lower(Notification.title).like(pattern)
+                | func.lower(func.coalesce(Notification.body, "")).like(pattern)
+            )
+        return int((await self.session.execute(stmt)).scalar_one())
+
+    async def kind_counts(self, user_id: uuid.UUID) -> dict[str, int]:
+        """Number of notifications per ``kind`` for the caller (filter chips)."""
+        stmt = (
+            select(Notification.kind, func.count())
+            .where(Notification.user_id == user_id)
+            .group_by(Notification.kind)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return {kind: int(count) for kind, count in rows}
 
     async def unread_count(self, user_id: uuid.UUID) -> int:
         stmt = (
@@ -175,6 +230,54 @@ class NotificationService:
             n.read_at = datetime.now(UTC)
         await self.session.flush()
         return len(items)
+
+    async def mark_many_read(self, user_id: uuid.UUID, ids: list[uuid.UUID]) -> int:
+        """Mark a caller-chosen set of notifications read (idempotent).
+
+        Ids not owned by the caller are silently skipped so a stray id can
+        never touch another user's feed.
+        """
+        if not ids:
+            return 0
+        from datetime import UTC, datetime
+
+        rows = await self.session.execute(
+            select(Notification).where(
+                Notification.user_id == user_id,
+                Notification.id.in_(ids),
+                Notification.read_at.is_(None),
+            )
+        )
+        items = rows.scalars().all()
+        now = datetime.now(UTC)
+        for n in items:
+            n.read_at = now
+        await self.session.flush()
+        return len(items)
+
+    async def delete(self, user_id: uuid.UUID, notification_id: uuid.UUID) -> None:
+        """Delete one notification, scoped to its owner.
+
+        Raises NotFoundError when the notification does not exist *or* belongs
+        to someone else, so ownership never leaks through the status code.
+        """
+        n = await self.session.get(Notification, notification_id)
+        if n is None or n.user_id != user_id:
+            raise NotFoundError("Notification not found")
+        await self.session.delete(n)
+        await self.session.flush()
+
+    async def delete_all_read(self, user_id: uuid.UUID) -> int:
+        """Clear the caller's already-read notifications. Returns the count."""
+        from sqlalchemy import delete as sa_delete
+
+        result = await self.session.execute(
+            sa_delete(Notification).where(
+                Notification.user_id == user_id, Notification.read_at.is_not(None)
+            )
+        )
+        await self.session.flush()
+        return int(result.rowcount or 0)
 
 
 class BadgeService:

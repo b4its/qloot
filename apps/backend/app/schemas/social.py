@@ -24,6 +24,25 @@ class UnreadCount(BaseModel):
     unread: int
 
 
+class MarkReadBatch(BaseModel):
+    """Body for marking a caller-chosen set of notifications read (STUDY-09)."""
+
+    ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class NotificationPage(BaseModel):
+    """Paginated notification feed with the counters the UI needs in one call.
+
+    Bundling the totals with the page avoids a second round-trip and keeps the
+    filter chips (per-kind counts) consistent with the visible items.
+    """
+
+    items: list[NotificationOut]
+    total: int
+    unread: int
+    kind_counts: dict[str, int] = Field(default_factory=dict)
+
+
 class BadgeOut(ORMModel):
     code: str
     name: str

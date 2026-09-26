@@ -369,6 +369,13 @@ export interface Notification {
   created_at: string;
 }
 
+export interface NotificationPage {
+  items: Notification[];
+  total: number;
+  unread: number;
+  kind_counts: Record<string, number>;
+}
+
 export interface Badge {
   code: string;
   name: string;
