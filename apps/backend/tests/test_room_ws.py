@@ -24,6 +24,7 @@ pytestmark = pytest.mark.integration
 
 def _ws_client() -> TestClient:
     warnings.filterwarnings("ignore", category=DeprecationWarning, module="starlette.testclient")
+    warnings.filterwarnings("ignore", category=UserWarning, module="starlette.testclient")
     return TestClient(app)
 
 
