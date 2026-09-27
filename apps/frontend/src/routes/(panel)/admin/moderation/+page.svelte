@@ -8,6 +8,7 @@
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -254,30 +255,16 @@
 
 <!-- Moderation confirmation modal -->
 {#if confirming}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">
-          {confirming.action === "delete" ? "Hapus Konten" : "Sembunyikan Konten"}
-        </h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        {confirming.action === "delete"
-          ? "Konten yang dilaporkan akan dihapus permanen."
-          : "Konten yang dilaporkan akan disembunyikan dari feed publik."}
-      </p>
-      <p class="text-xs muted leading-relaxed">Alasan laporan: “{confirming.report.reason}”</p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirming = null)}>Batal</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => confirming && moderate(confirming.report, confirming.action)}
-          data-role="confirm-moderate"
-        >
-          Ya, {confirming.action === "delete" ? "Hapus" : "Sembunyikan"}
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title={confirming.action === "delete" ? "Hapus Konten" : "Sembunyikan Konten"}
+    description={confirming.action === "delete"
+      ? "Konten yang dilaporkan akan dihapus permanen."
+      : "Konten yang dilaporkan akan disembunyikan dari feed publik."}
+    hint={`Alasan laporan: “${confirming.report.reason}”`}
+    confirmLabel={`Ya, ${confirming.action === "delete" ? "Hapus" : "Sembunyikan"}`}
+    confirmRole="confirm-moderate"
+    busy={busy === confirming.report.id}
+    onConfirm={() => moderate(confirming!.report, confirming!.action)}
+    close={() => (confirming = null)}
+  />
 {/if}

@@ -7,6 +7,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import Icon from "$lib/components/Icon.svelte";
 
   interface AdminWithdrawal {
@@ -264,37 +265,17 @@
 
 <!-- Reject confirmation modal -->
 {#if rejecting}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Tolak Permintaan Penarikan</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Tolak penarikan <strong class="mono">{formatNumber(rejecting.amount)} OPT</strong> ke
-        <span class="mono">{rejecting.destination_address.slice(0, 12)}…</span>?
-      </p>
-      <p class="text-xs muted leading-relaxed">
-        Dana yang diminta akan dikembalikan ke saldo pengguna.
-      </p>
-      <label class="block">
-        <span class="mono-label text-[10px]">Alasan (opsional)</span>
-        <input
-          class="input mt-1 w-full text-sm"
-          placeholder="mis. alamat tidak valid"
-          bind:value={rejectReason}
-        />
-      </label>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (rejecting = null)}>Tutup</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => rejecting && reject(rejecting.id, rejectReason)}
-          data-role="confirm-reject"
-        >
-          Ya, Tolak
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Tolak Permintaan Penarikan"
+    description={`Tolak penarikan ${formatNumber(rejecting.amount)} OPT ke ${rejecting.destination_address.slice(0, 12)}…?`}
+    hint="Dana yang diminta akan dikembalikan ke saldo pengguna."
+    confirmLabel="Ya, Tolak"
+    confirmRole="confirm-reject"
+    reason={rejectReason}
+    onReason={(v) => (rejectReason = v)}
+    reasonPlaceholder="mis. alamat tidak valid"
+    busy={busy === rejecting.id}
+    onConfirm={() => reject(rejecting!.id, rejectReason)}
+    close={() => (rejecting = null)}
+  />
 {/if}

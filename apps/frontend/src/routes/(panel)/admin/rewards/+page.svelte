@@ -8,6 +8,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import Icon from "$lib/components/Icon.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
@@ -284,31 +285,14 @@
 
 <!-- Cancel confirmation modal -->
 {#if confirmingCancel}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Konfirmasi Batalkan Hadiah</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Batalkan hadiah <strong class="mono">{confirmingCancel.reward_key.slice(0, 12)}…</strong>
-        senilai
-        {formatNumber(confirmingCancel.amount)} OPT?
-      </p>
-      <p class="text-xs muted leading-relaxed">
-        Hadiah yang tertunda akan dibatalkan dan tidak dikirim ke chain. Tindakan ini tercatat di
-        audit log.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirmingCancel = null)}>Tutup</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => confirmingCancel && cancel(confirmingCancel.id)}
-          data-role="confirm-cancel-reward"
-        >
-          Ya, Batalkan
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Konfirmasi Batalkan Hadiah"
+    description={`Batalkan hadiah ${confirmingCancel.reward_key.slice(0, 12)}… senilai ${formatNumber(confirmingCancel.amount)} OPT?`}
+    hint="Hadiah yang tertunda akan dibatalkan dan tidak dikirim ke chain. Tindakan ini tercatat di audit log."
+    confirmLabel="Ya, Batalkan"
+    confirmRole="confirm-cancel-reward"
+    busy={busy === confirmingCancel.id}
+    onConfirm={() => cancel(confirmingCancel!.id)}
+    close={() => (confirmingCancel = null)}
+  />
 {/if}

@@ -22,8 +22,20 @@
   export let reason: string | null = null;
   export let reasonLabel = "Alasan (opsional)";
   export let reasonPlaceholder = "";
+  /** Called on every keystroke with the current reason (two-way via callback). */
+  export let onReason: ((value: string) => void) | undefined = undefined;
+  /** Optional `data-role` for the confirm button (for tests/analytics). */
+  export let confirmRole = "confirm-action";
   export let onConfirm: () => void;
   export let close: () => void;
+
+  // Svelte props are one-way: bind the textarea to a local draft and push
+  // changes back through `onReason` so the parent's state stays authoritative.
+  let reasonDraft = reason ?? "";
+  $: if (reason !== null && reason !== reasonDraft) reasonDraft = reason;
+  function onReasonInput() {
+    onReason?.(reasonDraft);
+  }
 
   function confirm() {
     if (busy) return;
@@ -55,7 +67,8 @@
           class="input mt-1 w-full text-sm"
           rows="2"
           placeholder={reasonPlaceholder}
-          bind:value={reason}
+          bind:value={reasonDraft}
+          on:input={onReasonInput}
           data-autofocus
         ></textarea>
       </label>
@@ -71,7 +84,7 @@
           : "btn-primary text-xs font-semibold"}
         on:click={confirm}
         disabled={busy}
-        data-role="confirm-action"
+        data-role={confirmRole}
         data-autofocus={reason === null ? "" : undefined}
       >
         {#if busy}<Icon name="spinner" spin size="11px" />{/if}

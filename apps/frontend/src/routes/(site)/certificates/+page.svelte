@@ -519,6 +519,7 @@
     hint="Tindakan ini tidak dapat dibatalkan. Sertifikat yang dicabut tetap terlihat di riwayat."
     confirmLabel="Ya, Cabut Sertifikat"
     reason={revokeReason}
+    onReason={(v) => (revokeReason = v)}
     reasonPlaceholder="mis. kesalahan penilaian"
     busy={revoking}
     onConfirm={confirmRevokeActive}

@@ -7,6 +7,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { formatNumber, statusLabel } from "$lib/utils/format";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
@@ -313,34 +314,16 @@
 
 <!-- Pause/unpause confirmation modal -->
 {#if confirming}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">
-          {confirming.action === "pause" ? "Jeda Aset On-Chain" : "Lanjutkan Aset On-Chain"}
-        </h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        {#if confirming.action === "pause"}
-          Menjeda <strong>{confirming.asset}</strong> akan mencegah semua transfer & reward aset ini hingga
-          dilanjutkan. Perintah dikirim ke blockchain worker.
-        {:else}
-          Melanjutkan <strong>{confirming.asset}</strong> akan mengaktifkan kembali transfer & reward
-          aset ini.
-        {/if}
-      </p>
-      <p class="text-xs muted leading-relaxed">Tindakan ini tercatat di audit log.</p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirming = null)}>Batal</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => confirming && control(confirming.action)}
-          data-role="confirm-control"
-        >
-          {busy ? "Mengirim…" : confirming.action === "pause" ? "Ya, Jeda" : "Ya, Lanjutkan"}
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title={confirming.action === "pause" ? "Jeda Aset On-Chain" : "Lanjutkan Aset On-Chain"}
+    description={confirming.action === "pause"
+      ? `Menjeda ${confirming.asset} akan mencegah semua transfer & reward aset ini hingga dilanjutkan. Perintah dikirim ke blockchain worker.`
+      : `Melanjutkan ${confirming.asset} akan mengaktifkan kembali transfer & reward aset ini.`}
+    hint="Tindakan ini tercatat di audit log."
+    confirmLabel={confirming.action === "pause" ? "Ya, Jeda" : "Ya, Lanjutkan"}
+    confirmRole="confirm-control"
+    busy={busy !== ""}
+    onConfirm={() => control(confirming!.action)}
+    close={() => (confirming = null)}
+  />
 {/if}

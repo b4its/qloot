@@ -6,7 +6,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
-  import Icon from "$lib/components/Icon.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   interface SnapshotRow {
     id: string;
@@ -274,33 +274,14 @@
 
 <!-- Refresh confirmation modal -->
 {#if confirmingRefresh}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Materialisasi Ulang Snapshot</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Perbarui papan peringkat <strong>{confirmingRefresh.scope}</strong
-        >{#if confirmingRefresh.id}
-          untuk
-          <span class="font-mono">{confirmingRefresh.id.slice(0, 8)}…</span>{/if}?
-      </p>
-      <p class="text-xs muted leading-relaxed">
-        Snapshot akan dihitung ulang dari data terkini dan menggantikan entri yang ada. Tindakan ini
-        tercatat di audit log.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirmingRefresh = null)}>Batal</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() =>
-            confirmingRefresh && refresh(confirmingRefresh.scope, confirmingRefresh.id)}
-          data-role="confirm-refresh"
-        >
-          Ya, Perbarui
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Materialisasi Ulang Snapshot"
+    description={`Perbarui papan peringkat ${confirmingRefresh.scope}${confirmingRefresh.id ? ` untuk ${confirmingRefresh.id.slice(0, 8)}…` : ""}?`}
+    hint="Snapshot akan dihitung ulang dari data terkini dan menggantikan entri yang ada. Tindakan ini tercatat di audit log."
+    confirmLabel="Ya, Perbarui"
+    confirmRole="confirm-refresh"
+    busy={refreshing !== ""}
+    onConfirm={() => refresh(confirmingRefresh!.scope, confirmingRefresh!.id)}
+    close={() => (confirmingRefresh = null)}
+  />
 {/if}

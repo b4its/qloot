@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -318,35 +319,17 @@
 
 <!-- Send confirmation modal -->
 {#if confirming}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="paper-plane" size="18px" />
-        <h3 class="font-display text-lg font-bold">Kirim Siaran Notifikasi</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Kirim <strong>"{title}"</strong> ke
-        {#if targetMode === "all"}
-          <strong>seluruh pengguna aktif</strong>{#if activeUsers !== null}
-            ({formatNumber(activeUsers)}){/if}?
-        {:else}
-          <strong>{selected.size} penerima</strong> terpilih?
-        {/if}
-      </p>
-      <p class="text-xs muted leading-relaxed">
-        Notifikasi langsung tersimpan di feed penerima. Tindakan ini tercatat.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirming = false)}>Batal</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={sendBroadcast}
-          disabled={sending}
-          data-role="confirm-broadcast"
-        >
-          {sending ? "Mengirim…" : "Ya, Kirim"}
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Kirim Siaran Notifikasi"
+    description={targetMode === "all"
+      ? `Kirim "${title}" ke seluruh pengguna aktif${activeUsers !== null ? ` (${formatNumber(activeUsers)})` : ""}?`
+      : `Kirim "${title}" ke ${selected.size} penerima terpilih?`}
+    hint="Notifikasi langsung tersimpan di feed penerima. Tindakan ini tercatat."
+    confirmLabel="Ya, Kirim"
+    confirmRole="confirm-broadcast"
+    tone="primary"
+    busy={sending}
+    onConfirm={sendBroadcast}
+    close={() => (confirming = false)}
+  />
 {/if}
