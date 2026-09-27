@@ -9,14 +9,23 @@
   export let size = 40;
 
   let copied = false;
+  let copyFailed = false;
   async function copy() {
     if (!copyable) return;
+    copyFailed = false;
+    if (!navigator.clipboard?.writeText) {
+      copyFailed = true;
+      setTimeout(() => (copyFailed = false), 2000);
+      return;
+    }
     try {
       await navigator.clipboard.writeText(address);
       copied = true;
       setTimeout(() => (copied = false), 1400);
     } catch {
-      /* ignore */
+      // Never claim success on a blocked clipboard.
+      copyFailed = true;
+      setTimeout(() => (copyFailed = false), 2000);
     }
   }
 </script>
@@ -34,6 +43,15 @@
     <span class="text-ink">{shortHash(address, 6)}</span>
   </span>
   {#if copyable}
-    <Icon name={copied ? "check" : "copy"} size="11px" />
+    <Icon
+      name={copied ? "check" : copyFailed ? "triangle-exclamation" : "copy"}
+      size="11px"
+      class={copyFailed ? "text-danger" : ""}
+    />
   {/if}
 </button>
+{#if copyFailed}
+  <span class="sr-only" role="alert" aria-live="assertive"
+    >Alamat wallet tidak dapat disalin otomatis.</span
+  >
+{/if}
