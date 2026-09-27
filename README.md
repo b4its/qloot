@@ -78,7 +78,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   tenggat, pencarian, filter, urutan, dan progres percobaan (skor terbaik, percobaan
   terpakai) per ujian. **Detail ujian** menampilkan skor terbaik & status lulus, badge
   komposisi soal, baris percobaan lulus/gagal, dan banner "lanjutkan pengerjaan" bila ada
-  attempt berjalan; `/attempts` mendukung filter `exam_id`.
+  attempt berjalan; `/attempts` mendukung filter `exam_id`. **Tinjauan hasil** siswa punya
+  filter per-soal (benar/sebagian/salah/kosong) dengan hitungan untuk fokus ke soal yang
+  salah atau kosong.
 - **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
   pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
   quest, notifikasi, dan badge (off-chain). **Inbox notifikasi** punya pencarian, filter
