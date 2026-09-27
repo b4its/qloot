@@ -115,6 +115,31 @@ async def test_ai_request_spends_ort(client, engine):
     assert over.status_code == 409, over.text
 
 
+async def test_frozen_wallet_cannot_spend_ort(client, engine):
+    """A frozen wallet must not be able to spend secondary assets (ORT) either,
+    not just OPT withdrawals/swaps."""
+    import uuid as _uuid
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.services.reward_engine import RewardEngine
+
+    user = await _register(client, "frozen_ort@ex.com")
+    await _credit_opt(engine, user["id"], 100_000, "seed-frozen")
+    await client.post("/api/v1/wallet/swap", json={"asset": "ORT", "amount": 5})
+
+    # Freeze the wallet directly (no admin endpoint exists for this yet).
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        account = await RewardEngine(s).get_or_create_account(_uuid.UUID(user["id"]))
+        account.is_frozen = True
+        await s.commit()
+
+    r = await client.post("/api/v1/wallet/ai-requests", json={"requests": 1})
+    assert r.status_code == 409, r.text
+    assert "frozen" in r.json()["error"]["message"].lower()
+
+
 async def test_wallet_reconciliation_endpoint_reports_integrity(client, engine):
     """GET /wallet/reconciliation returns cached vs computed and an ok flag."""
     user = await _register(client, "recon_me@ex.com")

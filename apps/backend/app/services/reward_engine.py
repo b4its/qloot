@@ -574,6 +574,9 @@ class RewardEngine:
         """Add `amount` of a secondary asset; returns the new balance."""
         if amount <= 0:
             raise ConflictError("Amount must be positive")
+        account = await self.get_or_create_account(user_id)
+        if account.is_frozen:
+            raise ConflictError("Wallet is frozen")
         row = await self._locked_asset_row(user_id, asset)
         row.cached_balance += amount
         await self.session.flush()
@@ -587,6 +590,11 @@ class RewardEngine:
         """
         if amount <= 0:
             raise ConflictError("Amount must be positive")
+        # A frozen wallet must not be able to spend secondary assets either
+        # (previously only OPT withdrawal/swap enforced this).
+        account = await self.get_or_create_account(user_id)
+        if account.is_frozen:
+            raise ConflictError("Wallet is frozen")
         row = await self._locked_asset_row(user_id, asset)
         if row.cached_balance < amount:
             raise ConflictError(f"Insufficient {asset.upper()} balance")
