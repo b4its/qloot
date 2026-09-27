@@ -20,15 +20,36 @@
   let error = "";
   let message = "";
   let busy = "";
-  let form = { title: "", top_n_winners: 3 };
+  let form = {
+    title: "",
+    description: "",
+    top_n_winners: 3,
+    opens_at: "",
+    closes_at: "",
+  };
   // Publishing makes the quest visible/competable; confirm it.
   let confirmingPublish = false;
+
+  /** Convert an ISO timestamp to the `datetime-local` input format. */
+  function toLocalInput(iso: string | null | undefined): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
 
   async function load() {
     loading = true;
     try {
       quest = await api.get<Quest>(`/quests/${questId}`);
-      form = { title: quest.title, top_n_winners: quest.top_n_winners };
+      form = {
+        title: quest.title,
+        description: quest.description ?? "",
+        top_n_winners: quest.top_n_winners,
+        opens_at: toLocalInput(quest.opens_at),
+        closes_at: toLocalInput(quest.closes_at),
+      };
       if (quest.status === "finalized") {
         winners = await api.get<Winner[]>(`/quests/${questId}/winners`);
       }
@@ -48,13 +69,20 @@
       error = "Jumlah pemenang harus antara 1 dan 50.";
       return;
     }
+    if (form.opens_at && form.closes_at && form.closes_at <= form.opens_at) {
+      error = "Waktu tutup harus setelah waktu buka.";
+      return;
+    }
     error = "";
     message = "";
     busy = "save";
     try {
       quest = await api.patch<Quest>(`/quests/${questId}`, {
         title: form.title.trim(),
+        description: form.description.trim() || null,
         top_n_winners: form.top_n_winners,
+        opens_at: form.opens_at ? new Date(form.opens_at).toISOString() : null,
+        closes_at: form.closes_at ? new Date(form.closes_at).toISOString() : null,
       });
       message = "Quest diperbarui.";
     } catch (e) {
@@ -87,10 +115,21 @@
   $: totalPool = rules.reduce((s, r) => s + r.reward_amount, 0);
   $: titleValid = form.title.trim().length >= 2;
   $: winnersValid = form.top_n_winners >= 1 && form.top_n_winners <= 50;
+  $: windowValid = !form.opens_at || !form.closes_at || form.closes_at > form.opens_at;
   $: canSave =
-    titleValid && winnersValid && dirty && busy !== "save" && quest?.status !== "finalized";
+    titleValid &&
+    winnersValid &&
+    windowValid &&
+    dirty &&
+    busy !== "save" &&
+    quest?.status !== "finalized";
   $: dirty =
-    !!quest && (form.title.trim() !== quest.title || form.top_n_winners !== quest.top_n_winners);
+    !!quest &&
+    (form.title.trim() !== quest.title ||
+      form.description.trim() !== (quest.description ?? "") ||
+      form.top_n_winners !== quest.top_n_winners ||
+      form.opens_at !== toLocalInput(quest.opens_at) ||
+      form.closes_at !== toLocalInput(quest.closes_at));
 </script>
 
 <svelte:head><title>Kelola Quest — Panel Guru — QLoot</title></svelte:head>
@@ -153,6 +192,30 @@
             <span class="mono-label">Jenis</span>
             <p class="mt-1 font-medium">{quest.kind}</p>
           </div>
+          <label class="block sm:col-span-2">
+            <span class="mono-label">Deskripsi</span>
+            <textarea
+              class="input mt-1 min-h-[72px]"
+              placeholder="Ringkasan aturan / tujuan quest"
+              bind:value={form.description}
+            ></textarea>
+          </label>
+          <label class="block">
+            <span class="mono-label">Dibuka (opsional)</span>
+            <input class="input mt-1" type="datetime-local" bind:value={form.opens_at} />
+          </label>
+          <label class="block">
+            <span class="mono-label">Ditutup (opsional)</span>
+            <input
+              class="input mt-1"
+              type="datetime-local"
+              bind:value={form.closes_at}
+              aria-invalid={!windowValid}
+            />
+            {#if !windowValid}
+              <span class="mt-1 block text-[11px] text-danger"> Harus setelah waktu buka. </span>
+            {/if}
+          </label>
         </div>
         <div class="mt-4 flex items-center justify-end gap-2 border-t pt-4">
           {#if quest.status === "draft"}

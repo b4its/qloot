@@ -110,6 +110,28 @@ describe("teacher quest detail — rules, metadata, save, and publish confirm", 
     );
   });
 
+  it("edits description and the open/close window", async () => {
+    patch.mockResolvedValue({ ...quest, title: "Sprint Bab 1" });
+    render(QuestDetailPage);
+    await waitFor(() => expect(screen.getByText("Hadiah per peringkat")).toBeTruthy());
+
+    const desc = screen.getByPlaceholderText(/Ringkasan aturan/) as HTMLTextAreaElement;
+    await fireEvent.input(desc, { target: { value: "Aturan baru" } });
+    const opens = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
+    await fireEvent.input(opens, { target: { value: "2026-03-01T08:00" } });
+
+    await fireEvent.click(screen.getByRole("button", { name: /Simpan perubahan/i }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith(
+        "/quests/q1",
+        expect.objectContaining({
+          description: "Aturan baru",
+          opens_at: expect.stringContaining("2026-03-01"),
+        }),
+      ),
+    );
+  });
+
   it("confirms before publishing", async () => {
     render(QuestDetailPage);
     await waitFor(() => expect(screen.getByRole("button", { name: /Terbitkan/i })).toBeTruthy());
