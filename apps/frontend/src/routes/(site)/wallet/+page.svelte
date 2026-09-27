@@ -897,6 +897,7 @@
             class="input"
             placeholder="Catatan (opsional)"
             aria-label="Catatan transfer (opsional)"
+            maxlength="255"
             bind:value={transferNote}
           />
           <button

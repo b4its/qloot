@@ -106,7 +106,20 @@
   async function adjust() {
     error = "";
     message = "";
-    if (!adjUserId || !adjReason.trim() || adjAmount === 0) return;
+    // Mirror the backend constraints (reason >= 3 chars, amount within +-1e6)
+    // so the user gets an inline message instead of a raw 422.
+    if (!adjUserId.trim() || adjAmount === 0) {
+      error = "Isi ID pengguna dan jumlah penyesuaian.";
+      return;
+    }
+    if (adjReason.trim().length < 3) {
+      error = "Alasan minimal 3 karakter.";
+      return;
+    }
+    if (Math.abs(adjAmount) > 1_000_000) {
+      error = "Jumlah penyesuaian maksimal 1.000.000 OPT.";
+      return;
+    }
     adjBusy = true;
     try {
       await api.post("/admin/rewards/adjust", {
@@ -170,7 +183,7 @@
       <button
         class="btn-secondary"
         on:click={adjust}
-        disabled={adjBusy || !adjUserId || !adjReason.trim() || adjAmount === 0}
+        disabled={adjBusy || !adjUserId.trim() || adjReason.trim().length < 3 || adjAmount === 0}
         >{adjBusy ? "Menyimpan…" : "Terapkan"}</button
       >
     </div>

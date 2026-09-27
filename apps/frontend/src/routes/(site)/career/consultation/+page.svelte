@@ -332,12 +332,15 @@
           class="input"
           placeholder="Topik"
           aria-label="Topik konsultasi"
+          minlength="2"
+          maxlength="255"
           bind:value={form.topic}
         />
         <textarea
           class="input min-h-[80px]"
           placeholder="Catatan (opsional)"
           aria-label="Catatan konsultasi (opsional)"
+          maxlength="1000"
           bind:value={form.notes}
         ></textarea>
         <button class="btn-primary w-full" on:click={book} disabled={busy || form.topic.length < 2}>

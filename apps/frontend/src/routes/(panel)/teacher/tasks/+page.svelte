@@ -129,6 +129,14 @@
       error = "Hadiah tidak boleh negatif.";
       return;
     }
+    if (Number(newTask.reward_amount) > 1_000_000) {
+      error = "Hadiah maksimal 1.000.000 OPT.";
+      return;
+    }
+    if (newTask.description.trim().length > 5000) {
+      error = "Deskripsi maksimal 5000 karakter.";
+      return;
+    }
     const windowError = validateWindow(newTask.starts_at, newTask.ends_at);
     if (windowError) {
       error = windowError;
@@ -181,6 +189,14 @@
     }
     if (Number(editDraft.reward_amount) < 0) {
       error = "Hadiah tidak boleh negatif.";
+      return;
+    }
+    if (Number(editDraft.reward_amount) > 1_000_000) {
+      error = "Hadiah maksimal 1.000.000 OPT.";
+      return;
+    }
+    if (editDraft.description.trim().length > 5000) {
+      error = "Deskripsi maksimal 5000 karakter.";
       return;
     }
     const windowError = validateWindow(editDraft.starts_at, editDraft.ends_at);
