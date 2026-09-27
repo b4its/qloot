@@ -22,7 +22,18 @@ log = get_logger("blockchain_worker")
 
 _shutdown = asyncio.Event()
 
-TOPICS = ("reward", "airdrop", "withdrawal", "pause", "unpause", "swap", "ai_request")
+TOPICS = (
+    "reward",
+    "airdrop",
+    "withdrawal",
+    "pause",
+    "unpause",
+    "swap",
+    "ai_request",
+    # Certificate anchoring debits 1 QTC and then enqueues this topic; if it is
+    # absent here the row is reaped as "unknown" and the QTC is silently lost.
+    "certificate_anchor",
+)
 
 
 async def _claim(session) -> TransactionOutbox | None:

@@ -323,6 +323,47 @@ async def test_unknown_topic_is_rejected_retryably(session):
     assert await process_outbox_item(session, item.id) is False
 
 
+async def test_certificate_anchor_is_a_worker_topic(session):
+    """Regression: certificate anchoring debits QTC then enqueues
+    ``certificate_anchor``. If the worker's allowlist omits it, ``_claim`` skips
+    the row and ``reap_unknown_topics`` fails it — silently losing the QTC."""
+    from app.workers.blockchain import TOPICS, _claim
+
+    assert "certificate_anchor" in TOPICS
+
+    item = await _mk_outbox(
+        session,
+        "certificate_anchor",
+        {"anchor_key": "0xabc", "document_hash": "0xdef"},
+        "anchor-topic-1",
+    )
+    await session.flush()
+    # _claim returns the oldest eligible row; with shared test state we cannot
+    # assert it is *our* row, only that an eligible claim exists and that our
+    # anchor row is not excluded by the topic filter.
+    claimed = await _claim(session)
+    assert claimed is not None
+    assert claimed.topic in TOPICS
+    assert item.topic in TOPICS
+
+
+async def test_certificate_anchor_is_not_reaped(session):
+    """The reaper must not fail a legitimate certificate_anchor row."""
+    from app.blockchain.worker_logic import reap_unknown_topics
+    from app.workers.blockchain import TOPICS
+
+    item = await _mk_outbox(
+        session,
+        "certificate_anchor",
+        {"anchor_key": "0x1", "document_hash": "0x2"},
+        "anchor-topic-2",
+    )
+    await reap_unknown_topics(session, TOPICS)
+    await session.refresh(item)
+    # A legitimate anchor topic must never be failed by the reaper.
+    assert item.status == "pending"
+
+
 async def test_reverted_tx_compensates_ledger_and_is_listed_as_failed(session):
     """C17: a reported-then-reverted reward reverses the credit (compensation).
 
