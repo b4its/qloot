@@ -51,12 +51,18 @@ describe("admin leaderboards page (GAME-10)", () => {
   });
   afterEach(() => auth.setUser(null));
 
-  it("lists existing snapshots and refreshes the global board", async () => {
+  it("lists existing snapshots and refreshes the global board via confirmation", async () => {
     post.mockResolvedValue({ materialized: 12 });
     render(AdminLeaderboardsPage);
     await screen.findByText("global");
 
     await fireEvent.click(screen.getByRole("button", { name: /perbarui papan global/i }));
+    // The refresh is gated behind a confirmation modal.
+    expect(screen.getByText("Materialisasi Ulang Snapshot")).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+
+    const confirm = document.querySelector('[data-role="confirm-refresh"]') as HTMLButtonElement;
+    await fireEvent.click(confirm);
     await waitFor(() =>
       expect(post).toHaveBeenCalledWith("/rankings/leaderboards/refresh?scope=global"),
     );
@@ -72,5 +78,65 @@ describe("admin leaderboards page (GAME-10)", () => {
     const input = screen.getByPlaceholderText("uuid");
     await fireEvent.input(input, { target: { value: "room-123" } });
     expect(roomBtn).not.toBeDisabled();
+  });
+
+  it("renders snapshot metrics", async () => {
+    get.mockResolvedValue([
+      {
+        id: "lb1",
+        scope: "global",
+        scope_id: null,
+        period: "all",
+        is_materialized: true,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "lb2",
+        scope: "room",
+        scope_id: "r1",
+        period: "all",
+        is_materialized: true,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "lb3",
+        scope: "quest",
+        scope_id: "q1",
+        period: "all",
+        is_materialized: false,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ]);
+    render(AdminLeaderboardsPage);
+    await waitFor(() =>
+      expect(document.querySelector('[data-role="snapshot-count"]')?.textContent?.trim()).toBe("3"),
+    );
+  });
+
+  it("filters snapshots by scope", async () => {
+    get.mockResolvedValue([
+      {
+        id: "lb1",
+        scope: "global",
+        scope_id: null,
+        period: "all",
+        is_materialized: true,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "lb2",
+        scope: "room",
+        scope_id: "r1",
+        period: "all",
+        is_materialized: true,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ]);
+    render(AdminLeaderboardsPage);
+    await waitFor(() => expect(document.querySelectorAll("tbody tr").length).toBe(2));
+
+    const select = screen.getByLabelText("Filter cakupan") as HTMLSelectElement;
+    await fireEvent.change(select, { target: { value: "room" } });
+    await waitFor(() => expect(document.querySelectorAll("tbody tr").length).toBe(1));
   });
 });
