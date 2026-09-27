@@ -107,7 +107,10 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   tindakan destruktif. Halaman **hasil ujian** guru punya pencarian peserta + filter
   lulus/gagal/terindikasi; **konsultasi BK** guru punya metrik + tab status + pencarian
   siswa. Feed **komunitas** mendukung pencarian bebas (`q`) atas isi pos & nama penulis;
-  **dompet** menampilkan riwayat penarikan berlabel status + filter + total.
+  **dompet** menampilkan riwayat penarikan berlabel status + filter + total. **Admin**
+  juga: rekonsiliasi ledger dengan banner kesehatan + metrik utang + pencarian +
+  konfirmasi; transaksi & **event blockchain** dengan metrik, pencarian, filter status
+  (dan filter nama event via `name=`), serta arg event yang bisa diperluas.
 - **Paginasi konsisten** — semua endpoint daftar dibatasi (`limit ≤ 200`) dan mendukung
   `offset`; komponen `Pagination.svelte` dipakai ulang di seluruh halaman berdata banyak.
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
