@@ -34,6 +34,8 @@
   let newLesson = { title: "", content_md: "" };
   let editingLesson: string | null = null;
   let editLesson = { title: "", content_md: "" };
+  // Deleting a lesson is destructive; require an explicit confirmation.
+  let deletingLesson: Lesson | null = null;
 
   async function loadCourse() {
     loading = true;
@@ -141,10 +143,10 @@
   }
 
   async function removeLesson(l: Lesson) {
-    if (!confirm(`Hapus materi "${l.title}"?`)) return;
     error = "";
     message = "";
     busy = `lesson-del-${l.id}`;
+    deletingLesson = null;
     try {
       await api.delete(`/lessons/${l.id}`);
       message = "Materi dihapus.";
@@ -178,6 +180,18 @@
     loadCourse();
     loadLessons();
   });
+
+  // --- derived metrics + dirty tracking --------------------------------------
+  $: publishedLessons = lessons.filter((l) => l.is_published).length;
+  $: draftLessons = lessons.length - publishedLessons;
+  $: courseDirty =
+    !!course &&
+    (courseForm.title.trim() !== course.title ||
+      (courseForm.subject.trim() || null) !== (course.subject ?? null) ||
+      courseForm.class_code.trim() !== (course.class_code ?? "") ||
+      (courseForm.class_type || null) !== (course.class_type ?? null) ||
+      (courseForm.description.trim() || null) !== (course.description ?? null));
+  $: canSaveCourse = courseForm.title.trim().length >= 2 && courseDirty && busy !== "course";
 </script>
 
 <svelte:head><title>Kelola Pelajaran — Panel Guru — QLoot</title></svelte:head>
@@ -234,19 +248,21 @@
         <a href={`/courses/${course.id}`} class="btn-ghost text-xs">
           <Icon name="eye" size="11px" /> Lihat sebagai siswa
         </a>
-        <button
-          class="btn-primary"
-          on:click={saveCourse}
-          disabled={busy === "course" || courseForm.title.trim().length < 2}
-        >
-          {busy === "course" ? "Menyimpan…" : "Simpan perubahan"}
+        <button class="btn-primary" on:click={saveCourse} disabled={!canSaveCourse}>
+          {busy === "course" ? "Menyimpan…" : courseDirty ? "Simpan perubahan" : "Tersimpan"}
         </button>
       </div>
     </div>
 
     <!-- lessons -->
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">Materi ({lessons.length})</h2>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="hud font-display text-lg font-bold">Materi ({lessons.length})</h2>
+        {#if lessons.length > 0}
+          <span class="mono-label text-[10px]">{publishedLessons} terbit · {draftLessons} draf</span
+          >
+        {/if}
+      </div>
       {#if lessonsLoading}
         <div class="mt-3 space-y-2">
           {#each Array(2) as _}<div class="skeleton h-8"></div>{/each}
@@ -309,7 +325,7 @@
                   </button>
                   <button
                     class="btn-icon !text-tertiary hover:!border-tertiary"
-                    on:click={() => removeLesson(l)}
+                    on:click={() => (deletingLesson = l)}
                     disabled={busy === `lesson-del-${l.id}`}
                     aria-label="Hapus materi"
                   >
@@ -341,3 +357,29 @@
     </div>
   {/if}
 </div>
+
+<!-- Delete-lesson confirmation modal -->
+{#if deletingLesson}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">Hapus Materi</h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        Hapus materi <strong>"{deletingLesson.title}"</strong>? Tindakan ini tidak dapat dibatalkan.
+      </p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (deletingLesson = null)}>Batal</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => deletingLesson && removeLesson(deletingLesson)}
+          disabled={busy.startsWith("lesson-del-")}
+          data-role="confirm-delete-lesson"
+        >
+          Ya, Hapus
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
