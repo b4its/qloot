@@ -48,6 +48,9 @@
       });
       if (selectedExamId) params.set("exam_id", selectedExamId);
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
+      // Filter server-side so the tabs, counts, and pagination stay consistent
+      // across pages (a client-side filter would only see the current page).
+      if (statusFilter !== "all") params.set("status", statusFilter);
 
       rows = await api.get<SubmissionRow[]>(`/teacher/submissions?${params.toString()}`);
       hasMore = rows.length === PAGE;
@@ -79,6 +82,13 @@
     load();
   }
 
+  function setStatus(s: typeof statusFilter) {
+    if (statusFilter === s) return;
+    statusFilter = s;
+    page = 1;
+    load();
+  }
+
   function go(delta: number) {
     const next = page + delta;
     if (next < 1) return;
@@ -87,12 +97,9 @@
     load();
   }
 
-  $: filteredRows = rows.filter((r) => {
-    if (statusFilter === "correct") return r.is_correct === true;
-    if (statusFilter === "incorrect") return r.is_correct === false;
-    if (statusFilter === "ungraded") return r.is_correct === null || r.is_correct === undefined;
-    return true;
-  });
+  // The server already filtered by status; keep this alias so the table and CSV
+  // export continue to reference a single list.
+  $: filteredRows = rows;
 
   function exportSubmissionsCsv() {
     if (!filteredRows.length) return;
@@ -246,16 +253,21 @@
     </div>
 
     <!-- Status filter tabs -->
-    <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+    <div
+      class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
+      role="group"
+      aria-label="Filter status jawaban"
+    >
       <button
         type="button"
         class="px-2.5 py-1 rounded-xs font-medium transition-colors"
         class:bg-primary={statusFilter === "all"}
         class:text-[#05060A]={statusFilter === "all"}
         class:muted={statusFilter !== "all"}
-        on:click={() => (statusFilter = "all")}
+        aria-pressed={statusFilter === "all"}
+        on:click={() => setStatus("all")}
       >
-        Semua ({rows.length})
+        Semua
       </button>
       <button
         type="button"
@@ -263,7 +275,8 @@
         class:bg-primary={statusFilter === "correct"}
         class:text-[#05060A]={statusFilter === "correct"}
         class:muted={statusFilter !== "correct"}
-        on:click={() => (statusFilter = "correct")}
+        aria-pressed={statusFilter === "correct"}
+        on:click={() => setStatus("correct")}
       >
         Benar
       </button>
@@ -273,7 +286,8 @@
         class:bg-primary={statusFilter === "incorrect"}
         class:text-[#05060A]={statusFilter === "incorrect"}
         class:muted={statusFilter !== "incorrect"}
-        on:click={() => (statusFilter = "incorrect")}
+        aria-pressed={statusFilter === "incorrect"}
+        on:click={() => setStatus("incorrect")}
       >
         Salah
       </button>
@@ -283,7 +297,8 @@
         class:bg-primary={statusFilter === "ungraded"}
         class:text-[#05060A]={statusFilter === "ungraded"}
         class:muted={statusFilter !== "ungraded"}
-        on:click={() => (statusFilter = "ungraded")}
+        aria-pressed={statusFilter === "ungraded"}
+        on:click={() => setStatus("ungraded")}
       >
         Esai/Manual
       </button>
@@ -361,7 +376,11 @@
                   class:badge-magenta={r.is_correct === false}
                   class:badge-neutral={r.is_correct === null || r.is_correct === undefined}
                 >
-                  {r.is_correct === true ? "Benar" : r.is_correct === false ? "Salah" : "—"}
+                  {r.is_correct === true
+                    ? "Benar"
+                    : r.is_correct === false
+                      ? "Salah"
+                      : "Belum Dinilai"}
                 </span>
               </td>
               <td class="py-3 px-4 text-right font-mono text-xs">

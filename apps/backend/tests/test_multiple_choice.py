@@ -520,6 +520,20 @@ async def test_teacher_submissions_exposes_student_and_correctness(client):
     assert search_miss.status_code == 200
     assert len(search_miss.json()) == 0
 
+    # Status filter: this MC answer is correct, so it appears under status=correct
+    # and is excluded under status=incorrect / status=ungraded.
+    correct_only = await client.get("/api/v1/teacher/submissions?status=correct")
+    assert correct_only.status_code == 200, correct_only.text
+    assert any(r["question_id"] == qid for r in correct_only.json())
+
+    incorrect_only = await client.get("/api/v1/teacher/submissions?status=incorrect")
+    assert incorrect_only.status_code == 200
+    assert all(r["question_id"] != qid for r in incorrect_only.json())
+
+    ungraded_only = await client.get("/api/v1/teacher/submissions?status=ungraded")
+    assert ungraded_only.status_code == 200
+    assert all(r["question_id"] != qid for r in ungraded_only.json())
+
 
 async def _add_essay_question(client, exam_id, prompt="Jelaskan fotosintesis.", position=0):
     q = await client.post(

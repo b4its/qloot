@@ -110,6 +110,13 @@ describe("Teacher Submissions Flow", () => {
 
     get.mockImplementation(async (path: string) => {
       if (path.startsWith("/teacher/submissions")) {
+        // Mirror the server-side status filter (the component sends ?status=...).
+        if (path.includes("status=correct"))
+          return mockSubmissions.filter((r) => r.is_correct === true);
+        if (path.includes("status=incorrect"))
+          return mockSubmissions.filter((r) => r.is_correct === false);
+        if (path.includes("status=ungraded"))
+          return mockSubmissions.filter((r) => r.is_correct === null);
         return mockSubmissions;
       }
       if (path.startsWith("/exams")) {
@@ -137,7 +144,7 @@ describe("Teacher Submissions Flow", () => {
     expect(screen.getByText("82.5%")).toBeTruthy();
 
     // Check filter tabs
-    expect(screen.getByRole("button", { name: "Semua (3)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Semua" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Benar" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Salah" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Esai/Manual" })).toBeTruthy();
@@ -146,16 +153,19 @@ describe("Teacher Submissions Flow", () => {
     expect(screen.getByRole("button", { name: /Ekspor CSV/i })).toBeTruthy();
   });
 
-  it("filters rows by correctness status tabs", async () => {
+  it("filters rows by correctness status tabs (server-side)", async () => {
     render(SubmissionsPage);
 
     expect(await screen.findByText("Ahmad Siswa")).toBeTruthy();
 
-    // Filter Benar
+    // Filter Benar — the component re-queries the server with ?status=correct.
     const correctBtn = screen.getByRole("button", { name: "Benar" });
     await fireEvent.click(correctBtn);
 
-    expect(screen.getByText("Ahmad Siswa")).toBeTruthy();
+    await waitFor(() =>
+      expect(get).toHaveBeenCalledWith(expect.stringContaining("status=correct")),
+    );
+    await waitFor(() => expect(screen.getByText("Ahmad Siswa")).toBeTruthy());
     expect(screen.queryByText("Budi Siswa")).toBeNull();
     expect(screen.queryByText("Citra Siswa")).toBeNull();
 
@@ -163,22 +173,22 @@ describe("Teacher Submissions Flow", () => {
     const incorrectBtn = screen.getByRole("button", { name: "Salah" });
     await fireEvent.click(incorrectBtn);
 
+    await waitFor(() => expect(screen.getByText("Budi Siswa")).toBeTruthy());
     expect(screen.queryByText("Ahmad Siswa")).toBeNull();
-    expect(screen.getByText("Budi Siswa")).toBeTruthy();
     expect(screen.queryByText("Citra Siswa")).toBeNull();
 
     // Filter Esai/Manual
     const essayBtn = screen.getByRole("button", { name: "Esai/Manual" });
     await fireEvent.click(essayBtn);
 
+    await waitFor(() => expect(screen.getByText("Citra Siswa")).toBeTruthy());
     expect(screen.queryByText("Ahmad Siswa")).toBeNull();
     expect(screen.queryByText("Budi Siswa")).toBeNull();
-    expect(screen.getByText("Citra Siswa")).toBeTruthy();
 
     // Reset to Semua
-    const allBtn = screen.getByRole("button", { name: "Semua (3)" });
+    const allBtn = screen.getByRole("button", { name: "Semua" });
     await fireEvent.click(allBtn);
-    expect(screen.getByText("Ahmad Siswa")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Ahmad Siswa")).toBeTruthy());
     expect(screen.getByText("Budi Siswa")).toBeTruthy();
     expect(screen.getByText("Citra Siswa")).toBeTruthy();
   });

@@ -24,12 +24,14 @@ async def submissions(
     offset: OffsetParam = 0,
     exam_id: uuid.UUID | None = None,
     q: str | None = None,
+    status: str | None = None,
 ):
     """Recent student answers across this teacher's exams, with AI feedback.
 
     Each row tells you *which student* answered, *which question*, their answer
     (option text for multiple-choice) and, for MC, whether it was correct.
-    Supports optional filtering by exam_id and search term q.
+    Supports optional filtering by exam_id, search term q, and answer ``status``
+    (``correct`` / ``incorrect`` / ``ungraded``) so pagination stays consistent.
     """
     stmt = (
         select(StudentAnswer, Question, ExamAttempt, Exam.title, User.full_name)
@@ -53,6 +55,24 @@ async def submissions(
                 Exam.title.ilike(term),
                 Question.prompt.ilike(term),
             )
+        )
+    # "ungraded" = no score yet (essay awaiting grading); correct/incorrect only
+    # apply to scored answers whose max score is known.
+    if status == "ungraded":
+        stmt = stmt.where(
+            or_(StudentAnswer.score_bp.is_(None), StudentAnswer.max_score_bp <= 0)
+        )
+    elif status == "correct":
+        stmt = stmt.where(
+            StudentAnswer.score_bp.is_not(None),
+            StudentAnswer.max_score_bp > 0,
+            StudentAnswer.score_bp >= StudentAnswer.max_score_bp,
+        )
+    elif status == "incorrect":
+        stmt = stmt.where(
+            StudentAnswer.score_bp.is_not(None),
+            StudentAnswer.max_score_bp > 0,
+            StudentAnswer.score_bp < StudentAnswer.max_score_bp,
         )
 
     stmt = stmt.order_by(StudentAnswer.saved_at.desc()).limit(limit).offset(offset)
