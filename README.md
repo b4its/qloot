@@ -110,11 +110,14 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   mis. ujian dengan attempt atau quest yang sudah difinalisasi). Panel guru (pelajaran,
   materi, ujian, quest, peringkat) konsisten: strip metrik, pencarian, filter status,
   drag-and-drop unggah PDF dengan metrik kualitas ekstraksi, dan konfirmasi untuk
-  tindakan ireversibel (mis. finalisasi quest). **Panel admin** kini juga sadar-operasi:
+  tindakan ireversibel (mis. finalisasi quest). Draft soal AI di halaman materi punya
+  metrik status + filter tinjauan; manajer sumber daya punya metrik kategori + filter +
+  pencarian debounced + konfirmasi hapus. **Panel admin** kini juga sadar-operasi:
   beranda menampilkan metrik + peringatan kesehatan (hadiah gagal, saldo negatif) dengan
   pintasan ke modul terkait; halaman pengguna/hadiah/penarikan/moderasi/audit memiliki
   pencarian (sebagian server-side), filter status, strip metrik, dan konfirmasi untuk
-  tindakan destruktif. Halaman **hasil ujian** guru punya pencarian peserta + filter
+  tindakan destruktif; **komposer siaran notifikasi** punya pratinjau langsung, hitungan
+  penerima, pemilih penerima (cari pengguna), dan konfirmasi kirim. Halaman **hasil ujian** guru punya pencarian peserta + filter
   lulus/gagal/terindikasi; **konsultasi BK** guru punya metrik + tab status + pencarian
   siswa. Feed **komunitas** mendukung pencarian bebas (`q`) atas isi pos & nama penulis;
   **dompet** menampilkan riwayat penarikan berlabel status + filter + total. **Admin**
