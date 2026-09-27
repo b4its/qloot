@@ -109,7 +109,11 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
 - **CRUD admin & pengajar** — guru membuat/mengubah/menghapus pelajaran, materi, ujian,
   soal, quest yang mereka miliki; admin mengelola peran pengguna serta mengaktifkan/
   menonaktifkan akun. Penghapusan dilindungi (menolak `409` bila sudah ada data anak,
-  mis. ujian dengan attempt atau quest yang sudah difinalisasi). Panel guru (pelajaran,
+  mis. ujian dengan attempt atau quest yang sudah difinalisasi). **Semua form edit
+  menjangkau seluruh field yang didukung backend** — pelajaran (sampul, publikasi),
+  materi (video, publikasi), ujian (instruksi, jendela buka/tutup), quest (deskripsi,
+  jendela), sumber daya (penyedia, gratis, tag), dan ruang (nama, kapasitas, publikasi
+  inline). Panel guru (pelajaran,
   materi, ujian, quest, peringkat) konsisten: strip metrik, pencarian, filter status,
   drag-and-drop unggah PDF dengan metrik kualitas ekstraksi, dan konfirmasi untuk
   tindakan ireversibel (mis. finalisasi quest). Draft soal AI di halaman materi punya
