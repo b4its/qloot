@@ -252,6 +252,7 @@
                 class="sr-only"
                 on:change={uploadAvatar}
                 disabled={uploadingAvatar}
+                aria-label="Unggah avatar"
               />
               <span
                 class="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-primary text-white opacity-0 transition-opacity group-hover:opacity-100"
@@ -262,11 +263,24 @@
             <div>
               {#if editingName}
                 <div class="flex items-center gap-2">
-                  <input class="input !py-1 text-sm" bind:value={nameDraft} />
-                  <button class="btn-ghost !py-1" on:click={saveName} disabled={savingName}>
+                  <input
+                    class="input !py-1 text-sm"
+                    bind:value={nameDraft}
+                    aria-label="Nama lengkap"
+                  />
+                  <button
+                    class="btn-ghost !py-1"
+                    on:click={saveName}
+                    disabled={savingName}
+                    aria-label="Simpan nama"
+                  >
                     <Icon name="check" size="11px" />
                   </button>
-                  <button class="btn-ghost !py-1" on:click={() => (editingName = false)}>
+                  <button
+                    class="btn-ghost !py-1"
+                    on:click={() => (editingName = false)}
+                    aria-label="Batal ubah nama"
+                  >
                     <Icon name="xmark" size="11px" />
                   </button>
                 </div>
@@ -292,7 +306,7 @@
           <WalletChip address={user.chain_user_ref} label="Wallet address" size={34} />
         </div>
         {#if avatarError}
-          <p class="alert-error mt-2 text-xs">{avatarError}</p>
+          <p class="alert-error mt-2 text-xs" role="alert" aria-live="assertive">{avatarError}</p>
         {/if}
 
         <div class="mt-5 flex flex-wrap gap-2 border-t pt-5">
@@ -374,10 +388,10 @@
         <Icon name="envelope" size="14px" class="text-primary" />
       </div>
       {#if emailError}
-        <p class="alert-error mt-3">{emailError}</p>
+        <p class="alert-error mt-3" role="alert" aria-live="assertive">{emailError}</p>
       {/if}
       {#if emailMessage}
-        <p class="alert-ok mt-3">{emailMessage}</p>
+        <p class="alert-ok mt-3" role="status" aria-live="polite">{emailMessage}</p>
       {/if}
       <div class="mt-3 flex flex-wrap items-end gap-2">
         <label class="block flex-1">
@@ -416,10 +430,10 @@
         <Icon name="key" size="14px" class="text-primary" />
       </div>
       {#if passwordError}
-        <p class="alert-error mt-3">{passwordError}</p>
+        <p class="alert-error mt-3" role="alert" aria-live="assertive">{passwordError}</p>
       {/if}
       {#if passwordMessage}
-        <p class="alert-ok mt-3">{passwordMessage}</p>
+        <p class="alert-ok mt-3" role="status" aria-live="polite">{passwordMessage}</p>
       {/if}
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <label class="block">
@@ -453,7 +467,7 @@
       </div>
 
       {#if error}
-        <p class="alert-error mt-3">{error}</p>
+        <p class="alert-error mt-3" role="alert" aria-live="assertive">{error}</p>
       {/if}
 
       {#if loading}
@@ -504,29 +518,15 @@
 
 <!-- Revoke-session confirmation modal -->
 {#if confirmingRevoke}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Cabut Sesi</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Cabut sesi pada perangkat
-        <strong>{confirmingRevoke.user_agent?.slice(0, 40) ?? "ini"}</strong>? Perangkat tersebut
-        harus masuk kembali.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirmingRevoke = null)}>Batal</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => revokeConfirmed()}
-          data-role="confirm-revoke-session"
-        >
-          Ya, Cabut
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Cabut Sesi"
+    description={`Cabut sesi pada perangkat ${confirmingRevoke.user_agent?.slice(0, 40) ?? "ini"}? Perangkat tersebut harus masuk kembali.`}
+    confirmLabel="Ya, Cabut"
+    confirmRole="confirm-revoke-session"
+    busy={revoking === confirmingRevoke.id}
+    onConfirm={revokeConfirmed}
+    close={() => (confirmingRevoke = null)}
+  />
 {/if}
 
 {#if confirmingSignOutAll}

@@ -97,8 +97,8 @@ describe("community report and interactive moderation modals", () => {
     const reportBtn = screen.getByRole("button", { name: /Laporkan/i });
     await fireEvent.click(reportBtn);
 
-    // Modal appears
-    expect(screen.getByText("Moderasi Komunitas")).toBeTruthy();
+    // Modal appears (accessible dialog with the report form)
+    expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.getByText("Laporkan Diskusi")).toBeTruthy();
     expect(screen.getByText("Spam atau promosi tidak relevan")).toBeTruthy();
 
@@ -132,8 +132,9 @@ describe("community report and interactive moderation modals", () => {
     const replyBtn = screen.getByRole("button", { name: "Balas komentar" });
     await fireEvent.click(replyBtn);
 
-    // Reply modal
-    expect(screen.getByText("Balas Komentar")).toBeTruthy();
+    // Reply modal (accessible dialog)
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByText("Tulis Tanggapan Anda")).toBeTruthy();
     const textarea = screen.getByPlaceholderText("Tulis balasan untuk komentar ini...");
     await fireEvent.input(textarea, { target: { value: "Sama-sama Siti!" } });
 

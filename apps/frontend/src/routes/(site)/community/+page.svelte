@@ -8,6 +8,7 @@
   import { relativeTime } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import Dialog from "$lib/components/Dialog.svelte";
 
   interface Post {
     id: string;
@@ -70,7 +71,6 @@
   let hasMore = false;
   /** Post id whose share link was just copied (shows a transient "Tersalin"). */
   let copiedId = "";
-  let reportedId = "";
 
   interface UserLevelCard {
     xp: number;
@@ -83,15 +83,18 @@
   let inspectingUser: { id: string; name: string } | null = null;
   let inspectingLevel: UserLevelCard | null = null;
   let inspectingLoading = false;
+  let inspectingError = "";
 
   async function inspectUserLevel(id: string, name: string) {
     inspectingUser = { id, name };
     inspectingLoading = true;
     inspectingLevel = null;
+    inspectingError = "";
     try {
       inspectingLevel = await api.get<UserLevelCard>(`/gamification/levels/${id}`);
-    } catch {
-      inspectingLevel = null;
+    } catch (e) {
+      inspectingError =
+        e instanceof ApiError ? e.message : "Gagal memuat data gamifikasi pengguna.";
     } finally {
       inspectingLoading = false;
     }
@@ -100,6 +103,7 @@
   function closeInspectUserLevel() {
     inspectingUser = null;
     inspectingLevel = null;
+    inspectingError = "";
   }
 
   $: user = $auth.user;
@@ -349,8 +353,11 @@
     reportCustomDetail = "";
   }
 
+  // True when "Lainnya" is chosen but the free-text detail is too short to submit.
+  $: reportReasonTooShort = reportCategory === "Lainnya" && reportCustomDetail.trim().length < 3;
+
   async function submitReport() {
-    if (!reportingTarget || reportingBusy) return;
+    if (!reportingTarget || reportingBusy || reportReasonTooShort) return;
     const finalReason =
       reportCategory === "Lainnya"
         ? reportCustomDetail.trim()
@@ -368,12 +375,10 @@
         target_id: reportingTarget.id,
         reason: finalReason,
       });
-      // Dedicated state so a report never masquerades as a "share copied".
-      reportedId = reportingTarget.id;
+      // Success feedback is surfaced via `reportNotice` below.
       reportNotice = "Laporan berhasil dikirim ke tim moderator untuk ditinjau.";
       setTimeout(() => {
         reportNotice = "";
-        if (reportedId === reportingTarget?.id) reportedId = "";
       }, 4000);
       reportingTarget = null;
       reportCustomDetail = "";
@@ -555,26 +560,31 @@
         </button>
       {/if}
       {#if query && !loading}
-        <p class="mt-1 text-xs muted" data-role="search-count">
+        <p class="mt-1 text-xs muted" data-role="search-count" role="status" aria-live="polite">
           {posts.length} hasil untuk "{query}"
         </p>
       {/if}
     </div>
 
     {#if reportNotice}
-      <div class="alert-ok flex items-center justify-between text-xs">
+      <div
+        class="alert-ok flex items-center justify-between text-xs"
+        role="status"
+        aria-live="polite"
+      >
         <span class="flex items-center gap-1.5"
           ><Icon name="circle-check" size="14px" /> {reportNotice}</span
         >
         <button
           class="text-xs text-muted hover:text-foreground"
-          on:click={() => (reportNotice = "")}>✕</button
+          on:click={() => (reportNotice = "")}
+          aria-label="Tutup notifikasi">✕</button
         >
       </div>
     {/if}
 
     {#if error}
-      <p class="alert-error">{error}</p>
+      <p class="alert-error" role="alert" aria-live="assertive">{error}</p>
     {/if}
 
     <div class="card">
@@ -809,108 +819,99 @@
 </div>
 
 {#if inspectingUser}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-    <div class="card w-full max-w-sm holo !p-6">
-      <div class="flex items-center justify-between border-b pb-3">
-        <div>
-          <p class="mono-label">Profil Gamifikasi</p>
-          <h3 class="font-display text-lg font-bold">{inspectingUser.name}</h3>
-        </div>
-        <button class="btn-icon" on:click={closeInspectUserLevel} aria-label="Tutup">
-          <Icon name="xmark" size="14px" />
-        </button>
-      </div>
-
-      <div class="py-4">
-        {#if inspectingLoading}
-          <div class="skeleton h-24"></div>
-        {:else if inspectingLevel}
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <div>
-                <span class="mono-label">Level</span>
-                <p class="font-display text-3xl font-extrabold text-primary">
-                  Lv. {inspectingLevel.level}
-                </p>
-              </div>
-              <div class="text-right">
-                <span class="mono-label">Total XP</span>
-                <p class="font-mono text-xl font-bold">
-                  {inspectingLevel.xp.toLocaleString("id-ID")} XP
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <div class="flex justify-between text-xs muted mb-1">
-                <span>Progres Level</span>
-                <span>{Math.round(inspectingLevel.progress * 100)}%</span>
-              </div>
-              <div class="h-2 w-full rounded-full bg-surface-2 overflow-hidden">
-                <div
-                  class="h-full bg-primary"
-                  style="width: {Math.round(inspectingLevel.progress * 100)}%"
-                ></div>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 text-xs border-t pt-3">
-              <div class="card !p-2">
-                <span class="mono-label">Ujian</span>
-                <p class="font-semibold">{inspectingLevel.breakdown?.exams ?? 0} XP</p>
-              </div>
-              <div class="card !p-2">
-                <span class="mono-label">Quest</span>
-                <p class="font-semibold">{inspectingLevel.breakdown?.quests ?? 0} XP</p>
-              </div>
-              <div class="card !p-2">
-                <span class="mono-label">Tugas</span>
-                <p class="font-semibold">{inspectingLevel.breakdown?.tasks ?? 0} XP</p>
-              </div>
-              <div class="card !p-2">
-                <span class="mono-label">Badge</span>
-                <p class="font-semibold">{inspectingLevel.breakdown?.badges ?? 0} XP</p>
-              </div>
-            </div>
-
-            {#if inspectingLevel.quest_wins > 0}
-              <p class="text-xs text-mint">
-                🏆 Memenangkan {inspectingLevel.quest_wins} quest
-              </p>
-            {/if}
+  <Dialog
+    title={inspectingUser.name}
+    description="Profil gamifikasi pengguna"
+    size="max-w-sm"
+    close={closeInspectUserLevel}
+  >
+    {#if inspectingLoading}
+      <div class="skeleton h-24"></div>
+    {:else if inspectingLevel}
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="mono-label">Level</span>
+            <p class="font-display text-3xl font-extrabold text-primary">
+              Lv. {inspectingLevel.level}
+            </p>
           </div>
-        {:else}
-          <p class="text-xs muted text-center py-4">Data gamifikasi pengguna tidak tersedia.</p>
+          <div class="text-right">
+            <span class="mono-label">Total XP</span>
+            <p class="font-mono text-xl font-bold">
+              {inspectingLevel.xp.toLocaleString("id-ID")} XP
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex justify-between text-xs muted mb-1">
+            <span>Progres Level</span>
+            <span>{Math.round(inspectingLevel.progress * 100)}%</span>
+          </div>
+          <div
+            class="h-2 w-full overflow-hidden rounded-full bg-surface-2"
+            role="progressbar"
+            aria-valuenow={Math.round(inspectingLevel.progress * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Progres level"
+          >
+            <div
+              class="h-full bg-primary"
+              style="width: {Math.round(inspectingLevel.progress * 100)}%"
+            ></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 border-t pt-3 text-xs">
+          <div class="card !p-2">
+            <span class="mono-label">Ujian</span>
+            <p class="font-semibold">{inspectingLevel.breakdown?.exams ?? 0} XP</p>
+          </div>
+          <div class="card !p-2">
+            <span class="mono-label">Quest</span>
+            <p class="font-semibold">{inspectingLevel.breakdown?.quests ?? 0} XP</p>
+          </div>
+          <div class="card !p-2">
+            <span class="mono-label">Tugas</span>
+            <p class="font-semibold">{inspectingLevel.breakdown?.tasks ?? 0} XP</p>
+          </div>
+          <div class="card !p-2">
+            <span class="mono-label">Badge</span>
+            <p class="font-semibold">{inspectingLevel.breakdown?.badges ?? 0} XP</p>
+          </div>
+        </div>
+
+        {#if inspectingLevel.quest_wins > 0}
+          <p class="text-xs text-mint">🏆 Memenangkan {inspectingLevel.quest_wins} quest</p>
         {/if}
       </div>
-
-      <div class="pt-2 flex justify-end border-t">
+    {:else if inspectingError}
+      <p class="py-4 text-center text-xs text-danger" role="alert">{inspectingError}</p>
+    {:else}
+      <p class="py-4 text-center text-xs muted">Data gamifikasi pengguna tidak tersedia.</p>
+    {/if}
+    <svelte:fragment slot="footer">
+      <div class="flex justify-end">
         <button class="btn-ghost text-xs" on:click={closeInspectUserLevel}>Tutup</button>
       </div>
-    </div>
-  </div>
+    </svelte:fragment>
+  </Dialog>
 {/if}
 
 {#if reportingTarget}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-magenta/40 shadow-2xl">
-      <div class="flex items-center justify-between border-b pb-3">
-        <div>
-          <p class="mono-label text-magenta">Moderasi Komunitas</p>
-          <h3 class="font-display text-lg font-bold">
-            Laporkan {reportingTarget.type === "post" ? "Diskusi" : "Komentar"}
-          </h3>
-        </div>
-        <button class="btn-icon" on:click={() => (reportingTarget = null)} aria-label="Tutup">
-          <Icon name="xmark" size="14px" />
-        </button>
-      </div>
-
-      <div class="space-y-3">
-        <label for="report-reason-select" class="block text-xs font-medium"
-          >Pilih Alasan Pelaporan</label
-        >
-        <div id="report-reason-select" class="space-y-2">
+  <Dialog
+    title={`Laporkan ${reportingTarget.type === "post" ? "Diskusi" : "Komentar"}`}
+    description="Pilih alasan pelaporan; tim moderator akan meninjau laporanmu."
+    size="max-w-md"
+    busy={reportingBusy}
+    close={() => (reportingTarget = null)}
+  >
+    <div class="space-y-3">
+      <fieldset>
+        <legend class="block text-xs font-medium">Pilih Alasan Pelaporan</legend>
+        <div class="mt-2 space-y-2">
           {#each REPORT_REASONS as reason}
             <label
               class="flex cursor-pointer items-center gap-2 rounded-sm border p-2.5 text-xs transition-colors hover:border-primary/40"
@@ -928,67 +929,68 @@
             </label>
           {/each}
         </div>
+      </fieldset>
 
-        {#if reportCategory === "Lainnya"}
-          <div class="pt-1">
-            <label for="report-detail-text" class="block text-xs muted mb-1"
-              >Keterangan Tambahan (opsional)</label
-            >
-            <textarea
-              id="report-detail-text"
-              class="input min-h-[70px] text-xs"
-              placeholder="Jelaskan secara singkat detail pelanggaran..."
-              bind:value={reportCustomDetail}
-            ></textarea>
-          </div>
-        {/if}
-      </div>
-
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
+      {#if reportCategory === "Lainnya"}
+        <div class="pt-1">
+          <label for="report-detail-text" class="mb-1 block text-xs muted"
+            >Keterangan Tambahan</label
+          >
+          <textarea
+            id="report-detail-text"
+            class="input min-h-[70px] text-xs"
+            placeholder="Jelaskan minimal 3 karakter detail pelanggaran..."
+            bind:value={reportCustomDetail}
+          ></textarea>
+          {#if reportCustomDetail.trim().length > 0 && reportCustomDetail.trim().length < 3}
+            <p class="mt-1 text-xs text-danger" role="alert">
+              Keterangan minimal 3 karakter agar moderator memahami konteksnya.
+            </p>
+          {/if}
+        </div>
+      {/if}
+    </div>
+    <svelte:fragment slot="footer">
+      <div class="flex items-center justify-end gap-2">
         <button type="button" class="btn-ghost text-xs" on:click={() => (reportingTarget = null)}
           >Batal</button
         >
         <button
           type="button"
-          class="btn-primary text-xs !bg-magenta !border-magenta hover:!bg-magenta/80"
+          class="btn-primary !border-magenta !bg-magenta text-xs hover:!bg-magenta/80"
           on:click={submitReport}
-          disabled={reportingBusy}
+          disabled={reportingBusy || reportReasonTooShort}
         >
           {#if reportingBusy}<Icon name="spinner" spin size="12px" />{/if}
           <span>{reportingBusy ? "Mengirim Laporan…" : "Kirim Laporan"}</span>
         </button>
       </div>
-    </div>
-  </div>
+    </svelte:fragment>
+  </Dialog>
 {/if}
 
 {#if activeReplyTarget}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-primary/40 shadow-2xl">
-      <div class="flex items-center justify-between border-b pb-3">
-        <div>
-          <p class="mono-label">Balas Komentar</p>
-          <h3 class="font-display text-base font-bold">Tulis Tanggapan Anda</h3>
-        </div>
-        <button class="btn-icon" on:click={() => (activeReplyTarget = null)} aria-label="Tutup">
-          <Icon name="xmark" size="14px" />
-        </button>
-      </div>
-
-      <div>
-        <textarea
-          class="input min-h-[100px] text-xs"
-          placeholder="Tulis balasan untuk komentar ini..."
-          bind:value={replyDraft}
-          on:keydown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              submitReply();
-            }
-          }}
-        ></textarea>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
+  <Dialog
+    title="Tulis Tanggapan Anda"
+    description="Balas komentar ini untuk melanjutkan diskusi."
+    size="max-w-md"
+    busy={replyingBusy}
+    close={() => (activeReplyTarget = null)}
+  >
+    <textarea
+      class="input min-h-[100px] text-xs"
+      placeholder="Tulis balasan untuk komentar ini..."
+      aria-label="Isi balasan"
+      bind:value={replyDraft}
+      data-autofocus
+      on:keydown={(e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          submitReply();
+        }
+      }}
+    ></textarea>
+    <svelte:fragment slot="footer">
+      <div class="flex items-center justify-end gap-2">
         <button type="button" class="btn-ghost text-xs" on:click={() => (activeReplyTarget = null)}
           >Batal</button
         >
@@ -1002,37 +1004,32 @@
           <span>{replyingBusy ? "Mengirim…" : "Kirim Balasan"}</span>
         </button>
       </div>
-    </div>
-  </div>
+    </svelte:fragment>
+  </Dialog>
 {/if}
 
 {#if activeEditTarget}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-primary/40 shadow-2xl">
-      <div class="flex items-center justify-between border-b pb-3">
-        <div>
-          <p class="mono-label">Sunting Komentar</p>
-          <h3 class="font-display text-base font-bold">Ubah Isi Komentar</h3>
-        </div>
-        <button class="btn-icon" on:click={() => (activeEditTarget = null)} aria-label="Tutup">
-          <Icon name="xmark" size="14px" />
-        </button>
-      </div>
-
-      <div>
-        <textarea
-          class="input min-h-[100px] text-xs"
-          placeholder="Ubah komentar Anda..."
-          bind:value={editDraft}
-          on:keydown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              submitEdit();
-            }
-          }}
-        ></textarea>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
+  <Dialog
+    title="Ubah Isi Komentar"
+    description="Perbarui komentar yang sudah kamu tulis."
+    size="max-w-md"
+    busy={editingBusy}
+    close={() => (activeEditTarget = null)}
+  >
+    <textarea
+      class="input min-h-[100px] text-xs"
+      placeholder="Ubah komentar Anda..."
+      aria-label="Isi komentar"
+      bind:value={editDraft}
+      data-autofocus
+      on:keydown={(e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          submitEdit();
+        }
+      }}
+    ></textarea>
+    <svelte:fragment slot="footer">
+      <div class="flex items-center justify-end gap-2">
         <button type="button" class="btn-ghost text-xs" on:click={() => (activeEditTarget = null)}
           >Batal</button
         >
@@ -1046,8 +1043,8 @@
           <span>{editingBusy ? "Menyimpan…" : "Simpan Perubahan"}</span>
         </button>
       </div>
-    </div>
-  </div>
+    </svelte:fragment>
+  </Dialog>
 {/if}
 
 {#if deletingComment}

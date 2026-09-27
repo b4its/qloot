@@ -7,6 +7,8 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import { bpToPercent, formatDate, statusLabel, paginate } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import Dialog from "$lib/components/Dialog.svelte";
 
   const PAGE_SIZE = 12;
   let quests: Quest[] = [];
@@ -43,6 +45,7 @@
   let viewingQuestLeaderboard: { id: string; title: string } | null = null;
   let questLeaderboardData: QuestLeaderboardData | null = null;
   let questLeaderboardLoading = false;
+  let questLeaderboardError = "";
 
   $: filteredQuests = quests.filter((q) => {
     if (searchQuery.trim()) {
@@ -79,13 +82,21 @@
     viewingQuestLeaderboard = { id: q.id, title: q.title };
     questLeaderboardLoading = true;
     questLeaderboardData = null;
+    questLeaderboardError = "";
     try {
       questLeaderboardData = await api.get<QuestLeaderboardData>(`/rankings/quests/${q.id}`);
-    } catch {
-      questLeaderboardData = null;
+    } catch (e) {
+      questLeaderboardError =
+        e instanceof ApiError ? e.message : "Gagal memuat papan peringkat quest.";
     } finally {
       questLeaderboardLoading = false;
     }
+  }
+
+  function retryQuestLeaderboard() {
+    const id = viewingQuestLeaderboard?.id;
+    const title = viewingQuestLeaderboard?.title;
+    if (id && title) void openQuestLeaderboard({ id, title } as Quest);
   }
 
   function closeQuestLeaderboard() {
@@ -163,7 +174,7 @@
   </div>
 
   {#if error}
-    <p class="alert-error mt-4">
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">
       {error}
     </p>
   {/if}
@@ -437,120 +448,102 @@
 
 <!-- Finalization Confirmation Modal (Teacher only) -->
 {#if confirmingFinalizeQuest}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Konfirmasi Finalisasi Quest</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Apakah Anda yakin ingin memfinalisasi pemenang untuk quest <strong
-          >"{confirmingFinalizeQuest.title}"</strong
-        >?
-      </p>
-      <p class="text-xs muted leading-relaxed">
-        Pemenang akan ditentukan secara deterministik berdasarkan skor tertinggi dan waktu submit
-        tercepat. Hadiah token OPT akan dialokasikan ke akun pemenang. Tindakan ini tidak dapat
-        dibatalkan.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirmingFinalizeQuest = null)}>
-          Batal
-        </button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => confirmingFinalizeQuest && executeFinalize(confirmingFinalizeQuest)}
-        >
-          Ya, Finalisasi Pemenang
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Konfirmasi Finalisasi Quest"
+    description={`Apakah Anda yakin ingin memfinalisasi pemenang untuk quest "${confirmingFinalizeQuest.title}"?`}
+    hint="Pemenang ditentukan deterministik dari skor tertinggi dan waktu submit tercepat. Hadiah token OPT dialokasikan ke akun pemenang. Tindakan ini tidak dapat dibatalkan."
+    confirmLabel="Ya, Finalisasi Pemenang"
+    busy={busy === `f-${confirmingFinalizeQuest.id}`}
+    onConfirm={() => executeFinalize(confirmingFinalizeQuest!)}
+    close={() => (confirmingFinalizeQuest = null)}
+  />
 {/if}
 
 <!-- Quest Full Leaderboard Modal -->
 {#if viewingQuestLeaderboard}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-2xl holo !p-6 max-h-[85vh] flex flex-col shadow-2xl">
-      <div class="flex items-center justify-between border-b pb-3">
-        <div>
-          <p class="mono-label text-primary">Papan Peringkat Quest</p>
-          <h3 class="font-display text-lg font-bold mt-0.5">{viewingQuestLeaderboard.title}</h3>
+  <Dialog
+    title={viewingQuestLeaderboard.title}
+    description="Papan peringkat quest"
+    size="max-w-2xl"
+    busy={questLeaderboardLoading}
+    close={closeQuestLeaderboard}
+  >
+    <div class="py-2">
+      {#if questLeaderboardLoading}
+        <Skeleton rows={4} />
+      {:else if questLeaderboardError}
+        <div class="space-y-2 py-10 text-center text-xs" role="alert">
+          <Icon name="triangle-exclamation" size="22px" class="mx-auto text-tertiary" />
+          <p class="text-danger">{questLeaderboardError}</p>
+          <button class="btn-ghost !py-1 text-xs" on:click={retryQuestLeaderboard}>Coba lagi</button
+          >
         </div>
-        <button class="btn-icon" on:click={closeQuestLeaderboard} aria-label="Tutup">
-          <Icon name="xmark" size="14px" />
-        </button>
-      </div>
-
-      <div class="py-4 overflow-y-auto flex-1">
-        {#if questLeaderboardLoading}
-          <Skeleton rows={4} />
-        {:else if questLeaderboardData && questLeaderboardData.entries.length > 0}
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-              <caption class="sr-only">Papan peringkat quest</caption>
-              <thead>
-                <tr class="border-b text-muted text-[11px]">
-                  <th class="py-2.5 px-3" scope="col">#</th>
-                  <th class="py-2.5 px-3" scope="col">Peserta</th>
-                  <th class="py-2.5 px-3 text-center" scope="col">Skor</th>
-                  <th class="py-2.5 px-3 text-right" scope="col">Hadiah</th>
-                  <th class="py-2.5 px-3 text-center" scope="col">Status Alokasi</th>
+      {:else if questLeaderboardData && questLeaderboardData.entries.length > 0}
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <caption class="sr-only">Papan peringkat quest</caption>
+            <thead>
+              <tr class="border-b text-muted text-[11px]">
+                <th class="py-2.5 px-3" scope="col">#</th>
+                <th class="py-2.5 px-3" scope="col">Peserta</th>
+                <th class="py-2.5 px-3 text-center" scope="col">Skor</th>
+                <th class="py-2.5 px-3 text-right" scope="col">Hadiah</th>
+                <th class="py-2.5 px-3 text-center" scope="col">Status Alokasi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-border">
+              {#each questLeaderboardData.entries as e}
+                <tr class="hover:bg-surface/50 transition-colors">
+                  <td class="py-2.5 px-3 font-mono font-bold">
+                    {#if e.rank === 1}
+                      <span class="text-amber-400">🥇 1</span>
+                    {:else if e.rank === 2}
+                      <span class="text-slate-300">🥈 2</span>
+                    {:else if e.rank === 3}
+                      <span class="text-amber-600">🥉 3</span>
+                    {:else}
+                      #{e.rank}
+                    {/if}
+                  </td>
+                  <td class="py-2.5 px-3 font-medium text-foreground">
+                    {e.display_name ?? `${e.user_id.slice(0, 8)}…`}
+                  </td>
+                  <td class="py-2.5 px-3 text-center font-mono font-bold text-primary">
+                    {bpToPercent(e.score_bp)}
+                  </td>
+                  <td class="py-2.5 px-3 text-right font-mono font-bold text-highlight">
+                    {e.reward_amount} OPT
+                  </td>
+                  <td class="py-2.5 px-3 text-center">
+                    <span
+                      class="badge text-[10px]"
+                      class:badge-mint={e.reward_status === "confirmed"}
+                      class:badge-magenta={e.reward_status === "failed"}
+                      class:badge-indigo={e.reward_status !== "confirmed" &&
+                        e.reward_status !== "failed"}
+                    >
+                      {e.reward_status ?? "pending"}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody class="divide-y divide-surface-border">
-                {#each questLeaderboardData.entries as e}
-                  <tr class="hover:bg-surface/50 transition-colors">
-                    <td class="py-2.5 px-3 font-mono font-bold">
-                      {#if e.rank === 1}
-                        <span class="text-amber-400">🥇 1</span>
-                      {:else if e.rank === 2}
-                        <span class="text-slate-300">🥈 2</span>
-                      {:else if e.rank === 3}
-                        <span class="text-amber-600">🥉 3</span>
-                      {:else}
-                        #{e.rank}
-                      {/if}
-                    </td>
-                    <td class="py-2.5 px-3 font-medium text-foreground">
-                      {e.display_name ?? `${e.user_id.slice(0, 8)}…`}
-                    </td>
-                    <td class="py-2.5 px-3 text-center font-mono font-bold text-primary">
-                      {bpToPercent(e.score_bp)}
-                    </td>
-                    <td class="py-2.5 px-3 text-right font-mono font-bold text-highlight">
-                      {e.reward_amount} OPT
-                    </td>
-                    <td class="py-2.5 px-3 text-center">
-                      <span
-                        class="badge text-[10px]"
-                        class:badge-mint={e.reward_status === "confirmed"}
-                        class:badge-magenta={e.reward_status === "failed"}
-                        class:badge-indigo={e.reward_status !== "confirmed" &&
-                          e.reward_status !== "failed"}
-                      >
-                        {e.reward_status ?? "pending"}
-                      </span>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {:else}
-          <div class="py-12 text-center text-xs muted space-y-1">
-            <Icon name="trophy" size="24px" class="mx-auto text-muted mb-2" />
-            <p>Belum ada data peringkat untuk quest ini.</p>
-            <p class="text-[11px]">
-              Hasil akan ditampilkan setelah peserta menyelesaikan kuis yang ditargetkan.
-            </p>
-          </div>
-        {/if}
-      </div>
-
-      <div class="pt-3 flex justify-end border-t">
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else}
+        <div class="py-12 text-center text-xs muted space-y-1">
+          <Icon name="trophy" size="24px" class="mx-auto text-muted mb-2" />
+          <p>Belum ada data peringkat untuk quest ini.</p>
+          <p class="text-[11px]">
+            Hasil akan ditampilkan setelah peserta menyelesaikan kuis yang ditargetkan.
+          </p>
+        </div>
+      {/if}
+    </div>
+    <svelte:fragment slot="footer">
+      <div class="flex justify-end">
         <button class="btn-ghost text-xs" on:click={closeQuestLeaderboard}>Tutup</button>
       </div>
-    </div>
-  </div>
+    </svelte:fragment>
+  </Dialog>
 {/if}
