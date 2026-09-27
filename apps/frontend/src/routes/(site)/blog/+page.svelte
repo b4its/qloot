@@ -142,16 +142,16 @@
             <span class="tile h-10 w-10"><Icon name={p.icon} size="16px" /></span>
             <h2 class="font-display text-lg font-bold leading-snug">{p.title}</h2>
           </div>
-          {#if open === posts.indexOf(p)}
+          {#if open === i}
             <div class="mt-3 space-y-2 border-t pt-3 text-sm muted">
               {#each p.body as para}
                 <p>{para}</p>
               {/each}
             </div>
           {/if}
-          <button class="btn-ghost mt-4 !px-0" on:click={() => toggle(posts.indexOf(p))}>
-            {open === posts.indexOf(p) ? "Tutup" : "Baca selengkapnya"}
-            <Icon name={open === posts.indexOf(p) ? "arrow-up" : "arrow-right"} size="11px" />
+          <button class="btn-ghost mt-4 !px-0" on:click={() => toggle(i)}>
+            {open === i ? "Tutup" : "Baca selengkapnya"}
+            <Icon name={open === i ? "arrow-up" : "arrow-right"} size="11px" />
           </button>
         </article>
       {/each}

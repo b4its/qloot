@@ -52,13 +52,18 @@
     return `${Math.round(seconds / 60)} menit`;
   }
 
+  let copyError = "";
   async function copy(value: string, key: string) {
+    copyError = "";
     try {
       await navigator.clipboard?.writeText(value);
       copied = key;
       setTimeout(() => (copied = ""), 1500);
     } catch {
-      /* clipboard unavailable */
+      // Clipboard can be blocked (insecure context). Tell the admin rather than
+      // leaving the button looking like it did nothing.
+      copyError = "Tidak dapat menyalin ke clipboard. Salin manual dari nilai di layar.";
+      setTimeout(() => (copyError = ""), 4000);
     }
   }
 
@@ -231,5 +236,8 @@
         {copied === "all" ? "Tersalin" : "Salin konfigurasi (JSON)"}
       </button>
     </div>
+    {#if copyError}
+      <p class="mt-2 text-xs text-danger" role="alert" aria-live="assertive">{copyError}</p>
+    {/if}
   {/if}
 </div>

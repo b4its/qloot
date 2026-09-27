@@ -35,7 +35,7 @@
   <p class="mt-2 muted">Buat materi, jalankan ujian, dan pantau kemajuan siswa.</p>
 
   {#if error}
-    <p class="alert-error mt-4">{error}</p>
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
   {/if}
 
   {#if analytics}

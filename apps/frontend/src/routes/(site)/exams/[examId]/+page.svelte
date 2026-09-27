@@ -6,10 +6,9 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Exam, Attempt } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
-  import { bpToPercent, examCategory, statusLabel } from "$lib/utils/format";
+  import { bpToPercent, examCategory, statusLabel, paginate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
-  import { paginate } from "$lib/utils/format";
 
   const PAGE_SIZE = 10;
   let exam: Exam | null = null;
@@ -104,7 +103,7 @@
   {#if loading}
     <Skeleton rows={4} />
   {:else if loadError}
-    <p class="alert-error">
+    <p class="alert-error" role="alert" aria-live="assertive">
       {loadError}
     </p>
   {:else if exam}

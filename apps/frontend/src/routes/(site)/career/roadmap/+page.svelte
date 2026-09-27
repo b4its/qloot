@@ -203,12 +203,12 @@
   </div>
 
   {#if error}
-    <p class="alert-error mt-4">
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">
       {error}
     </p>
   {/if}
   {#if message}
-    <p class="alert-ok mt-4">{message}</p>
+    <p class="alert-ok mt-4" role="status" aria-live="polite">{message}</p>
   {/if}
 
   <div class="mt-6 card">

@@ -12,20 +12,33 @@
   let milestones: Milestone[] = [];
   let consultations: Consultation[] = [];
   let loading = true;
+  // Track which modules failed so the hub can warn instead of silently
+  // presenting an outage as "everything not started yet".
+  let unavailable: string[] = [];
 
   onMount(async () => {
+    const failures: string[] = [];
+    const safe = async <T,>(p: Promise<T>, fallback: T, label: string): Promise<T> => {
+      try {
+        return await p;
+      } catch {
+        failures.push(label);
+        return fallback;
+      }
+    };
     const [g, p, r, m, c] = await Promise.all([
-      api.get<GradeRow[]>("/career/grades").catch(() => []),
-      api.get<Personality | null>("/career/personality").catch(() => null),
-      api.get<Recommendation[]>("/career/recommendations").catch(() => []),
-      api.get<Milestone[]>("/career/roadmap").catch(() => []),
-      api.get<Consultation[]>("/career/consultations").catch(() => []),
+      safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
+      safe(api.get<Personality | null>("/career/personality"), null, "kepribadian"),
+      safe(api.get<Recommendation[]>("/career/recommendations"), [], "rekomendasi"),
+      safe(api.get<Milestone[]>("/career/roadmap"), [], "peta jalan"),
+      safe(api.get<Consultation[]>("/career/consultations"), [], "konsultasi"),
     ]);
     grades = g;
     personality = p;
     recommendations = r;
     milestones = m;
     consultations = c;
+    unavailable = failures;
     loading = false;
   });
 
@@ -147,6 +160,16 @@
       Wawasan akademik, profil kepribadian, rekomendasi jurusan, dan roadmap bertahap — semuanya
       dalam satu tempat.
     </p>
+
+    {#if !loading && unavailable.length}
+      <div class="alert-warning mt-4 flex items-start gap-3" role="alert" aria-live="assertive">
+        <Icon name="triangle-exclamation" class="mt-0.5 flex-none" size="14px" />
+        <p class="text-sm">
+          Sebagian data belum dapat dimuat ({unavailable.join(", ")}). Status di bawah bisa belum
+          lengkap.
+        </p>
+      </div>
+    {/if}
 
     {#if !loading}
       <div class="mt-8 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">

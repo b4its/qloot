@@ -79,7 +79,7 @@
   {#if loading}
     <Skeleton rows={4} />
   {:else if error}
-    <p class="alert-error">
+    <p class="alert-error" role="alert" aria-live="assertive">
       {error}
     </p>
   {:else if course}

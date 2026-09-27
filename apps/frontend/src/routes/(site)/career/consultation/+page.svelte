@@ -138,7 +138,7 @@
   </div>
 
   {#if error}
-    <p class="alert-error mt-4">
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">
       {error}
     </p>
   {/if}

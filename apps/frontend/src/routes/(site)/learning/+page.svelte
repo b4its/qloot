@@ -225,6 +225,7 @@
             class:bg-primary={statusFilter === val}
             class:text-[#05060A]={statusFilter === val}
             class:muted={statusFilter !== val}
+            aria-pressed={statusFilter === val}
             on:click={() => {
               statusFilter = val as typeof statusFilter;
               currentPage = 1;

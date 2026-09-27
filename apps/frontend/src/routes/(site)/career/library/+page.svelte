@@ -197,6 +197,7 @@
           class:bg-primary={costFilter === val}
           class:text-[#05060A]={costFilter === val}
           class:muted={costFilter !== val}
+          aria-pressed={costFilter === val}
           on:click={() => {
             costFilter = val as typeof costFilter;
             currentPage = 1;
@@ -224,7 +225,7 @@
   </div>
 
   {#if error}
-    <p class="alert-error mt-4">
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">
       {error}
     </p>
   {/if}
