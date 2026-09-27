@@ -13,9 +13,10 @@
   let reviewQuestions: Question[] = [];
   let loading = true;
   let error = "";
+  let actionError = "";
   let grading = false;
   // Review filter: focus on questions by result category.
-  type ScoreFilter = "all" | "correct" | "partial" | "wrong" | "unanswered";
+  type ScoreFilter = "all" | "correct" | "partial" | "wrong" | "unanswered" | "pending";
   let scoreFilter: ScoreFilter = "all";
 
   const QTYPE_BADGES: Record<string, string> = {
@@ -54,11 +55,12 @@
 
   async function gradeNow() {
     grading = true;
+    actionError = "";
     try {
       await api.post("/ai/grade", { attempt_id: attemptId });
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Penilaian gagal";
+      actionError = e instanceof ApiError ? e.message : "Penilaian gagal";
     } finally {
       grading = false;
     }
@@ -71,11 +73,14 @@
   }
 
   // --- per-question result classification ------------------------------------
-  type Bucket = "correct" | "partial" | "wrong" | "unanswered";
+  type Bucket = "correct" | "partial" | "wrong" | "unanswered" | "pending";
+  // An answered essay that the AI has not scored yet (score_bp === null) is
+  // "pending", not "wrong" — otherwise ungraded work is mislabeled as incorrect.
   function bucketOf(a: Answer): Bucket {
     const answered = !!(a.answer_text && a.answer_text.trim());
     if (!answered) return "unanswered";
-    const score = a.score_bp ?? 0;
+    if (a.score_bp === null || a.score_bp === undefined) return "pending";
+    const score = a.score_bp;
     if (a.max_score_bp > 0 && score >= a.max_score_bp) return "correct";
     if (score > 0) return "partial";
     return "wrong";
@@ -87,6 +92,7 @@
     partial: buckets.filter((b) => b === "partial").length,
     wrong: buckets.filter((b) => b === "wrong").length,
     unanswered: buckets.filter((b) => b === "unanswered").length,
+    pending: buckets.filter((b) => b === "pending").length,
   };
   // Keep the original question number when filtering, so the #N stays stable.
   $: indexedAnswers = answers.map((a, i) => ({ a, i, bucket: buckets[i] }));
@@ -167,6 +173,12 @@
           {grading ? "Menilai…" : "Nilai sekarang (AI)"}
         </button>
       {/if}
+      {#if actionError}
+        <p class="alert-error mt-3" role="alert" aria-live="assertive">
+          <Icon name="triangle-exclamation" size="12px" class="mt-0.5 flex-none" />
+          {actionError}
+        </p>
+      {/if}
     </div>
 
     <!-- Review filter -->
@@ -175,7 +187,7 @@
       role="tablist"
       aria-label="Filter hasil soal"
     >
-      {#each [["all", `Semua (${answers.length})`], ["correct", `Benar (${counts.correct})`], ["partial", `Sebagian (${counts.partial})`], ["wrong", `Salah (${counts.wrong})`], ["unanswered", `Kosong (${counts.unanswered})`]] as [val, label]}
+      {#each [["all", `Semua (${answers.length})`], ["correct", `Benar (${counts.correct})`], ["partial", `Sebagian (${counts.partial})`], ["wrong", `Salah (${counts.wrong})`], ["pending", `Menunggu nilai (${counts.pending})`], ["unanswered", `Kosong (${counts.unanswered})`]] as [val, label]}
         <button
           type="button"
           role="tab"
@@ -201,6 +213,7 @@
         {@const currentScore = a.score_bp ?? 0}
         {@const isFullScore = a.max_score_bp > 0 && currentScore >= a.max_score_bp}
         {@const isZeroScore = a.score_bp !== null && a.score_bp !== undefined && currentScore === 0}
+        {@const isPending = a.score_bp === null || a.score_bp === undefined}
         <div class="card transition-all">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-2">
@@ -211,18 +224,30 @@
                     {QTYPE_BADGES[q?.qtype ?? ""] ?? q?.qtype ?? "Soal"}
                   </span>
                 </div>
-                <p class="font-medium text-sm leading-relaxed">{q?.prompt ?? "Soal"}</p>
+                {#if q}
+                  <p class="font-medium text-sm leading-relaxed">{q.prompt}</p>
+                {:else}
+                  <p class="text-sm muted italic">
+                    Detail soal tidak tersedia untuk ditinjau, namun jawabanmu tetap tersimpan.
+                  </p>
+                {/if}
               </div>
             </div>
             <div class="text-right shrink-0">
-              <span
-                class="badge"
-                class:badge-mint={isFullScore}
-                class:badge-amber={!isFullScore && !isZeroScore}
-                class:badge-magenta={isZeroScore}
-              >
-                {bpToPercent(a.score_bp)} / {bpToPercent(a.max_score_bp, 0)}
-              </span>
+              {#if isPending}
+                <span class="badge badge-amber">
+                  <Icon name="hourglass-half" size="10px" /> Menunggu nilai
+                </span>
+              {:else}
+                <span
+                  class="badge"
+                  class:badge-mint={isFullScore}
+                  class:badge-amber={!isFullScore && !isZeroScore}
+                  class:badge-magenta={isZeroScore}
+                >
+                  {bpToPercent(a.score_bp)} / {bpToPercent(a.max_score_bp, 0)}
+                </span>
+              {/if}
             </div>
           </div>
           {#if q?.qtype === "multiple_choice"}
