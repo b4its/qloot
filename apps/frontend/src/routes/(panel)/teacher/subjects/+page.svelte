@@ -8,6 +8,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   // Redirect once auth resolves; a mount-only check could fire before the
   // session loaded, briefly exposing teacher-only UI.
@@ -24,6 +25,7 @@
   let query = "";
   let publishFilter: "all" | "published" | "draft" = "all";
   let classFilter = "all";
+  let deletingSubject: Course | null = null;
 
   $: classes = [...new Set(subjects.map((s) => s.class_code).filter(Boolean))] as string[];
   $: publishedCount = subjects.filter((s) => s.is_published).length;
@@ -62,7 +64,13 @@
   }
 
   async function remove(s: Course) {
-    if (!confirm(`Hapus pelajaran "${s.title}"?`)) return;
+    deletingSubject = s;
+  }
+
+  async function confirmRemove() {
+    const s = deletingSubject;
+    if (!s) return;
+    deletingSubject = null;
     error = "";
     message = "";
     busy = `d-${s.id}`;
@@ -259,3 +267,13 @@
     onNext={() => go(1)}
   />
 </div>
+
+{#if deletingSubject}
+  <ConfirmDialog
+    title="Hapus Pelajaran"
+    description={`Pelajaran "${deletingSubject.title}" beserta materinya akan dihapus permanen.`}
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemove}
+    close={() => (deletingSubject = null)}
+  />
+{/if}

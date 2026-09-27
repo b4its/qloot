@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -16,6 +17,7 @@
   let exam: Exam | null = null;
   let loading = true;
   let error = "";
+  let deletingQuestion: Question | null = null;
   let message = "";
   let busy = "";
 
@@ -352,7 +354,13 @@
   }
 
   async function removeQ(q: Question) {
-    if (!confirm("Hapus soal ini?")) return;
+    deletingQuestion = q;
+  }
+
+  async function confirmRemoveQ() {
+    const q = deletingQuestion;
+    if (!q) return;
+    deletingQuestion = null;
     error = "";
     message = "";
     busy = `qd-${q.id}`;
@@ -1028,3 +1036,13 @@
     </div>
   {/if}
 </div>
+
+{#if deletingQuestion}
+  <ConfirmDialog
+    title="Hapus Soal"
+    description="Soal ini akan dihapus dari ujian. Tindakan ini tidak dapat dibatalkan."
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemoveQ}
+    close={() => (deletingQuestion = null)}
+  />
+{/if}

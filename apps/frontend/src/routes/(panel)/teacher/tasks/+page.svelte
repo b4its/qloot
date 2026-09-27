@@ -9,6 +9,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -32,6 +33,7 @@
   let error = "";
   let message = "";
   let busy = "";
+  let deletingTask: Task | null = null;
   let page = 1;
 
   // Search & filters (server-side).
@@ -222,7 +224,13 @@
   }
 
   async function remove(t: Task) {
-    if (!confirm(`Hapus tugas "${t.title}"?`)) return;
+    deletingTask = t;
+  }
+
+  async function confirmRemove() {
+    const t = deletingTask;
+    if (!t) return;
+    deletingTask = null;
     error = "";
     message = "";
     busy = `d-${t.id}`;
@@ -508,3 +516,13 @@
     />
   {/if}
 </div>
+
+{#if deletingTask}
+  <ConfirmDialog
+    title="Hapus Tugas"
+    description={`Tugas "${deletingTask.title}" akan dihapus permanen.`}
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemove}
+    close={() => (deletingTask = null)}
+  />
+{/if}

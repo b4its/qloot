@@ -9,6 +9,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { reveal } from "$lib/actions/reveal";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
@@ -103,7 +104,13 @@
   }
 
   async function removeMaterial(m: Material) {
-    if (!confirm(`Hapus materi "${m.filename}"?`)) return;
+    deletingMaterial = m;
+  }
+
+  async function confirmRemoveMaterial() {
+    const m = deletingMaterial;
+    if (!m) return;
+    deletingMaterial = null;
     error = "";
     message = "";
     try {
@@ -114,6 +121,7 @@
       error = err instanceof ApiError ? err.message : "Gagal menghapus materi";
     }
   }
+  let deletingMaterial: Material | null = null;
 
   onMount(load);
 
@@ -321,3 +329,13 @@
     />
   </div>
 </div>
+
+{#if deletingMaterial}
+  <ConfirmDialog
+    title="Hapus Materi"
+    description={`Materi "${deletingMaterial.filename}" beserta hasil ekstraksinya akan dihapus.`}
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemoveMaterial}
+    close={() => (deletingMaterial = null)}
+  />
+{/if}

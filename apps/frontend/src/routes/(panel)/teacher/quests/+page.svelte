@@ -9,6 +9,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { reveal } from "$lib/actions/reveal";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
@@ -17,6 +18,7 @@
   let quests: Quest[] = [];
   let winners: Record<string, Winner[]> = {};
   let message = "";
+  let deletingQuest: Quest | null = null;
   let error = "";
   let loading = true;
   let busy = "";
@@ -77,7 +79,13 @@
   }
 
   async function remove(q: Quest) {
-    if (!confirm(`Hapus quest "${q.title}"?`)) return;
+    deletingQuest = q;
+  }
+
+  async function confirmRemove() {
+    const q = deletingQuest;
+    if (!q) return;
+    deletingQuest = null;
     error = "";
     message = "";
     busy = `d-${q.id}`;
@@ -349,4 +357,14 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if deletingQuest}
+  <ConfirmDialog
+    title="Hapus Quest"
+    description={`Quest "${deletingQuest.title}" akan dihapus permanen.`}
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemove}
+    close={() => (deletingQuest = null)}
+  />
 {/if}

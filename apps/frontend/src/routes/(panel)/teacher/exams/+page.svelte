@@ -8,6 +8,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { examCategory, paginate, type ExamCategory } from "$lib/utils/format";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
@@ -22,6 +23,7 @@
   let error = "";
   let message = "";
   let busy = "";
+  let deletingExam: Exam | null = null;
   let page = 1;
   let query = "";
   let statusFilter: "all" | "active" | "draft" = "all";
@@ -99,7 +101,13 @@
   }
 
   async function removeExam(exam: Exam) {
-    if (!confirm(`Hapus ujian "${exam.title}"?`)) return;
+    deletingExam = exam;
+  }
+
+  async function confirmRemoveExam() {
+    const exam = deletingExam;
+    if (!exam) return;
+    deletingExam = null;
     error = "";
     message = "";
     busy = `d-${exam.id}`;
@@ -351,3 +359,13 @@
     onNext={() => go(1)}
   />
 </div>
+
+{#if deletingExam}
+  <ConfirmDialog
+    title="Hapus Ujian"
+    description={`Ujian "${deletingExam.title}" beserta soal dan hasilnya akan dihapus permanen.`}
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemoveExam}
+    close={() => (deletingExam = null)}
+  />
+{/if}
