@@ -136,18 +136,25 @@ class NotificationService:
         limit: int = 50,
         offset: int = 0,
         unread_only: bool = False,
+        read_only: bool = False,
         kind: str | None = None,
         q: str | None = None,
+        oldest_first: bool = False,
     ) -> list[Notification]:
+        order = (
+            Notification.created_at.asc() if oldest_first else Notification.created_at.desc()
+        )
         stmt = (
             select(Notification)
             .where(Notification.user_id == user_id)
-            .order_by(Notification.created_at.desc())
+            .order_by(order)
             .limit(limit)
             .offset(offset)
         )
         if unread_only:
             stmt = stmt.where(Notification.read_at.is_(None))
+        elif read_only:
+            stmt = stmt.where(Notification.read_at.is_not(None))
         if kind:
             stmt = stmt.where(Notification.kind == kind)
         if q and q.strip():
@@ -163,6 +170,7 @@ class NotificationService:
         user_id: uuid.UUID,
         *,
         unread_only: bool = False,
+        read_only: bool = False,
         kind: str | None = None,
         q: str | None = None,
     ) -> int:
@@ -178,6 +186,8 @@ class NotificationService:
         )
         if unread_only:
             stmt = stmt.where(Notification.read_at.is_(None))
+        elif read_only:
+            stmt = stmt.where(Notification.read_at.is_not(None))
         if kind:
             stmt = stmt.where(Notification.kind == kind)
         if q and q.strip():

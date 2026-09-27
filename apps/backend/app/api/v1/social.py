@@ -31,13 +31,20 @@ async def list_notifications(
     user: CurrentUser,
     db: DbSession,
     unread_only: bool = False,
+    read_only: bool = False,
     kind: str | None = None,
     q: str | None = None,
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
 ):
     return await NotificationService(db).list_for_user(
-        user.id, limit=limit, offset=offset, unread_only=unread_only, kind=kind, q=q
+        user.id,
+        limit=limit,
+        offset=offset,
+        unread_only=unread_only,
+        read_only=read_only,
+        kind=kind,
+        q=q,
     )
 
 
@@ -46,8 +53,10 @@ async def notifications_page(
     user: CurrentUser,
     db: DbSession,
     unread_only: bool = False,
+    read_only: bool = False,
     kind: str | None = None,
     q: str | None = None,
+    oldest_first: bool = False,
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
 ):
@@ -58,9 +67,18 @@ async def notifications_page(
     """
     svc = NotificationService(db)
     items = await svc.list_for_user(
-        user.id, limit=limit, offset=offset, unread_only=unread_only, kind=kind, q=q
+        user.id,
+        limit=limit,
+        offset=offset,
+        unread_only=unread_only,
+        read_only=read_only,
+        kind=kind,
+        q=q,
+        oldest_first=oldest_first,
     )
-    total = await svc.count_for_user(user.id, unread_only=unread_only, kind=kind, q=q)
+    total = await svc.count_for_user(
+        user.id, unread_only=unread_only, read_only=read_only, kind=kind, q=q
+    )
     unread = await svc.unread_count(user.id)
     counts = await svc.kind_counts(user.id)
     return NotificationPage(

@@ -73,6 +73,30 @@ async def test_notifications_page_filters_by_kind_and_search(client):
     assert by_q.json()["total"] == 1
 
 
+async def test_notifications_page_read_only_and_oldest_first(client):
+    """The "Dibaca" tab must exclude unread items, and oldest_first must reorder
+    the server page (not just the current client page)."""
+    await _register(client, "notif_readonly@ex.com")
+    await _seed_notifications(client, 3)
+    items = (await client.get("/api/v1/notifications/page")).json()["items"]
+    await client.post("/api/v1/notifications/read-batch", json={"ids": [items[0]["id"]]})
+
+    read_only = await client.get("/api/v1/notifications/page?read_only=true")
+    assert read_only.status_code == 200, read_only.text
+    body = read_only.json()
+    assert body["total"] == 1  # only the one we marked read
+    assert body["items"][0]["id"] == items[0]["id"]
+
+    # Newest-first is the default; oldest-first flips the ordering server-side.
+    newest = (await client.get("/api/v1/notifications/page?limit=2")).json()["items"]
+    oldest = (
+        await client.get("/api/v1/notifications/page?limit=2&oldest_first=true")
+    ).json()["items"]
+    assert newest[0]["id"] != oldest[0]["id"]
+    assert newest[0]["created_at"] >= newest[1]["created_at"]
+    assert oldest[0]["created_at"] <= oldest[1]["created_at"]
+
+
 async def test_mark_read_batch_only_touches_owned_ids(client):
     await _register(client, "notif_batch@ex.com")
     await _seed_notifications(client, 3)
