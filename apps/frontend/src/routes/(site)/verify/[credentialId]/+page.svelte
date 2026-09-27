@@ -11,17 +11,20 @@
   let error = "";
   let credentialId = "";
   let copied = "";
+  let copyError = "";
   // The client-side time this page performed the check (transparency).
   let checkedAt = "";
 
   async function copy(value: string, key: string) {
     if (!value) return;
+    copyError = "";
     try {
       await navigator.clipboard?.writeText(value);
       copied = key;
       setTimeout(() => (copied = ""), 1500);
     } catch {
-      /* clipboard unavailable */
+      copyError = "Tidak dapat menyalin otomatis. Salin manual dari teks di layar.";
+      setTimeout(() => (copyError = ""), 4000);
     }
   }
 
@@ -64,7 +67,7 @@
       {#if loading}
         <div class="skeleton mt-5 h-32"></div>
       {:else if error}
-        <p class="alert-error mt-5">{error}</p>
+        <p class="alert-error mt-5" role="alert" aria-live="assertive">{error}</p>
       {:else if result && result.valid}
         <!-- Trust banner -->
         <div class="mt-5 flex items-center gap-3 rounded-sm border border-emerald-500/40 p-3">
@@ -153,7 +156,7 @@
         <div class="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
           <a
             class="btn-secondary inline-flex items-center gap-2 text-xs"
-            href={`${API_BASE}/api/v1/certificates/${credentialId}/render`}
+            href={`${API_BASE}/api/v1/certificates/${encodeURIComponent(credentialId)}/render`}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -164,8 +167,11 @@
             {copied === "link" ? "Tautan tersalin" : "Salin tautan verifikasi"}
           </button>
         </div>
+        {#if copyError}
+          <p class="mt-2 text-xs text-danger" role="alert" aria-live="assertive">{copyError}</p>
+        {/if}
       {:else}
-        <p class="alert-error mt-5">
+        <p class="alert-error mt-5" role="alert" aria-live="assertive">
           <Icon name="circle-xmark" size="12px" /> Kredensial tidak ditemukan atau sudah dicabut.
         </p>
       {/if}

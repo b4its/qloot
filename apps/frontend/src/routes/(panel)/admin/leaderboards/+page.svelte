@@ -43,6 +43,7 @@
   let confirmingRefresh: { scope: "global" | "room" | "quest"; id?: string } | null = null;
 
   async function load() {
+    if (!hasRole($auth.user, "admin")) return;
     loading = true;
     error = "";
     try {
@@ -62,11 +63,34 @@
     }
     openId = id;
     entries = [];
+    entriesError = "";
+    entriesLoading = true;
     try {
       const detail = await api.get<{ entries: EntryRow[] }>(`/rankings/leaderboards/${id}/entries`);
       entries = detail.entries ?? [];
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal memuat entri";
+      // Keep a distinct error so a failed fetch is never shown as "no entries".
+      entriesError = e instanceof ApiError ? e.message : "Gagal memuat entri";
+    } finally {
+      entriesLoading = false;
+    }
+  }
+  let entriesError = "";
+  let entriesLoading = false;
+
+  /** Reload the currently open snapshot's entries after a failure. */
+  async function retryEntries() {
+    const id = openId;
+    if (!id) return;
+    entriesError = "";
+    entriesLoading = true;
+    try {
+      const detail = await api.get<{ entries: EntryRow[] }>(`/rankings/leaderboards/${id}/entries`);
+      entries = detail.entries ?? [];
+    } catch (e) {
+      entriesError = e instanceof ApiError ? e.message : "Gagal memuat entri";
+    } finally {
+      entriesLoading = false;
     }
   }
 
@@ -252,7 +276,16 @@
           <p class="mono-label">Entri snapshot</p>
           <button class="btn-ghost !py-1 text-xs" on:click={() => (openId = "")}>Tutup</button>
         </div>
-        {#if entries.length === 0}
+        {#if entriesLoading}
+          <div class="mt-2 space-y-2">
+            {#each Array(3) as _}<div class="skeleton h-8"></div>{/each}
+          </div>
+        {:else if entriesError}
+          <div class="mt-2 space-y-2" role="alert" aria-live="assertive">
+            <p class="text-sm text-danger">{entriesError}</p>
+            <button class="btn-ghost !py-1 text-xs" on:click={retryEntries}>Coba lagi</button>
+          </div>
+        {:else if entries.length === 0}
           <p class="mt-2 muted text-sm">Tidak ada entri.</p>
         {:else}
           <ol class="mt-2 space-y-1 text-sm">

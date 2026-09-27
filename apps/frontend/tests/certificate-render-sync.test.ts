@@ -14,6 +14,6 @@ describe("certificates sync and official document rendering", () => {
   });
 
   it("verify page links to server-rendered certificate document (/render)", () => {
-    expect(verifyPageSrc).toContain("/certificates/${credentialId}/render");
+    expect(verifyPageSrc).toContain("/certificates/${encodeURIComponent(credentialId)}/render");
   });
 });

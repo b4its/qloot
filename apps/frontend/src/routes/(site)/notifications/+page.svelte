@@ -150,7 +150,6 @@
   }
 
   $: totalPages = Math.max(1, Math.ceil(total / PAGE));
-  $: hasMore = page < totalPages;
 
   async function markAll() {
     if (busy || unread === 0) return;
@@ -300,7 +299,12 @@
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <button class="btn-ghost !py-1.5" on:click={() => (showPrefs = !showPrefs)}>
+      <button
+        class="btn-ghost !py-1.5"
+        on:click={() => (showPrefs = !showPrefs)}
+        aria-expanded={showPrefs}
+        aria-controls="notification-prefs"
+      >
         <Icon name="sliders" size="12px" />
         {showPrefs ? "Sembunyikan preferensi" : "Preferensi"}
       </button>
@@ -343,12 +347,12 @@
   </div>
 
   {#if showPrefs}
-    <div class="card mt-4">
+    <div class="card mt-4" id="notification-prefs">
       <p class="mono-label">Preferensi</p>
       <h2 class="mt-1 font-display text-lg font-bold">Jenis notifikasi</h2>
       <p class="mt-1 text-sm muted">Matikan jenis notifikasi yang tidak ingin kamu terima.</p>
       {#if prefsError}
-        <p class="alert-error mt-2 text-xs">{prefsError}</p>
+        <p class="alert-error mt-2 text-xs" role="alert" aria-live="assertive">{prefsError}</p>
       {/if}
       {#if !prefsLoading}
         <div class="mt-3 flex flex-wrap gap-2">
@@ -397,7 +401,11 @@
       {/if}
     </div>
 
-    <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+    <div
+      class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
+      role="group"
+      aria-label="Filter status baca"
+    >
       {#each [["all", "Semua"], ["unread", "Belum dibaca"], ["read", "Dibaca"]] as [val, label]}
         <button
           type="button"
@@ -405,6 +413,7 @@
           class:bg-primary={readFilter === val}
           class:text-[#05060A]={readFilter === val}
           class:muted={readFilter !== val}
+          aria-pressed={readFilter === val}
           on:click={() => setReadFilter(val as typeof readFilter)}
         >
           {label}
@@ -431,12 +440,13 @@
 
   <!-- Kind chips with per-kind counts -->
   {#if Object.keys(kindCounts).length > 0}
-    <div class="mt-3 flex flex-wrap gap-1.5">
+    <div class="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter jenis notifikasi">
       <button
         type="button"
         class="badge"
         class:badge-mint={activeKind === "all"}
         class:badge-neutral={activeKind !== "all"}
+        aria-pressed={activeKind === "all"}
         on:click={() => setKind("all")}
       >
         Semua ({total})
@@ -447,6 +457,7 @@
           class="badge"
           class:badge-mint={activeKind === kind}
           class:badge-neutral={activeKind !== kind}
+          aria-pressed={activeKind === kind}
           on:click={() => setKind(kind)}
         >
           {kindLabel[kind] ?? kind} ({count})

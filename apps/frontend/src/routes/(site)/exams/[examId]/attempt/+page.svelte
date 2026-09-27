@@ -249,8 +249,6 @@
     }
   }
 
-  const submit = requestSubmit;
-
   async function goToQuestion(index: number) {
     current = Math.max(0, Math.min(questions.length - 1, index));
     await tick();
@@ -385,9 +383,9 @@
     </div>
 
     {#if submitError && !showSubmitModal}
-      <div class="alert-error mb-4">
+      <div class="alert-error mb-4" role="alert" aria-live="assertive">
         <span class="flex-1">{submitError}</span>
-        <button class="btn-secondary !py-1 flex-none" on:click={requestSubmit}>Coba lagi</button>
+        <button class="btn-secondary !py-1 flex-none" on:click={requestSubmit}>Kirim ulang</button>
       </div>
     {/if}
 

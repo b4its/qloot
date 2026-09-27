@@ -7,7 +7,8 @@ import teacherConsSrc from "$routes-panel/teacher/consultations/+page.svelte?raw
 import learningSrc from "$routes-site/learning/[courseId]/+page.svelte?raw";
 import profileSrc from "$routes-site/profile/+page.svelte?raw";
 
-import adminNotificationsSrc from "$routes-panel/admin/notifications/+page.svelte?raw";import adminBlockchainSrc from "$routes-panel/admin/blockchain/+page.svelte?raw";
+import adminNotificationsSrc from "$routes-panel/admin/notifications/+page.svelte?raw";
+import adminBlockchainSrc from "$routes-panel/admin/blockchain/+page.svelte?raw";
 import roomPageSrc from "$routes-site/rooms/[roomId]/+page.svelte?raw";
 import certPageSrc from "$routes-site/certificates/+page.svelte?raw";
 import verifyPageSrc from "$routes-site/verify/[credentialId]/+page.svelte?raw";
@@ -39,7 +40,7 @@ describe("previously backend-only endpoints now have a UI caller", () => {
   it("student can sync certificates and view rendered certificate document", () => {
     expect(certPageSrc).toContain("/certificates/sync");
     expect(certPageSrc).toContain("syncCertificates");
-    expect(verifyPageSrc).toContain("/certificates/${credentialId}/render");
+    expect(verifyPageSrc).toContain("/certificates/${encodeURIComponent(credentialId)}/render");
   });
 
   it("community members can inspect public user level cards (GET /gamification/levels/{user_id})", () => {

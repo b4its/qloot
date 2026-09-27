@@ -11,6 +11,11 @@
   let error = "";
   let loading = false;
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let emailValid = false;
+  $: emailValid = EMAIL_RE.test(email.trim());
+  $: canSubmit = emailValid && password.length > 0 && !loading;
+
   function loginDestination(): string {
     const next = $page.url.searchParams.get("next");
     if (!next?.startsWith("/") || next.startsWith("//")) return "/dashboard";
@@ -27,9 +32,17 @@
   async function submit(e: Event) {
     e.preventDefault();
     error = "";
+    if (!emailValid) {
+      error = "Masukkan alamat email yang valid.";
+      return;
+    }
+    if (!password) {
+      error = "Kata sandi wajib diisi.";
+      return;
+    }
     loading = true;
     try {
-      await auth.login(email, password);
+      await auth.login(email.trim(), password);
       await goto(loginDestination());
     } catch (err) {
       error = err instanceof ApiError ? err.message : "Gagal masuk";
@@ -53,7 +66,7 @@
         <p class="mt-1 text-sm muted">Masuk untuk melanjutkan perjalanan belajarmu.</p>
 
         {#if error}
-          <p class="alert-error mt-4" role="alert">
+          <p class="alert-error mt-4" role="alert" aria-live="assertive">
             {error}
           </p>
         {/if}
@@ -66,9 +79,14 @@
               class="input mt-1"
               type="email"
               bind:value={email}
+              on:input={() => (error = "")}
               required
               autocomplete="email"
+              aria-invalid={email.length > 0 && !emailValid}
             />
+            {#if email.length > 0 && !emailValid}
+              <span class="mt-1 block text-[11px] text-danger">Format email belum valid.</span>
+            {/if}
           </div>
           <div>
             <label class="mono-label" for="password">Kata sandi</label>
@@ -80,7 +98,7 @@
               autocomplete="current-password"
             />
           </div>
-          <button class="btn-primary w-full" type="submit" disabled={loading}>
+          <button class="btn-primary w-full" type="submit" disabled={!canSubmit}>
             {#if loading}<Icon name="spinner" spin size="13px" />{:else}<Icon
                 name="arrow-right-to-bracket"
                 size="13px"
