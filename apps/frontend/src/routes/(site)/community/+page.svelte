@@ -7,6 +7,7 @@
   import { auth } from "$lib/stores/auth";
   import { relativeTime } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   interface Post {
     id: string;
@@ -255,6 +256,7 @@
   ];
 
   let reportingTarget: { type: "post" | "comment"; id: string } | null = null;
+  let deletingComment: { post: Post; comment: Comment } | null = null;
   let reportCategory = REPORT_REASONS[0];
   let reportCustomDetail = "";
   let reportNotice = "";
@@ -401,7 +403,14 @@
 
   /** Delete your own comment (or any, as an admin). */
   async function deleteComment(p: Post, c: Comment) {
-    if (!confirm("Hapus komentar ini?")) return;
+    deletingComment = { post: p, comment: c };
+  }
+
+  async function confirmDeleteComment() {
+    const target = deletingComment;
+    if (!target) return;
+    deletingComment = null;
+    const { post: p, comment: c } = target;
     busy = `cd-${c.id}`;
     try {
       await api.delete(`/community/comments/${c.id}`);
@@ -1037,4 +1046,14 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if deletingComment}
+  <ConfirmDialog
+    title="Hapus Komentar"
+    description="Komentar ini akan dihapus dari diskusi dan tidak dapat dikembalikan."
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmDeleteComment}
+    close={() => (deletingComment = null)}
+  />
 {/if}

@@ -7,6 +7,7 @@
   import { formatDate, formatNumber, relativeTime } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   let sessions: SessionInfo[] = [];
   let profile: GamificationProfile | null = null;
@@ -79,7 +80,12 @@
   }
 
   async function signOutEverywhere() {
-    if (!confirm("Keluar dari semua perangkat? Kamu perlu masuk kembali di sini juga.")) return;
+    confirmingSignOutAll = true;
+  }
+
+  let confirmingSignOutAll = false;
+  async function confirmSignOutEverywhere() {
+    confirmingSignOutAll = false;
     error = "";
     signingOutAll = true;
     try {
@@ -521,4 +527,15 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if confirmingSignOutAll}
+  <ConfirmDialog
+    title="Keluar dari Semua Perangkat"
+    description="Semua sesi aktif akan dicabut. Kamu perlu masuk kembali di perangkat ini."
+    confirmLabel="Ya, Keluar Semua"
+    busy={signingOutAll}
+    onConfirm={confirmSignOutEverywhere}
+    close={() => (confirmingSignOutAll = false)}
+  />
 {/if}

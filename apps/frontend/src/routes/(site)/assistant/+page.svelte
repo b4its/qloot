@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { onMount, tick } from "svelte";
   import { API_BASE, API_PREFIX, api, ApiError } from "$lib/api/client";
   import type { AssistantConversation, AssistantReply } from "$lib/types";
@@ -86,8 +87,15 @@
   }
 
   /** CARE-01: delete a saved conversation. */
+  let deletingConversation: string | null = null;
   async function removeConversation(id: string) {
-    if (!confirm("Hapus percakapan ini?")) return;
+    deletingConversation = id;
+  }
+
+  async function confirmRemoveConversation() {
+    const id = deletingConversation;
+    if (!id) return;
+    deletingConversation = null;
     error = "";
     try {
       await api.delete(`/career/assistant/conversations/${id}`);
@@ -368,3 +376,13 @@
     </div>
   </div>
 </div>
+
+{#if deletingConversation}
+  <ConfirmDialog
+    title="Hapus Percakapan"
+    description="Percakapan ini akan dihapus dari riwayat Asisten Qlo."
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemoveConversation}
+    close={() => (deletingConversation = null)}
+  />
+{/if}

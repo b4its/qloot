@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { onMount } from "svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
   import { api, ApiError } from "$lib/api/client";
@@ -140,7 +141,13 @@
   }
 
   async function removeMilestone(id: string) {
-    if (!confirm("Hapus tonggak ini?")) return;
+    deletingMilestone = id;
+  }
+
+  async function confirmRemoveMilestone() {
+    const id = deletingMilestone;
+    if (!id) return;
+    deletingMilestone = null;
     try {
       await api.delete(`/career/roadmap/${id}`);
       await load();
@@ -148,6 +155,7 @@
       error = e instanceof ApiError ? e.message : "Gagal menghapus tonggak";
     }
   }
+  let deletingMilestone: string | null = null;
 
   /** CARE-05: move a milestone up/down and persist the new order atomically. */
   async function move(index: number, delta: number) {
@@ -536,3 +544,13 @@
     </div>
   {/if}
 </div>
+
+{#if deletingMilestone}
+  <ConfirmDialog
+    title="Hapus Tonggak"
+    description="Tonggak beserta tugas di dalamnya akan dihapus dari peta jalanmu."
+    confirmLabel="Ya, Hapus"
+    onConfirm={confirmRemoveMilestone}
+    close={() => (deletingMilestone = null)}
+  />
+{/if}

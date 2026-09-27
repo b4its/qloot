@@ -6,6 +6,7 @@
   import type { Certificate } from "$lib/types";
   import Pagination from "$lib/components/Pagination.svelte";
   import { paginate } from "$lib/utils/format";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   const LIST_PAGE_SIZE = 8;
   let certs: Certificate[] = [];
@@ -76,14 +77,24 @@
   }
 
   /** Admin-only: revoke the active credential (idempotent server-side). */
-  async function revokeActive() {
+  let confirmingRevoke = false;
+  let revokeReason = "";
+  function revokeActive() {
     if (!active || revoking) return;
-    const reason = window.prompt("Alasan pencabutan (opsional):") ?? "";
+    revokeReason = "";
+    confirmingRevoke = true;
+  }
+
+  async function confirmRevokeActive() {
+    if (!active) return;
+    const target = active;
+    const reason = revokeReason.trim();
+    confirmingRevoke = false;
     revoking = true;
     error = "";
     try {
-      const updated = await api.post<Certificate>(`/certificates/${active.credential_id}/revoke`, {
-        reason: reason.trim() || null,
+      const updated = await api.post<Certificate>(`/certificates/${target.credential_id}/revoke`, {
+        reason: reason || null,
       });
       active = updated;
       certs = certs.map((c) => (c.id === updated.id ? updated : c));
@@ -500,3 +511,17 @@
     </div>
   {/if}
 </div>
+
+{#if confirmingRevoke}
+  <ConfirmDialog
+    title="Cabut Sertifikat"
+    description="Kredensial ini akan ditandai dicabut dan tidak lagi valid saat diverifikasi."
+    hint="Tindakan ini tidak dapat dibatalkan. Sertifikat yang dicabut tetap terlihat di riwayat."
+    confirmLabel="Ya, Cabut Sertifikat"
+    reason={revokeReason}
+    reasonPlaceholder="mis. kesalahan penilaian"
+    busy={revoking}
+    onConfirm={confirmRevokeActive}
+    close={() => (confirmingRevoke = false)}
+  />
+{/if}

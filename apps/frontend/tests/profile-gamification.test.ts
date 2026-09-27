@@ -89,6 +89,11 @@ describe("profile gamification card", () => {
     const btn = screen.getByRole("button", { name: /keluar dari semua perangkat/i });
     await fireEvent.click(btn);
 
+    // Confirmed through the themed dialog rather than a native confirm().
+    const confirm = document.querySelector('[data-role="confirm-action"]') as HTMLButtonElement;
+    expect(confirm).toBeTruthy();
+    await fireEvent.click(confirm);
+
     await waitFor(() => expect(post).toHaveBeenCalledWith("/auth/logout-all"));
   });
 

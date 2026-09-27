@@ -238,7 +238,6 @@ describe("community comment deletion", () => {
   afterEach(() => auth.setUser(null));
 
   it("shows a delete button for the user's own comment and calls the API", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     (api.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
     render(CommunityPage);
     // Open the comment thread (click the comment-count button).
@@ -248,6 +247,10 @@ describe("community comment deletion", () => {
     await waitFor(() => expect(screen.getByText("Komentarku")).toBeTruthy());
     const del = screen.getByRole("button", { name: /hapus komentar/i });
     await fireEvent.click(del);
+    // Now confirmed through the themed, accessible dialog instead of confirm().
+    const confirm = document.querySelector('[data-role="confirm-action"]') as HTMLButtonElement;
+    expect(confirm).toBeTruthy();
+    await fireEvent.click(confirm);
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith("/community/comments/cmt1"));
     vi.restoreAllMocks();
   });
