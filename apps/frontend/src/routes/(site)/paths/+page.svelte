@@ -5,6 +5,7 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Course } from "$lib/types";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { paginate } from "$lib/utils/format";
 
   interface Subject {
@@ -75,11 +76,11 @@
         {#each Array(6) as _}<div class="skeleton h-36"></div>{/each}
       </div>
     {:else if subjects.length === 0}
-      <div class="card mt-8 grid place-items-center py-16 text-center">
-        <Icon name="book-open" size="28px" class="muted" />
-        <p class="mt-3 font-semibold">Belum ada mata pelajaran</p>
-        <p class="text-sm muted">Guru belum menambahkan pelajaran.</p>
-      </div>
+      <EmptyState
+        icon="book-open"
+        title="Belum ada mata pelajaran"
+        description="Guru belum menambahkan pelajaran."
+      />
     {:else}
       <!-- Overview metrics -->
       <div class="mt-8 grid grid-cols-3 gap-3">
