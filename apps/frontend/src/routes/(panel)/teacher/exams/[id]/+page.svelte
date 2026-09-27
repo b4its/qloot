@@ -32,6 +32,9 @@
 
   let questions: Question[] = [];
   let questionsLoading = false;
+  // Question-list search + filter.
+  let qQuery = "";
+  let qTypeFilter: "all" | "mc" | "essay" = "all";
   // New-question draft. ``qtype`` selects essay (AI-graded) or multiple_choice.
   type OptionDraft = { text: string; is_correct: boolean };
   const OPTION_LABELS = "ABCDEFGH";
@@ -443,6 +446,20 @@
     loadExam();
     loadQuestions();
   });
+
+  // --- question-list metrics + filtering -------------------------------------
+  function isMc(q: Question): boolean {
+    return q.qtype === "multiple_choice" || q.qtype === "multi_select";
+  }
+  $: mcCount = questions.filter(isMc).length;
+  $: essayCount = questions.length - mcCount;
+  $: filteredQuestions = questions.filter((q) => {
+    if (qTypeFilter === "mc" && !isMc(q)) return false;
+    if (qTypeFilter === "essay" && isMc(q)) return false;
+    if (qQuery.trim() && !q.prompt.toLowerCase().includes(qQuery.toLowerCase().trim()))
+      return false;
+    return true;
+  });
 </script>
 
 <svelte:head><title>Kelola Ujian — Panel Guru — QLoot</title></svelte:head>
@@ -547,14 +564,50 @@
     </div>
 
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">Soal ({questions.length})</h2>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="hud font-display text-lg font-bold">Soal ({questions.length})</h2>
+        {#if questions.length > 0}
+          <span class="mono-label text-[10px]">{mcCount} PG · {essayCount} esai</span>
+        {/if}
+      </div>
       {#if questionsLoading}
         <div class="mt-3 space-y-2">
           {#each Array(2) as _}<div class="skeleton h-8"></div>{/each}
         </div>
       {:else}
+        {#if questions.length > 0}
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap gap-1 text-xs">
+              {#each [["all", `Semua (${questions.length})`], ["mc", `PG (${mcCount})`], ["essay", `Esai (${essayCount})`]] as [val, label]}
+                <button
+                  type="button"
+                  class="btn-pill !py-1 text-xs"
+                  class:!border-primary={qTypeFilter === val}
+                  class:!text-primary={qTypeFilter === val}
+                  on:click={() => (qTypeFilter = val as typeof qTypeFilter)}
+                >
+                  {label}
+                </button>
+              {/each}
+            </div>
+            <div class="relative ml-auto w-full sm:w-56">
+              <input
+                class="input text-xs !py-1.5 w-full"
+                placeholder="Cari soal…"
+                bind:value={qQuery}
+                aria-label="Cari soal"
+              />
+            </div>
+          </div>
+        {/if}
+        {#if filteredQuestions.length === 0 && questions.length > 0}
+          <p class="mt-3 text-center text-sm muted py-6">
+            Tidak ada soal yang cocok dengan filtermu.
+          </p>
+        {/if}
         <ol class="mt-3 space-y-2 text-sm">
-          {#each questions as q, i}
+          {#each filteredQuestions as q (q.id)}
+            {@const qi = questions.indexOf(q)}
             {#if editingQ === q.id}
               <li class="border-b pb-2 last:border-0">
                 <input class="input" bind:value={editQ.prompt} />
@@ -666,7 +719,7 @@
             {:else}
               <li class="flex items-start justify-between gap-2 border-b pb-1 last:border-0">
                 <span
-                  >{i + 1}.
+                  >{qi + 1}.
                   <span class="badge badge-indigo">{QTYPE_BADGES[q.qtype] ?? q.qtype}</span>
                   {#if q.review_status && q.review_status !== "approved"}
                     <span
@@ -698,15 +751,15 @@
                   {#if questions.length > 1}
                     <button
                       class="btn-icon"
-                      disabled={i === 0 || busy === "q-reorder"}
-                      on:click={() => moveQ(i, -1)}
+                      disabled={qi === 0 || busy === "q-reorder"}
+                      on:click={() => moveQ(qi, -1)}
                       title="Pindah ke atas"
                       aria-label="Pindah ke atas"><Icon name="arrow-up" size="11px" /></button
                     >
                     <button
                       class="btn-icon"
-                      disabled={i === questions.length - 1 || busy === "q-reorder"}
-                      on:click={() => moveQ(i, 1)}
+                      disabled={qi === questions.length - 1 || busy === "q-reorder"}
+                      on:click={() => moveQ(qi, 1)}
                       title="Pindah ke bawah"
                       aria-label="Pindah ke bawah"><Icon name="arrow-down" size="11px" /></button
                     >

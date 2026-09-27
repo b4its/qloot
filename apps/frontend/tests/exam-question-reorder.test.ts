@@ -126,4 +126,38 @@ describe("teacher exam question reordering", () => {
       });
     });
   });
+
+  it("filters the question list and reorders against the true order", async () => {
+    const mc = {
+      id: "q-mc",
+      prompt: "Soal PG",
+      qtype: "multiple_choice",
+      position: 2,
+      correct_answer: "A",
+      review_status: "approved",
+      options: [{ label: "A", text: "x", is_correct: true }],
+    };
+    get.mockImplementation((path: string) => {
+      // The page loads questions from the exam detail payload.
+      if (path === "/exams/ex1") return Promise.resolve({ ...sampleExam, questions: [q1, q2, mc] });
+      return Promise.resolve([]);
+    });
+    render(TeacherExamPage);
+    await screen.findByText(/Soal Nomor Satu/);
+
+    // Filter to PG only → only the MC question shows.
+    await fireEvent.click(screen.getByRole("button", { name: /PG \(1\)/ }));
+    await waitFor(() => expect(screen.queryByText(/Soal Nomor Satu/)).toBeNull());
+    expect(screen.getByText(/Soal PG/)).toBeTruthy();
+
+    // Reorder from the filtered view (qi = 2) still targets the true order.
+    post.mockResolvedValue([]);
+    const upBtn = screen.getByRole("button", { name: "Pindah ke atas" });
+    await fireEvent.click(upBtn);
+    await waitFor(() => {
+      expect(post).toHaveBeenCalledWith("/exams/ex1/questions/reorder", {
+        question_ids: ["q-1", "q-mc", "q-2"],
+      });
+    });
+  });
 });
