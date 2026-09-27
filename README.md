@@ -114,7 +114,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   blockchain** dengan metrik alokasi + konfirmasi kontrol jeda/lanjut; **papan peringkat
   termaterialisasi** dengan metrik snapshot, filter cakupan, pencarian, dan konfirmasi
   materialisasi ulang; serta halaman **konfigurasi runtime** yang dikelompokkan per-seksi
-  dengan banner lingkungan/pengaman.
+  dengan banner lingkungan/pengaman. Form pembuatan (**pengguna**, **pelajaran**, **quest**)
+  diberi validasi inline, meter kekuatan kata sandi, kolom yang menyesuaikan peran, dan
+  pratinjau langsung; kolom hadiah quest otomatis mengikuti jumlah pemenang.
 - **Paginasi konsisten** — semua endpoint daftar dibatasi (`limit ≤ 200`) dan mendukung
   `offset`; komponen `Pagination.svelte` dipakai ulang di seluruh halaman berdata banyak.
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
