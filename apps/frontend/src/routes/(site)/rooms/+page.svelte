@@ -12,6 +12,7 @@
   let rooms: Room[] = [];
   let loading = true;
   let error = "";
+  let message = "";
   let joinCode = "";
   let joinError = "";
   let joinLoading = false;
@@ -19,6 +20,46 @@
   let createBusy = false;
   let currentPage = 1;
   let newRoom = { name: "", max_participants: 100, is_public: true };
+  // Inline editing of an existing room (PATCH /rooms/{id}) — teachers only.
+  let editingRoom: string | null = null;
+  let editRoomDraft = { name: "", max_participants: 100, is_public: true };
+  let editBusy = false;
+
+  function startEditRoom(r: Room) {
+    editingRoom = r.id;
+    editRoomDraft = {
+      name: r.name,
+      max_participants: r.max_participants ?? 100,
+      is_public: r.is_public ?? true,
+    };
+  }
+
+  async function saveRoom(id: string) {
+    error = "";
+    if (editRoomDraft.name.trim().length < 2) {
+      error = "Nama ruang minimal 2 karakter.";
+      return;
+    }
+    if (!(editRoomDraft.max_participants >= 2 && editRoomDraft.max_participants <= 1000)) {
+      error = "Kapasitas harus antara 2 dan 1000 peserta.";
+      return;
+    }
+    editBusy = true;
+    try {
+      const updated = await api.patch<Room>(`/rooms/${id}`, {
+        name: editRoomDraft.name.trim(),
+        max_participants: editRoomDraft.max_participants,
+        is_public: editRoomDraft.is_public,
+      });
+      rooms = rooms.map((r) => (r.id === id ? { ...r, ...updated } : r));
+      editingRoom = null;
+      message = "Ruang diperbarui.";
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal memperbarui ruang";
+    } finally {
+      editBusy = false;
+    }
+  }
 
   // Search & Filter state
   let searchQuery = "";
@@ -305,6 +346,9 @@
     </div>
   {/if}
 
+  {#if message}
+    <p class="alert-ok mt-4">{message}</p>
+  {/if}
   {#if error}
     <p class="alert-error mt-4">
       {error}
@@ -435,48 +479,85 @@
           class="card lift flex flex-col justify-between hover:border-primary/60 transition-all p-4"
         >
           <div>
-            <div class="flex items-start justify-between gap-2">
-              <h2 class="font-display text-lg font-bold leading-snug line-clamp-2">
-                <a href={`/rooms/${room.id}`} class="hover:text-primary transition-colors">
-                  {room.name}
-                </a>
-              </h2>
-              <div class="flex flex-col items-end gap-1 shrink-0">
-                <span
-                  class="badge text-[10px]"
-                  class:badge-mint={room.status === "open"}
-                  class:badge-amber={room.status !== "open" && room.is_locked}
-                  class:badge-neutral={room.status === "closed"}
-                >
-                  {statusLabel(room.status)}
-                </span>
-                {#if room.is_locked}
-                  <span
-                    class="badge border border-amber-500/40 text-amber-400 text-[9px] flex items-center gap-1"
-                  >
-                    <Icon name="lock" size="8px" />
-                    <span>Terkunci</span>
-                  </span>
-                {/if}
+            {#if editingRoom === room.id}
+              <!-- Inline edit form -->
+              <input
+                class="input !py-1.5"
+                placeholder="Nama ruang"
+                bind:value={editRoomDraft.name}
+              />
+              <div class="mt-2 grid grid-cols-2 gap-2">
+                <label class="block">
+                  <span class="mono-label text-[10px]">Kapasitas</span>
+                  <input
+                    class="input !py-1 text-sm"
+                    type="number"
+                    min="2"
+                    max="1000"
+                    bind:value={editRoomDraft.max_participants}
+                  />
+                </label>
+                <label class="flex items-end gap-2 text-xs pb-1.5">
+                  <input type="checkbox" bind:checked={editRoomDraft.is_public} />
+                  <span>Publik</span>
+                </label>
               </div>
-            </div>
+              <div class="mt-2 flex gap-2">
+                <button
+                  class="btn-primary !py-1 text-xs"
+                  on:click={() => saveRoom(room.id)}
+                  disabled={editBusy}
+                >
+                  {editBusy ? "Menyimpan…" : "Simpan"}
+                </button>
+                <button class="btn-ghost !py-1 text-xs" on:click={() => (editingRoom = null)}>
+                  Batal
+                </button>
+              </div>
+            {:else}
+              <div class="flex items-start justify-between gap-2">
+                <h2 class="font-display text-lg font-bold leading-snug line-clamp-2">
+                  <a href={`/rooms/${room.id}`} class="hover:text-primary transition-colors">
+                    {room.name}
+                  </a>
+                </h2>
+                <div class="flex flex-col items-end gap-1 shrink-0">
+                  <span
+                    class="badge text-[10px]"
+                    class:badge-mint={room.status === "open"}
+                    class:badge-amber={room.status !== "open" && room.is_locked}
+                    class:badge-neutral={room.status === "closed"}
+                  >
+                    {statusLabel(room.status)}
+                  </span>
+                  {#if room.is_locked}
+                    <span
+                      class="badge border border-amber-500/40 text-amber-400 text-[9px] flex items-center gap-1"
+                    >
+                      <Icon name="lock" size="8px" />
+                      <span>Terkunci</span>
+                    </span>
+                  {/if}
+                </div>
+              </div>
 
-            <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-              <span class="badge text-[10px] border border-surface-border">
-                {#if room.is_public}
-                  <span class="text-mint flex items-center gap-1"
-                    ><Icon name="globe" size="9px" /> Publik</span
-                  >
-                {:else}
-                  <span class="text-muted flex items-center gap-1"
-                    ><Icon name="lock" size="9px" /> Privat</span
-                  >
-                {/if}
-              </span>
-              <span class="text-[11px] muted">
-                Maks. {room.max_participants} peserta
-              </span>
-            </div>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <span class="badge text-[10px] border border-surface-border">
+                  {#if room.is_public}
+                    <span class="text-mint flex items-center gap-1"
+                      ><Icon name="globe" size="9px" /> Publik</span
+                    >
+                  {:else}
+                    <span class="text-muted flex items-center gap-1"
+                      ><Icon name="lock" size="9px" /> Privat</span
+                    >
+                  {/if}
+                </span>
+                <span class="text-[11px] muted">
+                  Maks. {room.max_participants} peserta
+                </span>
+              </div>
+            {/if}
           </div>
 
           <div class="mt-4 pt-3 border-t flex items-center justify-between text-xs">
@@ -496,13 +577,25 @@
                 {/if}
               </button>
             </div>
-            <a
-              href={`/rooms/${room.id}`}
-              class="btn-ghost !py-1 !px-2.5 text-xs text-primary font-medium flex items-center gap-1"
-            >
-              <span>Masuk</span>
-              <Icon name="arrow-right" size="10px" />
-            </a>
+            <div class="flex items-center gap-1">
+              {#if canManage && editingRoom !== room.id}
+                <button
+                  type="button"
+                  class="btn-ghost !py-1 !px-2 text-xs"
+                  on:click={() => startEditRoom(room)}
+                  aria-label={`Ubah ruang ${room.name}`}
+                >
+                  <Icon name="pen" size="10px" />
+                </button>
+              {/if}
+              <a
+                href={`/rooms/${room.id}`}
+                class="btn-ghost !py-1 !px-2.5 text-xs text-primary font-medium flex items-center gap-1"
+              >
+                <span>Masuk</span>
+                <Icon name="arrow-right" size="10px" />
+              </a>
+            </div>
           </div>
         </div>
       {/each}
