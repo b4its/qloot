@@ -115,6 +115,8 @@ export interface Exam {
   status: string;
   is_active: boolean;
   passing_score_bp: number;
+  /** Free-form instructions shown to students before they begin. */
+  instructions?: string | null;
   opens_at?: string | null;
   closes_at?: string | null;
   created_at: string;

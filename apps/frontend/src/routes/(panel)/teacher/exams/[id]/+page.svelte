@@ -28,7 +28,19 @@
     shuffle_options: false,
     grace_seconds: 0,
     late_penalty_bp: 0,
+    instructions: "",
+    opens_at: "",
+    closes_at: "",
   };
+
+  /** Convert an ISO timestamp to the `datetime-local` input format. */
+  function toLocalInput(iso: string | null | undefined): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
 
   let questions: Question[] = [];
   let questionsLoading = false;
@@ -162,6 +174,9 @@
         shuffle_options: exam.shuffle_options ?? false,
         grace_seconds: exam.grace_seconds ?? 0,
         late_penalty_bp: exam.late_penalty_bp ?? 0,
+        instructions: exam.instructions ?? "",
+        opens_at: toLocalInput(exam.opens_at),
+        closes_at: toLocalInput(exam.closes_at),
       };
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
@@ -195,11 +210,27 @@
       error = "Passing score harus antara 0 dan 10000 bp.";
       return;
     }
+    if (form.opens_at && form.closes_at && form.closes_at <= form.opens_at) {
+      error = "Waktu tutup harus setelah waktu buka.";
+      return;
+    }
     error = "";
     message = "";
     busy = "exam";
     try {
-      exam = await api.patch<Exam>(`/exams/${examId}`, form);
+      exam = await api.patch<Exam>(`/exams/${examId}`, {
+        title: form.title.trim(),
+        duration_minutes: form.duration_minutes,
+        passing_score_bp: form.passing_score_bp,
+        max_attempts: form.max_attempts,
+        shuffle_questions: form.shuffle_questions,
+        shuffle_options: form.shuffle_options,
+        grace_seconds: form.grace_seconds,
+        late_penalty_bp: form.late_penalty_bp,
+        instructions: form.instructions.trim() || null,
+        opens_at: form.opens_at ? new Date(form.opens_at).toISOString() : null,
+        closes_at: form.closes_at ? new Date(form.closes_at).toISOString() : null,
+      });
       message = "Ujian diperbarui.";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memperbarui ujian";
@@ -553,6 +584,24 @@
           />
         </label>
       </div>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <label class="block">
+          <span class="mono-label">Dibuka (opsional)</span>
+          <input class="input mt-1" type="datetime-local" bind:value={form.opens_at} />
+        </label>
+        <label class="block">
+          <span class="mono-label">Ditutup (opsional)</span>
+          <input class="input mt-1" type="datetime-local" bind:value={form.closes_at} />
+        </label>
+      </div>
+      <label class="mt-3 block">
+        <span class="mono-label">Instruksi untuk siswa (opsional)</span>
+        <textarea
+          class="input mt-1 min-h-[80px]"
+          placeholder="Ditampilkan sebelum siswa mulai mengerjakan…"
+          bind:value={form.instructions}
+        ></textarea>
+      </label>
       <div class="mt-3 flex items-center justify-between">
         <button class="btn-secondary" on:click={togglePublish} disabled={busy === "publish"}>
           {exam.is_active ? "Tutup ujian" : "Terbitkan ujian"}

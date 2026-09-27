@@ -227,6 +227,8 @@ class ExamOut(ORMModel):
     status: str
     is_active: bool
     passing_score_bp: int
+    # Free-form instructions shown to students before they begin (may be null).
+    instructions: str | None = None
     opens_at: datetime | None
     closes_at: datetime | None
     created_at: datetime

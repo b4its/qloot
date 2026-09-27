@@ -160,4 +160,30 @@ describe("teacher exam question reordering", () => {
       });
     });
   });
+
+  it("loads and saves instructions and the open/close window", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/exams/ex1")
+        return Promise.resolve({
+          ...sampleExam,
+          instructions: "Baca dengan teliti.",
+          opens_at: "2026-03-01T08:00:00Z",
+          closes_at: null,
+        });
+      return Promise.resolve([]);
+    });
+    patch.mockResolvedValue(sampleExam);
+    render(TeacherExamPage);
+    await waitFor(() => expect(screen.getByDisplayValue("Baca dengan teliti.")).toBeTruthy());
+
+    const instr = screen.getByDisplayValue("Baca dengan teliti.") as HTMLTextAreaElement;
+    await fireEvent.input(instr, { target: { value: "Instruksi baru" } });
+    await fireEvent.click(screen.getByRole("button", { name: /Simpan perubahan/i }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith(
+        "/exams/ex1",
+        expect.objectContaining({ instructions: "Instruksi baru" }),
+      ),
+    );
+  });
 });
