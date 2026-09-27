@@ -8,6 +8,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import Dialog from "$lib/components/Dialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -21,6 +22,7 @@
   let openId = "";
   let thread: ConsultationMessage[] = [];
   let draft = "";
+  let sendingMessage = false;
 
   const statusBadge: Record<string, string> = {
     pending: "badge-amber",
@@ -120,10 +122,6 @@
     }
   }
 
-  async function reschedule(c: Consultation) {
-    openReschedule(c);
-  }
-
   async function openThread(c: Consultation) {
     openId = c.id;
     try {
@@ -134,7 +132,8 @@
   }
 
   async function sendMessage() {
-    if (!draft.trim() || !openId) return;
+    if (!draft.trim() || !openId || sendingMessage) return;
+    sendingMessage = true;
     try {
       await api.post(`/career/consultations/${openId}/messages`, { body: draft.trim() });
       draft = "";
@@ -142,6 +141,8 @@
       if (c) await openThread(c);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengirim pesan";
+    } finally {
+      sendingMessage = false;
     }
   }
 
@@ -351,9 +352,10 @@
           <button
             class="btn-primary !py-2 shrink-0 flex items-center gap-1.5"
             on:click={sendMessage}
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || sendingMessage}
           >
-            <Icon name="paper-plane" size="12px" /> Kirim
+            <Icon name="paper-plane" size="12px" />
+            {sendingMessage ? "Mengirim…" : "Kirim"}
           </button>
         </div>
       </div>
@@ -361,31 +363,24 @@
   </div>
 
   {#if rescheduleTarget}
-    <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+    <Dialog
+      title="Jadwalkan Ulang Konsultasi"
+      description={`Tentukan waktu sesi baru untuk ${rescheduleTarget.topic}${rescheduleTarget.student_name ? ` bersama siswa ${rescheduleTarget.student_name}` : ""}.`}
+      size="max-w-md"
+      busy={busy === rescheduleTarget.id}
+      close={() => (rescheduleTarget = null)}
     >
-      <div class="card w-full max-w-md shadow-2xl space-y-4">
-        <div class="flex items-center justify-between border-b pb-3">
-          <h3 class="font-bold text-base">Jadwalkan Ulang Konsultasi</h3>
-          <button
-            class="btn-ghost !p-1 text-xs"
-            on:click={() => (rescheduleTarget = null)}
-            aria-label="Tutup"
-          >
-            <Icon name="xmark" size="12px" />
-          </button>
-        </div>
-        <p class="text-xs muted">
-          Tentukan waktu sesi baru untuk <strong>{rescheduleTarget.topic}</strong>
-          {#if rescheduleTarget.student_name}bersama siswa <strong
-              >{rescheduleTarget.student_name}</strong
-            >{/if}.
-        </p>
-        <label class="flex flex-col gap-1 text-xs">
-          <span class="mono-label">Waktu Sesi Baru</span>
-          <input type="datetime-local" class="input text-sm" bind:value={rescheduleInput} />
-        </label>
-        <div class="flex items-center justify-end gap-2 pt-2">
+      <label class="flex flex-col gap-1 text-xs">
+        <span class="mono-label">Waktu Sesi Baru</span>
+        <input
+          type="datetime-local"
+          class="input text-sm"
+          bind:value={rescheduleInput}
+          data-autofocus
+        />
+      </label>
+      <svelte:fragment slot="footer">
+        <div class="flex items-center justify-end gap-2">
           <button class="btn-ghost text-xs" on:click={() => (rescheduleTarget = null)}>Batal</button
           >
           <button
@@ -396,7 +391,7 @@
             {busy === rescheduleTarget.id ? "Menyimpan…" : "Simpan Jadwal"}
           </button>
         </div>
-      </div>
-    </div>
+      </svelte:fragment>
+    </Dialog>
   {/if}
 </div>

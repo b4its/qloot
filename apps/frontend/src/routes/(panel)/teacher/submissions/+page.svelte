@@ -8,6 +8,7 @@
   import { bpToPercent } from "$lib/utils/format";
   import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
+  import Dialog from "$lib/components/Dialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -409,23 +410,13 @@
 </div>
 
 {#if inspectingRow}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-xl space-y-4 border-primary/40 shadow-2xl">
-      <div class="flex items-start justify-between border-b pb-3">
-        <div>
-          <span class="mono-label text-primary">{inspectingRow.exam_title}</span>
-          <h2 class="font-display text-lg font-bold mt-0.5">Detail Pengumpulan Siswa</h2>
-          <p class="text-xs muted">
-            Siswa: <span class="font-medium text-foreground"
-              >{inspectingRow.student_name ?? inspectingRow.student_id}</span
-            >
-          </p>
-        </div>
-        <button class="btn-icon" on:click={() => (inspectingRow = null)} aria-label="Tutup">
-          <Icon name="xmark" size="14px" />
-        </button>
-      </div>
-
+  <Dialog
+    title="Detail Pengumpulan Siswa"
+    description={`Siswa: ${inspectingRow.student_name ?? inspectingRow.student_id}`}
+    size="max-w-2xl"
+    close={() => (inspectingRow = null)}
+  >
+    <div class="space-y-3">
       <div class="rounded-sm border p-3 surface space-y-1.5 text-xs">
         <div class="flex items-center justify-between">
           <span class="badge badge-indigo text-[10px]"
@@ -502,10 +493,12 @@
           <p class="text-muted leading-relaxed whitespace-pre-wrap">{inspectingRow.feedback}</p>
         </div>
       {/if}
+    </div>
 
-      <div class="flex items-center justify-end border-t pt-3">
+    <svelte:fragment slot="footer">
+      <div class="flex items-center justify-end">
         <button class="btn-ghost text-xs" on:click={() => (inspectingRow = null)}>Tutup</button>
       </div>
-    </div>
-  </div>
+    </svelte:fragment>
+  </Dialog>
 {/if}

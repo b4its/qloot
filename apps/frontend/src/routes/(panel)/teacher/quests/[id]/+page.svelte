@@ -9,6 +9,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -307,28 +308,13 @@
 
 <!-- Publish confirmation modal -->
 {#if confirmingPublish}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Terbitkan Quest</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Terbitkan quest <strong>"{quest?.title}"</strong>? Setelah diterbitkan, siswa dapat mulai
-        berkompetisi dan tidak bisa dikembalikan ke draf.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirmingPublish = false)}>Batal</button
-        >
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={publish}
-          disabled={busy === "publish"}
-          data-role="confirm-publish"
-        >
-          {busy === "publish" ? "Menerbitkan…" : "Ya, Terbitkan"}
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Terbitkan Quest"
+    description={`Terbitkan quest "${quest?.title}"? Setelah diterbitkan, siswa dapat mulai berkompetisi dan tidak bisa dikembalikan ke draf.`}
+    confirmLabel="Ya, Terbitkan"
+    busy={busy === "publish"}
+    confirmRole="confirm-publish"
+    onConfirm={publish}
+    close={() => (confirmingPublish = false)}
+  />
 {/if}

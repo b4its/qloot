@@ -7,6 +7,8 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import Dialog from "$lib/components/Dialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -20,6 +22,7 @@
   let form = { code: "", category: "course", title: "", description: "", provider: "" };
   // Deleting a resource is destructive; require an explicit confirmation.
   let deleting: ResourceItem | null = null;
+  let deletingBusy = false;
 
   const CATEGORY_LABEL: Record<string, string> = {
     course: "Kursus",
@@ -77,12 +80,15 @@
 
   async function removeResource(item: ResourceItem) {
     deleting = null;
+    deletingBusy = true;
     try {
       await api.delete(`/career/resources/${item.code}`);
       message = "Sumber daya dihapus.";
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menghapus sumber daya";
+    } finally {
+      deletingBusy = false;
     }
   }
 
@@ -281,40 +287,21 @@
 
 <!-- Delete confirmation modal -->
 {#if deleting}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Hapus Sumber Daya</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Hapus sumber daya <strong>"{deleting.title}"</strong> ({deleting.code})? Tindakan ini tidak
-        dapat dibatalkan.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (deleting = null)}>Batal</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => deleting && removeResource(deleting)}
-          data-role="confirm-delete-resource"
-        >
-          Ya, Hapus
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Hapus Sumber Daya"
+    description={`Hapus sumber daya "${deleting.title}" (${deleting.code})? Tindakan ini tidak dapat dibatalkan.`}
+    confirmLabel="Ya, Hapus"
+    busy={deletingBusy}
+    confirmRole="confirm-delete-resource"
+    onConfirm={() => removeResource(deleting!)}
+    close={() => (deleting = null)}
+  />
 {/if}
 
 <!-- Edit modal -->
 {#if editing}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-lg space-y-4">
-      <div class="flex items-center justify-between border-b pb-3">
-        <h3 class="font-display text-lg font-bold">Ubah Sumber Daya</h3>
-        <button class="btn-icon" on:click={() => (editing = null)} aria-label="Tutup">
-          <Icon name="xmark" size="11px" />
-        </button>
-      </div>
+  <Dialog title="Ubah Sumber Daya" size="max-w-lg" busy={editBusy} close={() => (editing = null)}>
+    <div class="space-y-3">
       <label class="block">
         <span class="mono-label text-[10px]">Judul</span>
         <input class="input mt-1" bind:value={editing.title} />
@@ -341,12 +328,14 @@
           bind:value={editing.tags}
         />
       </label>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
+    </div>
+    <svelte:fragment slot="footer">
+      <div class="flex items-center justify-end gap-2">
         <button class="btn-ghost text-xs" on:click={() => (editing = null)}>Batal</button>
         <button class="btn-primary text-xs" on:click={saveEdit} disabled={editBusy}>
           {editBusy ? "Menyimpan…" : "Simpan"}
         </button>
       </div>
-    </div>
-  </div>
+    </svelte:fragment>
+  </Dialog>
 {/if}

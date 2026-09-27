@@ -6,6 +6,7 @@
   import { formatDate, statusLabel } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { auth } from "$lib/stores/auth";
   import { paginate } from "$lib/utils/format";
 
@@ -22,6 +23,7 @@
   let openId = "";
   let thread: ConsultationMessage[] = [];
   let draft = "";
+  let sendingMessage = false;
   let confirmingCancel: Consultation | null = null;
 
   $: activeConsultation = consultations.find((x) => x.id === openId);
@@ -106,7 +108,8 @@
   }
 
   async function sendMessage() {
-    if (!draft.trim() || !openId) return;
+    if (!draft.trim() || !openId || sendingMessage) return;
+    sendingMessage = true;
     try {
       await api.post(`/career/consultations/${openId}/messages`, { body: draft.trim() });
       draft = "";
@@ -114,6 +117,8 @@
       if (c) await openThread(c);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengirim pesan";
+    } finally {
+      sendingMessage = false;
     }
   }
 
@@ -302,9 +307,10 @@
             <button
               class="btn-primary !py-2 shrink-0 flex items-center gap-1.5"
               on:click={sendMessage}
-              disabled={!draft.trim()}
+              disabled={!draft.trim() || sendingMessage}
             >
-              <Icon name="paper-plane" size="12px" /> Kirim
+              <Icon name="paper-plane" size="12px" />
+              {sendingMessage ? "Mengirim…" : "Kirim"}
             </button>
           </div>
         </div>
@@ -322,10 +328,16 @@
             {/each}
           </select>
         </label>
-        <input class="input" placeholder="Topik" bind:value={form.topic} />
+        <input
+          class="input"
+          placeholder="Topik"
+          aria-label="Topik konsultasi"
+          bind:value={form.topic}
+        />
         <textarea
           class="input min-h-[80px]"
           placeholder="Catatan (opsional)"
+          aria-label="Catatan konsultasi (opsional)"
           bind:value={form.notes}
         ></textarea>
         <button class="btn-primary w-full" on:click={book} disabled={busy || form.topic.length < 2}>
@@ -349,29 +361,13 @@
 
 <!-- Cancel confirmation modal -->
 {#if confirmingCancel}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Batalkan Sesi Konseling</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Batalkan sesi <strong>"{confirmingCancel.topic}"</strong> dengan
-        {confirmingCancel.counselor}?
-      </p>
-      <p class="text-xs muted leading-relaxed">
-        Sesi yang dibatalkan tidak bisa dikembalikan; kamu dapat mengajukan sesi baru kapan saja.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirmingCancel = null)}>Tutup</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => confirmingCancel && cancel(confirmingCancel)}
-          data-role="confirm-cancel-consultation"
-        >
-          Ya, Batalkan
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Batalkan Sesi Konseling"
+    description={`Batalkan sesi "${confirmingCancel.topic}" dengan ${confirmingCancel.counselor}?`}
+    hint="Sesi yang dibatalkan tidak bisa dikembalikan; kamu dapat mengajukan sesi baru kapan saja."
+    confirmLabel="Ya, Batalkan"
+    confirmRole="confirm-cancel-consultation"
+    onConfirm={() => cancel(confirmingCancel!)}
+    close={() => (confirmingCancel = null)}
+  />
 {/if}

@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -410,26 +411,13 @@
 
 <!-- Delete-lesson confirmation modal -->
 {#if deletingLesson}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Hapus Materi</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Hapus materi <strong>"{deletingLesson.title}"</strong>? Tindakan ini tidak dapat dibatalkan.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (deletingLesson = null)}>Batal</button>
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => deletingLesson && removeLesson(deletingLesson)}
-          disabled={busy.startsWith("lesson-del-")}
-          data-role="confirm-delete-lesson"
-        >
-          Ya, Hapus
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Hapus Materi"
+    description={`Hapus materi "${deletingLesson.title}"? Tindakan ini tidak dapat dibatalkan.`}
+    confirmLabel="Ya, Hapus"
+    busy={busy.startsWith("lesson-del-")}
+    confirmRole="confirm-delete-lesson"
+    onConfirm={() => removeLesson(deletingLesson!)}
+    close={() => (deletingLesson = null)}
+  />
 {/if}
