@@ -283,6 +283,17 @@ class RewardEngine:
         account = await self.get_or_create_account(user.id)
         entry_type = "credit" if amount > 0 else "debit"
         magnitude = abs(amount)
+        # Apply the same per-transaction cap as automated rewards so a manual
+        # grant can never mint off-chain credit the chain would reject.
+        from app.core import metrics
+        from app.core.config import settings
+
+        if magnitude > settings.opc_max_reward_per_tx:
+            metrics.incr("reward_cap_rejections_total")
+            raise ValidationError(
+                f"Adjustment {magnitude} exceeds the per-transaction cap "
+                f"of {settings.opc_max_reward_per_tx}"
+            )
         if entry_type == "debit" and account.cached_balance < magnitude:
             raise ConflictError("Adjustment exceeds the user's balance")
         new_balance = (

@@ -5,14 +5,14 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.common import ORMModel
 
 
 class QuestRuleIn(BaseModel):
     rank: int = Field(ge=1, le=100)
-    reward_amount: int = Field(ge=0)
+    reward_amount: int = Field(ge=0, le=1_000_000)
     min_score_bp: int | None = Field(default=None, ge=0, le=10_000)
 
 
@@ -29,7 +29,17 @@ class QuestCreate(BaseModel):
     top_n_winners: int = Field(default=3, ge=1, le=50)
     opens_at: datetime | None = None
     closes_at: datetime | None = None
-    rules: list[QuestRuleIn] = Field(default_factory=list)
+    rules: list[QuestRuleIn] = Field(default_factory=list, max_length=100)
+
+    @field_validator("rules")
+    @classmethod
+    def _unique_ranks(cls, rules: list[QuestRuleIn]) -> list[QuestRuleIn]:
+        # The DB enforces one rule per (quest_id, rank); catch duplicates here
+        # so the client gets a 422 instead of an unhandled IntegrityError (500).
+        ranks = [r.rank for r in rules]
+        if len(ranks) != len(set(ranks)):
+            raise ValueError("rules must not contain duplicate ranks")
+        return rules
 
 
 class QuestUpdate(BaseModel):

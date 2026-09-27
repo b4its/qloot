@@ -174,7 +174,7 @@ class AttachQuestionIn(BaseModel):
 class QuestionReorder(BaseModel):
     """A full, explicit question order to rewrite positions from."""
 
-    question_ids: list[uuid.UUID] = Field(min_length=1)
+    question_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
 
 
 class ExamCreate(BaseModel):

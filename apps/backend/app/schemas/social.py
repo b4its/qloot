@@ -27,7 +27,7 @@ class UnreadCount(BaseModel):
 class MarkReadBatch(BaseModel):
     """Body for marking a caller-chosen set of notifications read (STUDY-09)."""
 
-    ids: list[uuid.UUID] = Field(default_factory=list)
+    ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
 
 
 class NotificationPreferencesIn(BaseModel):
@@ -88,9 +88,10 @@ class NotificationCreate(BaseModel):
     """Admin/broadcast notification."""
 
     title: str = Field(min_length=1, max_length=255)
-    body: str | None = None
-    kind: str = "system"
-    user_ids: list[uuid.UUID] | None = None  # None = all active users
+    body: str | None = Field(default=None, max_length=2_000)
+    kind: str = Field(default="system", min_length=1, max_length=32, pattern="^[a-z_]+$")
+    # None = all active users; cap the explicit list to avoid a fan-out abuse.
+    user_ids: list[uuid.UUID] | None = Field(default=None, max_length=5_000)
 
 
 class FollowStatusOut(BaseModel):

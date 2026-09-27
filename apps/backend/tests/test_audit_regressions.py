@@ -698,3 +698,112 @@ async def test_withdrawal_review_audit_carries_request_id(client):
             delete(WithdrawalRequest).where(WithdrawalRequest.id == uuid.UUID(wid))
         )
         await s.commit()
+
+
+async def test_admin_adjust_rejects_amount_above_cap(client):
+    """The manual admin adjustment must honour the per-transaction reward cap
+    (opc_max_reward_per_tx) instead of minting arbitrarily large credit."""
+    from app.core.config import settings
+
+    tag = uuid.uuid4().hex[:8]
+    # Create the target first, then (re)authenticate as the admin, since
+    # registering a user switches the client session.
+    target = await _register(client, f"adj_target_{tag}@ex.com")
+    await client.post("/api/v1/auth/logout")
+    await _register(client, f"adj_admin_{tag}@ex.com", "admin")
+
+    over = settings.opc_max_reward_per_tx + 1
+    r = await client.post(
+        "/api/v1/admin/rewards/adjust",
+        json={
+            "user_id": target["id"],
+            "amount": over,
+            "reason": "too large",
+            "idempotency_key": "adj-cap-1",
+        },
+    )
+    assert r.status_code == 422, r.text
+
+    # A within-cap grant still works.
+    ok = await client.post(
+        "/api/v1/admin/rewards/adjust",
+        json={
+            "user_id": target["id"],
+            "amount": 100,
+            "reason": "small grant",
+            "idempotency_key": "adj-cap-2",
+        },
+    )
+    assert ok.status_code == 200, ok.text
+
+
+async def test_quest_rules_reject_duplicate_ranks(client):
+    """Duplicate rule ranks must be a 422, not a DB IntegrityError (500)."""
+    from tests.helpers import register_actor
+
+    await register_actor(client, f"dup_rank_{uuid.uuid4().hex[:8]}@ex.com", "teacher")
+    r = await client.post(
+        "/api/v1/quests",
+        json={
+            "title": "Dup ranks",
+            "rules": [
+                {"rank": 1, "reward_amount": 10},
+                {"rank": 1, "reward_amount": 20},
+            ],
+        },
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_quest_rule_reward_amount_is_bounded(client):
+    """A quest rule reward above the schema ceiling is rejected at create time."""
+    from tests.helpers import register_actor
+
+    await register_actor(client, f"big_reward_{uuid.uuid4().hex[:8]}@ex.com", "teacher")
+    r = await client.post(
+        "/api/v1/quests",
+        json={"title": "Huge reward", "rules": [{"rank": 1, "reward_amount": 10_000_000}]},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_task_reward_above_cap_is_rejected(client):
+    """A task reward above the payout cap is rejected at create time so it can
+    never be created but un-completable."""
+    from app.core.config import settings
+    from tests.helpers import register_actor
+
+    await register_actor(client, f"task_cap_{uuid.uuid4().hex[:8]}@ex.com", "teacher")
+    over = settings.opc_max_reward_per_tx + 1
+    r = await client.post(
+        "/api/v1/tasks",
+        json={"title": "Big task", "kind": "daily", "reward_amount": over},
+    )
+    assert r.status_code == 409, r.text
+
+
+async def test_community_author_can_delete_own_post(client):
+    """H4: the UI now exposes post deletion; the backend must allow the author
+    (and only the author/an admin) to delete their post."""
+    from tests.helpers import register_actor
+
+    tag = uuid.uuid4().hex[:8]
+    await register_actor(client, f"post_del_{tag}@ex.com")
+    created = await client.post("/api/v1/community/posts", json={"body": "halo dunia", "topic": "Umum"})
+    assert created.status_code == 201, created.text
+    post_id = created.json()["id"]
+
+    # Another user cannot delete it.
+    await client.post("/api/v1/auth/logout")
+    await register_actor(client, f"post_other_{tag}@ex.com")
+    forbidden = await client.delete(f"/api/v1/community/posts/{post_id}")
+    assert forbidden.status_code in (403, 404), forbidden.text
+
+    # The author can.
+    await client.post("/api/v1/auth/logout")
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": f"post_del_{tag}@ex.com", "password": "Password123!"},
+    )
+    ok = await client.delete(f"/api/v1/community/posts/{post_id}")
+    assert ok.status_code == 200, ok.text

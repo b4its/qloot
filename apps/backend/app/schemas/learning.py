@@ -19,8 +19,8 @@ class CourseCreate(BaseModel):
 
     title: str = Field(min_length=2, max_length=255)
     slug: str | None = Field(default=None, max_length=255)
-    description: str | None = None
-    cover_url: str | None = None
+    description: str | None = Field(default=None, max_length=10_000)
+    cover_url: str | None = Field(default=None, max_length=2048)
     subject: str | None = Field(default=None, max_length=128)
     class_code: str = Field(min_length=1, max_length=16)
     class_type: str | None = Field(default=None, max_length=32)
@@ -29,8 +29,8 @@ class CourseCreate(BaseModel):
 
 class CourseUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
-    description: str | None = None
-    cover_url: str | None = None
+    description: str | None = Field(default=None, max_length=10_000)
+    cover_url: str | None = Field(default=None, max_length=2048)
     is_published: bool | None = None
     subject: str | None = Field(default=None, max_length=128)
     class_code: str | None = Field(default=None, max_length=16)
@@ -56,8 +56,8 @@ class CourseOut(ORMModel):
 
 class LessonCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
-    content_md: str | None = None
-    video_url: str | None = None
+    content_md: str | None = Field(default=None, max_length=200_000)
+    video_url: str | None = Field(default=None, max_length=2048)
     position: int = 0
     # Lessons are published on creation by default (matches CourseCreate); set
     # false explicitly to stage a draft.
@@ -66,8 +66,8 @@ class LessonCreate(BaseModel):
 
 class LessonUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
-    content_md: str | None = None
-    video_url: str | None = None
+    content_md: str | None = Field(default=None, max_length=200_000)
+    video_url: str | None = Field(default=None, max_length=2048)
     position: int | None = None
     is_published: bool | None = None
 
@@ -75,7 +75,7 @@ class LessonUpdate(BaseModel):
 class LessonReorder(BaseModel):
     """A full, explicit lesson order to rewrite positions from."""
 
-    lesson_ids: list[uuid.UUID] = Field(min_length=1)
+    lesson_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
 
 
 class LessonOut(ORMModel):

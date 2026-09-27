@@ -23,6 +23,19 @@ from app.services.task_verification import verify_task_completion
 router = APIRouter()
 
 
+def _assert_reward_within_cap(amount: int | None) -> None:
+    """Keep the task reward within the per-transaction payout cap.
+
+    The reward engine rejects any credit above ``opc_max_reward_per_tx`` at
+    completion time; validating at create/update gives a clear 422 instead of a
+    task that can be created but never completed.
+    """
+    if amount is not None and amount > settings.opc_max_reward_per_tx:
+        raise ConflictError(
+            f"reward_amount exceeds the per-transaction cap of {settings.opc_max_reward_per_tx}"
+        )
+
+
 def _period_key(kind: str, now: datetime) -> str:
     """Bucket a completion by task kind so recurring tasks reset per period.
 
@@ -121,6 +134,7 @@ async def list_my_completions(user: CurrentUser, db: DbSession):
 
 @router.post("", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
 async def create_task(payload: TaskCreate, user: TeacherUser, db: DbSession):
+    _assert_reward_within_cap(payload.reward_amount)
     async with transaction(db):
         task = Task(owner_id=user.id, **payload.model_dump())
         db.add(task)
@@ -141,6 +155,8 @@ async def update_task(task_id: uuid.UUID, payload: TaskUpdate, user: TeacherUser
         # a concrete value is provided, so a stray ``null`` cannot wipe them.
         nullable = {"description", "starts_at", "ends_at"}
         updates = payload.model_dump(exclude_unset=True)
+        if "reward_amount" in updates:
+            _assert_reward_within_cap(updates["reward_amount"])
         for key, value in updates.items():
             if value is None and key not in nullable:
                 continue

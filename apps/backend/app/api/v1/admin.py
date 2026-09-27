@@ -50,7 +50,11 @@ class RewardAdjustRequest(BaseModel):
     """Manual, audited OPT balance adjustment."""
 
     user_id: uuid.UUID
-    amount: int = Field(description="Positive grants, negative claws back")
+    amount: int = Field(
+        ge=-1_000_000,
+        le=1_000_000,
+        description="Positive grants, negative claws back",
+    )
     reason: str = Field(min_length=3, max_length=255)
     idempotency_key: str = Field(min_length=4, max_length=64)
 

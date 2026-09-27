@@ -95,11 +95,11 @@ class MilestoneCreate(BaseModel):
     title: str = Field(min_length=3, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
     period: str = Field(default="", max_length=64)
-    tasks: list[str] = Field(default_factory=list)
+    tasks: list[str] = Field(default_factory=list, max_length=50)
 
 
 class RoadmapReorder(BaseModel):
-    ordered_ids: list[uuid.UUID] = Field(min_length=1)
+    ordered_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
 
 
 class ConsultationIn(BaseModel):
