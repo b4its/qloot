@@ -125,7 +125,8 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
   object-level, cookie CSRF-safe, CORS ketat, rate limiting, redaksi secret di log.
 - **Sertifikat & komunitas (simulasi)** — sertifikat kredensial dengan ID unik dan
-  halaman verifikasi publik; feed komunitas dengan posting, like, dan komentar.
+  halaman verifikasi publik (banner kepercayaan + checklist per-item + status on-chain +
+  salin hash/tautan); feed komunitas dengan posting, like, dan komentar.
 
 ---
 
