@@ -153,9 +153,23 @@ describe("courses catalog — progress-aware", () => {
     // c2 (100%) sorts before c1 (50%).
     await waitFor(() => {
       const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-      expect(headings.indexOf("Matematika Lanjut")).toBeLessThan(
-        headings.indexOf("Fisika Dasar"),
-      );
+      expect(headings.indexOf("Matematika Lanjut")).toBeLessThan(headings.indexOf("Fisika Dasar"));
     });
+  });
+
+  it("shows a login preview without calling protected APIs for anonymous visitors", async () => {
+    auth.setUser(null);
+    get.mockReset();
+
+    render(CoursesPage);
+
+    expect(
+      await screen.findByRole("heading", { name: "Pelajaran disesuaikan dengan kelasmu" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: /masuk untuk melihat katalog/i })).toHaveAttribute(
+      "href",
+      "/login?next=%2Fcourses",
+    );
+    expect(get).not.toHaveBeenCalled();
   });
 });

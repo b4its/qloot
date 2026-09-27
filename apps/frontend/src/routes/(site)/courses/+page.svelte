@@ -21,6 +21,8 @@
   let subjectFilter = "all";
   let sortBy: Sort = "recent";
   let currentPage = 1;
+  let mounted = false;
+  let loadStarted = false;
   // Track the last-seen ?q= param so we only overwrite the box when the URL
   // itself changes (header search / /paths deep links), not while typing.
   let lastQ = "";
@@ -108,7 +110,17 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    mounted = true;
+  });
+
+  // Wait for the root auth bootstrap before touching protected course APIs.
+  // Anonymous visitors receive a deliberate product preview instead of a 401.
+  $: if (mounted && !$auth.loading && !loadStarted) {
+    loadStarted = true;
+    if (user) void load();
+    else loading = false;
+  }
 </script>
 
 <svelte:head><title>Pelajaran — QLoot</title></svelte:head>
@@ -136,7 +148,41 @@
       {/if}
     </div>
 
-    {#if error}
+    {#if !loading && !user}
+      <section class="mt-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]" aria-labelledby="catalog-preview">
+        <div class="card !p-7 sm:!p-9">
+          <span class="neon-chip"><Icon name="sparkles" size="10px" /> Ruang belajar personal</span>
+          <h2 id="catalog-preview" class="mt-4 text-2xl font-bold sm:text-3xl">
+            Pelajaran disesuaikan dengan kelasmu
+          </h2>
+          <p class="mt-3 max-w-2xl text-ink2">
+            Masuk untuk melihat materi dari guru, progres tiap pelajaran, ujian, dan rekomendasi
+            aktivitas yang sesuai dengan kelasmu.
+          </p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="/login?next=%2Fcourses" class="btn-primary">
+              <Icon name="right-to-bracket" size="12px" /> Masuk untuk melihat katalog
+            </a>
+            <a href="/register" class="btn-secondary">Buat akun siswa</a>
+          </div>
+        </div>
+        <div class="card !p-7">
+          <p class="mono-label">Yang akan kamu dapatkan</p>
+          <ul class="mt-4 space-y-4 text-sm">
+            <li class="flex gap-3">
+              <Icon name="route" class="mt-0.5 text-secondary" /> Jalur belajar dan progres yang terukur
+            </li>
+            <li class="flex gap-3">
+              <Icon name="robot" class="mt-0.5 text-secondary" /> Bantuan AI berbasis materi guru
+            </li>
+            <li class="flex gap-3">
+              <Icon name="certificate" class="mt-0.5 text-secondary" /> Ujian, reward, dan sertifikat
+              terverifikasi
+            </li>
+          </ul>
+        </div>
+      </section>
+    {:else if error}
       <p class="alert-error mt-4">{error}</p>
     {/if}
 
@@ -147,7 +193,7 @@
       <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {#each Array(6) as _}<div class="skeleton h-44"></div>{/each}
       </div>
-    {:else if subjects.length === 0}
+    {:else if user && subjects.length === 0}
       <div class="card mt-8 grid place-items-center py-16 text-center">
         <Icon name="book-open" size="28px" class="muted" />
         <p class="mt-3 font-semibold">Belum ada pelajaran</p>
@@ -156,7 +202,7 @@
             pelajaran kelasmu.{/if}
         </p>
       </div>
-    {:else}
+    {:else if user}
       <!-- Overview metrics -->
       <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div class="card p-4">
