@@ -56,4 +56,25 @@ describe("ConfirmDialog", () => {
     expect(screen.getByLabelText("Alasan (opsional)")).toBeTruthy();
     cleanup();
   });
+
+  it("emits reason changes back to the parent via onReason", async () => {
+    const onReason = vi.fn();
+    render(ConfirmDialog, {
+      props: { title: "Cabut", reason: "", onReason, onConfirm: vi.fn(), close: vi.fn() },
+    });
+    await fireEvent.input(screen.getByLabelText("Alasan (opsional)"), {
+      target: { value: "alamat salah" },
+    });
+    expect(onReason).toHaveBeenCalledWith("alamat salah");
+    cleanup();
+  });
+
+  it("uses a custom confirmRole for the confirm button", () => {
+    render(ConfirmDialog, {
+      props: { title: "T", confirmRole: "confirm-custom", onConfirm: vi.fn(), close: vi.fn() },
+    });
+    expect(document.querySelector('[data-role="confirm-custom"]')).toBeTruthy();
+    expect(document.querySelector('[data-role="confirm-action"]')).toBeNull();
+    cleanup();
+  });
 });

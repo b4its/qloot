@@ -70,6 +70,7 @@
   let hasMore = false;
   /** Post id whose share link was just copied (shows a transient "Tersalin"). */
   let copiedId = "";
+  let reportedId = "";
 
   interface UserLevelCard {
     xp: number;
@@ -367,11 +368,12 @@
         target_id: reportingTarget.id,
         reason: finalReason,
       });
-      copiedId = reportingTarget.id;
+      // Dedicated state so a report never masquerades as a "share copied".
+      reportedId = reportingTarget.id;
       reportNotice = "Laporan berhasil dikirim ke tim moderator untuk ditinjau.";
       setTimeout(() => {
         reportNotice = "";
-        if (copiedId === reportingTarget?.id) copiedId = "";
+        if (reportedId === reportingTarget?.id) reportedId = "";
       }, 4000);
       reportingTarget = null;
       reportCustomDetail = "";
@@ -927,7 +929,7 @@
           {/each}
         </div>
 
-        {#if reportCategory === "Lainnya" || reportCategory}
+        {#if reportCategory === "Lainnya"}
           <div class="pt-1">
             <label for="report-detail-text" class="block text-xs muted mb-1"
               >Keterangan Tambahan (opsional)</label

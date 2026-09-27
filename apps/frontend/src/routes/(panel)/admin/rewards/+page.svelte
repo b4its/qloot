@@ -147,9 +147,25 @@
       Tercatat di audit log. Jumlah positif menambah, negatif mengurangi.
     </p>
     <div class="mt-3 grid gap-3 sm:grid-cols-4">
-      <input class="input" placeholder="ID pengguna" bind:value={adjUserId} />
-      <input class="input" type="number" placeholder="Jumlah OPT" bind:value={adjAmount} />
-      <input class="input" placeholder="Alasan (wajib)" bind:value={adjReason} />
+      <input
+        class="input"
+        placeholder="ID pengguna"
+        aria-label="ID pengguna untuk penyesuaian"
+        bind:value={adjUserId}
+      />
+      <input
+        class="input"
+        type="number"
+        placeholder="Jumlah OPT"
+        aria-label="Jumlah OPT (positif menambah, negatif mengurangi)"
+        bind:value={adjAmount}
+      />
+      <input
+        class="input"
+        placeholder="Alasan (wajib)"
+        aria-label="Alasan penyesuaian (wajib)"
+        bind:value={adjReason}
+      />
       <button
         class="btn-secondary"
         on:click={adjust}
