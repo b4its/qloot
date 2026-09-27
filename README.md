@@ -80,7 +80,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   komposisi soal, baris percobaan lulus/gagal, dan banner "lanjutkan pengerjaan" bila ada
   attempt berjalan; `/attempts` mendukung filter `exam_id`. **Tinjauan hasil** siswa punya
   filter per-soal (benar/sebagian/salah/kosong) dengan hitungan untuk fokus ke soal yang
-  salah atau kosong.
+  salah atau kosong. **Editor ujian** guru punya pencarian soal + filter tipe (PG/Esai)
+  dengan metrik; **papan peringkat global** punya strip metrik + pencarian nama; halaman
+  **profil** menampilkan jumlah sesi aktif + IP/waktu + konfirmasi pencabutan sesi.
 - **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
   pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
   quest, notifikasi, dan badge (off-chain). **Inbox notifikasi** punya pencarian, filter
