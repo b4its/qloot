@@ -310,6 +310,25 @@
   let withdrawals: MyWithdrawal[] = [];
   let withdrawalFilter: "all" | "requested" | "confirmed" | "rejected" = "all";
 
+  // Human-readable labels for the ledger's reference types.
+  const LEDGER_REF_LABELS: Record<string, string> = {
+    quest: "Hadiah quest",
+    task: "Hadiah tugas",
+    exam: "Hadiah ujian",
+    reward: "Hadiah",
+    swap: "Penukaran aset",
+    transfer: "Transfer",
+    withdrawal: "Penarikan",
+    adjustment: "Penyesuaian admin",
+    refund: "Pengembalian dana",
+    ai: "Permintaan AI",
+    system: "Sistem",
+  };
+  function ledgerRefLabel(ref: string | null | undefined): string {
+    if (!ref) return "Umum";
+    return LEDGER_REF_LABELS[ref] ?? ref;
+  }
+
   // Correctness: distinguish the local approval lifecycle labels the backend
   // uses (requested → approved → submitted → confirmed / rejected / cancelled).
   const withdrawalTone: Record<string, string> = {
@@ -881,32 +900,47 @@
     </div>
 
     <div class="card mt-4">
-      <h2 class="hud font-display text-lg font-bold">Buku besar</h2>
+      <div class="flex items-center justify-between">
+        <h2 class="hud font-display text-lg font-bold">Buku besar</h2>
+        <span class="mono-label text-[10px]">{ledger.length} entri terbaru</span>
+      </div>
       <div class="mt-2 overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="text-left muted">
             <tr
-              ><th class="py-1">Tanggal</th><th>Tipe</th><th>Jumlah</th><th class="text-right"
-                >Saldo</th
+              ><th class="py-1">Tanggal</th><th>Tipe</th><th>Keterangan</th><th>Jumlah</th><th
+                class="text-right">Saldo</th
               ></tr
             >
           </thead>
           <tbody>
-            {#each ledger as entry}
+            {#each ledger as entry (entry.id)}
+              {@const isCredit = entry.entry_type === "credit"}
               <tr class="border-t">
-                <td class="py-1 text-xs muted">{formatDate(entry.created_at)}</td>
+                <td class="py-1 text-xs muted whitespace-nowrap">{formatDate(entry.created_at)}</td>
                 <td>
-                  <span class:text-tertiary={entry.entry_type === "debit"}>{entry.entry_type}</span>
-                  <span class="text-xs muted"> · {entry.reference_type}</span>
+                  <span class="badge" class:badge-mint={isCredit} class:badge-magenta={!isCredit}>
+                    {isCredit ? "Masuk" : "Keluar"}
+                  </span>
                 </td>
-                <td class="font-mono" class:text-secondary={entry.entry_type === "credit"}>
-                  {entry.entry_type === "debit" ? "-" : "+"}{entry.amount}
+                <td class="text-xs">
+                  <span class="font-medium">{ledgerRefLabel(entry.reference_type)}</span>
+                  {#if entry.description}
+                    <span class="block muted">{entry.description}</span>
+                  {/if}
+                </td>
+                <td
+                  class="font-mono"
+                  class:text-secondary={isCredit}
+                  class:text-tertiary={!isCredit}
+                >
+                  {isCredit ? "+" : "-"}{formatNumber(entry.amount)}
                 </td>
                 <td class="text-right font-mono">{formatNumber(entry.balance_after)}</td>
               </tr>
             {/each}
             {#if ledger.length === 0}<tr
-                ><td colspan="4" class="py-2 muted">Buku besar kosong.</td></tr
+                ><td colspan="5" class="py-2 muted">Buku besar kosong.</td></tr
               >{/if}
           </tbody>
         </table>
