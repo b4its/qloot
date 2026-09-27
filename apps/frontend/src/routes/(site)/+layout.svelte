@@ -90,26 +90,24 @@
         </a>
 
         <!-- primary marketing nav -->
-        <nav
-          class:hidden={isAppArea}
-          class="hidden items-center gap-1 md:flex"
-          aria-label="Navigasi utama"
-        >
-          {#each primaryNav as item}
-            <a
-              href={item.href}
-              class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
-              class:text-primary={path.startsWith(item.href)}
-              aria-current={isNavActive(item.href) ? "page" : undefined}
-            >
-              {item.label}
-            </a>
-          {/each}
-        </nav>
+        {#if !isAppArea}
+          <nav class="hidden items-center gap-1 md:flex" aria-label="Navigasi utama">
+            {#each primaryNav as item}
+              <a
+                href={item.href}
+                class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
+                class:text-primary={path.startsWith(item.href)}
+                aria-current={isNavActive(item.href) ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            {/each}
+          </nav>
+        {/if}
 
         <div class="ml-auto flex items-center gap-2">
           <button
-            class="btn-icon"
+            class="btn-icon hidden sm:grid"
             aria-label="Cari pelajaran"
             on:click={() => (searchOpen = !searchOpen)}
           >
