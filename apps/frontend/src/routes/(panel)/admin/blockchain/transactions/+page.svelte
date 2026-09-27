@@ -8,6 +8,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import Icon from "$lib/components/Icon.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -19,6 +20,8 @@
   let page = 1;
   let hasMore = false;
   let failedOnly = false;
+  let query = "";
+  let statusFilter: "all" | "confirmed" | "pending" = "all";
 
   interface FailedTx {
     id: string;
@@ -104,6 +107,27 @@
   }
 
   onMount(load);
+
+  // --- metrics + filtering (over the current page) ---------------------------
+  $: confirmedCount = txs.filter((t) => t.status === "confirmed").length;
+  $: pendingCount = txs.length - confirmedCount;
+
+  $: filteredTxs = txs.filter((tx) => {
+    if (statusFilter === "confirmed" && tx.status !== "confirmed") return false;
+    if (statusFilter === "pending" && tx.status === "confirmed") return false;
+    if (query.trim()) {
+      const q = query.toLowerCase().trim();
+      const hash = (tx.transaction_hash ?? "").toLowerCase();
+      if (!hash.includes(q) && !tx.method.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  $: filteredFailed = failed.filter((f) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    return f.method.toLowerCase().includes(q) || (f.error_code ?? "").toLowerCase().includes(q);
+  });
 </script>
 
 <svelte:head><title>Transaksi Blockchain — Admin — QLoot</title></svelte:head>
@@ -119,10 +143,60 @@
 
   <PageAlerts {error} />
 
-  <div class="mt-4 flex items-center gap-2">
-    <button class="btn-ghost" on:click={toggleFailed}>
+  <!-- Metrics (main list only) -->
+  {#if !failedOnly && !loading && txs.length > 0}
+    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Halaman ini</p>
+        <p class="mt-1 font-display text-3xl font-bold">{txs.length}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Terkonfirmasi</p>
+        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="confirmed-count">
+          {confirmedCount}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Tertunda</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight">{pendingCount}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Search + filters -->
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <div class="relative flex-1 min-w-[200px]">
+      <Icon
+        name="magnifying-glass"
+        size="12px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input text-xs !py-1.5 !pl-8 w-full"
+        placeholder={failedOnly ? "Cari metode atau kode error..." : "Cari hash atau metode..."}
+        bind:value={query}
+        aria-label="Cari transaksi"
+      />
+    </div>
+    <button class="btn-ghost !py-1.5 text-xs" on:click={toggleFailed}>
       {failedOnly ? "← Semua transaksi" : "Hanya yang gagal"}
     </button>
+    {#if !failedOnly}
+      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+        {#each [["all", "Semua"], ["confirmed", "Terkonfirmasi"], ["pending", "Tertunda"]] as [val, label]}
+          <button
+            type="button"
+            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+            class:bg-primary={statusFilter === val}
+            class:text-[#05060A]={statusFilter === val}
+            class:muted={statusFilter !== val}
+            on:click={() => (statusFilter = val as typeof statusFilter)}
+          >
+            {label}
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   {#if failedOnly}
@@ -133,6 +207,8 @@
         </div>
       {:else if failed.length === 0}
         <p class="p-5 muted">Tidak ada transaksi gagal.</p>
+      {:else if filteredFailed.length === 0}
+        <p class="p-5 muted">Tidak ada transaksi gagal yang cocok dengan pencarianmu.</p>
       {:else}
         <table class="w-full text-sm">
           <thead class="mono-label border-b text-left">
@@ -143,7 +219,7 @@
             >
           </thead>
           <tbody>
-            {#each failed as f}
+            {#each filteredFailed as f (f.id)}
               <tr class="border-b last:border-0">
                 <td class="px-5 py-3">{f.method}</td>
                 <td class="px-5 py-3"
@@ -172,6 +248,8 @@
         </div>
       {:else if txs.length === 0}
         <p class="p-5 muted">Belum ada transaksi.</p>
+      {:else if filteredTxs.length === 0}
+        <p class="p-5 muted">Tidak ada transaksi yang cocok dengan filtermu.</p>
       {:else}
         <table class="w-full text-sm">
           <thead class="mono-label border-b text-left">
@@ -183,7 +261,7 @@
             >
           </thead>
           <tbody>
-            {#each txs as tx}
+            {#each filteredTxs as tx (tx.id)}
               {@const url = tx.explorer_url ?? etherscanUrl(tx.transaction_hash, chainId)}
               <tr class="border-b last:border-0">
                 <td class="px-5 py-3">{tx.method}</td>
