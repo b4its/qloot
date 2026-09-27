@@ -132,18 +132,16 @@
       </div>
 
       {#if filtered.length === 0}
-        <div class="card mt-8 grid place-items-center py-16 text-center">
-          <Icon name="magnifying-glass" size="28px" class="muted" />
-          <p class="mt-3 font-semibold">Tidak ada mata pelajaran yang cocok</p>
-          <p class="text-sm muted">Coba ubah pencarian atau filter kelasmu.</p>
-          <button
-            class="btn-ghost mt-3 !py-1 text-xs"
-            on:click={() => {
-              query = "";
-              classFilter = "all";
-            }}>Reset Filter</button
-          >
-        </div>
+        <EmptyState
+          icon="magnifying-glass"
+          title="Tidak ada mata pelajaran yang cocok"
+          description="Coba ubah pencarian atau filter kelasmu."
+          actionLabel="Reset Filter"
+          onAction={() => {
+            query = "";
+            classFilter = "all";
+          }}
+        />
       {:else}
         <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {#each paged as s, i (s.name)}
