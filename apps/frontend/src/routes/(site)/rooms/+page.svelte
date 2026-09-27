@@ -8,6 +8,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
 
   const PAGE_SIZE = 12;
   let rooms: Room[] = [];
@@ -472,18 +473,19 @@
   {#if loading}
     <div class="mt-6"><Skeleton rows={4} /></div>
   {:else if rooms.length === 0}
-    <div class="card mt-6 text-center py-12">
-      <Icon name="door-closed" size="32px" class="mx-auto text-muted mb-2" />
-      <p class="font-medium text-foreground">Belum ada ruang yang tersedia</p>
-      <p class="text-xs muted mt-1">
-        Buat ruang baru jika Anda seorang guru, atau gunakan kode gabung.
-      </p>
-    </div>
+    <EmptyState
+      icon="door-closed"
+      title="Belum ada ruang yang tersedia"
+      description="Buat ruang baru jika Anda seorang guru, atau gunakan kode gabung."
+    />
   {:else if filteredRooms.length === 0}
-    <div class="card mt-6 text-center py-12 space-y-3">
-      <p class="muted text-sm">Tidak ada ruang yang sesuai dengan filter atau pencarian Anda.</p>
-      <button class="btn-ghost !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-    </div>
+    <EmptyState
+      icon="magnifying-glass"
+      title="Tidak ada ruang yang cocok"
+      description="Tidak ada ruang yang sesuai dengan filter atau pencarian Anda."
+      actionLabel="Reset Filter"
+      onAction={resetFilters}
+    />
   {:else}
     <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each pagedRooms as room}
