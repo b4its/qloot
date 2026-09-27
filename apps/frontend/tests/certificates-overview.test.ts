@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/svelte";
 
 const get = vi.fn();
+const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock("../src/lib/api/client", () => ({
   API_BASE: "http://localhost:8000",
   ApiError: class ApiError extends Error {
@@ -10,7 +11,7 @@ vi.mock("../src/lib/api/client", () => ({
   },
   api: {
     get: (...a: unknown[]) => get(...a),
-    post: vi.fn(),
+    post: (...a: unknown[]) => post(...a),
     put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
@@ -120,5 +121,27 @@ describe("certificates page — metrics, search, and status filter", () => {
       expect(titles).toContain("Matematika Lanjut");
       expect(titles).not.toContain("Kimia Organik");
     });
+  });
+
+  it("offers a retry button when anchoring failed", async () => {
+    post.mockResolvedValue({});
+    const failed = [
+      cert({
+        id: "cf",
+        credential_id: "CRED-F",
+        course_title: "Gagal Anchor",
+        anchor_status: "failed",
+      }),
+    ];
+    get.mockImplementation((path: string) =>
+      path.startsWith("/certificates") ? Promise.resolve(failed) : Promise.resolve([]),
+    );
+    render(CertificatesPage);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Coba anchor lagi/ })).toBeTruthy(),
+    );
+
+    await fireEvent.click(screen.getByRole("button", { name: /Coba anchor lagi/ }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith("/certificates/CRED-F/anchor"));
   });
 });

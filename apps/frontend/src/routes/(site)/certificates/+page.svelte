@@ -380,7 +380,11 @@
                 <Icon name="spinner" spin size="11px" /> Menunggu konfirmasi chain…
               </p>
             {:else if active.anchor_status === "failed"}
-              <p class="text-xs text-tertiary">Anchor gagal — QTC dikembalikan. Coba lagi.</p>
+              <p class="text-xs text-tertiary">Anchor gagal — QTC dikembalikan.</p>
+              <button class="btn-secondary w-full" on:click={anchorActive} disabled={anchoring}>
+                <Icon name="rotate" size="12px" />
+                {anchoring ? "Meng-anchor…" : "Coba anchor lagi (1 QTC)"}
+              </button>
             {:else}
               <button class="btn-secondary w-full" on:click={anchorActive} disabled={anchoring}>
                 <Icon name="link" size="12px" />
