@@ -15,6 +15,7 @@ vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 const get = vi.fn();
 const patch = vi.fn();
 const del = vi.fn();
+const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock("../src/lib/api/client", () => ({
   API_BASE: "http://localhost:8000",
   ApiError: class ApiError extends Error {
@@ -22,7 +23,7 @@ vi.mock("../src/lib/api/client", () => ({
   },
   api: {
     get: (...a: unknown[]) => get(...a),
-    post: vi.fn(),
+    post: (...a: unknown[]) => post(...a),
     put: vi.fn(),
     patch: (...a: unknown[]) => patch(...a),
     delete: (...a: unknown[]) => del(...a),
@@ -69,6 +70,7 @@ describe("teacher subject detail — lesson metrics, dirty-save, and delete conf
     get.mockReset();
     patch.mockReset();
     del.mockReset();
+    post.mockReset();
     auth.setUser(teacher);
     get.mockImplementation((path: string) => {
       if (path.includes("/lessons")) return Promise.resolve(lessons);
@@ -122,8 +124,8 @@ describe("teacher subject detail — lesson metrics, dirty-save, and delete conf
 
     const cover = screen.getByPlaceholderText("https://…") as HTMLInputElement;
     await fireEvent.input(cover, { target: { value: "https://img/x.png" } });
-    // Toggle publish off.
-    const publishToggle = screen.getByRole("checkbox") as HTMLInputElement;
+    // The course publish toggle is the first checkbox (the new-lesson one comes later).
+    const publishToggle = screen.getAllByRole("checkbox")[0] as HTMLInputElement;
     await fireEvent.click(publishToggle);
 
     await fireEvent.click(screen.getByRole("button", { name: /Simpan perubahan/i }));
@@ -131,6 +133,27 @@ describe("teacher subject detail — lesson metrics, dirty-save, and delete conf
       expect(patch).toHaveBeenCalledWith(
         "/courses/c1",
         expect.objectContaining({ cover_url: "https://img/x.png", is_published: false }),
+      ),
+    );
+  });
+
+  it("adds a lesson with video URL and publish state", async () => {
+    post.mockResolvedValue({});
+    render(SubjectDetailPage);
+    await waitFor(() => expect(screen.getByPlaceholderText("Judul materi baru")).toBeTruthy());
+
+    await fireEvent.input(screen.getByPlaceholderText("Judul materi baru"), {
+      target: { value: "Materi Baru" },
+    });
+    await fireEvent.input(screen.getByPlaceholderText("URL video (opsional)"), {
+      target: { value: "https://vid/x.mp4" },
+    });
+    await fireEvent.click(screen.getByRole("button", { name: /Tambah materi/i }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "/courses/c1/lessons",
+        expect.objectContaining({ title: "Materi Baru", video_url: "https://vid/x.mp4" }),
       ),
     );
   });

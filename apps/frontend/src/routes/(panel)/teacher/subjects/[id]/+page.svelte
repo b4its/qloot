@@ -33,9 +33,9 @@
   // Lesson management.
   let lessons: Lesson[] = [];
   let lessonsLoading = false;
-  let newLesson = { title: "", content_md: "" };
+  let newLesson = { title: "", content_md: "", video_url: "", is_published: true };
   let editingLesson: string | null = null;
-  let editLesson = { title: "", content_md: "" };
+  let editLesson = { title: "", content_md: "", video_url: "", is_published: true };
   // Deleting a lesson is destructive; require an explicit confirmation.
   let deletingLesson: Lesson | null = null;
 
@@ -108,9 +108,11 @@
       await api.post(`/courses/${courseId}/lessons`, {
         title: newLesson.title.trim(),
         content_md: newLesson.content_md.trim() || null,
+        video_url: newLesson.video_url.trim() || null,
+        is_published: newLesson.is_published,
         position: lessons.length,
       });
-      newLesson = { title: "", content_md: "" };
+      newLesson = { title: "", content_md: "", video_url: "", is_published: true };
       message = "Materi ditambahkan.";
       await loadLessons();
     } catch (e) {
@@ -122,7 +124,12 @@
 
   function startEditLesson(l: Lesson) {
     editingLesson = l.id;
-    editLesson = { title: l.title, content_md: l.content_md ?? "" };
+    editLesson = {
+      title: l.title,
+      content_md: l.content_md ?? "",
+      video_url: l.video_url ?? "",
+      is_published: l.is_published,
+    };
   }
 
   async function saveLesson() {
@@ -137,6 +144,8 @@
       await api.patch(`/lessons/${editingLesson}`, {
         title: editLesson.title.trim(),
         content_md: editLesson.content_md.trim() || null,
+        video_url: editLesson.video_url.trim() || null,
+        is_published: editLesson.is_published,
       });
       editingLesson = null;
       message = "Materi diperbarui.";
@@ -294,11 +303,21 @@
             {#if editingLesson === l.id}
               <li class="border-b py-2 last:border-0">
                 <input class="input" bind:value={editLesson.title} placeholder="Judul materi" />
+                <input
+                  class="input mt-2"
+                  type="url"
+                  bind:value={editLesson.video_url}
+                  placeholder="URL video (opsional)"
+                />
                 <textarea
                   class="input mt-2 min-h-[60px]"
                   placeholder="Konten (Markdown)"
                   bind:value={editLesson.content_md}
                 ></textarea>
+                <label class="mt-2 flex items-center gap-2 text-xs">
+                  <input type="checkbox" bind:checked={editLesson.is_published} />
+                  <span>Terbitkan materi</span>
+                </label>
                 <div class="mt-2 flex gap-2">
                   <button
                     class="btn-primary !py-1.5"
@@ -361,11 +380,21 @@
 
         <div class="mt-3 space-y-2 border-t pt-3">
           <input class="input" placeholder="Judul materi baru" bind:value={newLesson.title} />
+          <input
+            class="input"
+            type="url"
+            placeholder="URL video (opsional)"
+            bind:value={newLesson.video_url}
+          />
           <textarea
             class="input min-h-[70px]"
             placeholder="Konten (Markdown)"
             bind:value={newLesson.content_md}
           ></textarea>
+          <label class="flex items-center gap-2 text-xs">
+            <input type="checkbox" bind:checked={newLesson.is_published} />
+            <span>Terbitkan materi</span>
+          </label>
           <button class="btn-primary" on:click={addLesson} disabled={busy === "lesson-add"}>
             {#if busy === "lesson-add"}<Icon name="spinner" spin size="12px" />{:else}<Icon
                 name="plus"
