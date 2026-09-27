@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   import { auth } from "$lib/stores/auth";
   import { ApiError } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
@@ -10,13 +11,26 @@
   let error = "";
   let loading = false;
 
+  function loginDestination(): string {
+    const next = $page.url.searchParams.get("next");
+    if (!next?.startsWith("/") || next.startsWith("//")) return "/dashboard";
+
+    try {
+      const destination = new URL(next, $page.url.origin);
+      if (destination.origin !== $page.url.origin) return "/dashboard";
+      return `${destination.pathname}${destination.search}${destination.hash}`;
+    } catch {
+      return "/dashboard";
+    }
+  }
+
   async function submit(e: Event) {
     e.preventDefault();
     error = "";
     loading = true;
     try {
       await auth.login(email, password);
-      await goto("/dashboard");
+      await goto(loginDestination());
     } catch (err) {
       error = err instanceof ApiError ? err.message : "Gagal masuk";
     } finally {
