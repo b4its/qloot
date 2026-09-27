@@ -96,6 +96,11 @@ describe("course syllabus and lesson UX overhaul", () => {
     render(CoursePage);
     expect(await screen.findByText("Dasar Pemrograman Web Modern")).toBeTruthy();
 
+    // Progress is fetched scoped to this course (no client-side over-fetch).
+    expect(
+      get.mock.calls.some((c) => String(c[0]).includes("/me/learning-progress?course_id=c-101")),
+    ).toBe(true);
+
     // Check summary metrics
     expect(screen.getByText("Total Materi")).toBeTruthy();
     expect(screen.getByText("Materi Selesai")).toBeTruthy();

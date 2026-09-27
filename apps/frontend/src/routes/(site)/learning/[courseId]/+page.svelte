@@ -31,10 +31,11 @@
       course = await api.get<Course>(`/courses/${courseId}`);
       lessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`);
       courseProgress = await api.get(`/courses/${courseId}/progress`);
-      const all = await api.get<Progress[]>("/me/learning-progress?limit=200");
-      progress = Object.fromEntries(
-        all.filter((p) => p.course_id === courseId).map((p) => [p.lesson_id, p]),
+      // Scope the progress query to this course (no client-side over-fetch).
+      const mine = await api.get<Progress[]>(
+        `/me/learning-progress?course_id=${courseId}&limit=200`,
       );
+      progress = Object.fromEntries(mine.map((p) => [p.lesson_id, p]));
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
