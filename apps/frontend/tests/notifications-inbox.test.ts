@@ -130,4 +130,24 @@ describe("notifications page — inbox UX (STUDY-09)", () => {
     await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(callsBefore));
     expect(get.mock.calls.some((c) => String(c[0]).includes("kind=room"))).toBe(true);
   });
+
+  it("requests read_only when the Dibaca filter is selected", async () => {
+    render(NotificationsPage);
+    await waitFor(() => expect(screen.getByText("Kamu dapat 10 OPT!")).toBeTruthy());
+    const callsBefore = get.mock.calls.length;
+
+    await fireEvent.click(screen.getByText("Dibaca"));
+    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(callsBefore));
+    expect(get.mock.calls.some((c) => String(c[0]).includes("read_only=true"))).toBe(true);
+  });
+
+  it("requests oldest_first when the oldest sort is selected", async () => {
+    render(NotificationsPage);
+    await waitFor(() => expect(screen.getByText("Kamu dapat 10 OPT!")).toBeTruthy());
+
+    await fireEvent.change(screen.getByLabelText("Urutkan"), { target: { value: "oldest" } });
+    await waitFor(() =>
+      expect(get.mock.calls.some((c) => String(c[0]).includes("oldest_first=true"))).toBe(true),
+    );
+  });
 });

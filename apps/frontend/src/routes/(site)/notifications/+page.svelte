@@ -84,6 +84,8 @@
     params.set("offset", String((page - 1) * PAGE));
     if (activeKind !== "all") params.set("kind", activeKind);
     if (readFilter === "unread") params.set("unread_only", "true");
+    if (readFilter === "read") params.set("read_only", "true");
+    if (sortBy === "oldest") params.set("oldest_first", "true");
     if (query.trim()) params.set("q", query.trim());
     return params.toString();
   }
@@ -134,8 +136,8 @@
   }
 
   function onSortChange() {
-    // Sorting is a pure view preference applied client-side; still reload so the
-    // page resets to 1 and the server ordering matches the view.
+    // Sort is now server-backed via `oldest_first`, so pagination stays
+    // consistent across pages instead of only reordering the current page.
     refilter();
   }
 
@@ -239,7 +241,7 @@
     selected = allVisibleSelected ? new Set() : new Set(items.map((n) => n.id));
   }
 
-  /** Client-side sort (server pages by recency; "oldest" is a view preference). */
+  /** Defensive in-page ordering; the server already sorts by recency. */
   $: visibleItems = [...items].sort((a, b) => {
     const ta = new Date(a.created_at).getTime();
     const tb = new Date(b.created_at).getTime();
