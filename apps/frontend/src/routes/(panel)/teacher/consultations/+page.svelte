@@ -367,7 +367,11 @@
       <div class="card w-full max-w-md shadow-2xl space-y-4">
         <div class="flex items-center justify-between border-b pb-3">
           <h3 class="font-bold text-base">Jadwalkan Ulang Konsultasi</h3>
-          <button class="btn-ghost !p-1 text-xs" on:click={() => (rescheduleTarget = null)}>
+          <button
+            class="btn-ghost !p-1 text-xs"
+            on:click={() => (rescheduleTarget = null)}
+            aria-label="Tutup"
+          >
             <Icon name="xmark" size="12px" />
           </button>
         </div>

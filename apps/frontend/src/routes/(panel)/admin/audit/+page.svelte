@@ -163,11 +163,12 @@
       </div>
     {:else}
       <table class="w-full text-sm">
+        <caption class="sr-only">Log audit</caption>
         <thead class="text-left muted">
           <tr>
-            <th class="py-1">Waktu</th><th>Tindakan</th><th>Entitas</th><th>Aktor</th><th
-              >Request</th
-            ><th>Data</th>
+            <th class="py-1" scope="col">Waktu</th><th scope="col">Tindakan</th><th scope="col"
+              >Entitas</th
+            ><th scope="col">Aktor</th><th scope="col">Request</th><th scope="col">Data</th>
           </tr>
         </thead>
         <tbody>

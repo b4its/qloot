@@ -209,12 +209,13 @@
     {:else}
       <div class="card mt-6 overflow-x-auto !p-0">
         <table class="w-full text-sm">
+          <caption class="sr-only">Peringkat siswa</caption>
           <thead class="text-left">
             <tr class="mono-label border-b">
-              <th class="px-5 py-3">#</th>
-              <th class="px-5 py-3">Siswa</th>
-              <th class="px-5 py-3 text-right">Skor</th>
-              <th class="px-5 py-3 text-right">OPT</th>
+              <th class="px-5 py-3" scope="col">#</th>
+              <th class="px-5 py-3" scope="col">Siswa</th>
+              <th class="px-5 py-3 text-right" scope="col">Skor</th>
+              <th class="px-5 py-3 text-right" scope="col">OPT</th>
             </tr>
           </thead>
           <tbody>

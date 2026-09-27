@@ -302,17 +302,18 @@
   {:else}
     <div class="card mt-4 overflow-x-auto !p-0">
       <table class="w-full text-sm">
+        <caption class="sr-only">Pengumpulan jawaban siswa</caption>
         <thead class="text-left muted surface border-b text-xs font-mono">
           <tr>
-            <th class="py-2.5 px-4">Ujian</th>
-            <th class="py-2.5 px-4">Siswa</th>
-            <th class="py-2.5 px-4">Tipe</th>
-            <th class="py-2.5 px-4">Soal</th>
-            <th class="py-2.5 px-4">Jawaban Siswa</th>
-            <th class="py-2.5 px-4">Status</th>
-            <th class="py-2.5 px-4 text-right">Skor</th>
-            <th class="py-2.5 px-4">Umpan Balik AI</th>
-            <th class="py-2.5 px-4 text-center">Aksi</th>
+            <th class="py-2.5 px-4" scope="col">Ujian</th>
+            <th class="py-2.5 px-4" scope="col">Siswa</th>
+            <th class="py-2.5 px-4" scope="col">Tipe</th>
+            <th class="py-2.5 px-4" scope="col">Soal</th>
+            <th class="py-2.5 px-4" scope="col">Jawaban Siswa</th>
+            <th class="py-2.5 px-4" scope="col">Status</th>
+            <th class="py-2.5 px-4 text-right" scope="col">Skor</th>
+            <th class="py-2.5 px-4" scope="col">Umpan Balik AI</th>
+            <th class="py-2.5 px-4 text-center" scope="col">Aksi</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-border/60">

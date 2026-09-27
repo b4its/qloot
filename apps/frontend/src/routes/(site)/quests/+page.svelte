@@ -201,12 +201,14 @@
           class="input text-xs !py-1.5 w-full"
           placeholder="Cari judul quest..."
           bind:value={searchQuery}
+          aria-label="Cari quest"
         />
         {#if searchQuery}
           <button
             type="button"
             class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
             on:click={() => (searchQuery = "")}
+            aria-label="Bersihkan pencarian"
           >
             ✕
           </button>
@@ -486,13 +488,14 @@
         {:else if questLeaderboardData && questLeaderboardData.entries.length > 0}
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
+              <caption class="sr-only">Papan peringkat quest</caption>
               <thead>
                 <tr class="border-b text-muted text-[11px]">
-                  <th class="py-2.5 px-3">#</th>
-                  <th class="py-2.5 px-3">Peserta</th>
-                  <th class="py-2.5 px-3 text-center">Skor</th>
-                  <th class="py-2.5 px-3 text-right">Hadiah</th>
-                  <th class="py-2.5 px-3 text-center">Status Alokasi</th>
+                  <th class="py-2.5 px-3" scope="col">#</th>
+                  <th class="py-2.5 px-3" scope="col">Peserta</th>
+                  <th class="py-2.5 px-3 text-center" scope="col">Skor</th>
+                  <th class="py-2.5 px-3 text-right" scope="col">Hadiah</th>
+                  <th class="py-2.5 px-3 text-center" scope="col">Status Alokasi</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-surface-border">

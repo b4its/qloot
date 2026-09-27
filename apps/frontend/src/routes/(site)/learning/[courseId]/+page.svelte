@@ -218,12 +218,14 @@
           class="input text-xs !py-1.5 w-full"
           placeholder="Cari materi..."
           bind:value={searchQuery}
+          aria-label="Cari materi"
         />
         {#if searchQuery}
           <button
             type="button"
             class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
             on:click={() => (searchQuery = "")}
+            aria-label="Bersihkan pencarian"
           >
             ✕
           </button>

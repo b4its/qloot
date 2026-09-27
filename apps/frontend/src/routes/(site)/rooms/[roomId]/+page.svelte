@@ -337,6 +337,7 @@
               type="button"
               class="ml-1 text-muted hover:text-foreground p-0.5"
               title="Salin Kode"
+              aria-label="Salin kode ruang"
               on:click={() => copyCode(room?.code ?? "")}
             >
               <Icon name="copy" size="11px" />
@@ -519,12 +520,13 @@
           {#if liveBoard.length > 0}
             <div class="overflow-x-auto mt-2">
               <table class="w-full text-xs">
+                <caption class="sr-only">Peringkat langsung peserta</caption>
                 <thead>
                   <tr class="border-b text-left muted text-[11px]">
-                    <th class="py-2 px-3 w-12">#</th>
-                    <th class="py-2 px-3">Peserta</th>
-                    <th class="py-2 px-3 text-center">Kehadiran</th>
-                    <th class="py-2 px-3 text-right">Skor</th>
+                    <th class="py-2 px-3 w-12" scope="col">#</th>
+                    <th class="py-2 px-3" scope="col">Peserta</th>
+                    <th class="py-2 px-3 text-center" scope="col">Kehadiran</th>
+                    <th class="py-2 px-3 text-right" scope="col">Skor</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-surface-border">
@@ -578,11 +580,12 @@
         {:else if ranking && ranking.entries.length}
           <div class="overflow-x-auto mt-2">
             <table class="w-full text-xs">
+              <caption class="sr-only">Peringkat akumulasi peserta</caption>
               <thead>
                 <tr class="border-b text-left muted text-[11px]">
-                  <th class="py-2 px-3 w-12">#</th>
-                  <th class="py-2 px-3">Peserta</th>
-                  <th class="py-2 px-3 text-right">Skor Total</th>
+                  <th class="py-2 px-3 w-12" scope="col">#</th>
+                  <th class="py-2 px-3" scope="col">Peserta</th>
+                  <th class="py-2 px-3 text-right" scope="col">Skor Total</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-surface-border">
