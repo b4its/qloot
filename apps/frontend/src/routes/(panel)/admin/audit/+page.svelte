@@ -34,6 +34,7 @@
   let expanded = new Set<string>();
 
   async function load() {
+    if (!hasRole($auth.user, "admin")) return;
     loading = true;
     error = "";
     try {
@@ -187,6 +188,7 @@
                     class="text-left hover:text-foreground"
                     on:click={() => toggleExpand(l.id)}
                     aria-label="Lihat data"
+                    aria-expanded={expanded.has(l.id)}
                   >
                     {#if expanded.has(l.id)}
                       <span class="mono break-all">{JSON.stringify(l.data)}</span>

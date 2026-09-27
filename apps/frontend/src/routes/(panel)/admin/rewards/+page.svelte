@@ -26,6 +26,7 @@
   let confirmingCancel: Reward | null = null;
 
   async function load() {
+    if (!hasRole($auth.user, "admin")) return;
     loading = true;
     error = "";
     try {
