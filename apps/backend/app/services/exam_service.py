@@ -199,9 +199,7 @@ class ExamService:
         await self._get_owned_exam(exam_id, user)
         questions = {q.id: q for q in await self.list_questions(exam_id)}
         if set(question_ids) != set(questions) or len(question_ids) != len(questions):
-            raise ValidationError(
-                "Reorder must list every question of the exam exactly once"
-            )
+            raise ValidationError("Reorder must list every question of the exam exactly once")
         for i, qid in enumerate(question_ids):
             questions[qid].position = i
         await self.session.flush()
@@ -308,9 +306,7 @@ class ExamService:
             if v is not None:
                 setattr(question, k, v)
         if question.qtype in ("multiple_choice", "multi_select") and options is not None:
-            await self._replace_options(
-                question, options, multi=(question.qtype == "multi_select")
-            )
+            await self._replace_options(question, options, multi=(question.qtype == "multi_select"))
         await self.session.flush()
         return question
 
@@ -354,15 +350,18 @@ class ExamService:
         if not user.has_role("admin") and source.owner_id != user.id:
             raise ForbiddenError("You do not own this question")
         # Next position within the target exam.
-        next_pos = int(
-            (
-                await self.session.execute(
-                    select(func.coalesce(func.max(Question.position), -1)).where(
-                        Question.exam_id == exam.id
+        next_pos = (
+            int(
+                (
+                    await self.session.execute(
+                        select(func.coalesce(func.max(Question.position), -1)).where(
+                            Question.exam_id == exam.id
+                        )
                     )
-                )
-            ).scalar_one()
-        ) + 1
+                ).scalar_one()
+            )
+            + 1
+        )
         clone = Question(
             exam_id=exam.id,
             material_id=source.material_id,
@@ -483,9 +482,14 @@ class ExamService:
         attempt = await self.session.get(ExamAttempt, attempt_id)
         if attempt is None:
             raise NotFoundError("Attempt not found")
-        # Students may only touch their own attempts; teachers/admins may view.
-        if attempt.user_id != user.id and not user.has_role("teacher", "admin"):
-            raise ForbiddenError("You cannot access this attempt")
+        if attempt.user_id != user.id:
+            if user.has_role("admin"):
+                return attempt
+            if not user.has_role("teacher"):
+                raise ForbiddenError("You cannot access this attempt")
+            exam = await self.session.get(Exam, attempt.exam_id)
+            if exam is None or exam.owner_id != user.id:
+                raise ForbiddenError("You do not own this exam")
         return attempt
 
     async def get_attempt(self, attempt_id: uuid.UUID, user: User) -> ExamAttempt:
@@ -601,9 +605,7 @@ class ExamService:
     # How many violations before an attempt is flagged.
     FLAG_THRESHOLD = 5
 
-    async def record_events(
-        self, attempt_id: uuid.UUID, user: User, events: list[dict]
-    ) -> int:
+    async def record_events(self, attempt_id: uuid.UUID, user: User, events: list[dict]) -> int:
         """Persist proctoring telemetry for an attempt.
 
         Best-effort: never raises on weird input and never blocks a submit. After
@@ -665,13 +667,17 @@ class ExamService:
         """
         await self._get_owned_exam(exam_id, user)
         attempts = (
-            await self.session.execute(
-                select(ExamAttempt).where(
-                    ExamAttempt.exam_id == exam_id,
-                    ExamAttempt.score_bp.is_not(None),
+            (
+                await self.session.execute(
+                    select(ExamAttempt).where(
+                        ExamAttempt.exam_id == exam_id,
+                        ExamAttempt.score_bp.is_not(None),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         scores = [int(a.score_bp or 0) for a in attempts]
         n = len(scores)
 
@@ -683,12 +689,16 @@ class ExamService:
         qstats: list[dict] = []
         if n and questions:
             answer_rows = (
-                await self.session.execute(
-                    select(StudentAnswer).where(
-                        StudentAnswer.attempt_id.in_([a.id for a in attempts])
+                (
+                    await self.session.execute(
+                        select(StudentAnswer).where(
+                            StudentAnswer.attempt_id.in_([a.id for a in attempts])
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             by_q: dict[uuid.UUID, dict[uuid.UUID, float]] = {}
             total_by_attempt = {a.id: int(a.score_bp or 0) for a in attempts}
             for sa in answer_rows:
@@ -801,9 +811,7 @@ class ExamService:
         query_by_q = {q.id: q for q in questions}
         findings: list[dict] = []
         for qid, entries in by_q.items():
-            tokens = [
-                set(_content_tokens(sa.answer_text or "")) for sa, _a, _o in entries
-            ]
+            tokens = [set(_content_tokens(sa.answer_text or "")) for sa, _a, _o in entries]
             for i in range(len(entries)):
                 for j in range(i + 1, len(entries)):
                     a_set, b_set = tokens[i], tokens[j]

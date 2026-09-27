@@ -14,7 +14,8 @@
   const PAGE_SIZE = 10;
   let exam: Exam | null = null;
   let loading = true;
-  let error = "";
+  let loadError = "";
+  let actionError = "";
   let starting = false;
   let managing = "";
   let pastAttempts: Attempt[] = [];
@@ -46,38 +47,49 @@
   $: totalPages = Math.max(1, Math.ceil(pastAttempts.length / PAGE_SIZE));
   $: if (attemptPage > totalPages) attemptPage = 1;
   $: pagedAttempts = paginate(pastAttempts, attemptPage, PAGE_SIZE);
+  $: now = Date.now();
+  $: opensAt = exam?.opens_at ? new Date(exam.opens_at).getTime() : null;
+  $: closesAt = exam?.closes_at ? new Date(exam.closes_at).getTime() : null;
+  $: availability = !exam?.is_active
+    ? "closed"
+    : opensAt !== null && now < opensAt
+      ? "upcoming"
+      : closesAt !== null && now > closesAt
+        ? "closed"
+        : "open";
 
   async function load() {
     try {
       exam = await api.get<Exam>(`/exams/${examId}`);
       pastAttempts = await api.get<Attempt[]>(`/attempts?exam_id=${examId}&limit=200`);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
+      loadError = e instanceof ApiError ? e.message : "Gagal memuat ujian";
     } finally {
       loading = false;
     }
   }
 
   async function manage(action: "publish" | "close") {
-    error = "";
+    actionError = "";
     managing = action;
     try {
       await api.post(`/exams/${examId}/${action}`);
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal mengubah status ujian";
+      actionError = e instanceof ApiError ? e.message : "Gagal mengubah status ujian";
     } finally {
       managing = "";
     }
   }
 
   async function start() {
+    actionError = "";
     starting = true;
     try {
       const attempt = await api.post<Attempt>(`/exams/${examId}/attempts`);
       await goto(`/exams/${examId}/attempt?attempt=${attempt.id}`);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal memulai pengerjaan";
+      actionError = e instanceof ApiError ? e.message : "Gagal memulai pengerjaan";
     } finally {
       starting = false;
     }
@@ -91,9 +103,9 @@
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
     <Skeleton rows={4} />
-  {:else if error}
+  {:else if loadError}
     <p class="alert-error">
-      {error}
+      {loadError}
     </p>
   {:else if exam}
     <a href="/exams" class="text-sm text-primary">← Semua ujian</a>
@@ -134,6 +146,19 @@
         >
         <a href="/teacher/exams" class="btn-ghost">Sunting di Guru</a>
       </div>
+    {/if}
+
+    {#if actionError}
+      <p class="alert-error mt-4" role="alert">{actionError}</p>
+    {/if}
+
+    {#if exam.instructions}
+      <section class="card mt-6" aria-labelledby="exam-instructions-title">
+        <h2 id="exam-instructions-title" class="hud font-display text-lg font-bold">
+          Instruksi pengerjaan
+        </h2>
+        <p class="mt-2 whitespace-pre-wrap text-sm leading-relaxed muted">{exam.instructions}</p>
+      </section>
     {/if}
 
     <!-- Score metrics -->
@@ -185,7 +210,7 @@
       </div>
     {/if}
 
-    {#if exam.is_active}
+    {#if availability === "open"}
       <div class="card mt-6">
         <h2 class="hud font-display text-lg font-bold">Siap mengerjakan ujian ini?</h2>
         <p class="mt-1 text-sm muted">
@@ -202,12 +227,29 @@
           class="btn-primary mt-4"
           on:click={start}
           disabled={starting || remainingAttempts === 0 || !!inProgress}
+          aria-describedby={exam.instructions ? "exam-instructions-title" : undefined}
         >
           {starting ? "Memulai…" : "Mulai mengerjakan"}
         </button>
       </div>
+    {:else if availability === "upcoming"}
+      <div class="card mt-6 border-amber/40">
+        <p class="font-semibold text-amber">Ujian belum dibuka</p>
+        <p class="mt-1 text-sm muted">
+          Pengerjaan dapat dimulai pada {exam.opens_at
+            ? new Date(exam.opens_at).toLocaleString("id-ID")
+            : "jadwal yang ditentukan"}.
+        </p>
+      </div>
     {:else}
-      <p class="card mt-6 muted">Ujian ini sedang tidak dibuka.</p>
+      <div class="card mt-6 muted">
+        <p class="font-semibold text-foreground">Ujian sedang ditutup</p>
+        {#if exam.closes_at}
+          <p class="mt-1 text-sm">
+            Batas pengerjaan: {new Date(exam.closes_at).toLocaleString("id-ID")}.
+          </p>
+        {/if}
+      </div>
     {/if}
 
     {#if pastAttempts.length}

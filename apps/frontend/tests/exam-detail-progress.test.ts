@@ -54,6 +54,7 @@ const exam = {
   essay_count: 0,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
+  instructions: "Kerjakan tanpa kalkulator.\nPeriksa kembali jawabanmu.",
 };
 
 describe("exam detail — best score, pass/fail, and resume", () => {
@@ -122,5 +123,27 @@ describe("exam detail — best score, pass/fail, and resume", () => {
     render(ExamDetailPage);
     await waitFor(() => expect(screen.getByText(/belum diselesaikan/)).toBeTruthy());
     expect(screen.getByText("Lanjutkan pengerjaan →")).toBeTruthy();
+  });
+
+  it("shows teacher instructions before the student starts", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/exams/")) return Promise.resolve(exam);
+      return Promise.resolve([]);
+    });
+    render(ExamDetailPage);
+    expect(await screen.findByText("Instruksi pengerjaan")).toBeTruthy();
+    expect(screen.getByText(/Kerjakan tanpa kalkulator/)).toBeTruthy();
+  });
+
+  it("disables starting before the scheduled opening time", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/exams/")) {
+        return Promise.resolve({ ...exam, opens_at: "2999-01-01T00:00:00Z" });
+      }
+      return Promise.resolve([]);
+    });
+    render(ExamDetailPage);
+    expect(await screen.findByText("Ujian belum dibuka")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mulai mengerjakan" })).toBeNull();
   });
 });

@@ -55,7 +55,7 @@ async def _question_out(service: ExamService, q, *, reveal_answers: bool) -> Que
         for o in options
     ]
     if not reveal_answers:
-        base = base.model_copy(update={"correct_answer": None})
+        base = base.model_copy(update={"correct_answer": None, "answer_json": None})
     return base
 
 
@@ -183,9 +183,7 @@ async def reorder_questions(
     """Rewrite question positions from an explicit order (atomic)."""
     async with transaction(db):
         service = ExamService(db)
-        questions = await service.reorder_questions(
-            exam_id, user, payload.question_ids
-        )
+        questions = await service.reorder_questions(exam_id, user, payload.question_ids)
         out: list[QuestionOut] = []
         for q in questions:
             out.append(await _question_out(service, q, reveal_answers=True))
@@ -260,7 +258,7 @@ async def attempt_questions(attempt_id: uuid.UUID, user: CurrentUser, db: DbSess
             OptionOut(id=o.id, label=o.label, text=o.text, position=o.position, is_correct=None)
             for o in opts
         ]
-        out.append(base.model_copy(update={"correct_answer": None}))
+        out.append(base.model_copy(update={"correct_answer": None, "answer_json": None}))
     return out
 
 
@@ -478,9 +476,7 @@ async def plagiarism_report(
     if threshold_bp < 0 or threshold_bp > 10_000:
         raise ConflictError("threshold_bp must be between 0 and 10000")
     async with transaction(db):
-        findings = await ExamService(db).plagiarism_report(
-            exam_id, user, threshold_bp=threshold_bp
-        )
+        findings = await ExamService(db).plagiarism_report(exam_id, user, threshold_bp=threshold_bp)
     return {"threshold_bp": threshold_bp, "findings": findings}
 
 

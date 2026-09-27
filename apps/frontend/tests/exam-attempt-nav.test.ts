@@ -138,7 +138,7 @@ describe("exam attempt page UI/UX overhaul", () => {
     await fireEvent.click(submitBtn);
 
     // Modal appears
-    expect(screen.getByText("Konfirmasi Pengumpulan Ujian")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Konfirmasi Pengumpulan Ujian" })).toBeTruthy();
     expect(screen.getByText(/Masih ada 1 soal yang belum dijawab!/)).toBeTruthy();
     expect(screen.getByText("#2")).toBeTruthy(); // jump shortcut to question 2
 
@@ -149,5 +149,52 @@ describe("exam attempt page UI/UX overhaul", () => {
     await vi.waitFor(() => {
       expect(post).toHaveBeenCalledWith("/attempts/att-2/submit");
     });
+  });
+
+  it("does not submit while a changed answer fails its final save", async () => {
+    put.mockRejectedValue(new Error("offline"));
+    render(ExamAttemptPage);
+    expect(await screen.findByText("Simulasi Ujian Matematika Dasar")).toBeTruthy();
+
+    const option = screen.getByRole("radio", { name: /150/ });
+    await fireEvent.click(option);
+    await fireEvent.click(screen.getByRole("button", { name: "Kumpulkan" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Ya, Kumpulkan Sekarang" }));
+
+    await vi.waitFor(
+      () => {
+        expect(screen.getByText(/jawaban belum berhasil disimpan/i)).toBeTruthy();
+      },
+      { timeout: 3000 },
+    );
+    expect(post).not.toHaveBeenCalledWith("/attempts/att-2/submit");
+  });
+
+  it("moves focus to the next question and exposes navigator state", async () => {
+    render(ExamAttemptPage);
+    expect(await screen.findByText("Simulasi Ujian Matematika Dasar")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Berikutnya →" }));
+    expect(screen.getByText("Soal 2 dari 2").closest(".card")).toHaveFocus();
+    expect(screen.getByRole("button", { name: /Soal 2, belum dijawab/ })).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+  });
+
+  it("moves focus into the submit dialog, closes with Escape, and restores focus", async () => {
+    render(ExamAttemptPage);
+    expect(await screen.findByText("Simulasi Ujian Matematika Dasar")).toBeTruthy();
+
+    const opener = screen.getByRole("button", { name: "Kumpulkan" });
+    opener.focus();
+    await fireEvent.click(opener);
+    const dialog = screen.getByRole("dialog", { name: "Konfirmasi Pengumpulan Ujian" });
+    const cancel = screen.getByRole("button", { name: "Lanjut Mengerjakan" });
+    await vi.waitFor(() => expect(cancel).toHaveFocus());
+
+    await fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(opener).toHaveFocus();
   });
 });

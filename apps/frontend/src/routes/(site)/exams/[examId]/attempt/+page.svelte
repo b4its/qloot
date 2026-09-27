@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
-  import { onMount, onDestroy } from "svelte";
+  import Dialog from "$lib/components/Dialog.svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
@@ -21,8 +22,11 @@
   let ticker: ReturnType<typeof setInterval> | null = null;
   let submitting = false;
   let submitError = "";
+  let loadWarning = "";
   let finished = false;
   const autosaveTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+  const revisions: Record<string, number> = {};
+  const saveChains: Record<string, Promise<void>> = {};
 
   const QTYPE_LABELS: Record<string, string> = {
     multiple_choice: "Pilihan Ganda",
@@ -61,6 +65,8 @@
   $: unansweredCount = Math.max(0, questions.length - answeredCount);
   $: progressPercent =
     questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
+  $: failedCount = questions.filter((q) => saved[q.id] === "error").length;
+  $: savingCount = questions.filter((q) => saved[q.id] === "saving").length;
 
   function warnBeforeUnload(e: BeforeUnloadEvent) {
     if (finished || secondsLeft <= 0) return;
@@ -69,25 +75,41 @@
   }
 
   async function load() {
+    if (!attemptId) {
+      error = "ID pengerjaan tidak ditemukan. Mulai atau lanjutkan ujian dari halaman detail.";
+      loading = false;
+      return;
+    }
     try {
-      exam = await api.get<Exam>(`/exams/${examId}`);
-      attempt = await api.get<Attempt>(`/attempts/${attemptId}`);
-      // Prefer the attempt-scoped (shuffled) question set.
-      questions = await api
-        .get<NonNullable<Exam["questions"]>>(`/attempts/${attemptId}/questions`)
-        .catch(() => exam?.questions ?? []);
-      const res = await api.get<{ answers: Answer[] }>(`/attempts/${attemptId}/result`);
-      for (const a of res.answers) {
-        if (a.answer_text) {
-          answers[a.question_id] = a.answer_text;
-          saved[a.question_id] = "saved";
+      [exam, attempt] = await Promise.all([
+        api.get<Exam>(`/exams/${examId}`),
+        api.get<Attempt>(`/attempts/${attemptId}`),
+      ]);
+      if (attempt.exam_id !== examId) throw new Error("Pengerjaan tidak cocok dengan ujian ini");
+      if (attempt.status !== "in_progress") {
+        finished = true;
+        await goto(`/exams/${examId}/result?attempt=${attemptId}`);
+        return;
+      }
+      questions = await api.get<NonNullable<Exam["questions"]>>(`/attempts/${attemptId}/questions`);
+      try {
+        const res = await api.get<{ answers: Answer[] }>(`/attempts/${attemptId}/result`);
+        for (const a of res.answers) {
+          if (a.answer_text) {
+            answers[a.question_id] = a.answer_text;
+            saved[a.question_id] = "saved";
+          }
         }
+      } catch {
+        loadWarning =
+          "Jawaban tersimpan sebelumnya belum dapat dimuat. Muat ulang sebelum melanjutkan.";
       }
       answers = { ...answers };
       saved = { ...saved };
       startTimer();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
+      error =
+        e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Gagal memuat ujian";
     } finally {
       loading = false;
     }
@@ -100,7 +122,7 @@
       ? new Date(attempt.expires_at).getTime()
       : new Date(attempt.started_at).getTime() + exam.duration_minutes * 60_000;
     const update = () => {
-      secondsLeft = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       if (secondsLeft === 0) {
         if (ticker) clearInterval(ticker);
         executeSubmit();
@@ -143,23 +165,55 @@
 
   function onInput(qid: string) {
     answers = { ...answers };
+    revisions[qid] = (revisions[qid] ?? 0) + 1;
     saved[qid] = "idle";
     saved = { ...saved };
     if (autosaveTimers[qid]) clearTimeout(autosaveTimers[qid]);
-    autosaveTimers[qid] = setTimeout(() => saveAnswer(qid), 800);
+    autosaveTimers[qid] = setTimeout(() => {
+      delete autosaveTimers[qid];
+      void saveAnswer(qid);
+    }, 800);
   }
 
-  async function saveAnswer(qid: string) {
-    saved[qid] = "saving";
-    saved = { ...saved };
-    try {
-      await api.put(`/attempts/${attemptId}/answers/${qid}`, { answer_text: answers[qid] ?? "" });
-      saved[qid] = "saved";
-      saved = { ...saved };
-    } catch {
-      saved[qid] = "error";
-      saved = { ...saved };
-    }
+  function isTransient(error: unknown): boolean {
+    return !(error instanceof ApiError) || [408, 429, 502, 503, 504].includes(error.status);
+  }
+
+  function saveAnswer(qid: string, required = false): Promise<void> {
+    const revision = revisions[qid] ?? 0;
+    const value = answers[qid] ?? "";
+    const previous = saveChains[qid] ?? Promise.resolve();
+    const task = previous
+      .catch(() => {})
+      .then(async () => {
+        saved[qid] = "saving";
+        saved = { ...saved };
+        let lastError: unknown;
+        for (let attemptNo = 0; attemptNo < 3; attemptNo += 1) {
+          try {
+            await api.put(`/attempts/${attemptId}/answers/${qid}`, { answer_text: value });
+            if ((revisions[qid] ?? 0) === revision) {
+              saved[qid] = "saved";
+              saved = { ...saved };
+            }
+            return;
+          } catch (e) {
+            lastError = e;
+            if (!isTransient(e) || attemptNo === 2) break;
+            await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attemptNo));
+          }
+        }
+        saved[qid] = "error";
+        saved = { ...saved };
+        if (required) throw lastError;
+      });
+    saveChains[qid] = task;
+    return task;
+  }
+
+  async function retryFailed() {
+    const failed = questions.filter((q) => saved[q.id] === "error");
+    await Promise.allSettled(failed.map((q) => saveAnswer(q.id)));
   }
 
   function requestSubmit() {
@@ -170,27 +224,38 @@
     if (submitting || finished) return;
     submitting = true;
     submitError = "";
-    if (ticker) clearInterval(ticker);
     // Flush any pending autosave timers first, then save every answer.
     for (const qid of Object.keys(autosaveTimers)) {
       clearTimeout(autosaveTimers[qid]);
     }
     try {
-      if (exam) {
-        for (const q of questions) await saveAnswer(q.id);
-      }
+      const pending = questions.filter(
+        (q) => revisions[q.id] || saved[q.id] === "saving" || saved[q.id] === "error",
+      );
+      await Promise.all(pending.map((q) => saveAnswer(q.id, true)));
       await api.post(`/attempts/${attemptId}/submit`);
+      if (ticker) clearInterval(ticker);
       finished = true;
       showSubmitModal = false;
       await goto(`/exams/${examId}/result?attempt=${attemptId}`);
     } catch (e) {
-      submitError = e instanceof ApiError ? e.message : "Gagal mengirim jawaban";
+      submitError = failedCount
+        ? `${failedCount} jawaban belum berhasil disimpan. Periksa koneksi lalu coba lagi.`
+        : e instanceof ApiError
+          ? e.message
+          : "Gagal mengirim jawaban";
     } finally {
       submitting = false;
     }
   }
 
   const submit = requestSubmit;
+
+  async function goToQuestion(index: number) {
+    current = Math.max(0, Math.min(questions.length - 1, index));
+    await tick();
+    document.getElementById(`question-${questions[current]?.id}`)?.focus();
+  }
 
   function mmss(s: number): string {
     const m = Math.floor(s / 60);
@@ -239,16 +304,22 @@
 
 <svelte:head><title>Pengerjaan — QLoot</title></svelte:head>
 
-<div class="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+<div class="mx-auto min-h-screen max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
   {#if loading}
-    <p class="muted">Memuat pengerjaan…</p>
+    <p class="muted" role="status">Memuat pengerjaan…</p>
   {:else if error}
-    <p class="alert-error">
-      {error}
-    </p>
+    <div class="card mx-auto mt-16 max-w-xl text-center">
+      <Icon name="triangle-exclamation" size="24px" class="text-danger" />
+      <h1 class="mt-3 font-display text-xl font-bold">Pengerjaan tidak dapat dimuat</h1>
+      <p class="alert-error mt-3" role="alert">{error}</p>
+      <div class="mt-4 flex flex-wrap justify-center gap-2">
+        <button class="btn-primary" on:click={() => window.location.reload()}>Coba lagi</button>
+        <a class="btn-ghost" href={`/exams/${examId}`}>Kembali ke detail ujian</a>
+      </div>
+    </div>
   {:else if exam && attempt}
     <div
-      class="sticky top-16 z-20 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border px-4 py-3 surface clip-corner"
+      class="sticky top-0 z-20 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border px-4 py-3 surface clip-corner"
     >
       <div>
         <h1 class="hud font-display text-lg font-bold">{exam.title}</h1>
@@ -260,6 +331,8 @@
       <div class="flex items-center gap-3">
         <span
           class="badge font-mono"
+          role="timer"
+          aria-label={`Sisa waktu ${mmss(secondsLeft)}`}
           class:badge-magenta={secondsLeft < 300}
           class:badge-amber={secondsLeft >= 300}
         >
@@ -283,7 +356,35 @@
       </div>
     {/if}
 
-    {#if submitError}
+    {#if loadWarning}
+      <div class="alert-error mb-4" role="alert">
+        <span class="flex-1">{loadWarning}</span>
+        <button class="btn-secondary !py-1 flex-none" on:click={() => window.location.reload()}>
+          Muat ulang
+        </button>
+      </div>
+    {/if}
+
+    <div
+      class="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs"
+      role="status"
+      aria-live="polite"
+    >
+      <span class="muted">
+        {savingCount > 0
+          ? `Menyimpan ${savingCount} jawaban…`
+          : failedCount > 0
+            ? `${failedCount} jawaban gagal disimpan`
+            : answeredCount > 0
+              ? "Semua perubahan tersimpan"
+              : "Jawaban akan tersimpan otomatis"}
+      </span>
+      {#if failedCount > 0}
+        <button class="btn-ghost !py-1 text-xs" on:click={retryFailed}>Coba simpan lagi</button>
+      {/if}
+    </div>
+
+    {#if submitError && !showSubmitModal}
       <div class="alert-error mb-4">
         <span class="flex-1">{submitError}</span>
         <button class="btn-secondary !py-1 flex-none" on:click={requestSubmit}>Coba lagi</button>
@@ -294,7 +395,7 @@
       <div class="space-y-4">
         {#each questions as q, i}
           {#if i === current}
-            <div class="card">
+            <div class="card" id={`question-${q.id}`} tabindex="-1">
               <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
                 <div class="flex items-center gap-2">
                   <h2 class="hud font-display text-lg font-bold">
@@ -313,12 +414,13 @@
                       ? '!border-amber-400 !text-amber-400 !bg-amber-400/10'
                       : ''}"
                     on:click={() => toggleFlag(q.id)}
+                    aria-pressed={flagged[q.id] ?? false}
                     title="Tandai soal ini jika masih ragu-ragu"
                   >
                     <Icon name="flag" size="11px" />
                     <span>{flagged[q.id] ? "Ragu-ragu (Ditandai)" : "Tandai Ragu-ragu"}</span>
                   </button>
-                  <span class="text-xs muted flex items-center gap-1 font-mono">
+                  <span class="text-xs muted flex items-center gap-1 font-mono" aria-live="polite">
                     {#if saved[q.id] === "saving"}
                       <Icon name="spinner" spin size="10px" /> Menyimpan…
                     {:else if saved[q.id] === "saved"}
@@ -333,9 +435,9 @@
                   </span>
                 </div>
               </div>
-              <p class="mt-3">{q.prompt}</p>
+              <p class="mt-3" id={`prompt-${q.id}`}>{q.prompt}</p>
               {#if q.qtype === "multiple_choice"}
-                <div class="mt-3 space-y-2">
+                <fieldset class="mt-3 space-y-2" aria-labelledby={`prompt-${q.id}`}>
                   {#each q.options ?? [] as opt}
                     <label
                       class="flex cursor-pointer items-center gap-3 rounded-sm border px-3 py-2 text-sm transition-colors"
@@ -358,9 +460,9 @@
                       <span>{opt.text}</span>
                     </label>
                   {/each}
-                </div>
+                </fieldset>
               {:else if q.qtype === "true_false"}
-                <div class="mt-3 space-y-2">
+                <fieldset class="mt-3 space-y-2" aria-labelledby={`prompt-${q.id}`}>
                   {#each [["true", "Benar"], ["false", "Salah"]] as [val, label]}
                     <label
                       class="flex cursor-pointer items-center gap-3 rounded-sm border px-3 py-2 text-sm"
@@ -379,9 +481,9 @@
                       <span>{label}</span>
                     </label>
                   {/each}
-                </div>
+                </fieldset>
               {:else if q.qtype === "multi_select"}
-                <div class="mt-3 space-y-2">
+                <fieldset class="mt-3 space-y-2" aria-labelledby={`prompt-${q.id}`}>
                   {#each q.options ?? [] as opt}
                     <label
                       class="flex cursor-pointer items-center gap-3 rounded-sm border px-3 py-2 text-sm"
@@ -402,13 +504,14 @@
                       <span>{opt.text}</span>
                     </label>
                   {/each}
-                </div>
+                </fieldset>
               {:else if q.qtype === "numeric"}
                 <input
-                  class="input mt-3 !w-56"
+                  class="input mt-3 w-full sm:!w-56"
                   type="number"
                   step="any"
                   placeholder="Jawaban angka…"
+                  aria-labelledby={`prompt-${q.id}`}
                   value={answers[q.id] ?? ""}
                   on:input={(e) => {
                     answers[q.id] = (e.currentTarget as HTMLInputElement).value;
@@ -417,8 +520,9 @@
                 />
               {:else if q.qtype === "fill_blank"}
                 <input
-                  class="input mt-3 !w-72"
+                  class="input mt-3 w-full sm:!w-72"
                   placeholder="Jawaban singkat…"
+                  aria-labelledby={`prompt-${q.id}`}
                   value={answers[q.id] ?? ""}
                   on:input={(e) => {
                     answers[q.id] = (e.currentTarget as HTMLInputElement).value;
@@ -429,6 +533,7 @@
                 <textarea
                   class="input mt-3 min-h-[120px]"
                   placeholder="Tulis item dalam urutan yang benar, satu per baris"
+                  aria-labelledby={`prompt-${q.id}`}
                   value={orderingText(q.id)}
                   on:input={(e) => {
                     const lines = (e.currentTarget as HTMLTextAreaElement).value
@@ -443,6 +548,7 @@
                 <textarea
                   class="input mt-3 min-h-[120px]"
                   placeholder="Pasangan kunci=nilai, satu per baris"
+                  aria-labelledby={`prompt-${q.id}`}
                   value={matchingText(q.id)}
                   on:input={(e) => {
                     const obj: Record<string, string> = {};
@@ -458,6 +564,7 @@
                 <textarea
                   class="input mt-3 min-h-[160px]"
                   placeholder="Tulis jawabanmu…"
+                  aria-labelledby={`prompt-${q.id}`}
                   value={answers[q.id] ?? ""}
                   on:input={(e) => {
                     answers[q.id] = (e.currentTarget as HTMLTextAreaElement).value;
@@ -466,7 +573,7 @@
                 ></textarea>
               {/if}
               <div class="mt-6 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-                <button class="btn-ghost" disabled={i === 0} on:click={() => (current = i - 1)}>
+                <button class="btn-ghost" disabled={i === 0} on:click={() => goToQuestion(i - 1)}>
                   ← Sebelumnya
                 </button>
                 <div class="flex items-center gap-2">
@@ -475,7 +582,7 @@
                       Tinjau & Kumpulkan →
                     </button>
                   {:else}
-                    <button class="btn-secondary" on:click={() => (current = i + 1)}>
+                    <button class="btn-secondary" on:click={() => goToQuestion(i + 1)}>
                       Berikutnya →
                     </button>
                   {/if}
@@ -496,7 +603,14 @@
                 >{answeredCount}/{questions.length} ({progressPercent}%)</span
               >
             </div>
-            <div class="track h-1.5 w-full">
+            <div
+              class="track h-1.5 w-full"
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax={questions.length}
+              aria-valuenow={answeredCount}
+              aria-valuetext={`${answeredCount} dari ${questions.length} soal terjawab`}
+            >
               <span style={`width:${progressPercent}%`}></span>
             </div>
           </div>
@@ -508,14 +622,16 @@
             {@const isAns = isAnswered(q.id, answers)}
             {@const isFlag = flagged[q.id]}
             <button
-              class="relative h-9 w-9 rounded-sm border font-mono text-sm font-medium transition-all {isCur
+              class="relative h-11 w-11 rounded-sm border font-mono text-sm font-medium transition-all {isCur
                 ? 'border-primary bg-primary text-[#05060A]'
                 : isFlag
                   ? 'border-amber-400 bg-amber-400/20 text-amber-300'
                   : isAns
                     ? 'border-secondary bg-secondary/10 text-secondary'
                     : 'border-border/60 opacity-60'}"
-              on:click={() => (current = i)}
+              on:click={() => goToQuestion(i)}
+              aria-current={isCur ? "step" : undefined}
+              aria-label={`Soal ${i + 1}, ${isAns ? "terjawab" : "belum dijawab"}${isFlag ? ", ditandai ragu-ragu" : ""}`}
               title={`Soal #${i + 1} (${isAns ? "Terjawab" : "Belum diisi"}${isFlag ? " · Ragu-ragu" : ""})`}
             >
               {i + 1}
@@ -560,27 +676,15 @@
     </div>
 
     {#if showSubmitModal}
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="submit-modal-title"
+      <Dialog
+        title="Konfirmasi Pengumpulan Ujian"
+        description={exam.title}
+        titleId="submit-modal-title"
+        descriptionId="submit-modal-description"
+        busy={submitting}
+        close={() => (showSubmitModal = false)}
       >
-        <div class="card w-full max-w-lg space-y-4 border-primary/40 shadow-2xl">
-          <div class="flex items-start justify-between border-b pb-3">
-            <div>
-              <h2 id="submit-modal-title" class="hud font-display text-lg font-bold">
-                Konfirmasi Pengumpulan Ujian
-              </h2>
-              <p class="text-xs muted mt-0.5">{exam.title}</p>
-            </div>
-            <button
-              class="text-muted hover:text-foreground text-sm"
-              on:click={() => (showSubmitModal = false)}
-              aria-label="Tutup">✕</button
-            >
-          </div>
-
+        <div class="space-y-4">
           <div class="grid grid-cols-3 gap-2 text-center text-xs">
             <div class="rounded-sm border p-2.5 surface">
               <div class="mono-label text-[10px]">Total Soal</div>
@@ -620,8 +724,8 @@
                       type="button"
                       class="h-7 px-2.5 rounded-xs border border-magenta/50 bg-background text-xs font-mono font-medium hover:bg-magenta/20 transition-colors"
                       on:click={() => {
-                        current = idx;
                         showSubmitModal = false;
+                        void goToQuestion(idx);
                       }}
                     >
                       #{idx + 1}
@@ -653,11 +757,13 @@
               <span>{submitError}</span>
             </div>
           {/if}
-
-          <div class="flex items-center justify-end gap-2 border-t pt-3">
+        </div>
+        <svelte:fragment slot="footer">
+          <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               class="btn-ghost text-xs"
+              data-autofocus
               disabled={submitting}
               on:click={() => (showSubmitModal = false)}
             >
@@ -673,8 +779,8 @@
               {submitting ? "Mengirim Jawaban…" : "Ya, Kumpulkan Sekarang"}
             </button>
           </div>
-        </div>
-      </div>
+        </svelte:fragment>
+      </Dialog>
     {/if}
   {/if}
 </div>

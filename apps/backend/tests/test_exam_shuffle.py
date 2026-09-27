@@ -94,8 +94,28 @@ async def test_shuffle_option_order_stable_and_no_answer_key(client):
     rows = (await client.get(f"/api/v1/attempts/{a1}/questions")).json()
     for r in rows:
         assert r["correct_answer"] is None
+        assert r["answer_json"] is None
         for o in r["options"]:
             assert o.get("is_correct") in (None,)
+
+
+async def test_unrelated_teacher_cannot_read_student_attempt(client):
+    await register_actor(client, "owner_teacher@ex.com", "teacher")
+    exam_id, _ = await _make_shuffled_exam(client)
+    await client.post("/api/v1/auth/logout")
+
+    await register_actor(client, "attempt_student@ex.com", "student")
+    attempt_id = (await client.post(f"/api/v1/exams/{exam_id}/attempts")).json()["id"]
+    await client.post("/api/v1/auth/logout")
+
+    await register_actor(client, "unrelated_teacher@ex.com", "teacher")
+    for path in (
+        f"/api/v1/attempts/{attempt_id}",
+        f"/api/v1/attempts/{attempt_id}/questions",
+        f"/api/v1/attempts/{attempt_id}/result",
+    ):
+        response = await client.get(path)
+        assert response.status_code == 403, (path, response.text)
 
 
 async def test_score_identical_with_and_without_shuffle(client):
