@@ -6,6 +6,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import Icon from "$lib/components/Icon.svelte";
 
   interface DriftRow {
     account_id: string;
@@ -29,6 +30,9 @@
   let reconciling = false;
   let error = "";
   let message = "";
+  let query = "";
+  // A reconcile run mutates the ledger; require an explicit confirmation.
+  let confirmingReconcile = false;
 
   async function load() {
     loading = true;
@@ -43,6 +47,7 @@
   }
 
   async function rerun() {
+    confirmingReconcile = false;
     reconciling = true;
     error = "";
     message = "";
@@ -62,6 +67,17 @@
   }
 
   onMount(load);
+
+  // --- derived health + metrics ----------------------------------------------
+  $: totalDebt = negative.reduce((s, n) => s + Math.abs(n.cached_balance), 0);
+  $: frozenCount = negative.filter((n) => n.is_in_debt).length;
+  $: healthy = !loading && negative.length === 0;
+
+  $: filteredNegative = negative.filter((n) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase().trim();
+    return n.account_id.toLowerCase().includes(q) || n.user_id.toLowerCase().includes(q);
+  });
 </script>
 
 <svelte:head><title>Ledger — QLoot</title></svelte:head>
@@ -77,11 +93,78 @@
 
   <PageAlerts {message} {error} />
 
-  <div class="mt-4">
-    <button class="btn-primary" on:click={rerun} disabled={reconciling}>
-      {reconciling ? "Menjalankan…" : "Jalankan rekonsiliasi sekarang"}
-    </button>
-  </div>
+  <!-- Health banner -->
+  {#if !loading}
+    <div
+      class="card mt-4 flex items-center gap-3 border {healthy
+        ? 'border-emerald-500/40'
+        : 'border-amber-500/40'}"
+      data-role="ledger-health"
+    >
+      <span class="tile-neutral h-10 w-10">
+        <Icon
+          name={healthy ? "circle-check" : "triangle-exclamation"}
+          size="16px"
+          class={healthy ? "text-mint" : "text-highlight"}
+        />
+      </span>
+      <div>
+        <p class="font-semibold">
+          {healthy ? "Ledger sehat" : `${negative.length} akun berutang`}
+        </p>
+        <p class="text-xs muted">
+          {healthy
+            ? "Semua saldo cache cocok dengan ledger double-entry."
+            : `${formatNumber(totalDebt)} OPT dalam utang clawback.`}
+        </p>
+      </div>
+      <button
+        class="btn-primary ml-auto"
+        on:click={() => (confirmingReconcile = true)}
+        disabled={reconciling}
+      >
+        {reconciling ? "Menjalankan…" : "Rekonsiliasi sekarang"}
+      </button>
+    </div>
+  {/if}
+
+  <!-- Metrics -->
+  {#if !loading && !healthy}
+    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Akun berutang</p>
+        <p class="mt-1 font-display text-3xl font-bold" data-role="negative-count">
+          {negative.length}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total utang (OPT)</p>
+        <p class="mt-1 font-display text-3xl font-bold text-tertiary" data-role="total-debt">
+          {formatNumber(totalDebt)}
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Ditandai in-debt</p>
+        <p class="mt-1 font-display text-3xl font-bold">{frozenCount}</p>
+      </div>
+    </div>
+  {/if}
+
+  {#if !loading && negative.length > 0}
+    <div class="mt-4 relative max-w-md">
+      <Icon
+        name="magnifying-glass"
+        size="12px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input text-xs !py-1.5 !pl-8 w-full"
+        placeholder="Cari akun atau pengguna..."
+        bind:value={query}
+        aria-label="Cari akun"
+      />
+    </div>
+  {/if}
 
   {#if drift.length}
     <div class="card mt-6">
@@ -95,7 +178,7 @@
           ></thead
         >
         <tbody>
-          {#each drift as d}
+          {#each drift as d (d.account_id)}
             <tr class="border-t">
               <td class="py-1 font-mono text-xs">{d.account_id.slice(0, 8)}…</td>
               <td class="font-mono text-xs">{d.user_ref ?? d.user_id.slice(0, 8)}</td>
@@ -114,6 +197,8 @@
       <div class="skeleton h-8"></div>
     {:else if negative.length === 0}
       <p class="py-2 muted">Tidak ada akun dengan saldo negatif.</p>
+    {:else if filteredNegative.length === 0}
+      <p class="py-2 muted">Tidak ada akun yang cocok dengan pencarianmu.</p>
     {:else}
       <table class="w-full text-sm">
         <thead class="text-left muted"
@@ -121,7 +206,7 @@
           ></thead
         >
         <tbody>
-          {#each negative as n}
+          {#each filteredNegative as n (n.account_id)}
             <tr class="border-t">
               <td class="py-1 font-mono text-xs">{n.account_id.slice(0, 8)}…</td>
               <td class="font-mono text-xs">{n.user_id.slice(0, 8)}…</td>
@@ -135,3 +220,33 @@
     {/if}
   </div>
 </div>
+
+<!-- Reconcile confirmation modal -->
+{#if confirmingReconcile}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">Jalankan Rekonsiliasi Ledger</h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        Rekonsiliasi akan memindai seluruh akun dompet dan menyelaraskan saldo cache dengan ledger
+        double-entry. Setiap akun yang drift akan dicatat dan diperbaiki.
+      </p>
+      <p class="text-xs muted leading-relaxed">Tindakan ini tercatat di audit log.</p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (confirmingReconcile = false)}
+          >Batal</button
+        >
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={rerun}
+          disabled={reconciling}
+          data-role="confirm-reconcile"
+        >
+          {reconciling ? "Menjalankan…" : "Ya, Jalankan"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
