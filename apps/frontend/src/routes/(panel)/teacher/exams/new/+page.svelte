@@ -58,6 +58,7 @@
       await goto(`/teacher/exams/${exam.id}`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membuat ujian";
+    } finally {
       busy = false;
     }
   }

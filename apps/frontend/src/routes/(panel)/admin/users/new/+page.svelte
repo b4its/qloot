@@ -66,6 +66,8 @@
       await goto("/admin/users");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membuat akun";
+    } finally {
+      // Always release the button, even if navigation is deferred or aborted.
       creating = false;
     }
   }

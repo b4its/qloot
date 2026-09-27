@@ -67,6 +67,7 @@
       await goto(`/teacher/subjects/${course.id}`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membuat pelajaran";
+    } finally {
       busy = false;
     }
   }

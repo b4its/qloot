@@ -46,7 +46,8 @@
 
   $: totalPool = ranks.reduce((s, r) => s + r, 0);
   $: titleValid = form.title.trim().length >= 2;
-  $: ranksValid = ranks.every((r) => r >= 0);
+  // Each winner must receive at least 1 OPT, otherwise the quest awards nothing.
+  $: ranksValid = ranks.length > 0 && ranks.every((r) => r >= 1);
   $: canSubmit = titleValid && ranksValid && !busy;
 
   async function create() {
@@ -77,6 +78,7 @@
       await goto(`/teacher/quests/${quest.id}`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membuat quest";
+    } finally {
       busy = false;
     }
   }
@@ -144,13 +146,19 @@
               <input
                 class="input w-20 !py-1 text-sm"
                 type="number"
-                min="0"
+                min="1"
                 aria-label={`Hadiah peringkat ${i + 1}`}
+                aria-invalid={ranks[i] < 1}
                 bind:value={ranks[i]}
               />
             </label>
           {/each}
         </div>
+        {#if !ranksValid && ranks.some((r) => r < 1)}
+          <p class="mt-2 text-xs text-danger" role="alert">
+            Setiap peringkat pemenang harus mendapat minimal 1 OPT.
+          </p>
+        {/if}
         <p class="mt-2 text-xs muted">
           <Icon name="circle-info" size="10px" />
           Kolom hadiah otomatis mengikuti jumlah pemenang. Pemenang ditentukan deterministik (skor, lalu
