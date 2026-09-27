@@ -73,6 +73,26 @@ async def test_ws_rejects_invalid_token(client):
     assert getattr(exc_info.value, "code", None) == 4401
 
 
+async def test_ws_rejects_inactive_user(client):
+    token = await _register_and_token(client, "ws_inactive@ex.com")
+    user_id = (await client.get("/api/v1/auth/me")).json()["id"]
+
+    from app.models.identity import User
+
+    async with client._sm() as db, db.begin():  # type: ignore[attr-defined]
+        user = await db.get(User, user_id)
+        user.is_active = False
+
+    assert (await client.get("/api/v1/auth/me")).status_code == 401
+    with (
+        _ws_client() as tc,
+        pytest.raises(Exception) as exc_info,  # noqa: PT011
+        tc.websocket_connect(f"/api/v1/ws/notifications?token={token}"),
+    ):
+        pass
+    assert getattr(exc_info.value, "code", None) == 4401
+
+
 async def test_ws_ping_pong_and_presence_persisted(client, session):
     await _register_and_token(client, "ws_owner@ex.com", "teacher")
     room_id = await _create_open_room(client)

@@ -36,9 +36,10 @@ async def _authenticate(token: str | None) -> User | None:
         # the room stream indefinitely.
         if session is None or session.revoked_at is not None or session.expires_at <= utcnow():
             return None
-        return (
+        user = (
             await db.execute(select(User).where(User.id == session.user_id))
         ).scalar_one_or_none()
+        return user if user is not None and user.is_active else None
 
 
 @router.websocket("/ws/rooms/{room_id}")

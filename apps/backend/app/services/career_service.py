@@ -321,6 +321,7 @@ class CareerService:
         # Set by assistant_reply_stream so the SSE endpoint can report which
         # conversation the streamed turn belongs to (CARE-04).
         self.last_conversation_id: uuid.UUID | None = None
+        self.last_stream_failed = False
 
     # --- grades ------------------------------------------------------------
     async def list_grades(
@@ -1599,6 +1600,7 @@ class CareerService:
         if conv.title == "Percakapan baru":
             conv.title = question[:80]
         self.last_conversation_id = conv.id
+        self.last_stream_failed = False
 
         chunks: list[str] = []
         if settings.ai_provider != "mock":
@@ -1612,6 +1614,7 @@ class CareerService:
                     yield chunk
             except Exception as exc:  # noqa: BLE001 - fall back mid-stream
                 log.warning("assistant_stream_failed", error=str(exc))
+                self.last_stream_failed = True
                 chunks = []
         if not chunks:
             # KB fallback (mock provider, or AI failure): stream the KB answer

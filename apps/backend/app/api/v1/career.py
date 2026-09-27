@@ -429,7 +429,7 @@ async def assistant_stream(payload: ChatIn, user: CurrentUser, db: DbSession):
 
     async with transaction(db):
         usage = AiUsageService(db)
-        await usage.charge_request(user=user)
+        ref = await usage.charge_request(user=user)
 
     async def _events():
         try:
@@ -440,10 +440,13 @@ async def assistant_stream(payload: ChatIn, user: CurrentUser, db: DbSession):
                         user, payload.message, conversation_id=payload.conversation_id
                     ):
                         yield f"data: {_json.dumps({'delta': chunk})}\n\n"
+                if service.last_stream_failed:
+                    await usage.refund_job(user_id=user.id, job_id=ref)
                 last = service.last_conversation_id
                 conv_id = str(last) if last else None
                 yield f"event: done\ndata: {_json.dumps({'conversation_id': conv_id})}\n\n"
         except Exception as exc:  # noqa: BLE001 - surface, do not hang the stream
+            await usage.refund_job(user_id=user.id, job_id=ref)
             yield f"event: error\ndata: {_json.dumps({'message': str(exc)})}\n\n"
 
     return StreamingResponse(
