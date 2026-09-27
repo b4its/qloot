@@ -215,6 +215,7 @@
   async function share() {
     if (!active) return;
     const shareUrl = verifyUrl(active.credential_id);
+    copyError = "";
     try {
       if (navigator.share) {
         await navigator.share({
@@ -222,13 +223,15 @@
           text: "Sertifikat QLoot",
           url: shareUrl,
         });
-      } else {
-        await navigator.clipboard?.writeText(shareUrl);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
         copied = true;
         setTimeout(() => (copied = false), 1500);
+      } else {
+        copyError = "Papan klip tidak tersedia — salin tautan secara manual.";
       }
     } catch {
-      /* user cancelled */
+      /* user cancelled the share sheet */
     }
   }
 
