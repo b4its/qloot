@@ -82,7 +82,7 @@
       <div class="skeleton h-10"></div>
     </div>
   {:else if error}
-    <p class="alert-error mt-3">{error}</p>
+    <p class="alert-error mt-3" role="alert" aria-live="assertive">{error}</p>
   {:else if materials.length === 0}
     <p class="mt-3 muted">Belum ada materi PDF untuk pelajaran ini.</p>
   {:else}
@@ -166,7 +166,9 @@
               </div>
 
               {#if askErrors[m.id]}
-                <p class="alert-error mt-2 text-xs">{askErrors[m.id]}</p>
+                <p class="alert-error mt-2 text-xs" role="alert" aria-live="assertive">
+                  {askErrors[m.id]}
+                </p>
               {/if}
 
               {#each asks[m.id] ?? [] as item}
