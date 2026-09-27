@@ -74,7 +74,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   bergamifikasi, dengan badge **Quiz Master** bila semua jawaban PG benar. Halaman ujian
   siswa adalah **hub** yang menampilkan status ketersediaan (terbuka/akan datang/ditutup),
   tenggat, pencarian, filter, urutan, dan progres percobaan (skor terbaik, percobaan
-  terpakai) per ujian.
+  terpakai) per ujian. **Detail ujian** menampilkan skor terbaik & status lulus, badge
+  komposisi soal, baris percobaan lulus/gagal, dan banner "lanjutkan pengerjaan" bila ada
+  attempt berjalan; `/attempts` mendukung filter `exam_id`.
 - **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
   pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
   quest, notifikasi, dan badge (off-chain). **Inbox notifikasi** punya pencarian, filter
