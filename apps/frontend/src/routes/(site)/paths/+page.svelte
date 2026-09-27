@@ -30,7 +30,7 @@
   $: totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   $: if (currentPage > totalPages) currentPage = 1;
   $: paged = paginate(filtered, currentPage, PAGE_SIZE);
-  $: totalLessons = subjects.reduce((sum, s) => sum + s.count, 0);
+  $: totalCourses = subjects.reduce((sum, s) => sum + s.count, 0);
 
   onMount(async () => {
     try {
@@ -88,9 +88,9 @@
           <p class="mt-1 font-display text-3xl font-bold">{subjects.length}</p>
         </div>
         <div class="card p-4">
-          <p class="mono-label text-[10px]">Total Kelas Pelajaran</p>
+          <p class="mono-label text-[10px]">Total Pelajaran</p>
           <p class="mt-1 font-display text-3xl font-bold" data-role="total-lessons">
-            {totalLessons}
+            {totalCourses}
           </p>
         </div>
         <div class="card p-4">

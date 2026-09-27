@@ -145,13 +145,13 @@
     <!-- Overview metrics (over the current page) -->
     <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card p-4">
-        <p class="mono-label text-[10px]">Skor tertinggi</p>
+        <p class="mono-label text-[10px]">Skor tertinggi (halaman ini)</p>
         <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="top-score">
           {topScore.toFixed(1)}%
         </p>
       </div>
       <div class="card p-4">
-        <p class="mono-label text-[10px]">Rata-rata</p>
+        <p class="mono-label text-[10px]">Rata-rata (halaman ini)</p>
         <p class="mt-1 font-display text-3xl font-bold" data-role="avg-score">
           {avgScore.toFixed(1)}%
         </p>
@@ -161,7 +161,7 @@
         <p class="mt-1 font-display text-3xl font-bold text-mint">{passing}</p>
       </div>
       <div class="card p-4">
-        <p class="mono-label text-[10px]">OPT diperoleh</p>
+        <p class="mono-label text-[10px]">OPT diperoleh (halaman ini)</p>
         <p class="mt-1 font-display text-3xl font-bold text-secondary">{formatNumber(totalOpc)}</p>
       </div>
     </div>

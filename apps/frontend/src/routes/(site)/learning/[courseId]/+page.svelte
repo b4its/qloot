@@ -19,6 +19,7 @@
   } | null = null;
   let loading = true;
   let error = "";
+  let actionError = "";
   let busy = "";
   let searchQuery = "";
   let filterStatus: "all" | "completed" | "uncompleted" = "all";
@@ -44,7 +45,7 @@
   }
 
   async function toggleComplete(lesson: Lesson) {
-    error = "";
+    actionError = "";
     busy = lesson.id;
     const isDone = !!progress[lesson.id]?.completed;
     try {
@@ -54,7 +55,7 @@
       });
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal mengubah status materi";
+      actionError = e instanceof ApiError ? e.message : "Gagal mengubah status materi";
     } finally {
       busy = "";
     }
@@ -235,6 +236,11 @@
 
     <!-- Lessons List -->
     <div class="mt-4 space-y-3">
+      {#if actionError}
+        <p class="alert-error" role="alert" aria-live="assertive">
+          {actionError}
+        </p>
+      {/if}
       {#each filteredLessons as lesson, i}
         {@const done = !!progress[lesson.id]?.completed}
         {@const isBusy = busy === lesson.id}

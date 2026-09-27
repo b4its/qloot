@@ -231,7 +231,12 @@
     {:else if consultations.length === 0}
       <p class="muted">Belum ada konsultasi.</p>
     {:else if filtered.length === 0}
-      <p class="muted">Tidak ada konsultasi yang cocok dengan pencarianmu.</p>
+      <div class="grid place-items-center py-12 text-center">
+        <p class="muted text-sm">Tidak ada konsultasi yang cocok dengan pencarianmu.</p>
+        <button class="btn-ghost mt-3 !py-1 text-xs" on:click={() => (query = "")}>
+          Reset Pencarian
+        </button>
+      </div>
     {:else}
       <ul class="divide-y">
         {#each filtered as c (c.id)}

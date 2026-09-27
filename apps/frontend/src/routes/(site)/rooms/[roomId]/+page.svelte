@@ -71,7 +71,8 @@
       await navigator.clipboard.writeText(code);
       setFeedback(`Kode ruang "${code}" berhasil disalin!`);
     } catch {
-      setFeedback(`Kode ruang "${code}" disalin!`);
+      // Clipboard can be blocked (insecure context): never claim success.
+      setFeedback(`Tidak dapat menyalin otomatis. Salin manual: ${code}`);
     }
   }
 
@@ -81,7 +82,7 @@
       await navigator.clipboard.writeText(url);
       setFeedback("Tautan ruang berhasil disalin ke clipboard!");
     } catch {
-      setFeedback("Tautan ruang disalin!");
+      setFeedback("Tidak dapat menyalin otomatis. Salin manual dari address bar.");
     }
   }
 
@@ -638,7 +639,7 @@
           <span class="badge badge-neutral text-xs font-mono">{participants.length}</span>
         </div>
 
-        {#if participants.length > 5}
+        {#if participants.length > 0}
           <div class="relative">
             <input
               type="text"
@@ -647,6 +648,16 @@
               bind:value={participantSearch}
               aria-label="Cari peserta"
             />
+            {#if participantSearch}
+              <button
+                type="button"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+                on:click={() => (participantSearch = "")}
+                aria-label="Bersihkan pencarian peserta"
+              >
+                ✕
+              </button>
+            {/if}
           </div>
         {/if}
 

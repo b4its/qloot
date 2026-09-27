@@ -235,7 +235,12 @@
           </button>
         {/each}
       </div>
-      <select class="input text-xs !py-1.5 w-auto" bind:value={sortBy} aria-label="Urutkan">
+      <select
+        class="input text-xs !py-1.5 w-auto"
+        bind:value={sortBy}
+        on:change={() => (currentPage = 1)}
+        aria-label="Urutkan"
+      >
         <option value="recent">Terbaru</option>
         <option value="progress">Progres tertinggi</option>
         <option value="title">Judul (A–Z)</option>

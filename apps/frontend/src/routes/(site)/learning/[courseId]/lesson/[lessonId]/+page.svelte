@@ -35,12 +35,19 @@
         }
       }
       // Scope the progress query to this course (no client-side over-fetch).
+      // Do not swallow failures: a silent empty list would show a completed
+      // lesson as "not done" and invite accidental re-completion.
       const courseIdForProgress = courseId || lesson?.course_id;
-      const myProgress = courseIdForProgress
-        ? await api
-            .get<Progress[]>(`/me/learning-progress?course_id=${courseIdForProgress}&limit=200`)
-            .catch(() => [])
-        : await api.get<Progress[]>("/me/learning-progress?limit=200").catch(() => []);
+      let myProgress: Progress[] = [];
+      try {
+        myProgress = courseIdForProgress
+          ? await api.get<Progress[]>(
+              `/me/learning-progress?course_id=${courseIdForProgress}&limit=200`,
+            )
+          : await api.get<Progress[]>("/me/learning-progress?limit=200");
+      } catch {
+        contextError = "Progres belajar gagal dimuat; status penyelesaian mungkin belum akurat.";
+      }
       progress = myProgress;
       saved = !!myProgress.find((p) => p.lesson_id === lessonId)?.completed;
     } catch (e) {

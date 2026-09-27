@@ -391,6 +391,12 @@
 
     <div class="grid gap-4 lg:grid-cols-[1fr_240px]">
       <div class="space-y-4">
+        {#if !loading && questions.length === 0}
+          <div class="card grid place-items-center py-14 text-center">
+            <Icon name="file-text" size="26px" class="muted" />
+            <p class="mt-3 font-semibold">Tidak ada soal pada ujian ini.</p>
+          </div>
+        {/if}
         {#each questions as q, i}
           {#if i === current}
             <div class="card" id={`question-${q.id}`} tabindex="-1">

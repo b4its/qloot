@@ -204,12 +204,15 @@
       <p class="py-2 muted">Tidak ada penarikan yang cocok dengan pencarianmu.</p>
     {:else}
       <table class="w-full text-sm">
+        <caption class="sr-only">Daftar permintaan penarikan</caption>
         <thead class="text-left muted">
-          <tr
-            ><th class="py-1">Pengguna</th><th>Tujuan</th><th class="text-right">Jumlah</th><th
-              >Status</th
-            ><th></th></tr
-          >
+          <tr>
+            <th class="py-1" scope="col">Pengguna</th>
+            <th scope="col">Tujuan</th>
+            <th class="text-right" scope="col">Jumlah</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="sr-only">Aksi</span></th>
+          </tr>
         </thead>
         <tbody>
           {#each filtered as w (w.id)}

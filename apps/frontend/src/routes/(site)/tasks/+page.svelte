@@ -103,6 +103,7 @@
   async function complete(t: Task) {
     busy = t.id;
     message = "";
+    error = "";
     try {
       await api.post(`/tasks/${t.id}/complete`);
       completed = { ...completed, [t.id]: true };
@@ -110,7 +111,8 @@
       // Refresh user's OPT balance header chip
       opt.refresh();
     } catch (e) {
-      message = e instanceof ApiError ? e.message : "Tidak dapat menyelesaikan tugas";
+      // Surface failures in the error banner (not the info one) so severity is clear.
+      error = e instanceof ApiError ? e.message : "Tidak dapat menyelesaikan tugas";
     } finally {
       busy = "";
     }
@@ -189,13 +191,18 @@
       </div>
 
       <!-- Kind filter tabs -->
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+      <div
+        class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
+        role="group"
+        aria-label="Filter jenis tugas"
+      >
         <button
           type="button"
           class="px-2.5 py-1 rounded-xs font-medium transition-colors"
           class:bg-primary={kindFilter === "all"}
           class:text-[#05060A]={kindFilter === "all"}
           class:muted={kindFilter !== "all"}
+          aria-pressed={kindFilter === "all"}
           on:click={() => (kindFilter = "all")}
         >
           Semua ({tasks.length})
@@ -206,6 +213,7 @@
           class:bg-primary={kindFilter === "daily"}
           class:text-[#05060A]={kindFilter === "daily"}
           class:muted={kindFilter !== "daily"}
+          aria-pressed={kindFilter === "daily"}
           on:click={() => (kindFilter = "daily")}
         >
           Harian
@@ -216,6 +224,7 @@
           class:bg-primary={kindFilter === "weekly"}
           class:text-[#05060A]={kindFilter === "weekly"}
           class:muted={kindFilter !== "weekly"}
+          aria-pressed={kindFilter === "weekly"}
           on:click={() => (kindFilter = "weekly")}
         >
           Mingguan
@@ -226,9 +235,21 @@
           class:bg-primary={kindFilter === "learning"}
           class:text-[#05060A]={kindFilter === "learning"}
           class:muted={kindFilter !== "learning"}
+          aria-pressed={kindFilter === "learning"}
           on:click={() => (kindFilter = "learning")}
         >
           Materi
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
+          class:bg-primary={kindFilter === "exam"}
+          class:text-[#05060A]={kindFilter === "exam"}
+          class:muted={kindFilter !== "exam"}
+          aria-pressed={kindFilter === "exam"}
+          on:click={() => (kindFilter = "exam")}
+        >
+          Ujian
         </button>
       </div>
 
