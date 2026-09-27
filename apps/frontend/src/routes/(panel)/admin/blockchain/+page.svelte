@@ -7,6 +7,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import { formatNumber, statusLabel } from "$lib/utils/format";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -43,6 +44,8 @@
   let loading = true;
   let busy = "";
   let pauseAsset = "OPT";
+  // A pause/unpause is a critical on-chain control; require an explicit confirm.
+  let confirming: { action: "pause" | "unpause"; asset: string } | null = null;
 
   const links = [
     {
@@ -83,6 +86,7 @@
     error = "";
     message = "";
     busy = action;
+    confirming = null;
     try {
       await api.post(`/admin/blockchain/${action}?asset=${pauseAsset}`);
       message = `${action === "pause" ? "Jeda" : "Lanjutkan"} ${pauseAsset} diantrekan untuk blockchain worker`;
@@ -95,6 +99,25 @@
   }
 
   onMount(load);
+
+  // --- allocation metrics ----------------------------------------------------
+  $: confirmedAllocs = allocations.filter((a) => a.status === "confirmed").length;
+  $: failedAllocs = allocations.filter((a) => a.status === "failed").length;
+  $: pendingAllocs = allocations.length - confirmedAllocs - failedAllocs;
+  $: totalAllocated = allocations.reduce((s, a) => s + a.amount, 0);
+
+  // A paused asset is one whose worker submitted a pause; we surface the asset
+  // count and per-asset address presence as the operational signals available.
+  $: assetCount = status?.assets ? Object.keys(status.assets).length : 0;
+  $: deployedContracts = contractData?.deployments?.length ?? 0;
+
+  const allocTone: Record<string, string> = {
+    confirmed: "badge-mint",
+    failed: "badge-magenta",
+    pending: "badge-amber",
+    queued: "badge-amber",
+    submitted: "badge-indigo",
+  };
 </script>
 
 <svelte:head><title>Blockchain — Admin — QLoot</title></svelte:head>
@@ -158,12 +181,23 @@
         <option value="QTC">QTC</option>
         <option value="ORT">ORT</option>
       </select>
-      <button class="btn-ghost" on:click={() => control("pause")} disabled={busy === "pause"}>
-        {busy === "pause" ? "Mengirim…" : "Jeda aset"}
+      <button
+        class="btn-ghost"
+        on:click={() => (confirming = { action: "pause", asset: pauseAsset })}
+        disabled={!!busy}
+      >
+        <Icon name="pause" size="12px" /> Jeda aset
       </button>
-      <button class="btn-primary" on:click={() => control("unpause")} disabled={busy === "unpause"}>
-        {busy === "unpause" ? "Mengirim…" : "Lanjutkan aset"}
+      <button
+        class="btn-primary"
+        on:click={() => (confirming = { action: "unpause", asset: pauseAsset })}
+        disabled={!!busy}
+      >
+        <Icon name="play" size="12px" /> Lanjutkan aset
       </button>
+      <span class="mono-label ml-auto">
+        {assetCount} aset · {deployedContracts} deployment
+      </span>
     </div>
     {#if contractData && contractData.deployments && contractData.deployments.length > 0}
       <div class="card mt-6">
@@ -208,6 +242,30 @@
       {#if allocations.length === 0}
         <p class="text-xs muted italic">Belum ada alokasi hadiah yang tercatat.</p>
       {:else}
+        <!-- Allocation metrics -->
+        <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Total OPT</p>
+            <p class="mt-1 font-display text-2xl font-bold" data-role="allocated-total">
+              {formatNumber(totalAllocated)}
+            </p>
+          </div>
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Terkonfirmasi</p>
+            <p class="mt-1 font-display text-2xl font-bold text-mint">{confirmedAllocs}</p>
+          </div>
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Tertunda</p>
+            <p class="mt-1 font-display text-2xl font-bold text-highlight">{pendingAllocs}</p>
+          </div>
+          <div class="card p-4">
+            <p class="mono-label text-[10px]">Gagal</p>
+            <p class="mt-1 font-display text-2xl font-bold" class:text-danger={failedAllocs > 0}>
+              {failedAllocs}
+            </p>
+          </div>
+        </div>
+
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
             <thead>
@@ -220,19 +278,13 @@
               </tr>
             </thead>
             <tbody>
-              {#each allocations as a}
+              {#each allocations as a (a.id)}
                 <tr class="border-b last:border-0 font-mono">
                   <td class="py-2 truncate max-w-[200px]" title={a.reward_key}>{a.reward_key}</td>
-                  <td class="py-2 font-bold font-sans">{a.amount} OPT</td>
+                  <td class="py-2 font-bold font-sans">{formatNumber(a.amount)} OPT</td>
                   <td class="py-2">
-                    <span
-                      class="badge {a.status === 'confirmed'
-                        ? 'badge-green'
-                        : a.status === 'failed'
-                          ? 'badge-red'
-                          : 'badge-indigo'}"
-                    >
-                      {a.status}
+                    <span class="badge {allocTone[a.status] ?? 'badge-neutral'}">
+                      {statusLabel(a.status)}
                     </span>
                   </td>
                   <td class="py-2">{a.user_id.slice(0, 8)}…</td>
@@ -258,3 +310,37 @@
     {/each}
   </div>
 </div>
+
+<!-- Pause/unpause confirmation modal -->
+{#if confirming}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">
+          {confirming.action === "pause" ? "Jeda Aset On-Chain" : "Lanjutkan Aset On-Chain"}
+        </h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        {#if confirming.action === "pause"}
+          Menjeda <strong>{confirming.asset}</strong> akan mencegah semua transfer & reward aset ini hingga
+          dilanjutkan. Perintah dikirim ke blockchain worker.
+        {:else}
+          Melanjutkan <strong>{confirming.asset}</strong> akan mengaktifkan kembali transfer & reward
+          aset ini.
+        {/if}
+      </p>
+      <p class="text-xs muted leading-relaxed">Tindakan ini tercatat di audit log.</p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (confirming = null)}>Batal</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => confirming && control(confirming.action)}
+          data-role="confirm-control"
+        >
+          {busy ? "Mengirim…" : confirming.action === "pause" ? "Ya, Jeda" : "Ya, Lanjutkan"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
