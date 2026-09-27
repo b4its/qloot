@@ -14,6 +14,9 @@
   let loading = true;
   let error = "";
   let grading = false;
+  // Review filter: focus on questions by result category.
+  type ScoreFilter = "all" | "correct" | "partial" | "wrong" | "unanswered";
+  let scoreFilter: ScoreFilter = "all";
 
   const QTYPE_BADGES: Record<string, string> = {
     essay: "Esai",
@@ -66,6 +69,30 @@
       (q) => q.id === qid,
     );
   }
+
+  // --- per-question result classification ------------------------------------
+  type Bucket = "correct" | "partial" | "wrong" | "unanswered";
+  function bucketOf(a: Answer): Bucket {
+    const answered = !!(a.answer_text && a.answer_text.trim());
+    if (!answered) return "unanswered";
+    const score = a.score_bp ?? 0;
+    if (a.max_score_bp > 0 && score >= a.max_score_bp) return "correct";
+    if (score > 0) return "partial";
+    return "wrong";
+  }
+
+  $: buckets = answers.map((a) => bucketOf(a));
+  $: counts = {
+    correct: buckets.filter((b) => b === "correct").length,
+    partial: buckets.filter((b) => b === "partial").length,
+    wrong: buckets.filter((b) => b === "wrong").length,
+    unanswered: buckets.filter((b) => b === "unanswered").length,
+  };
+  // Keep the original question number when filtering, so the #N stays stable.
+  $: indexedAnswers = answers.map((a, i) => ({ a, i, bucket: buckets[i] }));
+  $: filteredAnswers = indexedAnswers.filter(
+    (x) => scoreFilter === "all" || x.bucket === scoreFilter,
+  );
 
   onMount(load);
 </script>
@@ -142,8 +169,34 @@
       {/if}
     </div>
 
+    <!-- Review filter -->
+    <div
+      class="mt-6 flex flex-wrap items-center gap-1"
+      role="tablist"
+      aria-label="Filter hasil soal"
+    >
+      {#each [["all", `Semua (${answers.length})`], ["correct", `Benar (${counts.correct})`], ["partial", `Sebagian (${counts.partial})`], ["wrong", `Salah (${counts.wrong})`], ["unanswered", `Kosong (${counts.unanswered})`]] as [val, label]}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={scoreFilter === val}
+          class="btn-ghost !py-1 text-xs"
+          class:bg-primary={scoreFilter === val}
+          class:!text-white={scoreFilter === val}
+          on:click={() => (scoreFilter = val as ScoreFilter)}
+        >
+          {label}
+        </button>
+      {/each}
+    </div>
+
     <div class="mt-4 space-y-4">
-      {#each answers as a, i}
+      {#if filteredAnswers.length === 0}
+        <div class="card text-center py-8">
+          <p class="muted text-sm">Tidak ada soal pada kategori ini.</p>
+        </div>
+      {/if}
+      {#each filteredAnswers as { a, i }}
         {@const q = questionFor(a.question_id)}
         {@const currentScore = a.score_bp ?? 0}
         {@const isFullScore = a.max_score_bp > 0 && currentScore >= a.max_score_bp}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/svelte";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/svelte";
 
 vi.mock("$app/stores", () => ({
   page: {
@@ -107,5 +107,25 @@ describe("student exam result page UX overhaul", () => {
     expect(screen.getByText("Pilihan Ganda")).toBeTruthy();
     expect(screen.getByText("Benar/Salah")).toBeTruthy();
     expect(screen.getByText("Pilihanmu")).toBeTruthy();
+  });
+
+  it("filters questions by result bucket", async () => {
+    render(StudentResultPage);
+    expect(await screen.findByText("Berapa gravitasi bumi standar?")).toBeTruthy();
+
+    // q-1 is full score (correct) → the "Benar" filter keeps only it.
+    await fireEvent.click(screen.getByRole("tab", { name: /^Benar \(1\)/ }));
+    await waitFor(() => expect(screen.queryByText("Massa jenis air adalah 1 g/cm3?")).toBeNull());
+    expect(screen.getByText("Berapa gravitasi bumi standar?")).toBeTruthy();
+  });
+
+  it("shows the partial filter for a partially-scored answer", async () => {
+    render(StudentResultPage);
+    expect(await screen.findByText("Massa jenis air adalah 1 g/cm3?")).toBeTruthy();
+
+    // q-2 scored 35/50 → partial.
+    await fireEvent.click(screen.getByRole("tab", { name: /^Sebagian \(1\)/ }));
+    await waitFor(() => expect(screen.queryByText("Berapa gravitasi bumi standar?")).toBeNull());
+    expect(screen.getByText("Massa jenis air adalah 1 g/cm3?")).toBeTruthy();
   });
 });
