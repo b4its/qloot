@@ -4,7 +4,7 @@
   import { api, ApiError, API_BASE } from "$lib/api/client";
   import type { GamificationProfile, SessionInfo } from "$lib/types";
   import { auth } from "$lib/stores/auth";
-  import { formatDate, formatNumber } from "$lib/utils/format";
+  import { formatDate, formatNumber, relativeTime } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
 
@@ -13,6 +13,14 @@
   let loading = true;
   let error = "";
   let revoking = "";
+  // Sesi yang sedang dikonfirmasi untuk dicabut (aksen keamanan → modal konfirmasi).
+  let confirmingRevoke: SessionInfo | null = null;
+  async function revokeConfirmed() {
+    if (!confirmingRevoke) return;
+    const id = confirmingRevoke.id;
+    confirmingRevoke = null;
+    await revoke(id);
+  }
   let signingOutAll = false;
   let currentPassword = "";
   let newPassword = "";
@@ -429,7 +437,13 @@
     <div class="mt-6 card">
       <div class="flex items-center justify-between">
         <h2 class="font-display font-bold">Sesi aktif</h2>
-        <Icon name="shield-halved" size="14px" class="text-primary" />
+        <span class="flex items-center gap-2">
+          {#if !loading && sessions.length > 0}
+            <span class="badge badge-neutral" data-role="session-count">{sessions.length} sesi</span
+            >
+          {/if}
+          <Icon name="shield-halved" size="14px" class="text-primary" />
+        </span>
       </div>
 
       {#if error}
@@ -450,11 +464,18 @@
                 <Icon name="display" size="14px" class="muted" />
                 <div>
                   <p class="text-sm">{s.user_agent?.slice(0, 48) ?? "Perangkat tidak dikenal"}</p>
-                  <p class="text-xs muted">Sejak {formatDate(s.created_at)}</p>
+                  <p class="text-xs muted">
+                    Sejak {relativeTime(s.created_at)}
+                    {#if s.ip_address}· <span class="font-mono">{s.ip_address}</span>{/if}
+                  </p>
                 </div>
               </div>
-              <button class="btn-ghost" on:click={() => revoke(s.id)} disabled={revoking === s.id}>
-                {revoking === s.id ? "Mencabut…" : "Cabut"}
+              <button
+                class="btn-ghost"
+                on:click={() => (confirmingRevoke = s)}
+                disabled={revoking === s.id}
+              >
+                Cabut
               </button>
             </li>
           {/each}
@@ -474,3 +495,30 @@
     </div>
   {/if}
 </div>
+
+<!-- Revoke-session confirmation modal -->
+{#if confirmingRevoke}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">Cabut Sesi</h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        Cabut sesi pada perangkat
+        <strong>{confirmingRevoke.user_agent?.slice(0, 40) ?? "ini"}</strong>? Perangkat tersebut
+        harus masuk kembali.
+      </p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (confirmingRevoke = null)}>Batal</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => revokeConfirmed()}
+          data-role="confirm-revoke-session"
+        >
+          Ya, Cabut
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
