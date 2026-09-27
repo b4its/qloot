@@ -175,13 +175,18 @@ async def transaction_detail(tx_hash: str, db: DbSession, admin: AdminUser):
 
 
 @router.get("/events")
-async def events(db: DbSession, admin: AdminUser, limit: LimitParam = 100, offset: OffsetParam = 0):
-    stmt = (
-        select(BlockchainEvent)
-        .order_by(BlockchainEvent.block_number.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+async def events(
+    db: DbSession,
+    admin: AdminUser,
+    name: str | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
+):
+    """Indexed contract events, optionally filtered by exact ``event_name``."""
+    stmt = select(BlockchainEvent)
+    if name:
+        stmt = stmt.where(BlockchainEvent.event_name == name)
+    stmt = stmt.order_by(BlockchainEvent.block_number.desc()).limit(limit).offset(offset)
     rows = (await db.execute(stmt)).scalars().all()
     return [
         {
