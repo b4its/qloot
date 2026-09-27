@@ -219,6 +219,26 @@
 
   let bulkBusy = false;
 
+  // Draft review filter + status counters.
+  type DraftFilter = "all" | "pending" | "approved" | "rejected";
+  let draftFilter: DraftFilter = "all";
+  function statusOf(q: Question): string {
+    return q.review_status ?? "pending";
+  }
+  $: draftCounts = {
+    all: generated.length,
+    pending: generated.filter((g) => statusOf(g) === "pending").length,
+    approved: generated.filter((g) => statusOf(g) === "approved").length,
+    rejected: generated.filter((g) => statusOf(g) === "rejected").length,
+  };
+  $: filteredDrafts = generated.filter((g) => draftFilter === "all" || statusOf(g) === draftFilter);
+
+  const DRAFT_STATUS_LABEL: Record<string, string> = {
+    pending: "Menunggu",
+    approved: "Disetujui",
+    rejected: "Ditolak",
+  };
+
   /** Approve every still-pending draft in one pass. */
   async function approveAllDrafts() {
     const pending = generated.filter((g) => (g.review_status ?? "pending") === "pending");
@@ -353,8 +373,43 @@
       {/if}
 
       {#if generated.length}
-        {#if generated.some((g) => (g.review_status ?? "pending") === "pending")}
-          <div class="mt-3 flex justify-end">
+        <!-- Draft status metrics -->
+        <div class="mt-3 grid grid-cols-3 gap-3">
+          <div class="rounded-sm border p-3 surface">
+            <p class="mono-label text-[10px]">Menunggu</p>
+            <p
+              class="mt-1 font-display text-2xl font-bold text-highlight"
+              data-role="draft-pending"
+            >
+              {draftCounts.pending}
+            </p>
+          </div>
+          <div class="rounded-sm border p-3 surface">
+            <p class="mono-label text-[10px]">Disetujui</p>
+            <p class="mt-1 font-display text-2xl font-bold text-mint">{draftCounts.approved}</p>
+          </div>
+          <div class="rounded-sm border p-3 surface">
+            <p class="mono-label text-[10px]">Ditolak</p>
+            <p class="mt-1 font-display text-2xl font-bold">{draftCounts.rejected}</p>
+          </div>
+        </div>
+
+        <!-- Draft filter + bulk approve -->
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap gap-1 text-xs">
+            {#each [["all", "Semua"], ["pending", "Menunggu"], ["approved", "Disetujui"], ["rejected", "Ditolak"]] as [val, label]}
+              <button
+                type="button"
+                class="btn-pill !py-1 text-xs"
+                class:!border-primary={draftFilter === val}
+                class:!text-primary={draftFilter === val}
+                on:click={() => (draftFilter = val as DraftFilter)}
+              >
+                {label} ({draftCounts[val as keyof typeof draftCounts]})
+              </button>
+            {/each}
+          </div>
+          {#if draftCounts.pending > 0}
             <button
               class="btn-secondary !py-1 text-xs"
               on:click={approveAllDrafts}
@@ -362,42 +417,53 @@
             >
               <Icon name="check-double" size="11px" /> Setujui semua draf
             </button>
-          </div>
+          {/if}
+        </div>
+
+        {#if filteredDrafts.length === 0}
+          <p class="mt-3 text-center text-sm muted py-6">Tidak ada draf pada status ini.</p>
+        {:else}
+          <ol class="mt-3 space-y-3">
+            {#each filteredDrafts as q (q.id)}
+              <li class="border-t pt-2" data-draft={q.id}>
+                <div class="flex items-start justify-between gap-3">
+                  <p class="font-medium">
+                    {generated.indexOf(q) + 1}. {q.prompt}
+                  </p>
+                  <span
+                    class="badge"
+                    class:badge-mint={statusOf(q) === "approved"}
+                    class:badge-amber={statusOf(q) === "pending"}
+                    class:badge-neutral={statusOf(q) === "rejected"}
+                    >{DRAFT_STATUS_LABEL[statusOf(q)] ?? statusOf(q)}</span
+                  >
+                </div>
+                <p class="mt-1 text-sm muted">Kunci: {q.correct_answer}</p>
+                <div class="mt-2 flex gap-2">
+                  {#if q.review_status !== "approved"}
+                    <button class="btn-ghost" on:click={() => approve(q)}>Setujui</button>
+                  {/if}
+                  {#if q.review_status !== "rejected"}
+                    <button class="btn-ghost !text-tertiary" on:click={() => reject(q)}
+                      >Tolak</button
+                    >
+                  {/if}
+                  <button
+                    class="btn-ghost"
+                    on:click={() => regenerate(q)}
+                    disabled={regenerating === q.id}
+                  >
+                    {#if regenerating === q.id}<Icon name="spinner" spin size="11px" />{:else}<Icon
+                        name="rotate"
+                        size="11px"
+                      />{/if}
+                    Buat ulang
+                  </button>
+                </div>
+              </li>
+            {/each}
+          </ol>
         {/if}
-        <ol class="mt-3 space-y-3">
-          {#each generated as q, i}
-            <li class="border-t pt-2">
-              <div class="flex items-start justify-between gap-3">
-                <p class="font-medium">{i + 1}. {q.prompt}</p>
-                <span
-                  class="badge"
-                  class:badge-mint={q.review_status === "approved"}
-                  class:badge-amber={q.review_status !== "approved"}>{q.review_status}</span
-                >
-              </div>
-              <p class="mt-1 text-sm muted">Kunci: {q.correct_answer}</p>
-              <div class="mt-2 flex gap-2">
-                {#if q.review_status !== "approved"}
-                  <button class="btn-ghost" on:click={() => approve(q)}>Setujui</button>
-                {/if}
-                {#if q.review_status !== "rejected"}
-                  <button class="btn-ghost !text-tertiary" on:click={() => reject(q)}>Tolak</button>
-                {/if}
-                <button
-                  class="btn-ghost"
-                  on:click={() => regenerate(q)}
-                  disabled={regenerating === q.id}
-                >
-                  {#if regenerating === q.id}<Icon name="spinner" spin size="11px" />{:else}<Icon
-                      name="rotate"
-                      size="11px"
-                    />{/if}
-                  Buat ulang
-                </button>
-              </div>
-            </li>
-          {/each}
-        </ol>
       {/if}
     </div>
 

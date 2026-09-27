@@ -149,4 +149,26 @@ describe("teacher materials — AI question generation", () => {
     render(MaterialsPage);
     expect(await screen.findByText(/Soal lama tersimpan\?/)).toBeTruthy();
   });
+
+  it("shows draft status metrics and filters by status", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/materials/m1") return Promise.resolve(material);
+      if (path === "/materials/m1/questions")
+        return Promise.resolve([
+          { id: "q1", prompt: "Draf menunggu?", correct_answer: "A", review_status: "pending" },
+          { id: "q2", prompt: "Draf disetujui?", correct_answer: "B", review_status: "approved" },
+        ]);
+      return Promise.resolve([]);
+    });
+    render(MaterialsPage);
+    await waitFor(() => expect(document.body.textContent).toContain("Draf menunggu?"));
+
+    // Pending metric = 1.
+    expect(document.querySelector('[data-role="draft-pending"]')?.textContent?.trim()).toBe("1");
+
+    // Filter to approved → only q2 remains visible.
+    await fireEvent.click(screen.getByRole("button", { name: /Disetujui \(1\)/ }));
+    await waitFor(() => expect(document.body.textContent).not.toContain("Draf menunggu?"));
+    expect(document.body.textContent).toContain("Draf disetujui?");
+  });
 });
