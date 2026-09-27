@@ -17,6 +17,7 @@ from app.schemas.social import (
     NotificationCreate,
     NotificationOut,
     NotificationPage,
+    NotificationPreferencesIn,
     UnreadCount,
     UserBadgeOut,
 )
@@ -104,18 +105,17 @@ async def get_notification_preferences(user: CurrentUser, db: DbSession):
 
 
 @router.put("/notifications/preferences")
-async def set_notification_preferences(payload: dict, user: CurrentUser, db: DbSession):
+async def set_notification_preferences(
+    payload: NotificationPreferencesIn, user: CurrentUser, db: DbSession
+):
     """Replace the caller's muted-kinds set.
 
     Body: ``{"muted_kinds": ["quest", "level"]}``. An empty list re-enables
     every kind.
     """
-    from app.core.errors import ValidationError
     from app.models.social import NotificationPreference
 
-    muted = payload.get("muted_kinds")
-    if not isinstance(muted, list) or not all(isinstance(k, str) for k in muted):
-        raise ValidationError("muted_kinds must be a list of strings")
+    muted = payload.muted_kinds
     async with transaction(db):
         pref = await db.get(NotificationPreference, user.id)
         if pref is None:
