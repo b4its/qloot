@@ -264,7 +264,7 @@
                 aria-label="Unggah avatar"
               />
               <span
-                class="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-primary text-white opacity-0 transition-opacity group-hover:opacity-100"
+                class="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-primary text-[#05060A] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
               >
                 <Icon name="camera" size="9px" />
               </span>
