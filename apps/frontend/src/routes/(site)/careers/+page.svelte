@@ -27,7 +27,7 @@
 
   function applyHref(title: string): string {
     const subject = encodeURIComponent(`Lamaran: ${title}`);
-    return `mailto:jobs@qloot.example?subject=${subject}`;
+    return `mailto:careers@qloot.id?subject=${subject}`;
   }
 
   // --- filter + search -------------------------------------------------------
@@ -77,6 +77,7 @@
           class="btn-pill !py-1 text-xs"
           class:!border-primary={typeFilter === t}
           class:!text-primary={typeFilter === t}
+          aria-pressed={typeFilter === t}
           on:click={() => (typeFilter = t)}
         >
           {t} ({roles.filter((r) => r.type === t).length})

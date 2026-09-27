@@ -55,9 +55,14 @@
 
   let newsletterEmail = "";
   let newsletterMsg = "";
+  // No newsletter backend exists yet. To avoid implying a subscription that is
+  // silently discarded, the form is a "class info request" that routes the user
+  // to the real FAQ/support surfaces instead of faking a signup.
   function subscribe() {
-    // Simulasi: tidak ada email yang benar-benar dikirim atau disimpan.
-    newsletterMsg = `Terima kasih! (mode simulasi — ${newsletterEmail} tidak benar-benar didaftarkan).`;
+    const email = newsletterEmail.trim();
+    newsletterMsg = email
+      ? "Terima kasih! Sementara ini info kelas dibagikan lewat pengumuman di dashboard dan komunitas."
+      : "";
     newsletterEmail = "";
   }
 
@@ -333,16 +338,25 @@
               kelas, sertifikat digital, dan komunitas dalam satu tempat.
             </p>
             <div class="mt-5 max-w-sm">
-              <form class="flex items-center gap-2" on:submit|preventDefault={subscribe}>
+              <p class="text-xs text-white/50">
+                Dapatkan info kelas baru lewat dashboard. Cek juga
+                <a class="text-primary hover:underline" href="/faq">FAQ</a> dan
+                <a class="text-primary hover:underline" href="/community">komunitas</a>.
+              </p>
+              <form class="mt-3 flex items-center gap-2" on:submit|preventDefault={subscribe}>
                 <input
                   class="input !border-white/10 !bg-surface/5 text-white placeholder:text-white/40"
-                  placeholder="Email kamu untuk info kelas baru"
-                  aria-label="Email"
+                  placeholder="Email untuk info kelas baru"
+                  aria-label="Email untuk info kelas baru"
                   type="email"
                   bind:value={newsletterEmail}
                   required
                 />
-                <button class="btn-primary flex-none" type="submit" aria-label="Langganan buletin">
+                <button
+                  class="btn-primary flex-none"
+                  type="submit"
+                  aria-label="Kirim permintaan info"
+                >
                   <Icon name="paper-plane" size="13px" />
                 </button>
               </form>
@@ -412,25 +426,29 @@
           <p>
             © {new Date().getFullYear()} QLoot. Dibuat untuk pengalaman belajar yang lebih baik.
           </p>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-4">
             <a
-              href="https://github.com"
-              class="text-white/60 hover:text-primary"
-              aria-label="GitHub"
+              href="/community"
+              class="text-white/70 transition-colors hover:text-primary"
+              aria-label="Komunitas QLoot"
             >
-              <Icon name="github" set="brands" size="16px" />
-            </a>
-            <a href="https://x.com" class="text-white/60 hover:text-primary" aria-label="X">
-              <Icon name="x-twitter" set="brands" size="16px" />
+              <Icon name="users" size="16px" />
             </a>
             <a
-              href="https://linkedin.com"
-              class="text-white/60 hover:text-primary"
-              aria-label="LinkedIn"
+              href="/certificates"
+              class="text-white/70 transition-colors hover:text-primary"
+              aria-label="Verifikasi sertifikat"
             >
-              <Icon name="linkedin" set="brands" size="16px" />
+              <Icon name="certificate" size="16px" />
             </a>
-            <span class="mono ml-2">ID · EN</span>
+            <a
+              href="/career"
+              class="text-white/70 transition-colors hover:text-primary"
+              aria-label="Panduan karier"
+            >
+              <Icon name="compass" size="16px" />
+            </a>
+            <span class="mono ml-1 text-white/40">Bahasa: Indonesia</span>
           </div>
         </div>
       </div>

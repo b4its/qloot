@@ -134,15 +134,20 @@
 
 <!-- ================= LIVE STATS ================= -->
 <section class="border-y bg-surface">
-  <div class="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 lg:grid-cols-4">
-    {#each [{ label: "Pelajar aktif", value: 12840, suffix: "+" }, { label: "Pelajaran", value: 96, suffix: "" }, { label: "Guru & pengajar", value: 42, suffix: "" }, { label: "Sertifikat diterbitkan", value: 5310, suffix: "+" }] as s}
-      <div use:reveal>
-        <p class="font-display text-3xl font-bold sm:text-4xl">
-          <StatCounter value={s.value} suffix={s.suffix} />
-        </p>
-        <p class="mono-label mt-1">{s.label}</p>
-      </div>
-    {/each}
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <div class="grid grid-cols-2 gap-6 lg:grid-cols-4">
+      {#each [{ label: "Pelajar aktif", value: 12840, suffix: "+" }, { label: "Pelajaran", value: 96, suffix: "" }, { label: "Guru & pengajar", value: 42, suffix: "" }, { label: "Sertifikat diterbitkan", value: 5310, suffix: "+" }] as s}
+        <div use:reveal>
+          <p class="font-display text-3xl font-bold sm:text-4xl">
+            <StatCounter value={s.value} suffix={s.suffix} />
+          </p>
+          <p class="mono-label mt-1">{s.label}</p>
+        </div>
+      {/each}
+    </div>
+    <p class="mt-4 text-center text-[11px] muted">
+      Angka di atas bersifat ilustratif untuk demo dan bukan data langsung.
+    </p>
   </div>
 </section>
 
