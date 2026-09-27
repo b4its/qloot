@@ -100,13 +100,19 @@
   let withdrawBusy = false;
 
   let copiedAddr = false;
+  let copyError = "";
   async function copyToClipboard(text: string) {
     if (!text) return;
+    copyError = "";
     try {
       await navigator.clipboard.writeText(text);
       copiedAddr = true;
       setTimeout(() => (copiedAddr = false), 2000);
-    } catch {}
+    } catch {
+      // Clipboard can be blocked (insecure context, permissions). Tell the user
+      // instead of failing silently so they don't think the address was copied.
+      copyError = "Tidak dapat menyalin otomatis. Salin manual dari alamat di atas.";
+    }
   }
 
   function setWithdrawPercent(pct: number) {
@@ -131,16 +137,19 @@
 
   async function searchRecipients() {
     recipientBusy = true;
+    recipientError = "";
     try {
       recipients = await api.get<typeof recipients>(
         `/wallet/transfer-recipients?q=${encodeURIComponent(recipientQuery)}`,
       );
-    } catch {
+    } catch (e) {
       recipients = [];
+      recipientError = e instanceof ApiError ? e.message : "Gagal mencari penerima";
     } finally {
       recipientBusy = false;
     }
   }
+  let recipientError = "";
 
   async function transfer() {
     transferMsg = "";
@@ -358,12 +367,15 @@
     .reduce((s, w) => s + w.amount, 0);
 
   async function loadWithdrawals() {
+    withdrawalsError = "";
     try {
       withdrawals = await api.get<MyWithdrawal[]>("/wallet/withdrawals?limit=20");
-    } catch {
+    } catch (e) {
       withdrawals = [];
+      withdrawalsError = e instanceof ApiError ? e.message : "Gagal memuat riwayat penarikan";
     }
   }
+  let withdrawalsError = "";
 
   async function cancelWithdrawal(id: string) {
     withdrawMsg = "";
@@ -598,6 +610,7 @@
               class="btn-ghost !py-0.5 !px-2 text-xs inline-flex items-center gap-1 font-mono hover:text-primary transition-colors"
               on:click={() => copyToClipboard(wallet?.withdrawal_address ?? "")}
               title="Salin alamat dompet"
+              aria-label="Salin alamat dompet penarikan"
             >
               <Icon name={copiedAddr ? "circle-check" : "copy"} size="11px" />
               <span>{copiedAddr ? "Tersalin!" : shortHash(wallet.withdrawal_address, 6)}</span>
@@ -606,6 +619,9 @@
             <span class="badge badge-neutral text-xs">belum ada alamat pribadi</span>
           {/if}
         </div>
+        {#if copyError}
+          <p class="mt-1 text-xs text-danger" role="alert" aria-live="assertive">{copyError}</p>
+        {/if}
         <div class="mt-1 text-xs muted">
           Reward kredit dikreditkan ke akunmu lewat ledger double-entry dan bisa ditarik ke wallet
           pribadimu kapan saja.
@@ -665,6 +681,7 @@
               type="number"
               min="1"
               placeholder="Jumlah (OPT)"
+              aria-label="Jumlah penarikan (OPT)"
               bind:value={withdrawAmount}
             />
             <div class="mt-1 flex items-center gap-1.5 text-xs">
@@ -715,9 +732,21 @@
             disabled={withdrawBusy || withdrawAmount <= 0 || withdrawAddr.length !== 42}
             >{withdrawBusy ? "Memproses…" : "Minta penarikan"}</button
           >
-          {#if withdrawMsg}<p class="text-sm muted">{withdrawMsg}</p>{/if}
+          {#if withdrawMsg}<p class="text-sm muted" role="status" aria-live="polite">
+              {withdrawMsg}
+            </p>{/if}
         </div>
-        {#if withdrawals.length}
+        {#if withdrawalsError}
+          <div class="mt-4 border-t pt-4">
+            <p class="text-sm text-danger" role="alert" aria-live="assertive">
+              <Icon name="triangle-exclamation" size="12px" class="mt-0.5 inline-flex" />
+              {withdrawalsError}
+            </p>
+            <button class="btn-ghost mt-2 !py-1 text-xs" on:click={loadWithdrawals}
+              >Coba lagi</button
+            >
+          </div>
+        {:else if withdrawals.length}
           <div class="mt-4 border-t pt-4">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <p class="mono-label">Riwayat penarikan</p>
@@ -795,16 +824,21 @@
               <input
                 class="input"
                 placeholder="Cari nama atau email…"
+                aria-label="Cari penerima transfer"
                 bind:value={recipientQuery}
                 on:keydown={(e) => e.key === "Enter" && searchRecipients()}
               />
               <button
                 class="btn-secondary flex-none"
                 on:click={searchRecipients}
-                disabled={recipientBusy}>Cari</button
+                disabled={recipientBusy}>{recipientBusy ? "Mencari…" : "Cari"}</button
               >
             </div>
-            {#if recipients.length}
+            {#if recipientError}
+              <p class="mt-1 text-xs text-danger" role="alert" aria-live="assertive">
+                {recipientError}
+              </p>
+            {:else if recipients.length}
               <ul class="max-h-40 space-y-1 overflow-y-auto">
                 {#each recipients as r}
                   <li>
@@ -822,6 +856,8 @@
                   </li>
                 {/each}
               </ul>
+            {:else if recipientQuery.trim() && !recipientBusy}
+              <p class="mt-1 text-xs muted">Penerima tidak ditemukan.</p>
             {/if}
           {/if}
           <div>
@@ -830,6 +866,7 @@
               type="number"
               min="1"
               placeholder="Jumlah (OPT)"
+              aria-label="Jumlah transfer (OPT)"
               bind:value={transferAmount}
             />
             <div class="mt-1 flex items-center gap-1.5 text-xs">
@@ -856,14 +893,21 @@
               >
             </div>
           </div>
-          <input class="input" placeholder="Catatan (opsional)" bind:value={transferNote} />
+          <input
+            class="input"
+            placeholder="Catatan (opsional)"
+            aria-label="Catatan transfer (opsional)"
+            bind:value={transferNote}
+          />
           <button
             class="btn-primary"
             on:click={transfer}
             disabled={transferBusy || !transferTarget || transferAmount <= 0}
             >{transferBusy ? "Mengirim…" : "Kirim"}</button
           >
-          {#if transferMsg}<p class="text-sm muted">{transferMsg}</p>{/if}
+          {#if transferMsg}<p class="text-sm muted" role="status" aria-live="polite">
+              {transferMsg}
+            </p>{/if}
         </div>
       </div>
     </div>
@@ -910,11 +954,12 @@
       </div>
       <div class="mt-2 overflow-x-auto">
         <table class="w-full text-sm">
+          <caption class="sr-only">Buku besar dompet</caption>
           <thead class="text-left muted">
             <tr
-              ><th class="py-1">Tanggal</th><th>Tipe</th><th>Keterangan</th><th>Jumlah</th><th
-                class="text-right">Saldo</th
-              ></tr
+              ><th class="py-1" scope="col">Tanggal</th><th scope="col">Tipe</th><th scope="col"
+                >Keterangan</th
+              ><th scope="col">Jumlah</th><th class="text-right" scope="col">Saldo</th></tr
             >
           </thead>
           <tbody>
