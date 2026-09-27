@@ -86,21 +86,56 @@
     }
   }
 
-  /** CARE-07: edit a catalog entry (title/description) via PATCH. */
-  async function editResource(item: ResourceItem) {
-    const title = prompt("Judul baru", item.title);
-    if (title === null || !title.trim()) return;
-    const description = prompt("Deskripsi baru (opsional)", item.description ?? "") ?? "";
+  // Editing an existing catalog entry (all ResourceUpdate fields).
+  let editing: {
+    code: string;
+    title: string;
+    description: string;
+    provider: string;
+    is_free: boolean;
+    tags: string;
+  } | null = null;
+  let editBusy = false;
+
+  /** CARE-07: open the edit modal pre-filled from the row. */
+  function editResource(item: ResourceItem) {
+    editing = {
+      code: item.code,
+      title: item.title,
+      description: item.description ?? "",
+      provider: item.provider ?? "",
+      is_free: item.is_free,
+      tags: (item.tags ?? []).join(", "),
+    };
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    if (editing.title.trim().length < 2) {
+      error = "Judul minimal 2 karakter.";
+      return;
+    }
+    editBusy = true;
     error = "";
+    message = "";
     try {
-      await api.patch(`/career/resources/${item.code}`, {
-        title: title.trim(),
-        description,
+      await api.patch(`/career/resources/${editing.code}`, {
+        title: editing.title.trim(),
+        description: editing.description.trim() || null,
+        provider: editing.provider.trim() || null,
+        is_free: editing.is_free,
+        tags: editing.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
       });
       message = "Sumber daya diperbarui.";
+      editing = null;
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memperbarui sumber daya";
+    } finally {
+      editBusy = false;
     }
   }
 
@@ -264,6 +299,52 @@
           data-role="confirm-delete-resource"
         >
           Ya, Hapus
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Edit modal -->
+{#if editing}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-lg space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="font-display text-lg font-bold">Ubah Sumber Daya</h3>
+        <button class="btn-icon" on:click={() => (editing = null)} aria-label="Tutup">
+          <Icon name="xmark" size="11px" />
+        </button>
+      </div>
+      <label class="block">
+        <span class="mono-label text-[10px]">Judul</span>
+        <input class="input mt-1" bind:value={editing.title} />
+      </label>
+      <label class="block">
+        <span class="mono-label text-[10px]">Deskripsi</span>
+        <textarea class="input mt-1 min-h-[64px]" bind:value={editing.description}></textarea>
+      </label>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="block">
+          <span class="mono-label text-[10px]">Penyedia</span>
+          <input class="input mt-1" bind:value={editing.provider} />
+        </label>
+        <label class="flex items-end gap-2 pb-2 text-sm">
+          <input type="checkbox" bind:checked={editing.is_free} />
+          <span>Gratis</span>
+        </label>
+      </div>
+      <label class="block">
+        <span class="mono-label text-[10px]">Tag (pisahkan dengan koma)</span>
+        <input
+          class="input mt-1"
+          placeholder="mis. matematika, olimpiade"
+          bind:value={editing.tags}
+        />
+      </label>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (editing = null)}>Batal</button>
+        <button class="btn-primary text-xs" on:click={saveEdit} disabled={editBusy}>
+          {editBusy ? "Menyimpan…" : "Simpan"}
         </button>
       </div>
     </div>
