@@ -27,6 +27,9 @@
   let conversationId: string | null = null;
   let history: AssistantConversation[] = [];
   let historyQuery = "";
+  // The search box only renders when there are more than 3 conversations; if the
+  // list shrinks below that a stale query would silently filter nothing visible.
+  $: if (history.length <= 3 && historyQuery) historyQuery = "";
   let copiedIndex: number | null = null;
 
   $: filteredHistory = history.filter((c) =>
@@ -56,13 +59,17 @@
   }
 
   async function loadHistory() {
+    historyError = "";
     try {
       const rows = await api.get<AssistantConversation[]>("/career/assistant/conversations");
       history = Array.isArray(rows) ? rows : [];
     } catch {
+      // Distinguish a failed load from a genuinely empty history.
       history = [];
+      historyError = "Gagal memuat riwayat percakapan.";
     }
   }
+  let historyError = "";
 
   async function openConversation(id: string) {
     if (busy) return;
@@ -242,6 +249,14 @@
   {#if error}
     <p class="alert-error mt-4">
       {error}
+    </p>
+  {/if}
+
+  {#if historyError}
+    <p class="alert-error mt-4 text-xs" role="alert" aria-live="assertive">
+      <Icon name="triangle-exclamation" size="11px" class="inline-flex" />
+      {historyError}
+      <button class="btn-ghost ml-2 !py-0.5 text-xs" on:click={loadHistory}>Coba lagi</button>
     </p>
   {/if}
 

@@ -220,13 +220,18 @@
         {/if}
       </div>
 
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
+      <div
+        class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
+        role="group"
+        aria-label="Filter status badge"
+      >
         <button
           type="button"
           class="px-2.5 py-1 rounded-xs font-medium transition-colors"
           class:bg-primary={statusFilter === "all"}
           class:text-[#05060A]={statusFilter === "all"}
           class:muted={statusFilter !== "all"}
+          aria-pressed={statusFilter === "all"}
           on:click={() => (statusFilter = "all")}>Semua</button
         >
         <button
@@ -235,6 +240,7 @@
           class:bg-primary={statusFilter === "unlocked"}
           class:text-[#05060A]={statusFilter === "unlocked"}
           class:muted={statusFilter !== "unlocked"}
+          aria-pressed={statusFilter === "unlocked"}
           on:click={() => (statusFilter = "unlocked")}>Diraih</button
         >
         <button
@@ -243,6 +249,7 @@
           class:bg-primary={statusFilter === "locked"}
           class:text-[#05060A]={statusFilter === "locked"}
           class:muted={statusFilter !== "locked"}
+          aria-pressed={statusFilter === "locked"}
           on:click={() => (statusFilter = "locked")}>Terkunci</button
         >
       </div>

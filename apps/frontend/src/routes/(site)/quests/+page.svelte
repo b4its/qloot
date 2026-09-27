@@ -109,11 +109,15 @@
     error = "";
     try {
       quests = await api.get<Quest[]>("/quests?limit=200");
-      for (const q of quests) {
-        if (q.status === "finalized") {
-          winnersByQuest[q.id] = await api.get<Winner[]>(`/quests/${q.id}/winners`);
-        }
-      }
+      // Fetch winners concurrently and tolerate per-quest failures: a single
+      // missing winners list must not blank the whole page.
+      const finalized = quests.filter((q) => q.status === "finalized");
+      const results = await Promise.allSettled(
+        finalized.map((q) => api.get<Winner[]>(`/quests/${q.id}/winners`)),
+      );
+      results.forEach((res, i) => {
+        if (res.status === "fulfilled") winnersByQuest[finalized[i].id] = res.value;
+      });
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat quest";
     } finally {

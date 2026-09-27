@@ -21,6 +21,7 @@
   let levelPage = 1;
   let levelHasMore = false;
   let levelLoading = false;
+  let levelError = "";
   let period: RankingPeriod = "all";
 
   const periodLabel: Record<RankingPeriod, string> = {
@@ -62,14 +63,22 @@
     if (next === period) return;
     period = next;
     rankPage = 1;
+    // Reset the caller's row so a failed fetch can never show the previous
+    // period's rank as if it belonged to the new one.
+    me = null;
+    meLoading = true;
     await Promise.all([
       loadRanking(),
       api
         .get<RankingMe>(`/rankings/me?period=${period}`)
         .then((m) => (me = m))
-        .catch(() => {}),
+        .catch(() => {
+          me = null;
+        })
+        .finally(() => (meLoading = false)),
     ]);
   }
+  let meLoading = false;
 
   async function loadLevels() {
     levelLoading = true;
@@ -86,7 +95,6 @@
       levelLoading = false;
     }
   }
-  let levelError = "";
 
   // --- search + metrics over the loaded page ---------------------------------
   let query = "";
@@ -149,7 +157,9 @@
     <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
   {/if}
 
-  {#if me}
+  {#if meLoading}
+    <div class="mt-6 card"><div class="skeleton h-24"></div></div>
+  {:else if me}
     <div class="mt-6 card space-y-5">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-4">
@@ -363,7 +373,11 @@
       <p class="text-sm muted">{levelError}</p>
       <button class="btn-ghost mt-3 !py-1 text-xs" on:click={loadLevels}>Coba lagi</button>
     </div>
-  {:else if !levelLoading}
+  {:else if levelLoading}
+    <div class="mt-10 space-y-2">
+      {#each Array(4) as _}<div class="skeleton h-10"></div>{/each}
+    </div>
+  {:else}
     <div class="card mt-10 grid place-items-center py-10 text-center">
       <Icon name="ranking-star" size="24px" class="muted" />
       <p class="mt-2 text-sm muted">Belum ada data XP untuk ditampilkan.</p>

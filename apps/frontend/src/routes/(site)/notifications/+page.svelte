@@ -66,17 +66,22 @@
   }
 
   async function toggleMute(kind: string) {
+    if (prefsBusy) return;
     const next = mutedKinds.includes(kind)
       ? mutedKinds.filter((k) => k !== kind)
       : [...mutedKinds, kind];
     prefsError = "";
+    prefsBusy = kind;
     try {
       await api.put("/notifications/preferences", { muted_kinds: next });
       mutedKinds = next;
     } catch (e) {
       prefsError = e instanceof ApiError ? e.message : "Gagal menyimpan preferensi";
+    } finally {
+      prefsBusy = "";
     }
   }
+  let prefsBusy = "";
 
   function buildQuery(): string {
     const params = new URLSearchParams();
@@ -308,6 +313,9 @@
         <Icon name="sliders" size="12px" />
         {showPrefs ? "Sembunyikan preferensi" : "Preferensi"}
       </button>
+      {#if prefsError && !showPrefs}
+        <span class="text-xs text-danger" role="alert" aria-live="assertive">{prefsError}</span>
+      {/if}
       <button
         class="btn-ghost !py-1.5"
         on:click={markAll}
@@ -364,6 +372,7 @@
               class:badge-mint={!mutedKinds.includes(kind)}
               on:click={() => toggleMute(kind)}
               aria-pressed={mutedKinds.includes(kind)}
+              disabled={prefsBusy === kind}
             >
               <Icon name={mutedKinds.includes(kind) ? "bell-slash" : "bell"} size="10px" />
               {kindLabel[kind]}

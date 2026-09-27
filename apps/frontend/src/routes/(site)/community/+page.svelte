@@ -64,6 +64,7 @@
   // COMM-06: restrict the feed to authors the viewer follows.
   let followingOnly = false;
   let followingIds: string[] = [];
+  let followingLoaded = true;
   let openComments = new Set<string>();
   let commentDraft: Record<string, string> = {};
   let busy = "";
@@ -126,7 +127,15 @@
         api.get<typeof stats>("/community/stats"),
       ]);
       if (user) {
-        followingIds = await api.get<string[]>("/me/following").catch(() => []);
+        // If this fails we must not present every author as "Ikuti" (which would
+        // be wrong for already-followed authors) — mark the list as unavailable.
+        try {
+          followingIds = await api.get<string[]>("/me/following");
+          followingLoaded = true;
+        } catch {
+          followingIds = [];
+          followingLoaded = false;
+        }
       }
       hasMore = posts.length === PAGE;
     } catch (e) {
@@ -667,11 +676,17 @@
               {#if user && f.author_id !== user.id}
                 <button
                   class="btn-pill !py-0.5 text-xs"
-                  class:!border-primary={followingIds.includes(f.author_id)}
-                  class:!text-primary={followingIds.includes(f.author_id)}
+                  class:!border-primary={followingLoaded && followingIds.includes(f.author_id)}
+                  class:!text-primary={followingLoaded && followingIds.includes(f.author_id)}
                   on:click={() => toggleFollow(f.author_id)}
+                  disabled={!followingLoaded}
+                  title={followingLoaded ? undefined : "Status ikutan belum tersedia"}
                 >
-                  {followingIds.includes(f.author_id) ? "Mengikuti" : "Ikuti"}
+                  {followingLoaded
+                    ? followingIds.includes(f.author_id)
+                      ? "Mengikuti"
+                      : "Ikuti"
+                    : "Ikuti —"}
                 </button>
               {/if}
             </div>
