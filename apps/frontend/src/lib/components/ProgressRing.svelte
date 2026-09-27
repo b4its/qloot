@@ -5,6 +5,10 @@
   export let label = "";
   export let sublabel = "";
 
+  // Unique gradient id: hardcoding one id duplicates across multiple rings on
+  // the same page (invalid DOM, wrong gradient resolution).
+  const gradId = `ringGrad-${Math.random().toString(36).slice(2, 9)}`;
+
   $: r = (size - stroke) / 2;
   $: c = 2 * Math.PI * r;
   $: offset = c * (1 - Math.min(100, Math.max(0, value)) / 100);
@@ -22,7 +26,7 @@
     aria-label={label ? `${label}: ${Math.round(value)}%` : `Progres ${Math.round(value)}%`}
   >
     <defs>
-      <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#FCEE0A" />
         <stop offset="100%" stop-color="#00F0FF" />
       </linearGradient>
@@ -40,7 +44,7 @@
       cy={size / 2}
       {r}
       fill="none"
-      stroke="url(#ringGrad)"
+      stroke={`url(#${gradId})`}
       stroke-width={stroke}
       stroke-linecap="round"
       stroke-dasharray={c}
