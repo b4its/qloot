@@ -262,6 +262,7 @@
 
   let reportingTarget: { type: "post" | "comment"; id: string } | null = null;
   let deletingComment: { post: Post; comment: Comment } | null = null;
+  let deletingPost: Post | null = null;
   let reportCategory = REPORT_REASONS[0];
   let reportCustomDetail = "";
   let reportNotice = "";
@@ -427,6 +428,28 @@
       await loadComments(p);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menghapus komentar";
+    } finally {
+      busy = "";
+    }
+  }
+
+  /** Delete your own post (or any, as an admin). */
+  function deletePost(p: Post) {
+    deletingPost = p;
+  }
+
+  async function confirmDeletePost() {
+    const p = deletingPost;
+    if (!p) return;
+    deletingPost = null;
+    busy = `pd-${p.id}`;
+    try {
+      await api.delete(`/community/posts/${p.id}`);
+      posts = posts.filter((x) => x.id !== p.id);
+      reportNotice = "Diskusi dihapus.";
+      setTimeout(() => (reportNotice = ""), 4000);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : "Gagal menghapus diskusi";
     } finally {
       busy = "";
     }
@@ -686,6 +709,17 @@
               <Icon name="flag" size="12px" />
               Laporkan
             </button>
+            {#if user && (f.author_id === user.id || user.roles?.includes("admin"))}
+              <button
+                class="inline-flex items-center gap-1.5 transition-colors hover:text-danger"
+                on:click={() => deletePost(f)}
+                disabled={busy === `pd-${f.id}`}
+                aria-label="Hapus diskusi"
+              >
+                <Icon name="trash" size="12px" />
+                Hapus
+              </button>
+            {/if}
           </div>
 
           {#if openComments.has(f.id)}
@@ -1054,5 +1088,16 @@
     confirmLabel="Ya, Hapus"
     onConfirm={confirmDeleteComment}
     close={() => (deletingComment = null)}
+  />
+{/if}
+
+{#if deletingPost}
+  <ConfirmDialog
+    title="Hapus Diskusi"
+    description="Diskusi ini beserta komentarnya akan dihapus dan tidak dapat dikembalikan."
+    confirmLabel="Ya, Hapus"
+    busy={busy === `pd-${deletingPost.id}`}
+    onConfirm={confirmDeletePost}
+    close={() => (deletingPost = null)}
   />
 {/if}
