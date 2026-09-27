@@ -33,12 +33,27 @@
       animate();
       return;
     }
+    // Fallback: if IntersectionObserver is unavailable, never leave the
+    // counter stuck at a misleading "0".
+    if (typeof IntersectionObserver === "undefined") {
+      animate();
+      return;
+    }
     const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && animate()),
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) animate();
+        }),
       { threshold: 0.3 },
     );
     io.observe(el);
-    return () => io.disconnect();
+    // Safety net: if the element is already visible but the observer never
+    // fires (e.g. a display:none ancestor), still show the real value.
+    const fallback = setTimeout(() => animate(), 1500);
+    return () => {
+      io.disconnect();
+      clearTimeout(fallback);
+    };
   });
 </script>
 

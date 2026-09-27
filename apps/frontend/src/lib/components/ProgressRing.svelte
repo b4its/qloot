@@ -11,7 +11,16 @@
 </script>
 
 <div class="relative grid place-items-center" style={`width:${size}px;height:${size}px`}>
-  <svg width={size} height={size} class="-rotate-90" role="img" aria-label={`${label} ${value}%`}>
+  <svg
+    width={size}
+    height={size}
+    class="-rotate-90"
+    role="progressbar"
+    aria-valuenow={Math.round(value)}
+    aria-valuemin={0}
+    aria-valuemax={100}
+    aria-label={label ? `${label}: ${Math.round(value)}%` : `Progres ${Math.round(value)}%`}
+  >
     <defs>
       <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#FCEE0A" />
