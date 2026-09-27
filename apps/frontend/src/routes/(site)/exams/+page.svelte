@@ -5,7 +5,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
-  import { paginate, formatNumber } from "$lib/utils/format";
+  import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
   import { formatDate, examCategory, type ExamCategory } from "$lib/utils/format";
 
@@ -64,11 +64,7 @@
     const list = attemptsByExam[exam.id] ?? [];
     const done = list.filter((a) => a.status === "submitted" || a.status === "graded");
     const scored = done.filter((a) => a.score_bp != null);
-    const best = scored.length
-      ? Math.max(...scored.map((a) => a.score_bp ?? 0))
-      : done.length
-        ? null
-        : null;
+    const best = scored.length ? Math.max(...scored.map((a) => a.score_bp ?? 0)) : null;
     const bestAttempt = scored.find((a) => a.score_bp === best) ?? null;
     return {
       count: list.length,
@@ -183,9 +179,11 @@
 
   async function load() {
     try {
+      // Attempts must not be swallowed: defaulting to "none" would show a
+      // passed exam as "Kerjakan sekarang" and invite a pointless retake.
       const [ex, att] = await Promise.all([
         api.get<Exam[]>("/exams?limit=200"),
-        api.get<Attempt[]>("/attempts?limit=200").catch(() => [] as Attempt[]),
+        api.get<Attempt[]>("/attempts?limit=200"),
       ]);
       exams = ex;
       attempts = att;
@@ -370,11 +368,15 @@
     {:else if groupedView}
       {#each SECTIONS as section}
         {@const sectionExams = pagedExams.filter((e) => categoryOf(e) === section.key)}
+        {@const sectionTotal = filtered.filter((e) => categoryOf(e) === section.key).length}
         {#if sectionExams.length}
           <section class="mt-8">
             <h2 class="hud flex items-center gap-2 font-display text-xl font-bold">
               {section.label}
-              <span class="badge badge-indigo">{sectionExams.length}</span>
+              <span class="badge badge-indigo">{sectionTotal}</span>
+              {#if sectionTotal > sectionExams.length}
+                <span class="mono-label normal-case">· lanjut di halaman berikutnya</span>
+              {/if}
             </h2>
             <div class="mt-4 grid gap-5 sm:grid-cols-2">
               {#each sectionExams as exam, i}

@@ -13,6 +13,9 @@
   let progress: Progress[] = [];
   let loading = true;
   let error = "";
+  // Course context is best-effort: if it fails, the lesson still renders but we
+  // must tell the user why prev/next navigation and the progress bar are absent.
+  let contextError = "";
   let saving = false;
   let saved = false;
 
@@ -23,8 +26,13 @@
     try {
       lesson = await api.get<Lesson>(`/lessons/${lessonId}`);
       if (courseId) {
-        course = await api.get<Course>(`/courses/${courseId}`).catch(() => null);
-        courseLessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`).catch(() => []);
+        contextError = "";
+        try {
+          course = await api.get<Course>(`/courses/${courseId}`);
+          courseLessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`);
+        } catch {
+          contextError = "Konteks pelajaran gagal dimuat; navigasi antar-materi disembunyikan.";
+        }
       }
       // Scope the progress query to this course (no client-side over-fetch).
       const courseIdForProgress = courseId || lesson?.course_id;
@@ -186,8 +194,14 @@
         <p class="mt-4 muted">Belum ada konten teks pada materi ini.</p>
       {/if}
 
+      {#if contextError}
+        <p class="alert-warning mt-4 flex items-start gap-2" role="status">
+          <Icon name="triangle-exclamation" size="12px" class="mt-0.5 flex-none" />
+          <span>{contextError}</span>
+        </p>
+      {/if}
       {#if error}
-        <p class="alert-error mt-4">{error}</p>
+        <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
       {/if}
     </article>
 

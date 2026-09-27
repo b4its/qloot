@@ -42,20 +42,33 @@
   let negative: NegativeBalance[] = [];
   let recentAudit: AuditRow[] = [];
   let loading = true;
+  // Which endpoint groups failed to load. An ops dashboard must never present a
+  // failed fetch as "0 pending / balanced" — that reads as "all healthy".
+  let unavailable: string[] = [];
 
   onMount(async () => {
+    const failures: string[] = [];
+    const safe = async <T,>(p: Promise<T>, fallback: T, label: string): Promise<T> => {
+      try {
+        return await p;
+      } catch {
+        failures.push(label);
+        return fallback;
+      }
+    };
     const [u, w, r, n, a] = await Promise.all([
-      api.get<User[]>("/admin/users?limit=200").catch(() => []),
-      api.get<AdminWithdrawal[]>("/admin/withdrawals?limit=200").catch(() => []),
-      api.get<Reward[]>("/admin/rewards?limit=200").catch(() => []),
-      api.get<NegativeBalance[]>("/admin/ledger/negative?limit=200").catch(() => []),
-      api.get<AuditRow[]>("/admin/audit-logs?limit=6").catch(() => []),
+      safe(api.get<User[]>("/admin/users?limit=200"), [], "pengguna"),
+      safe(api.get<AdminWithdrawal[]>("/admin/withdrawals?limit=200"), [], "penarikan"),
+      safe(api.get<Reward[]>("/admin/rewards?limit=200"), [], "hadiah"),
+      safe(api.get<NegativeBalance[]>("/admin/ledger/negative?limit=200"), [], "buku besar"),
+      safe(api.get<AuditRow[]>("/admin/audit-logs?limit=6"), [], "log audit"),
     ]);
     users = u;
     withdrawals = w;
     rewards = r;
     negative = n;
     recentAudit = a;
+    unavailable = failures;
     loading = false;
   });
 
@@ -153,6 +166,15 @@
       {#each Array(4) as _}<div class="skeleton h-32"></div>{/each}
     </div>
   {:else}
+    {#if unavailable.length}
+      <div class="alert-warning mt-6 flex items-start gap-3" role="alert" aria-live="assertive">
+        <Icon name="triangle-exclamation" class="mt-0.5 flex-none" size="14px" />
+        <p class="text-sm">
+          Sebagian data operasional gagal dimuat ({unavailable.join(", ")}). Angka di bawah bisa
+          belum lengkap — jangan anggap sistem sehat hanya dari tampilan ini.
+        </p>
+      </div>
+    {/if}
     <!-- Operational metrics -->
     <div class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div class="card p-4">

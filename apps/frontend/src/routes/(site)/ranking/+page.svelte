@@ -74,6 +74,7 @@
 
   async function loadLevels() {
     levelLoading = true;
+    levelError = "";
     try {
       const res = await api.get<LevelLeaderboard>(
         `/gamification/levels?limit=${PAGE}&offset=${(levelPage - 1) * PAGE}`,
@@ -81,11 +82,12 @@
       levels = res;
       levelHasMore = res.entries.length === PAGE;
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal memuat peringkat";
+      levelError = e instanceof ApiError ? e.message : "Gagal memuat peringkat level";
     } finally {
       levelLoading = false;
     }
   }
+  let levelError = "";
 
   // --- search + metrics over the loaded page ---------------------------------
   let query = "";
@@ -252,12 +254,13 @@
 
     <div class="mt-4 card overflow-x-auto !p-0">
       <table class="w-full text-sm">
+        <caption class="sr-only">Peringkat global</caption>
         <thead class="text-left">
           <tr class="mono-label border-b">
-            <th class="px-5 py-3">#</th>
-            <th class="px-5 py-3">Pengguna</th>
-            <th class="px-5 py-3 text-right">Skor</th>
-            <th class="px-5 py-3 text-right">OPT</th>
+            <th class="px-5 py-3" scope="col">#</th>
+            <th class="px-5 py-3" scope="col">Pengguna</th>
+            <th class="px-5 py-3 text-right" scope="col">Skor</th>
+            <th class="px-5 py-3 text-right" scope="col">OPT</th>
           </tr>
         </thead>
         <tbody>
@@ -312,12 +315,13 @@
     <h2 class="mt-2 font-display text-2xl font-bold">Papan XP global</h2>
     <div class="mt-4 card overflow-x-auto !p-0">
       <table class="w-full text-sm">
+        <caption class="sr-only">Papan XP global</caption>
         <thead>
           <tr class="border-b text-left">
-            <th class="px-5 py-3 font-medium">#</th>
-            <th class="px-5 py-3 font-medium">Pengguna</th>
-            <th class="px-5 py-3 text-right font-medium">Level</th>
-            <th class="px-5 py-3 text-right font-medium">XP</th>
+            <th class="px-5 py-3 font-medium" scope="col">#</th>
+            <th class="px-5 py-3 font-medium" scope="col">Pengguna</th>
+            <th class="px-5 py-3 text-right font-medium" scope="col">Level</th>
+            <th class="px-5 py-3 text-right font-medium" scope="col">XP</th>
           </tr>
         </thead>
         <tbody>
@@ -353,5 +357,17 @@
       onPrev={() => goLevel(-1)}
       onNext={() => goLevel(1)}
     />
+  {:else if levelError}
+    <div class="card mt-10 grid place-items-center py-10 text-center" role="alert">
+      <Icon name="triangle-exclamation" size="24px" class="text-tertiary" />
+      <p class="mt-2 font-semibold">Gagal memuat papan XP</p>
+      <p class="text-sm muted">{levelError}</p>
+      <button class="btn-ghost mt-3 !py-1 text-xs" on:click={loadLevels}>Coba lagi</button>
+    </div>
+  {:else if !levelLoading}
+    <div class="card mt-10 grid place-items-center py-10 text-center">
+      <Icon name="ranking-star" size="24px" class="muted" />
+      <p class="mt-2 text-sm muted">Belum ada data XP untuk ditampilkan.</p>
+    </div>
   {/if}
 </div>

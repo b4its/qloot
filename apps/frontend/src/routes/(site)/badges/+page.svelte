@@ -58,10 +58,12 @@
     loading = true;
     error = "";
     try {
+      // Progress must not be swallowed: a silent empty list renders every
+      // locked badge as "0/1", which is a wrong value, not just a missing one.
       const [catalogRes, earnedRes, progressRes] = await Promise.all([
         api.get<Badge[]>("/badges"),
         api.get<UserBadge[]>("/me/badges"),
-        api.get<BadgeProgress[]>("/badges/progress").catch(() => [] as BadgeProgress[]),
+        api.get<BadgeProgress[]>("/badges/progress"),
       ]);
       catalog = catalogRes;
       earned = earnedRes;

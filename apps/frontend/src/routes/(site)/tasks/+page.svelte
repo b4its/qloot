@@ -81,9 +81,11 @@
     loading = true;
     error = "";
     try {
+      // Completions must NOT be swallowed: silently defaulting to "not completed"
+      // would let a student re-run an already-finished daily task.
       const [tasksRes, completionsRes] = await Promise.all([
         api.get<Task[]>("/tasks?limit=200"),
-        api.get<TaskCompletion[]>("/tasks/me/completions").catch(() => []),
+        api.get<TaskCompletion[]>("/tasks/me/completions"),
       ]);
       tasks = tasksRes;
       const compMap: Record<string, boolean> = {};
@@ -132,13 +134,13 @@
   </div>
 
   {#if message}
-    <p class="alert-info mt-4 flex items-center gap-2">
+    <p class="alert-info mt-4 flex items-center gap-2" role="status" aria-live="polite">
       <Icon name="circle-info" size="14px" class="flex-none text-primary" />
       <span>{message}</span>
     </p>
   {/if}
   {#if error}
-    <p class="alert-error mt-4">{error}</p>
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
   {/if}
 
   <!-- Overview Metrics -->
@@ -172,12 +174,14 @@
           class="input text-xs !py-1.5 w-full"
           placeholder="Cari tugas..."
           bind:value={searchQuery}
+          aria-label="Cari tugas"
         />
         {#if searchQuery}
           <button
             type="button"
             class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
             on:click={() => (searchQuery = "")}
+            aria-label="Bersihkan pencarian"
           >
             ✕
           </button>

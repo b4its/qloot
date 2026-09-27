@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { Room } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
@@ -148,7 +149,7 @@
       const room = await api.post<Room>("/rooms/join-by-code", {
         code: joinCode.trim().toUpperCase(),
       });
-      window.location.href = `/rooms/${room.id}`;
+      await goto(`/rooms/${room.id}`);
     } catch (e) {
       joinError = e instanceof ApiError ? e.message : "Gagal bergabung ke ruang";
     } finally {
@@ -164,7 +165,7 @@
       const member = await api.post<{ room_id: string }>("/rooms/invitations/accept", {
         code: joinCode.trim().toUpperCase(),
       });
-      window.location.href = `/rooms/${member.room_id}`;
+      await goto(`/rooms/${member.room_id}`);
     } catch (e) {
       joinError = e instanceof ApiError ? e.message : "Gagal menerima undangan";
     } finally {
@@ -186,7 +187,7 @@
     try {
       const room = await api.post<Room>("/rooms", newRoom);
       showCreate = false;
-      window.location.href = `/rooms/${room.id}`;
+      await goto(`/rooms/${room.id}`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membuat ruang";
     } finally {
@@ -364,12 +365,14 @@
           class="input text-xs !py-1.5 w-full"
           placeholder="Cari nama atau kode ruang..."
           bind:value={searchQuery}
+          aria-label="Cari ruang"
         />
         {#if searchQuery}
           <button
             type="button"
             class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
             on:click={() => (searchQuery = "")}
+            aria-label="Bersihkan pencarian"
           >
             ✕
           </button>
