@@ -9,6 +9,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -94,9 +95,16 @@
   }
 
   async function deactivate(u: User) {
-    if (!confirm(`Nonaktifkan akun "${u.email}"? Pengguna tidak akan bisa masuk.`)) return;
+    deactivatingUser = u;
+  }
+
+  async function confirmDeactivate() {
+    const u = deactivatingUser;
+    if (!u) return;
+    deactivatingUser = null;
     await toggleActive(u);
   }
+  let deactivatingUser: User | null = null;
 
   async function setRole(u: User, role: string) {
     error = "";
@@ -268,3 +276,13 @@
     onNext={() => go(1)}
   />
 </div>
+
+{#if deactivatingUser}
+  <ConfirmDialog
+    title="Nonaktifkan Akun"
+    description={`Akun "${deactivatingUser.email}" tidak akan bisa masuk sampai diaktifkan kembali.`}
+    confirmLabel="Ya, Nonaktifkan"
+    onConfirm={confirmDeactivate}
+    close={() => (deactivatingUser = null)}
+  />
+{/if}

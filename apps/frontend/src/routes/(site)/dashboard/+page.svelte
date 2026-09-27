@@ -17,6 +17,7 @@
   import { auth } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import ProgressRing from "$lib/components/ProgressRing.svelte";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
@@ -84,9 +85,18 @@
 
   async function editGrade(g: GradeRow) {
     if (!g.id) return;
-    const next = prompt(`Nilai baru untuk ${g.subject} (${g.term}):`, String(g.grade));
-    if (next === null) return;
-    const value = Number(next);
+    // Inline editing replaces the old native prompt(): the row turns into an
+    // input that saves on confirm, keeping the interaction themed and a11y-safe.
+    editingGradeId = g.id;
+    gradeEditValue = g.grade;
+    gradeMsg = "";
+  }
+  let editingGradeId: string | null = null;
+  let gradeEditValue = 0;
+
+  async function saveGradeEdit(g: GradeRow) {
+    if (!g.id || editingGradeId !== g.id) return;
+    const value = Number(gradeEditValue);
     if (!Number.isFinite(value) || value < 0 || value > 100) {
       gradeMsg = "Nilai harus antara 0 dan 100.";
       return;
@@ -98,6 +108,7 @@
       grades = await api.get<GradeRow[]>("/career/grades");
       await reloadAcademic();
       gradeMsg = `${g.subject} diperbarui menjadi ${value}.`;
+      editingGradeId = null;
     } catch (e) {
       gradeMsg = e instanceof ApiError ? e.message : "Gagal memperbarui nilai";
     } finally {
@@ -105,9 +116,19 @@
     }
   }
 
+  function cancelGradeEdit() {
+    editingGradeId = null;
+  }
+
   async function deleteGrade(g: GradeRow) {
     if (!g.id) return;
-    if (!confirm(`Hapus nilai ${g.subject} (${g.term})?`)) return;
+    deletingGrade = g;
+  }
+
+  async function confirmDeleteGrade() {
+    const g = deletingGrade;
+    if (!g?.id) return;
+    deletingGrade = null;
     gradeMsg = "";
     gradeBusy = true;
     try {
@@ -121,6 +142,7 @@
       gradeBusy = false;
     }
   }
+  let deletingGrade: GradeRow | null = null;
 
   // Real activity heatmap: bucket actual events (lesson completions, exam
   // submissions, badge awards) into days. No fabricated data — an account with
@@ -401,28 +423,58 @@
       {#if grades.length}
         <div class="mt-3 flex flex-wrap gap-1.5">
           {#each grades as g}
-            <span class="badge badge-neutral">
-              {g.subject} · {g.grade}
-              <span class="muted">({g.term})</span>
-              {#if g.id}
+            {#if g.id && editingGradeId === g.id}
+              <span class="badge badge-indigo gap-1.5 py-1">
+                {g.subject}
+                <input
+                  class="input !w-16 !px-1.5 !py-0.5 text-xs"
+                  type="number"
+                  min="0"
+                  max="100"
+                  bind:value={gradeEditValue}
+                  aria-label={`Nilai baru ${g.subject}`}
+                />
                 <button
-                  class="ml-1 hover:text-primary"
-                  on:click={() => editGrade(g)}
+                  class="hover:text-primary"
+                  on:click={() => saveGradeEdit(g)}
                   disabled={gradeBusy}
-                  aria-label={`Ubah nilai ${g.subject}`}
+                  aria-label={`Simpan nilai ${g.subject}`}
                 >
-                  <Icon name="pen" size="9px" />
+                  <Icon name={gradeBusy ? "spinner" : "check"} spin={gradeBusy} size="10px" />
                 </button>
                 <button
-                  class="ml-1 hover:text-tertiary"
-                  on:click={() => deleteGrade(g)}
+                  class="hover:text-tertiary"
+                  on:click={cancelGradeEdit}
                   disabled={gradeBusy}
-                  aria-label={`Hapus nilai ${g.subject}`}
+                  aria-label={`Batal ubah nilai ${g.subject}`}
                 >
-                  <Icon name="xmark" size="9px" />
+                  <Icon name="xmark" size="10px" />
                 </button>
-              {/if}
-            </span>
+              </span>
+            {:else}
+              <span class="badge badge-neutral">
+                {g.subject} · {g.grade}
+                <span class="muted">({g.term})</span>
+                {#if g.id}
+                  <button
+                    class="ml-1 hover:text-primary"
+                    on:click={() => editGrade(g)}
+                    disabled={gradeBusy}
+                    aria-label={`Ubah nilai ${g.subject}`}
+                  >
+                    <Icon name="pen" size="9px" />
+                  </button>
+                  <button
+                    class="ml-1 hover:text-tertiary"
+                    on:click={() => deleteGrade(g)}
+                    disabled={gradeBusy}
+                    aria-label={`Hapus nilai ${g.subject}`}
+                  >
+                    <Icon name="xmark" size="9px" />
+                  </button>
+                {/if}
+              </span>
+            {/if}
           {/each}
         </div>
       {/if}
@@ -607,3 +659,15 @@
     </div>
   {/if}
 </div>
+
+{#if deletingGrade}
+  <ConfirmDialog
+    title="Hapus Nilai"
+    description={`Nilai ${deletingGrade.subject} (${deletingGrade.term}) akan dihapus dari rapor.`}
+    hint="Nilai ini juga memengaruhi tren dan rekomendasi jurusanmu."
+    confirmLabel="Ya, Hapus"
+    busy={gradeBusy}
+    onConfirm={confirmDeleteGrade}
+    close={() => (deletingGrade = null)}
+  />
+{/if}
