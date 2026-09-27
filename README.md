@@ -101,7 +101,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   salin jawaban, serta indikator mengetik saat streaming.
 - **Reward Web3** — treasury **wallet bersama** (custodial), **ledger double-entry** dengan
   saldo terfokus per-pengguna, idempotent reward keys, outbox → blockchain worker → indexer,
-  tautan explorer, dan penarikan (withdrawal) ke wallet pribadi.
+  tautan explorer, dan penarikan (withdrawal) ke wallet pribadi. Halaman dompet menampilkan
+  buku besar yang mudah dibaca (label tipe/keterangan) dan daftar hadiah dengan label jenis
+  + waktu relatif.
 - **CRUD admin & pengajar** — guru membuat/mengubah/menghapus pelajaran, materi, ujian,
   soal, quest yang mereka miliki; admin mengelola peran pengguna serta mengaktifkan/
   menonaktifkan akun. Penghapusan dilindungi (menolak `409` bila sudah ada data anak,
