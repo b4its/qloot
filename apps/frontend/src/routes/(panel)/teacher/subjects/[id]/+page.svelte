@@ -26,6 +26,8 @@
     class_code: "",
     class_type: "",
     description: "",
+    cover_url: "",
+    is_published: false,
   };
 
   // Lesson management.
@@ -47,6 +49,8 @@
         class_code: course.class_code ?? "",
         class_type: course.class_type ?? "",
         description: course.description ?? "",
+        cover_url: course.cover_url ?? "",
+        is_published: course.is_published,
       };
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
@@ -81,6 +85,8 @@
         class_code: courseForm.class_code.trim(),
         class_type: courseForm.class_type || null,
         description: courseForm.description.trim() || null,
+        cover_url: courseForm.cover_url.trim() || null,
+        is_published: courseForm.is_published,
       });
       message = "Pelajaran diperbarui.";
     } catch (e) {
@@ -190,7 +196,9 @@
       (courseForm.subject.trim() || null) !== (course.subject ?? null) ||
       courseForm.class_code.trim() !== (course.class_code ?? "") ||
       (courseForm.class_type || null) !== (course.class_type ?? null) ||
-      (courseForm.description.trim() || null) !== (course.description ?? null));
+      (courseForm.description.trim() || null) !== (course.description ?? null) ||
+      (courseForm.cover_url.trim() || null) !== (course.cover_url ?? null) ||
+      courseForm.is_published !== course.is_published);
   $: canSaveCourse = courseForm.title.trim().length >= 2 && courseDirty && busy !== "course";
 </script>
 
@@ -242,6 +250,19 @@
         <label class="block sm:col-span-2">
           <span class="mono-label">Deskripsi</span>
           <input class="input mt-1" bind:value={courseForm.description} />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="mono-label">URL sampul (opsional)</span>
+          <input
+            class="input mt-1"
+            type="url"
+            placeholder="https://…"
+            bind:value={courseForm.cover_url}
+          />
+        </label>
+        <label class="flex items-center gap-2 text-sm sm:col-span-2">
+          <input type="checkbox" bind:checked={courseForm.is_published} />
+          <span>Terbitkan pelajaran (terlihat oleh siswa kelas terkait)</span>
         </label>
       </div>
       <div class="mt-3 flex items-center justify-between">

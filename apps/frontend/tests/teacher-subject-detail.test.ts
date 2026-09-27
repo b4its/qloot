@@ -115,4 +115,23 @@ describe("teacher subject detail — lesson metrics, dirty-save, and delete conf
     await fireEvent.click(confirm);
     await waitFor(() => expect(del).toHaveBeenCalledWith("/lessons/l1"));
   });
+
+  it("edits cover URL and publish state", async () => {
+    render(SubjectDetailPage);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Tersimpan/i })).toBeTruthy());
+
+    const cover = screen.getByPlaceholderText("https://…") as HTMLInputElement;
+    await fireEvent.input(cover, { target: { value: "https://img/x.png" } });
+    // Toggle publish off.
+    const publishToggle = screen.getByRole("checkbox") as HTMLInputElement;
+    await fireEvent.click(publishToggle);
+
+    await fireEvent.click(screen.getByRole("button", { name: /Simpan perubahan/i }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith(
+        "/courses/c1",
+        expect.objectContaining({ cover_url: "https://img/x.png", is_published: false }),
+      ),
+    );
+  });
 });
