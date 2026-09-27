@@ -359,6 +359,7 @@
               class:badge-neutral={mutedKinds.includes(kind)}
               class:badge-mint={!mutedKinds.includes(kind)}
               on:click={() => toggleMute(kind)}
+              aria-pressed={mutedKinds.includes(kind)}
             >
               <Icon name={mutedKinds.includes(kind) ? "bell-slash" : "bell"} size="10px" />
               {kindLabel[kind]}

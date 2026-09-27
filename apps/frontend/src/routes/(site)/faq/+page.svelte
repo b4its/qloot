@@ -81,13 +81,16 @@
             class="flex w-full items-center justify-between px-5 py-4 text-left"
             on:click={() => (open = open === i ? -1 : i)}
             aria-expanded={open === i}
+            aria-controls={`faq-answer-${i}`}
           >
             <span class="font-medium">{f.q}</span>
             <Icon name={open === i ? "minus" : "plus"} size="12px" class="text-primary" />
           </button>
-          {#if open === i}
-            <p class="px-5 pb-4 text-sm muted">{f.a}</p>
-          {/if}
+          <div id={`faq-answer-${i}`}>
+            {#if open === i}
+              <p class="px-5 pb-4 text-sm muted">{f.a}</p>
+            {/if}
+          </div>
         </div>
       {/each}
     </div>

@@ -645,6 +645,7 @@
               class="input text-xs !py-1 w-full"
               placeholder="Cari peserta..."
               bind:value={participantSearch}
+              aria-label="Cari peserta"
             />
           </div>
         {/if}

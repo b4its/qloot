@@ -64,7 +64,7 @@
     </p>
 
     {#if error}
-      <p class="alert-error mt-6">{error}</p>
+      <p class="alert-error mt-6" role="alert" aria-live="assertive">{error}</p>
     {/if}
 
     {#if loading}

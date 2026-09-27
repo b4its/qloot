@@ -27,6 +27,8 @@
   let editBusy = false;
 
   function startEditRoom(r: Room) {
+    error = "";
+    message = "";
     editingRoom = r.id;
     editRoomDraft = {
       name: r.name,
@@ -37,6 +39,7 @@
 
   async function saveRoom(id: string) {
     error = "";
+    message = "";
     if (editRoomDraft.name.trim().length < 2) {
       error = "Nama ruang minimal 2 karakter.";
       return;
@@ -100,6 +103,7 @@
   async function load() {
     loading = true;
     error = "";
+    message = "";
     try {
       rooms = await api.get<Room[]>("/rooms?limit=200");
     } catch (e) {
@@ -175,6 +179,7 @@
 
   async function createRoom() {
     error = "";
+    message = "";
     if (newRoom.name.trim().length < 2) {
       error = "Nama ruang minimal 2 karakter.";
       return;
@@ -257,6 +262,7 @@
           placeholder="MISAL: ABC123"
           bind:value={joinCode}
           maxlength="12"
+          aria-label="Kode ruang"
           on:keydown={(e) => e.key === "Enter" && joinCode.length >= 4 && joinByCode()}
         />
         {#if joinCode}
@@ -264,6 +270,7 @@
             type="button"
             class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
             on:click={() => (joinCode = "")}
+            aria-label="Bersihkan kode"
           >
             ✕
           </button>
@@ -293,7 +300,9 @@
         Terima undangan
       </button>
     </div>
-    {#if joinError}<p class="alert-error mt-2">{joinError}</p>{/if}
+    {#if joinError}<p class="alert-error mt-2" role="alert" aria-live="assertive">
+        {joinError}
+      </p>{/if}
   </div>
 
   <!-- Create Room Form (Teacher only) -->
@@ -348,10 +357,10 @@
   {/if}
 
   {#if message}
-    <p class="alert-ok mt-4">{message}</p>
+    <p class="alert-ok mt-4" role="status" aria-live="polite">{message}</p>
   {/if}
   {#if error}
-    <p class="alert-error mt-4">
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">
       {error}
     </p>
   {/if}
