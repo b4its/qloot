@@ -872,6 +872,46 @@ class ExamService:
         ).scalar_one()
         return bool(attempt.is_flagged), attempt.flag_reason, int(count)
 
+    async def attempt_flags(
+        self, attempt_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[bool, str | None, int]]:
+        """Batch variant of :meth:`attempt_flag`: three queries total instead of
+        one-per-attempt for the results review list."""
+        if not attempt_ids:
+            return {}
+        from app.models.exam import AttemptEvent
+
+        attempts = {
+            a.id: a
+            for a in (
+                await self.session.execute(
+                    select(ExamAttempt).where(ExamAttempt.id.in_(attempt_ids))
+                )
+            )
+            .scalars()
+            .all()
+        }
+        counts = dict(
+            (
+                await self.session.execute(
+                    select(AttemptEvent.attempt_id, func.count())
+                    .where(
+                        AttemptEvent.attempt_id.in_(attempt_ids),
+                        AttemptEvent.kind.in_(self._VIOLATION_KINDS),
+                    )
+                    .group_by(AttemptEvent.attempt_id)
+                )
+            ).all()
+        )
+        out: dict[uuid.UUID, tuple[bool, str | None, int]] = {}
+        for aid in attempt_ids:
+            a = attempts.get(aid)
+            if a is None:
+                out[aid] = (False, None, 0)
+            else:
+                out[aid] = (bool(a.is_flagged), a.flag_reason, int(counts.get(aid, 0)))
+        return out
+
     async def sweep_expired_attempts(self, *, limit: int = 50) -> int:
         """Auto-submit in-progress attempts whose server deadline has passed.
 

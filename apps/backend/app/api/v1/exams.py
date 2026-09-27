@@ -522,10 +522,11 @@ async def exam_results_review(
     """
     service = ExamService(db)
     exam, rows = await service.exam_review(exam_id, user, limit=limit, offset=offset)
+    flags = await service.attempt_flags([attempt.id for attempt, _n, _r in rows])
     results: list[ExamResultReviewRow] = []
     for attempt, name, review in rows:
         base = AttemptOut.model_validate(attempt)
-        flagged, reason, violations = await service.attempt_flag(attempt.id)
+        flagged, reason, violations = flags.get(attempt.id, (False, None, 0))
         results.append(
             ExamResultReviewRow(
                 **base.model_dump(),
