@@ -872,11 +872,15 @@
       <div class="card">
         <h2 class="hud font-display text-lg font-bold">Hadiah terbaru</h2>
         <ul class="mt-2 space-y-2 text-sm">
-          {#each rewards as r}
+          {#each rewards as r (r.id)}
             <li class="flex items-center justify-between border-b pb-1 last:border-0">
-              <span>{r.reward_type}{r.rank ? ` #${r.rank}` : ""}</span>
+              <span>
+                <span class="font-medium">{ledgerRefLabel(r.reward_type)}</span>
+                {#if r.rank}<span class="muted">#{r.rank}</span>{/if}
+                <span class="block text-[11px] muted">{relativeTime(r.created_at)}</span>
+              </span>
               <span class="flex items-center gap-2">
-                <span class="font-mono text-highlight">+{r.amount}</span>
+                <span class="font-mono text-highlight">+{formatNumber(r.amount)}</span>
                 <span
                   class="badge"
                   class:badge-mint={r.status === "confirmed"}

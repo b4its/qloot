@@ -59,6 +59,18 @@ const ledger = [
   },
 ];
 
+const rewards = [
+  {
+    id: "r1",
+    reward_key: "quest:q1",
+    reward_type: "quest",
+    rank: 1,
+    amount: 50,
+    status: "confirmed",
+    created_at: "2026-01-01T00:00:00Z",
+  },
+];
+
 describe("wallet ledger — localized labels and description", () => {
   beforeEach(() => {
     cleanup();
@@ -68,7 +80,7 @@ describe("wallet ledger — localized labels and description", () => {
       if (path.startsWith("/wallet/ledger")) return Promise.resolve(ledger);
       if (path.startsWith("/wallet/assets"))
         return Promise.resolve({ assets: [{ asset: "OPT", balance: 80 }] });
-      if (path.startsWith("/wallet/rewards")) return Promise.resolve([]);
+      if (path.startsWith("/wallet/rewards")) return Promise.resolve(rewards);
       if (path.startsWith("/wallet/withdrawals")) return Promise.resolve([]);
       if (path.startsWith("/wallet")) return Promise.resolve({ available: 80, pending: 0 });
       if (path.startsWith("/blockchain/transactions")) return Promise.resolve([]);
@@ -85,7 +97,7 @@ describe("wallet ledger — localized labels and description", () => {
     // credit → "Masuk", reference quest → "Hadiah quest".
     expect(screen.getByText("Masuk")).toBeTruthy();
     expect(screen.getByText("Keluar")).toBeTruthy();
-    expect(screen.getByText("Hadiah quest")).toBeTruthy();
+    expect(screen.getAllByText("Hadiah quest").length).toBeGreaterThan(0);
     expect(screen.getByText("Penarikan")).toBeTruthy();
   });
 
@@ -99,5 +111,12 @@ describe("wallet ledger — localized labels and description", () => {
     await waitFor(() => expect(screen.getByText("Buku besar")).toBeTruthy());
     expect(screen.getByText("+100")).toBeTruthy();
     expect(screen.getByText("-20")).toBeTruthy();
+  });
+
+  it("localizes reward types in the rewards list", async () => {
+    render(WalletPage);
+    await waitFor(() => expect(screen.getByText("Hadiah terbaru")).toBeTruthy());
+    // reward_type "quest" → "Hadiah quest" (also appears in the ledger, so use getAll).
+    expect(screen.getAllByText("Hadiah quest").length).toBeGreaterThan(0);
   });
 });
