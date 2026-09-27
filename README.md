@@ -110,7 +110,11 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   **dompet** menampilkan riwayat penarikan berlabel status + filter + total. **Admin**
   juga: rekonsiliasi ledger dengan banner kesehatan + metrik utang + pencarian +
   konfirmasi; transaksi & **event blockchain** dengan metrik, pencarian, filter status
-  (dan filter nama event via `name=`), serta arg event yang bisa diperluas.
+  (dan filter nama event via `name=`), serta arg event yang bisa diperluas; **hub
+  blockchain** dengan metrik alokasi + konfirmasi kontrol jeda/lanjut; **papan peringkat
+  termaterialisasi** dengan metrik snapshot, filter cakupan, pencarian, dan konfirmasi
+  materialisasi ulang; serta halaman **konfigurasi runtime** yang dikelompokkan per-seksi
+  dengan banner lingkungan/pengaman.
 - **Paginasi konsisten** — semua endpoint daftar dibatasi (`limit ≤ 200`) dan mendukung
   `offset`; komponen `Pagination.svelte` dipakai ulang di seluruh halaman berdata banyak.
 - **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
