@@ -18,6 +18,14 @@
   let query = "";
   let busy = false;
   let form = { code: "", category: "course", title: "", description: "", provider: "" };
+  // Deleting a resource is destructive; require an explicit confirmation.
+  let deleting: ResourceItem | null = null;
+
+  const CATEGORY_LABEL: Record<string, string> = {
+    course: "Kursus",
+    extracurricular: "Ekstrakurikuler",
+    material: "Materi",
+  };
 
   async function load() {
     loading = true;
@@ -33,6 +41,19 @@
       loading = false;
     }
   }
+
+  // Debounced search so typing filters without hammering the API.
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+  function onSearch() {
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(() => void load(), 250);
+  }
+
+  // --- metrics ---------------------------------------------------------------
+  $: catCounts = items.reduce<Record<string, number>>((acc, r) => {
+    acc[r.category] = (acc[r.category] ?? 0) + 1;
+    return acc;
+  }, {});
 
   async function createResource() {
     busy = true;
@@ -55,7 +76,7 @@
   }
 
   async function removeResource(item: ResourceItem) {
-    if (!confirm(`Hapus "${item.title}"?`)) return;
+    deleting = null;
     try {
       await api.delete(`/career/resources/${item.code}`);
       message = "Sumber daya dihapus.";
@@ -83,10 +104,6 @@
     }
   }
 
-  function search() {
-    load();
-  }
-
   onMount(load);
 </script>
 
@@ -103,22 +120,61 @@
 
   <PageAlerts {message} {error} />
 
-  <form class="mt-6 flex flex-wrap items-end gap-2" on:submit|preventDefault={search}>
-    <label class="flex flex-col text-xs">
-      <span class="muted mb-1">Kategori</span>
-      <select class="input !w-auto" bind:value={category} on:change={load}>
-        <option value="">Semua</option>
-        <option value="course">Kursus</option>
-        <option value="extracurricular">Ekstrakurikuler</option>
-        <option value="material">Materi</option>
-      </select>
-    </label>
-    <label class="flex flex-1 flex-col text-xs">
-      <span class="muted mb-1">Cari</span>
-      <input class="input" bind:value={query} placeholder="judul atau deskripsi…" />
-    </label>
-    <button class="btn-ghost !py-1.5" type="submit" disabled={loading}>Cari</button>
-  </form>
+  <!-- Metrics -->
+  {#if !loading && items.length > 0}
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Total</p>
+        <p class="mt-1 font-display text-3xl font-bold" data-role="total-count">{items.length}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Kursus</p>
+        <p class="mt-1 font-display text-3xl font-bold">{catCounts["course"] ?? 0}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Ekstrakurikuler</p>
+        <p class="mt-1 font-display text-3xl font-bold">{catCounts["extracurricular"] ?? 0}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Materi</p>
+        <p class="mt-1 font-display text-3xl font-bold">{catCounts["material"] ?? 0}</p>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Filter + search -->
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap gap-1 text-xs">
+      {#each [["", "Semua"], ["course", "Kursus"], ["extracurricular", "Ekstrakurikuler"], ["material", "Materi"]] as [val, label]}
+        <button
+          type="button"
+          class="btn-pill !py-1 text-xs"
+          class:!border-primary={category === val}
+          class:!text-primary={category === val}
+          on:click={() => {
+            category = val;
+            load();
+          }}
+        >
+          {label}
+        </button>
+      {/each}
+    </div>
+    <div class="relative ml-auto w-full sm:w-64">
+      <Icon
+        name="magnifying-glass"
+        size="12px"
+        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+      />
+      <input
+        class="input text-xs !py-1.5 !pl-8 w-full"
+        bind:value={query}
+        on:input={onSearch}
+        placeholder="Cari judul atau deskripsi…"
+        aria-label="Cari sumber daya"
+      />
+    </div>
+  </div>
 
   <div class="card mt-6">
     <h2 class="font-display font-bold">Tambah sumber daya</h2>
@@ -150,13 +206,19 @@
     {:else}
       <table class="w-full text-sm">
         <thead class="text-left muted">
-          <tr><th class="py-1">Kode</th><th>Kategori</th><th>Judul</th><th></th></tr>
+          <tr
+            ><th class="py-1">Kode</th><th>Kategori</th><th>Judul</th><th class="text-right"
+              >Aksi</th
+            ></tr
+          >
         </thead>
         <tbody>
           {#each items as r (r.code)}
             <tr class="border-t">
               <td class="py-1 font-mono text-xs">{r.code}</td>
-              <td>{r.category}</td>
+              <td>
+                <span class="badge badge-neutral">{CATEGORY_LABEL[r.category] ?? r.category}</span>
+              </td>
               <td>{r.title}</td>
               <td class="text-right">
                 <button
@@ -169,7 +231,7 @@
                 <button
                   class="btn-icon !text-tertiary"
                   aria-label="Hapus sumber daya"
-                  on:click={() => removeResource(r)}
+                  on:click={() => (deleting = r)}
                 >
                   <Icon name="trash" size="12px" />
                 </button>
@@ -181,3 +243,29 @@
     {/if}
   </div>
 </div>
+
+<!-- Delete confirmation modal -->
+{#if deleting}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber-400">
+        <Icon name="triangle-exclamation" size="18px" />
+        <h3 class="font-display text-lg font-bold">Hapus Sumber Daya</h3>
+      </div>
+      <p class="text-xs text-foreground/90 leading-relaxed">
+        Hapus sumber daya <strong>"{deleting.title}"</strong> ({deleting.code})? Tindakan ini tidak
+        dapat dibatalkan.
+      </p>
+      <div class="flex items-center justify-end gap-2 border-t pt-3">
+        <button class="btn-ghost text-xs" on:click={() => (deleting = null)}>Batal</button>
+        <button
+          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          on:click={() => deleting && removeResource(deleting)}
+          data-role="confirm-delete-resource"
+        >
+          Ya, Hapus
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
