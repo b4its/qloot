@@ -85,7 +85,6 @@ html.dark {
     font-family: "Chakra Petch", "Space Grotesk", system-ui, sans-serif;
     letter-spacing: 0.01em;
     font-weight: 700;
-    text-transform: uppercase;
   }
   * {
     border-color: rgb(var(--line));
@@ -349,7 +348,8 @@ html.theme-init * {
     background-color: rgb(var(--surface));
     color: rgb(var(--ink));
     border-color: rgb(var(--line));
-    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-family: "Rajdhani", "Inter", system-ui, sans-serif;
+    font-weight: 600;
   }
   .input::placeholder {
     color: rgb(var(--muted));
@@ -357,6 +357,43 @@ html.theme-init * {
   .input:focus {
     border-color: rgb(var(--accent));
     box-shadow: 0 0 0 2px rgb(var(--accent) / 0.25);
+  }
+
+  /* Thumb-friendly app navigation on compact screens. Marketing pages keep
+     their conventional header, while authenticated workflows stay one tap away. */
+  .mobile-app-nav {
+    position: fixed;
+    z-index: 55;
+    right: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    left: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: 4rem;
+    border: 1px solid rgb(var(--line));
+    background: rgb(var(--glass) / 0.94);
+    box-shadow: 0 20px 55px -24px rgb(0 0 0 / 0.65);
+    backdrop-filter: blur(20px) saturate(1.2);
+  }
+  .mobile-app-nav a,
+  .mobile-app-nav button {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.55rem 0.2rem;
+    color: rgb(var(--muted));
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .mobile-app-nav a:hover,
+  .mobile-app-nav button:hover,
+  .mobile-app-nav .mobile-app-nav-active {
+    color: rgb(var(--accent));
+    background: rgb(var(--accent) / 0.08);
   }
 
   /* Password field with show/hide toggle -------------------------------- */

@@ -38,6 +38,9 @@
   // The (site) group is the public + student area only. The /admin and /teacher
   // panels live in the separate (panel) group with their own shell.
   $: isAppArea = appNav.some((n) => path.startsWith(n.href)) || path.startsWith("/profile");
+  $: showMarketingChrome = !isExamAttempt && !isAppArea;
+
+  const mobilePrimaryNav = [appNav[0], appNav[1], appNav[3], appNav[5]];
 
   // The most specific nav entry whose href is a prefix of the current path.
   function isNavActive(href: string): boolean {
@@ -87,7 +90,11 @@
         </a>
 
         <!-- primary marketing nav -->
-        <nav class="hidden items-center gap-1 md:flex" aria-label="Navigasi utama">
+        <nav
+          class:hidden={isAppArea}
+          class="hidden items-center gap-1 md:flex"
+          aria-label="Navigasi utama"
+        >
           {#each primaryNav as item}
             <a
               href={item.href}
@@ -192,7 +199,7 @@
       <!-- app sub-nav (student/public area only) -->
       {#if isAppArea}
         <div class="border-t">
-          <div class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-1.5 sm:px-6">
+          <div class="mx-auto hidden max-w-7xl gap-1 overflow-x-auto px-4 py-1.5 md:flex sm:px-6">
             {#each appNav as item}
               <a
                 href={item.href}
@@ -266,27 +273,53 @@
     </header>
 
     <!-- ================= TICKER ================= -->
-    <div class="ticker bg-surface" aria-label="Informasi terbaru">
-      <div class="ticker-track py-2" aria-hidden="true">
-        {#each [0, 1] as _}
-          {#each tickerItems as item}
-            <span class="mono-label mx-8 inline-flex items-center gap-2">
-              <Icon name="bolt" size="10px" class="text-secondary" />
-              {item}
-            </span>
+    {#if showMarketingChrome}
+      <div class="ticker bg-surface" aria-label="Informasi terbaru">
+        <div class="ticker-track py-2" aria-hidden="true">
+          {#each [0, 1] as _}
+            {#each tickerItems as item}
+              <span class="mono-label mx-8 inline-flex items-center gap-2">
+                <Icon name="bolt" size="10px" class="text-secondary" />
+                {item}
+              </span>
+            {/each}
           {/each}
-        {/each}
+        </div>
       </div>
-    </div>
+    {/if}
   {/if}
 
   <!-- ================= MAIN ================= -->
-  <main id="main-content" class="relative z-10" tabindex="-1">
+  <main
+    id="main-content"
+    class="relative z-10"
+    class:pb-20={isAppArea && !isExamAttempt}
+    tabindex="-1"
+  >
     <slot />
   </main>
 
+  {#if isAppArea && !isExamAttempt && user}
+    <nav class="mobile-app-nav md:hidden" aria-label="Navigasi aplikasi utama">
+      {#each mobilePrimaryNav as item}
+        <a
+          href={item.href}
+          class:mobile-app-nav-active={isNavActive(item.href)}
+          aria-current={isNavActive(item.href) ? "page" : undefined}
+        >
+          <Icon name={item.icon} size="17px" />
+          <span>{item.label.replace(" Saya", "")}</span>
+        </a>
+      {/each}
+      <button type="button" on:click={() => (mobileOpen = !mobileOpen)} aria-expanded={mobileOpen}>
+        <Icon name="grip" size="17px" />
+        <span>Lainnya</span>
+      </button>
+    </nav>
+  {/if}
+
   <!-- ================= FOOTER ================= -->
-  {#if !isExamAttempt}
+  {#if showMarketingChrome}
     <footer class="cyber-rule mt-16 border-t border-white/5 bg-[#05060A] text-white">
       <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <div class="grid gap-10 lg:grid-cols-5">

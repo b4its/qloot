@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { auth } from "$lib/stores/auth";
   import { notifications } from "$lib/stores/notifications";
   import { opt } from "$lib/stores/opt";
@@ -20,14 +19,6 @@
 
   let mobileOpen = false;
   $: user = $auth.user;
-
-  onMount(() => {
-    // Root layout already bootstraps stores on SPA navigations; this covers a
-    // direct landing on `/` and keeps the header state fresh.
-    auth.load();
-    notifications.refresh();
-    opt.refresh();
-  });
 
   function goTo(id: string) {
     mobileOpen = false;
