@@ -63,7 +63,9 @@ Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) men
   filter kelas/mapel, urutan, strip metrik, dan bar kemajuan per-pelajaran (badge
   **Tuntas** bila seluruh materi selesai). Halaman **detail pelajaran** menampilkan
   progres per-materi (selesai/belum), penunjuk "lanjutkan di sini", dan CTA
-  Mulai/Lanjutkan/Tinjau; `/me/learning-progress` mendukung filter `course_id`.
+  Mulai/Lanjutkan/Tinjau; `/me/learning-progress` mendukung filter `course_id`. Halaman
+  **baca materi** menampilkan bar progres kursus, pemilih materi (dropdown), navigasi
+  sebelumnya/berikutnya, dan tandai-selesai.
 - **AI (mock / Gemini / OpenAI-compatible)** — pembuatan soal dari PDF, penilaian esai,
   ringkasan materi, dan tanya-jawab berbasis materi; struktur output tervalidasi, retry,
   dan provider mock deterministik untuk pengembangan offline. Asisten belajar/karier
