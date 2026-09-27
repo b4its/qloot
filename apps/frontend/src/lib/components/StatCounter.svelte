@@ -57,4 +57,6 @@
   });
 </script>
 
-<span bind:this={el} class="mono">{display.toLocaleString("id-ID")}{suffix}</span>
+<span bind:this={el} class="mono" aria-label={`${value.toLocaleString("id-ID")}${suffix}`}>
+  <span aria-hidden="true">{display.toLocaleString("id-ID")}{suffix}</span>
+</span>
