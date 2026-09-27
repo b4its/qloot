@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { api, ApiError, API_BASE } from "$lib/api/client";
   import { auth } from "$lib/stores/auth";
   import type { Certificate } from "$lib/types";
@@ -268,23 +269,20 @@
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   {#if error}
-    <p class="alert-error">{error}</p>
+    <p class="alert-error" role="alert" aria-live="assertive">{error}</p>
   {:else if loading}
     <div class="grid gap-8 lg:grid-cols-[1fr_320px]">
       <div class="skeleton h-72"></div>
       <div class="skeleton h-72"></div>
     </div>
   {:else if !active}
-    <div class="card grid place-items-center py-16 text-center">
-      <Icon name="certificate" size="28px" class="muted" />
-      <p class="mt-3 font-display text-lg font-bold">Belum ada sertifikat</p>
-      <p class="mt-1 text-sm muted">
-        Selesaikan seluruh materi pada sebuah pelajaran untuk mendapatkan sertifikat digital.
-      </p>
-      <a href="/learning" class="btn-primary mt-5"
-        ><Icon name="book-open-reader" size="12px" /> Lihat Pelajaran Saya</a
-      >
-    </div>
+    <EmptyState
+      icon="certificate"
+      title="Belum ada sertifikat"
+      description="Selesaikan seluruh materi pada sebuah pelajaran untuk mendapatkan sertifikat digital."
+      actionHref="/learning"
+      actionLabel="Lihat Pelajaran Saya"
+    />
   {:else}
     <!-- Overview metrics -->
     {#if certs.length > 0}
