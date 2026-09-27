@@ -174,9 +174,16 @@ async def set_progress(
 
 @router.get("/me/learning-progress", response_model=list[ProgressOut])
 async def my_progress(
-    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+    user: CurrentUser,
+    db: DbSession,
+    course_id: uuid.UUID | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
 ):
-    return await CourseService(db).my_progress(user, limit=limit, offset=offset)
+    """The caller's lesson progress, optionally scoped to one ``course_id``."""
+    return await CourseService(db).my_progress(
+        user, course_id=course_id, limit=limit, offset=offset
+    )
 
 
 @router.get("/lessons/{lesson_id}/materials")

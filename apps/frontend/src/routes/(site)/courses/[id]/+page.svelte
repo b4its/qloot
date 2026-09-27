@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { Course, Lesson, Certificate } from "$lib/types";
+  import type { Course, Lesson, Certificate, Progress } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
@@ -10,6 +10,7 @@
   let course: Course | null = null;
   let lessons: Lesson[] = [];
   let certificate: Certificate | null = null;
+  let progress: Progress[] = [];
   let loading = true;
   let error = "";
 
@@ -17,12 +18,26 @@
   $: canManage = hasRole($auth.user, "teacher");
   $: totalMinutes = lessons.length * 20;
 
+  // --- per-lesson progress ---------------------------------------------------
+  $: completedLessonIds = new Set(progress.filter((p) => p.completed).map((p) => p.lesson_id));
+  $: completedCount = lessons.filter((l) => completedLessonIds.has(l.id)).length;
+  $: progressPct = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0;
+  // The first unfinished lesson is where the student should resume.
+  $: resumeLesson = lessons.find((l) => !completedLessonIds.has(l.id)) ?? null;
+  $: allDone = lessons.length > 0 && completedCount === lessons.length;
+
   async function load() {
     loading = true;
     error = "";
     try {
       course = await api.get<Course>(`/courses/${id}`);
       lessons = await api.get<Lesson[]>(`/courses/${id}/lessons`);
+      // Learning progress is per-student; teachers/admins manage, not learn.
+      if (!$auth.loading && $auth.user && !canManage) {
+        progress = await api
+          .get<Progress[]>(`/me/learning-progress?course_id=${id}&limit=200`)
+          .catch(() => []);
+      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
@@ -126,8 +141,36 @@
             </li>
           </ul>
           {#if lessons.length}
+            {#if progress.length > 0 || (!canManage && $auth.user)}
+              <!-- Progress bar -->
+              <div class="mt-4">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="muted">Progres</span>
+                  <span class="mono">{completedCount}/{lessons.length}</span>
+                </div>
+                <div
+                  class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
+                  style="background: rgb(var(--line))"
+                  role="progressbar"
+                  aria-valuenow={completedCount}
+                  aria-valuemin={0}
+                  aria-valuemax={lessons.length}
+                  aria-label="Progres pelajaran"
+                >
+                  <div
+                    class="h-full rounded-full transition-all {allDone ? 'bg-mint' : 'bg-primary'}"
+                    style={`width: ${progressPct}%`}
+                  ></div>
+                </div>
+              </div>
+            {/if}
             <a href={`/learning/${course.id}`} class="btn-primary mt-4 w-full">
-              <Icon name="play" size="12px" /> Mulai Belajar
+              <Icon name={allDone ? "rotate" : resumeLesson ? "play" : "play"} size="12px" />
+              {allDone
+                ? "Tinjau pelajaran"
+                : completedCount > 0
+                  ? "Lanjutkan belajar"
+                  : "Mulai Belajar"}
             </a>
           {:else}
             <p class="mt-4 text-sm muted">Guru belum menambahkan materi.</p>
@@ -151,21 +194,35 @@
       </div>
     {:else}
       <ol class="mt-4 card !p-0 divide-y">
-        {#each lessons as l, i}
+        {#each lessons as l, i (l.id)}
+          {@const done = completedLessonIds.has(l.id)}
+          {@const isResume = resumeLesson?.id === l.id && !canManage && $auth.user}
           <li>
             <a
               href={`/learning/${course.id}/lesson/${l.id}`}
               class="flex items-center justify-between px-5 py-4 hover:bg-ink/5"
+              data-lesson={l.id}
+              data-done={done}
             >
               <span class="flex items-center gap-3">
                 <span class="mono-label">{String(i + 1).padStart(2, "0")}</span>
-                <span class="font-medium">{l.title}</span>
+                <span class="font-medium" class:muted={done}>{l.title}</span>
+                {#if isResume}
+                  <span class="badge badge-amber">Lanjutkan di sini</span>
+                {:else if done}
+                  <Icon name="circle-check" size="12px" class="text-mint" />
+                {/if}
               </span>
               <Icon name="chevron-right" size="12px" class="muted" />
             </a>
           </li>
         {/each}
       </ol>
+      {#if !canManage && $auth.user && lessons.length > 0}
+        <p class="mt-3 text-xs muted">
+          {completedCount} dari {lessons.length} materi selesai· {progressPct}%
+        </p>
+      {/if}
     {/if}
 
     <div class="mt-8 grid gap-6 lg:grid-cols-2">

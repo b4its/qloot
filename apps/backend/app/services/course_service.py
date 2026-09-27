@@ -345,15 +345,19 @@ class CourseService:
         return progress
 
     async def my_progress(
-        self, user: User, *, limit: int = 100, offset: int = 0
+        self,
+        user: User,
+        *,
+        course_id: uuid.UUID | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[LessonProgress]:
-        stmt = (
-            select(LessonProgress)
-            .where(LessonProgress.user_id == user.id)
-            .order_by(LessonProgress.id)
-            .limit(limit)
-            .offset(offset)
-        )
+        stmt = select(LessonProgress).where(LessonProgress.user_id == user.id)
+        if course_id is not None:
+            # Scope to a single course so a course detail page can show its own
+            # per-lesson completion without over-fetching.
+            stmt = stmt.where(LessonProgress.course_id == course_id)
+        stmt = stmt.order_by(LessonProgress.id).limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def my_subjects(self, user: User) -> list[Course]:
