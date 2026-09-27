@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { Course, Lesson, Progress } from "$lib/types";
   import Icon from "$lib/components/Icon.svelte";
@@ -9,6 +10,7 @@
   let course: Course | null = null;
   let courseLessons: Lesson[] = [];
   let lesson: Lesson | null = null;
+  let progress: Progress[] = [];
   let loading = true;
   let error = "";
   let saving = false;
@@ -24,13 +26,15 @@
         course = await api.get<Course>(`/courses/${courseId}`).catch(() => null);
         courseLessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`).catch(() => []);
       }
-      const myProgress = await api
-        .get<Progress[]>("/me/learning-progress?limit=200")
-        .catch(() => []);
-      const currentProgress = myProgress.find((p) => p.lesson_id === lessonId);
-      if (currentProgress?.completed) {
-        saved = true;
-      }
+      // Scope the progress query to this course (no client-side over-fetch).
+      const courseIdForProgress = courseId || lesson?.course_id;
+      const myProgress = courseIdForProgress
+        ? await api
+            .get<Progress[]>(`/me/learning-progress?course_id=${courseIdForProgress}&limit=200`)
+            .catch(() => [])
+        : await api.get<Progress[]>("/me/learning-progress?limit=200").catch(() => []);
+      progress = myProgress;
+      saved = !!myProgress.find((p) => p.lesson_id === lessonId)?.completed;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat materi";
     } finally {
@@ -49,11 +53,28 @@
         completed: nextState,
       });
       saved = nextState;
+      // Keep the local progress list in step so the mini-bar updates.
+      const others = progress.filter((p) => p.lesson_id !== lessonId);
+      progress = [
+        ...others,
+        {
+          id: `local-${lesson.id}`,
+          lesson_id: lesson.id,
+          course_id: lesson.course_id,
+          progress_percent: nextState ? 100 : 0,
+          completed: nextState,
+        },
+      ];
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memperbarui status materi";
     } finally {
       saving = false;
     }
+  }
+
+  function onSelectLesson(e: Event) {
+    const id = (e.currentTarget as HTMLSelectElement).value;
+    if (lesson) void goto(`/learning/${lesson.course_id}/lesson/${id}`);
   }
 
   $: currentIndex = courseLessons.findIndex((l) => l.id === lessonId);
@@ -62,6 +83,13 @@
     currentIndex >= 0 && currentIndex < courseLessons.length - 1
       ? courseLessons[currentIndex + 1]
       : null;
+
+  // --- course progress context -----------------------------------------------
+  $: completedIds = new Set(progress.filter((p) => p.completed).map((p) => p.lesson_id));
+  $: completedCount = courseLessons.filter((l) => completedIds.has(l.id)).length;
+  $: coursePct = courseLessons.length
+    ? Math.round((completedCount / courseLessons.length) * 100)
+    : 0;
 
   onMount(load);
 </script>
@@ -85,11 +113,48 @@
         <span>←</span> Kembali ke {course?.title ?? "Silabus Kursus"}
       </a>
       {#if courseLessons.length > 0 && currentIndex >= 0}
-        <span class="badge surface border text-xs font-mono">
-          Materi {currentIndex + 1} dari {courseLessons.length}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="badge surface border text-xs font-mono">
+            Materi {currentIndex + 1} dari {courseLessons.length}
+          </span>
+          <select
+            class="input !py-1 text-xs w-auto max-w-[220px]"
+            value={lesson.id}
+            on:change={onSelectLesson}
+            aria-label="Pilih materi"
+          >
+            {#each courseLessons as l, i (l.id)}
+              <option value={l.id}>{i + 1}. {l.title}</option>
+            {/each}
+          </select>
+        </div>
       {/if}
     </div>
+
+    <!-- Course progress mini-bar -->
+    {#if courseLessons.length > 0}
+      <div class="mt-3 flex items-center gap-3">
+        <div
+          class="h-1.5 flex-1 overflow-hidden rounded-full"
+          style="background: rgb(var(--line))"
+          role="progressbar"
+          aria-valuenow={completedCount}
+          aria-valuemin={0}
+          aria-valuemax={courseLessons.length}
+          aria-label="Progres kursus"
+        >
+          <div
+            class="h-full rounded-full transition-all {coursePct === 100
+              ? 'bg-mint'
+              : 'bg-primary'}"
+            style={`width: ${coursePct}%`}
+          ></div>
+        </div>
+        <span class="mono-label text-[10px] flex-none"
+          >{completedCount}/{courseLessons.length} · {coursePct}%</span
+        >
+      </div>
+    {/if}
 
     <article class="card mt-3">
       <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3">

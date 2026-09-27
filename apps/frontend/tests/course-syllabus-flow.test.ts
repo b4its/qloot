@@ -175,4 +175,26 @@ describe("course syllabus and lesson UX overhaul", () => {
       });
     });
   });
+
+  it("scopes the lesson progress query to the course and shows a progress bar", async () => {
+    render(LessonPage);
+    expect(await screen.findByText("Pengenalan DOM dan Browser API")).toBeTruthy();
+
+    // Course-scoped progress fetch (no client-side over-fetch).
+    expect(
+      get.mock.calls.some((c) => String(c[0]).includes("/me/learning-progress?course_id=")),
+    ).toBe(true);
+
+    // The course progress mini-bar renders with the completed count.
+    const bar = screen.getByRole("progressbar", { name: "Progres kursus" });
+    expect(bar.getAttribute("aria-valuemax")).toBe("2");
+  });
+
+  it("offers a lesson selector to jump between lessons", async () => {
+    render(LessonPage);
+    expect(await screen.findByText("Pengenalan DOM dan Browser API")).toBeTruthy();
+    const select = screen.getByLabelText("Pilih materi") as HTMLSelectElement;
+    expect(select.value).toBe("l-1");
+    expect(select.querySelectorAll("option").length).toBe(2);
+  });
 });
