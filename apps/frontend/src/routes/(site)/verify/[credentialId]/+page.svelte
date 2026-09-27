@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { api, ApiError } from "$lib/api/client";
+  import { api, ApiError, API_BASE } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
   import { formatDate } from "$lib/utils/format";
   import type { CertificateVerify } from "$lib/types";
@@ -153,7 +153,7 @@
         <div class="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
           <a
             class="btn-secondary inline-flex items-center gap-2 text-xs"
-            href={`/api/v1/certificates/${credentialId}/render`}
+            href={`${API_BASE}/api/v1/certificates/${credentialId}/render`}
             target="_blank"
             rel="noopener noreferrer"
           >

@@ -423,3 +423,15 @@ async def test_refresh_rotates_the_session_and_invalidates_the_old_token(client)
     # request via a per-request cookie override.
     stale = await client.get("/api/v1/auth/me", cookies={"qloot_session": old_token})
     assert stale.status_code == 401
+
+
+async def test_refresh_rejects_a_revoked_session(client):
+    await _register(client, "refresh_revoked@example.com")
+    sessions = await client.get("/api/v1/auth/sessions")
+    session_id = sessions.json()[0]["id"]
+
+    revoked = await client.delete(f"/api/v1/auth/sessions/{session_id}")
+    assert revoked.status_code == 200
+
+    refreshed = await client.post("/api/v1/auth/refresh")
+    assert refreshed.status_code == 401

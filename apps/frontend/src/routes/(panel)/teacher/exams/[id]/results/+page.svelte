@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { api, ApiError } from "$lib/api/client";
+  import { api, ApiError, API_BASE } from "$lib/api/client";
   import type { ExamResultsReview, ExamResultReviewRow, ReviewAnswer } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
@@ -192,8 +192,10 @@
     <div class="card mt-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <p class="mono-label">Analitik ujian</p>
-        <a class="btn-ghost !py-1 text-xs" href={`/api/v1/exams/${examId}/analytics.csv`} download
-          ><Icon name="download" size="11px" /> Ekspor CSV</a
+        <a
+          class="btn-ghost !py-1 text-xs"
+          href={`${API_BASE}/api/v1/exams/${examId}/analytics.csv`}
+          download><Icon name="download" size="11px" /> Ekspor CSV</a
         >
       </div>
       <div class="mt-3 grid gap-3 sm:grid-cols-3 text-sm">

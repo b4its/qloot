@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, ApiError } from "$lib/api/client";
+  import { api, ApiError, API_BASE } from "$lib/api/client";
   import type {
     AcademicDashboard,
     Personality,
@@ -389,7 +389,11 @@
           <h2 class="font-display font-bold">Nilai akademik</h2>
           <div class="flex items-center gap-3">
             {#if grades.length}
-              <a href="/api/v1/career/grades/export.csv" class="btn-ghost !py-1 text-xs" download>
+              <a
+                href={`${API_BASE}/api/v1/career/grades/export.csv`}
+                class="btn-ghost !py-1 text-xs"
+                download
+              >
                 <Icon name="download" size="11px" /> Ekspor CSV
               </a>
             {/if}

@@ -26,9 +26,10 @@
 
   // Role guard per sub-area. Admin always passes `hasRole` (see auth store), so
   // an admin may view the teacher panel too.
-  $: if (!$auth.loading && user) {
-    if (isAdminArea && !hasRole(user, "admin")) goto("/login");
-    else if (isTeacherArea && !hasRole(user, "teacher")) goto("/login");
+  $: if (!$auth.loading) {
+    if (!user) goto(`/login?next=${encodeURIComponent(path)}`);
+    else if (isAdminArea && !hasRole(user, "admin")) goto("/dashboard");
+    else if (isTeacherArea && !hasRole(user, "teacher")) goto("/dashboard");
   }
 
   // Highlight the most specific matching item (so /teacher/subjects/new lights
@@ -47,6 +48,7 @@
 </script>
 
 <div class="relative min-h-screen lg:grid lg:grid-cols-[264px_1fr]">
+  <a class="skip-link" href="#panel-content">Lewati ke konten utama</a>
   <!-- ============ SIDEBAR (desktop) ============ -->
   <aside class="panel-sidebar hidden border-r lg:flex lg:flex-col">
     <a href="/" class="flex items-center gap-2.5 px-5 py-4">
@@ -131,6 +133,7 @@
               href={item.href}
               class="panel-nav-item"
               class:panel-nav-active={isActive(item.href)}
+              aria-current={isActive(item.href) ? "page" : undefined}
               on:click={() => (sidebarOpen = false)}
             >
               <Icon name={item.icon} size="13px" />
@@ -142,12 +145,22 @@
             <Icon name="arrow-left-from-bracket" size="13px" />
             <span class="flex-1">Kembali ke aplikasi</span>
           </a>
+          {#if user}
+            <a href="/profile" class="panel-nav-item" on:click={() => (sidebarOpen = false)}>
+              <Icon name="user-astronaut" size="13px" />
+              <span class="flex-1">Profil & sesi</span>
+            </a>
+            <button class="panel-nav-item w-full text-danger" on:click={logout}>
+              <Icon name="arrow-right-from-bracket" size="13px" />
+              <span class="flex-1 text-left">Keluar</span>
+            </button>
+          {/if}
         </nav>
       {/if}
     </header>
 
     <!-- ============ CONTENT ============ -->
-    <main class="relative z-10 flex-1">
+    <main id="panel-content" class="relative z-10 flex-1" tabindex="-1">
       <slot />
     </main>
   </div>

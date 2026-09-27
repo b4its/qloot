@@ -44,6 +44,7 @@
 </script>
 
 <div class="relative min-h-screen">
+  <a class="skip-link" href="#landing-content">Lewati ke konten utama</a>
   <!-- ================= LANDING NAV ================= -->
   <header class="sticky top-0 z-40 border-b glass">
     <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
@@ -133,7 +134,7 @@
   </header>
 
   <!-- ================= LANDING CONTENT ================= -->
-  <main class="relative z-10">
+  <main id="landing-content" class="relative z-10" tabindex="-1">
     <slot />
   </main>
 

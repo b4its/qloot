@@ -28,6 +28,7 @@ describe("PasswordInput", () => {
     render(PasswordInput);
     const toggle = screen.getByRole("button", { name: /tampilkan kata sandi/i });
     expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(toggle).not.toHaveAttribute("tabindex", "-1");
   });
 
   it("reveals the password when the toggle is clicked", async () => {

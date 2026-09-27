@@ -24,6 +24,14 @@ export default {
         muted: "rgb(var(--muted) / <alpha-value>)",
         line: "rgb(var(--line) / <alpha-value>)",
 
+        // Compatibility aliases used by feature pages. Keep these semantic so
+        // they remain theme-aware instead of silently producing no CSS.
+        background: "rgb(var(--bg) / <alpha-value>)",
+        foreground: "rgb(var(--ink) / <alpha-value>)",
+        border: "rgb(var(--line) / <alpha-value>)",
+        "surface-2": "rgb(var(--surface) / <alpha-value>)",
+        "surface-elevated": "rgb(var(--elevated) / <alpha-value>)",
+
         // Neon accents (same in both themes).
         // `primary` = Acid yellow (Night City signature).
         primary: {
@@ -41,10 +49,18 @@ export default {
         },
         // `secondary` = ICE cyan.
         secondary: { DEFAULT: "#00F0FF", 500: "#00F0FF", 600: "#00B8C4" },
+        mint: { DEFAULT: "#00F0FF", 500: "#00F0FF", 600: "#00B8C4" },
         // `tertiary` = hot magenta.
         tertiary: { DEFAULT: "#FF2E88", 500: "#FF2E88", 600: "#D11A6A" },
+        magenta: { DEFAULT: "#FF2E88", 500: "#FF2E88", 600: "#D11A6A" },
         // `highlight` = hazard orange.
         highlight: { DEFAULT: "#FF6B2C", 500: "#FF6B2C", 600: "#D24E12" },
+        amber: {
+          DEFAULT: "#FFB020",
+          400: "#FFB020",
+          500: "#E89200",
+          600: "#B86E00",
+        },
         // `danger` = critical red (the classic CP2077 red).
         danger: { DEFAULT: "#FF003C", 500: "#FF003C" },
       },

@@ -70,6 +70,8 @@ describe("PageAlerts", () => {
     render(PageAlerts, { message: "Tersimpan", error: "Gagal" });
     expect(screen.getByText("Tersimpan")).toBeTruthy();
     expect(screen.getByText("Gagal")).toBeTruthy();
+    expect(screen.getByRole("status")).toHaveTextContent("Tersimpan");
+    expect(screen.getByRole("alert")).toHaveTextContent("Gagal");
   });
 });
 

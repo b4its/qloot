@@ -73,6 +73,7 @@
 </script>
 
 <div class="relative min-h-screen">
+  <a class="skip-link" href="#main-content">Lewati ke konten utama</a>
   <!-- ================= NAV ================= -->
   <header class="cyber-rule sticky top-0 z-40 border-b glass">
     <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
@@ -90,6 +91,7 @@
             href={item.href}
             class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
             class:text-primary={path.startsWith(item.href)}
+            aria-current={isNavActive(item.href) ? "page" : undefined}
           >
             {item.label}
           </a>
@@ -194,6 +196,7 @@
               href={item.href}
               class="flex flex-none items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:bg-primary/10 hover:text-primary"
               class:nav-active={isNavActive(item.href)}
+              aria-current={isNavActive(item.href) ? "page" : undefined}
             >
               <Icon name={item.icon} size="12px" />
               {item.label}
@@ -210,6 +213,7 @@
           <a
             href={item.href}
             class="hud block rounded-sm px-3 py-2 text-xs"
+            aria-current={isNavActive(item.href) ? "page" : undefined}
             on:click={() => (mobileOpen = false)}>{item.label}</a
           >
         {/each}
@@ -218,6 +222,7 @@
           <a
             href={item.href}
             class="block rounded-sm px-3 py-2 text-sm"
+            aria-current={isNavActive(item.href) ? "page" : undefined}
             on:click={() => (mobileOpen = false)}
           >
             <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
@@ -238,13 +243,29 @@
             {hasRole(user, "admin") ? "Panel Admin" : "Panel Guru"}
           </a>
         {/if}
+        {#if user}
+          <div class="my-2 border-t"></div>
+          <a
+            href="/profile"
+            class="block rounded-sm px-3 py-2 text-sm"
+            on:click={() => (mobileOpen = false)}
+          >
+            <Icon name="user-astronaut" size="12px" class="mr-2" />Profil & sesi
+          </a>
+          <button
+            class="block w-full rounded-sm px-3 py-2 text-left text-sm text-danger"
+            on:click={logout}
+          >
+            <Icon name="arrow-right-from-bracket" size="12px" class="mr-2" />Keluar
+          </button>
+        {/if}
       </nav>
     {/if}
   </header>
 
   <!-- ================= TICKER ================= -->
-  <div class="ticker bg-surface">
-    <div class="ticker-track py-2">
+  <div class="ticker bg-surface" aria-label="Informasi terbaru">
+    <div class="ticker-track py-2" aria-hidden="true">
       {#each [0, 1] as _}
         {#each tickerItems as item}
           <span class="mono-label mx-8 inline-flex items-center gap-2">
@@ -257,7 +278,7 @@
   </div>
 
   <!-- ================= MAIN ================= -->
-  <main class="relative z-10">
+  <main id="main-content" class="relative z-10" tabindex="-1">
     <slot />
   </main>
 
@@ -291,7 +312,9 @@
               </button>
             </form>
             {#if newsletterMsg}
-              <p class="mt-2 text-xs text-primary">{newsletterMsg}</p>
+              <p class="mt-2 text-xs text-primary" role="status" aria-live="polite">
+                {newsletterMsg}
+              </p>
             {/if}
           </div>
         </div>

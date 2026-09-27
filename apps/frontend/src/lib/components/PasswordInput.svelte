@@ -35,7 +35,6 @@
     aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
     aria-pressed={visible}
     title={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
-    tabindex="-1"
     {disabled}
     on:click={() => (visible = !visible)}
   >

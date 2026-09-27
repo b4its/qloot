@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Icon from "$lib/components/Icon.svelte";
-  import { api, ApiError } from "$lib/api/client";
+  import { api, ApiError, API_BASE } from "$lib/api/client";
   import { auth } from "$lib/stores/auth";
   import type { Certificate } from "$lib/types";
   import Pagination from "$lib/components/Pagination.svelte";
@@ -355,7 +355,7 @@
           </button>
           <a
             class="btn-secondary w-full"
-            href={`/api/v1/certificates/${active.credential_id}/render`}
+            href={`${API_BASE}/api/v1/certificates/${active.credential_id}/render`}
             target="_blank"
             rel="noopener"
           >

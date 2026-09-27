@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
 
@@ -111,7 +112,9 @@ async def logout(request: Request, response: Response, db: DbSession) -> Message
     if token:
         async with transaction(db):
             await AuthService(db).logout(token)
-    response.delete_cookie(settings.session_cookie_name, path="/")
+    response.delete_cookie(
+        settings.session_cookie_name, path="/", domain=settings.session_cookie_domain
+    )
     return Message(message="Logged out")
 
 
@@ -122,7 +125,9 @@ async def logout_all(user: CurrentUser, response: Response, db: DbSession) -> Me
     """
     async with transaction(db):
         await AuthService(db).logout_all(user.id)
-    response.delete_cookie(settings.session_cookie_name, path="/")
+    response.delete_cookie(
+        settings.session_cookie_name, path="/", domain=settings.session_cookie_domain
+    )
     return Message(message="Signed out of all devices")
 
 
@@ -160,12 +165,12 @@ async def _user_from_token(service: AuthService, token: str):
 
     token_hash = hash_session_token(token, settings.session_secret)
     session = await service.sessions.get_by_token_hash(token_hash)
-    if session is None:
+    if session is None or session.revoked_at is not None or session.expires_at <= datetime.now(UTC):
         raise AuthError("Invalid session")
     user = (
         await service.session.execute(select(User).where(User.id == session.user_id))
     ).scalar_one_or_none()
-    if user is None:
+    if user is None or not user.is_active:
         raise AuthError("Invalid session")
     return user
 

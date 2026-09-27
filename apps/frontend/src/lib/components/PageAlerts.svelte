@@ -7,13 +7,13 @@
 </script>
 
 {#if message}
-  <p class="alert-ok mt-4">
+  <p class="alert-ok mt-4" role="status" aria-live="polite">
     <Icon name="circle-check" size="12px" class="mt-0.5 flex-none" />
     {message}
   </p>
 {/if}
 {#if error}
-  <p class="alert-error mt-4">
+  <p class="alert-error mt-4" role="alert" aria-live="assertive">
     <Icon name="triangle-exclamation" size="12px" class="mt-0.5 flex-none" />
     {error}
   </p>
