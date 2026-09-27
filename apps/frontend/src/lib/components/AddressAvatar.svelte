@@ -2,6 +2,8 @@
   /** Deterministic generative "blocky" avatar derived from an address/hash. */
   export let seed: string = "0x0000";
   export let size = 40;
+  /** Decorative by default: a labelled parent (e.g. WalletChip) already names it. */
+  export let label: string | undefined = undefined;
 
   // FNV-1a hash → stable pseudo-random stream.
   function hash(str: string): number {
@@ -23,8 +25,9 @@
 <span
   class="addr-avatar grid overflow-hidden"
   style={`width:${size}px;height:${size}px;background:linear-gradient(135deg,hsl(${hue} 70% 55%),hsl(${(hue + 60) % 360} 70% 50%))`}
-  role="img"
-  aria-label="Avatar wallet"
+  role={label ? "img" : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : "true"}
 >
   <span class="grid h-full w-full grid-cols-3 grid-rows-5 gap-[1px] p-[2px]">
     {#each grid as g, i}
