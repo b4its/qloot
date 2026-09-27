@@ -87,6 +87,20 @@
     }
   }
 
+  // --- search + metrics over the loaded page ---------------------------------
+  let query = "";
+  $: q = query.toLowerCase().trim();
+  $: visibleEntries = global
+    ? global.entries.filter((e) => !q || (e.display_name ?? e.user_id).toLowerCase().includes(q))
+    : [];
+  $: pageTopScore =
+    global && global.entries.length ? Math.max(...global.entries.map((e) => e.score_bp)) / 100 : 0;
+  $: pageAvgScore =
+    global && global.entries.length
+      ? global.entries.reduce((s, e) => s + e.score_bp, 0) / global.entries.length / 100
+      : 0;
+  $: myEntry = global?.entries.find((e) => e.user_id === $auth.user?.id) ?? null;
+
   function goLevel(delta: number) {
     const next = levelPage + delta;
     if (next < 1 || (delta > 0 && !levelHasMore)) return;
@@ -195,7 +209,48 @@
       {#each Array(5) as _}<div class="skeleton h-12 w-full"></div>{/each}
     </div>
   {:else if global && global.entries.length}
-    <div class="mt-6 card overflow-x-auto !p-0">
+    <!-- Metrics + search -->
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Di halaman ini</p>
+        <p class="mt-1 font-display text-3xl font-bold">{global.entries.length}</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Skor tertinggi</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="top-score">
+          {pageTopScore.toFixed(1)}%
+        </p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Rata-rata halaman</p>
+        <p class="mt-1 font-display text-3xl font-bold">{pageAvgScore.toFixed(1)}%</p>
+      </div>
+      <div class="card p-4">
+        <p class="mono-label text-[10px]">Peringkatmu</p>
+        <p class="mt-1 font-display text-3xl font-bold text-primary">#{me?.rank ?? "—"}</p>
+      </div>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <div class="relative w-full sm:w-64">
+        <Icon
+          name="magnifying-glass"
+          size="12px"
+          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
+        />
+        <input
+          class="input text-xs !py-1.5 !pl-8 w-full"
+          placeholder="Cari nama pengguna..."
+          bind:value={query}
+          aria-label="Cari pengguna"
+        />
+      </div>
+      {#if myEntry && !q}
+        <span class="badge badge-indigo">Barismu ditandai</span>
+      {/if}
+    </div>
+
+    <div class="mt-4 card overflow-x-auto !p-0">
       <table class="w-full text-sm">
         <thead class="text-left">
           <tr class="mono-label border-b">
@@ -206,7 +261,14 @@
           </tr>
         </thead>
         <tbody>
-          {#each global.entries as e}
+          {#if visibleEntries.length === 0}
+            <tr
+              ><td colspan="4" class="px-5 py-6 text-center muted">
+                Tidak ada pengguna yang cocok dengan pencarianmu.
+              </td></tr
+            >
+          {/if}
+          {#each visibleEntries as e (e.user_id)}
             <tr class="border-b last:border-0" class:row-me={e.user_id === $auth.user?.id}>
               <td class="px-5 py-3">
                 {#if e.rank <= 3}
