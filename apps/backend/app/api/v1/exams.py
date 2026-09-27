@@ -230,9 +230,14 @@ async def start_attempt(exam_id: uuid.UUID, user: CurrentUser, db: DbSession):
 
 @router.get("/attempts", response_model=list[AttemptOut])
 async def my_attempts(
-    user: CurrentUser, db: DbSession, limit: LimitParam = 100, offset: OffsetParam = 0
+    user: CurrentUser,
+    db: DbSession,
+    exam_id: uuid.UUID | None = None,
+    limit: LimitParam = 100,
+    offset: OffsetParam = 0,
 ):
-    return await ExamService(db).my_attempts(user, limit=limit, offset=offset)
+    """The caller's exam attempts, optionally scoped to one ``exam_id``."""
+    return await ExamService(db).my_attempts(user, exam_id=exam_id, limit=limit, offset=offset)
 
 
 @router.get("/attempts/{attempt_id}", response_model=AttemptOut)

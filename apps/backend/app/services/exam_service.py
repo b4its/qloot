@@ -581,15 +581,19 @@ class ExamService:
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def my_attempts(
-        self, user: User, *, limit: int = 100, offset: int = 0
+        self,
+        user: User,
+        *,
+        exam_id: uuid.UUID | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[ExamAttempt]:
-        stmt = (
-            select(ExamAttempt)
-            .where(ExamAttempt.user_id == user.id)
-            .order_by(ExamAttempt.started_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+        stmt = select(ExamAttempt).where(ExamAttempt.user_id == user.id)
+        if exam_id is not None:
+            # Scope to a single exam so an exam detail page shows only its own
+            # attempts (and can compute best-score / resume pointer).
+            stmt = stmt.where(ExamAttempt.exam_id == exam_id)
+        stmt = stmt.order_by(ExamAttempt.started_at.desc()).limit(limit).offset(offset)
         return list((await self.session.execute(stmt)).scalars().all())
 
     # Violation kinds that contribute to flagging an attempt.
