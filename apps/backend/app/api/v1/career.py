@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends
 
@@ -262,7 +263,7 @@ async def cancel_consultation(consultation_id: uuid.UUID, user: CurrentUser, db:
 async def managed_consultations(
     teacher: TeacherUser,
     db: DbSession,
-    status: str | None = None,
+    status: Literal["pending", "accepted", "completed", "cancelled"] | None = None,
     limit: LimitParam = 100,
     offset: OffsetParam = 0,
 ):
