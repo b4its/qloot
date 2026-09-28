@@ -161,6 +161,15 @@
       dalam satu tempat.
     </p>
 
+    {#if loading}
+      <div class="mt-8 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+        {#each Array(4) as _}<div class="skeleton h-24"></div>{/each}
+      </div>
+      <div class="mt-8 grid gap-4 sm:grid-cols-2">
+        {#each Array(4) as _}<div class="skeleton h-32"></div>{/each}
+      </div>
+    {/if}
+
     {#if !loading && unavailable.length}
       <div class="alert-warning mt-4 flex items-start gap-3" role="alert" aria-live="assertive">
         <Icon name="triangle-exclamation" class="mt-0.5 flex-none" size="14px" />
