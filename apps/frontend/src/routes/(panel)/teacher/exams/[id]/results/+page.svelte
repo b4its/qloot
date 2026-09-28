@@ -236,10 +236,12 @@
       </div>
       {#if analytics.questions.length}
         <table class="mt-4 w-full text-xs">
+          <caption class="sr-only">Analisis butir soal</caption>
           <thead class="text-left muted">
             <tr
-              ><th class="py-1">Soal</th><th class="text-right">Kesukaran</th><th class="text-right"
-                >Daya beda</th
+              ><th class="py-1" scope="col">Soal</th><th class="text-right" scope="col"
+                >Kesukaran</th
+              ><th class="text-right" scope="col">Daya beda</th
               ></tr
             >
           </thead>
