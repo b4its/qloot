@@ -435,18 +435,21 @@
   let bank: BankQuestion[] = [];
   let bankOpen = false;
   let bankLoading = false;
+  let bankError = "";
   let bankQuery = "";
   let bankQtype = "";
 
   async function loadBank() {
     bankLoading = true;
+    bankError = "";
     try {
       const params = new URLSearchParams({ limit: "100" });
       if (bankQtype) params.set("qtype", bankQtype);
       if (bankQuery.trim()) params.set("query", bankQuery.trim());
       bank = await api.get<BankQuestion[]>(`/questions/bank?${params.toString()}`);
-    } catch {
+    } catch (e) {
       bank = [];
+      bankError = e instanceof ApiError ? e.message : "Gagal memuat bank soal.";
     } finally {
       bankLoading = false;
     }
@@ -881,6 +884,8 @@
 
               {#if bankLoading}
                 <div class="skeleton h-8"></div>
+              {:else if bankError}
+                <p class="text-xs text-danger" role="status" aria-live="polite">{bankError}</p>
               {:else if filteredBank.length === 0}
                 <p class="text-xs muted">
                   {bank.length === 0

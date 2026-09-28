@@ -145,4 +145,21 @@ describe("teacher exam question bank import and filtering", () => {
       });
     });
   });
+
+  it("discloses a bank load failure instead of showing it as empty", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/exams/ex1") return Promise.resolve(sampleExam);
+      if (path === "/exams/ex1/questions") return Promise.resolve([q1]);
+      if (typeof path === "string" && path.startsWith("/questions/bank"))
+        return Promise.reject(new Error("boom"));
+      return Promise.resolve([]);
+    });
+    render(TeacherExamPage);
+    await screen.findByText(/Soal Nomor Satu yang sudah ada/);
+
+    await fireEvent.click(screen.getByText("Impor dari bank soal"));
+    expect(await screen.findByText(/Gagal memuat bank soal/)).toBeTruthy();
+    // Must not masquerade as an empty bank.
+    expect(screen.queryByText("Bank soal kosong.")).toBeNull();
+  });
 });
