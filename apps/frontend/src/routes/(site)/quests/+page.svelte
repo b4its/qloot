@@ -249,6 +249,7 @@
     <div class="mt-6 grid gap-6 lg:grid-cols-2">
       {#each pagedQuests as q}
         <div
+          id={`quest-${q.id}`}
           class="card lift flex flex-col justify-between hover:border-primary/60 transition-all p-5"
         >
           <div class="space-y-3">

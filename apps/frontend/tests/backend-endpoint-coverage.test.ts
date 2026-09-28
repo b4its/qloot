@@ -93,7 +93,7 @@ describe("previously backend-only endpoints now have a UI caller", () => {
     expect(notificationsSrc).toContain("/notifications/read-batch");
     expect(notificationsSrc).toContain("/notifications/clear-read");
     expect(notificationsSrc).toContain("api.delete(`/notifications/");
-    expect(notificationsSrc).toContain("linkFor");
+    expect(notificationsSrc).toContain("notificationLink");
   });
 
   it("badges page renders progress toward locked badges (GET /badges/progress)", () => {

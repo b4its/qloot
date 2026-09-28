@@ -96,6 +96,30 @@ describe("notifications page — inbox UX (STUDY-09)", () => {
     await waitFor(() => expect(goto).toHaveBeenCalledWith("/rooms/r-9"));
   });
 
+  it("deep-links a graded exam to the exact attempt result", async () => {
+    const examSeed = {
+      items: [
+        notif({
+          id: "n-exam",
+          title: "Ujian sudah dinilai",
+          data: { exam_id: "e-7", attempt_id: "a-9" },
+        }),
+      ],
+      total: 1,
+      unread: 1,
+      kind_counts: { reward: 1 },
+    };
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/notifications/page")) return Promise.resolve(examSeed);
+      if (path === "/notifications/preferences") return Promise.resolve({ muted_kinds: [] });
+      return Promise.resolve([]);
+    });
+
+    render(NotificationsPage);
+    await fireEvent.click(await screen.findByText("Ujian sudah dinilai"));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith("/exams/e-7/result?attempt=a-9"));
+  });
+
   it("bulk-marks selected notifications read via the batch endpoint", async () => {
     render(NotificationsPage);
     await waitFor(() => expect(screen.getByText("Kamu dapat 10 OPT!")).toBeTruthy());

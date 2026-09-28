@@ -5,6 +5,7 @@
   import type { Notification, NotificationPage } from "$lib/types";
   import { notifications } from "$lib/stores/notifications";
   import { relativeTime } from "$lib/utils/format";
+  import { notificationLink } from "$lib/utils/notification-link";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
@@ -260,33 +261,9 @@
   $: readCount = Math.max(0, total - unread);
   $: readPct = total > 0 ? Math.round((readCount / total) * 100) : 0;
 
-  /** Resolve a notification's context into an in-app deep link, when known. */
-  function linkFor(n: Notification): string | null {
-    const d = (n.data ?? {}) as Record<string, unknown>;
-    const id = (key: string) => (typeof d[key] === "string" ? (d[key] as string) : null);
-    switch (n.kind) {
-      case "reward":
-        if (id("quest_id")) return "/quests";
-        if (id("attempt_id")) return "/exams";
-        return "/wallet";
-      case "quest":
-        return "/quests";
-      case "badge":
-        return "/badges";
-      case "room":
-        return id("room_id") ? `/rooms/${id("room_id")}` : "/rooms";
-      case "level":
-        return "/ranking";
-      case "community":
-        return "/community";
-      default:
-        return null;
-    }
-  }
-
   async function open(n: Notification) {
     await markOne(n);
-    const href = linkFor(n);
+    const href = notificationLink(n);
     if (href) await goto(href);
   }
 
@@ -495,7 +472,7 @@
     <ul class="mt-4 space-y-2">
       {#each visibleItems as n, i (n.id)}
         {@const meta = iconFor[n.kind] ?? iconFor.system}
-        {@const href = linkFor(n)}
+        {@const href = notificationLink(n)}
         <li use:reveal={{ delay: i * 15 }} class="card !p-0" data-notification={n.id}>
           <div class="flex items-start gap-3 p-4" class:opacity-60={n.read_at}>
             <input

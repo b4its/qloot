@@ -226,6 +226,7 @@
     <div class="mt-6 space-y-3">
       {#each pagedTasks as t, i}
         <div
+          id={`task-${t.id}`}
           use:reveal={{ delay: i * 30 }}
           class="card flex flex-wrap items-center justify-between gap-4 p-4 hover:border-primary/50 transition-all"
         >

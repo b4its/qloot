@@ -242,6 +242,7 @@
           {@const prog = progressFor(b)}
           {@const unlocked = isUnlocked(b)}
           <div
+            id={`badge-${b.code}`}
             use:reveal={{ delay: i * 25 }}
             class="nft card border {rarityTint[b.rarity ?? 'common']}"
             class:opacity-70={!unlocked}
