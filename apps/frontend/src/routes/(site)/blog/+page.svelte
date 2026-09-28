@@ -87,6 +87,10 @@
 <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
   <p class="mono-label">Blog</p>
   <h1 class="mt-2 font-display text-4xl font-bold">Wawasan, panduan, dan cerita belajar</h1>
+  <p class="mt-3 max-w-2xl muted">
+    Contoh artikel untuk memperlihatkan tampilan blog. Konten sebenarnya akan datang dari tim
+    editorial QLoot.
+  </p>
 
   <!-- Category filter + search -->
   <div class="mt-8 flex flex-wrap items-center gap-2">
