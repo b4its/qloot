@@ -128,4 +128,15 @@ describe("student exam result page UX overhaul", () => {
     await waitFor(() => expect(screen.queryByText("Berapa gravitasi bumi standar?")).toBeNull());
     expect(screen.getByText("Massa jenis air adalah 1 g/cm3?")).toBeTruthy();
   });
+
+  it("offers a retry when the result fails to load", async () => {
+    get.mockRejectedValueOnce(new Error("boom"));
+    render(StudentResultPage);
+
+    const retry = await screen.findByRole("button", { name: /Coba lagi/ });
+    get.mockResolvedValueOnce(mockResultData);
+    await fireEvent.click(retry);
+
+    expect(await screen.findByText("Ujian Akhir Semester Fisika")).toBeTruthy();
+  });
 });

@@ -58,6 +58,8 @@
         : "open";
 
   async function load() {
+    loading = true;
+    loadError = "";
     try {
       exam = await api.get<Exam>(`/exams/${examId}`);
       pastAttempts = await api.get<Attempt[]>(`/attempts?exam_id=${examId}&limit=200`);
@@ -103,9 +105,14 @@
   {#if loading}
     <Skeleton rows={4} />
   {:else if loadError}
-    <p class="alert-error" role="alert" aria-live="assertive">
-      {loadError}
-    </p>
+    <div class="space-y-3">
+      <p class="alert-error" role="alert" aria-live="assertive">
+        {loadError}
+      </p>
+      <button class="btn-secondary" on:click={load}>
+        <Icon name="rotate" size="12px" /> Coba lagi
+      </button>
+    </div>
   {:else if exam}
     <a href="/exams" class="text-sm text-primary">← Semua ujian</a>
     <p class="mono-label mt-4">Ujian</p>

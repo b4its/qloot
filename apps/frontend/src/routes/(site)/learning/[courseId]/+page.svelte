@@ -28,6 +28,7 @@
 
   async function load() {
     loading = true;
+    error = "";
     try {
       course = await api.get<Course>(`/courses/${courseId}`);
       lessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`);
@@ -80,9 +81,14 @@
   {#if loading}
     <Skeleton rows={4} />
   {:else if error}
-    <p class="alert-error" role="alert" aria-live="assertive">
-      {error}
-    </p>
+    <div class="space-y-3">
+      <p class="alert-error" role="alert" aria-live="assertive">
+        {error}
+      </p>
+      <button class="btn-secondary" on:click={load}>
+        <Icon name="rotate" size="12px" /> Coba lagi
+      </button>
+    </div>
   {:else if course}
     <a
       href="/learning"

@@ -34,6 +34,8 @@
   const attemptId = $page.url.searchParams.get("attempt") ?? "";
 
   async function load() {
+    loading = true;
+    error = "";
     try {
       const res = await api.get<{
         attempt: Attempt;
@@ -107,11 +109,19 @@
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
-    <p class="muted">Memuat hasil…</p>
+    <div class="space-y-4">
+      <div class="skeleton h-28"></div>
+      <div class="skeleton h-40"></div>
+    </div>
   {:else if error}
-    <p class="alert-error">
-      {error}
-    </p>
+    <div class="space-y-3">
+      <p class="alert-error" role="alert" aria-live="assertive">
+        {error}
+      </p>
+      <button class="btn-secondary" on:click={load}>
+        <Icon name="rotate" size="12px" /> Coba lagi
+      </button>
+    </div>
   {:else if attempt}
     <a href={`/exams/${examId}`} class="text-sm text-primary inline-flex items-center gap-1">
       <Icon name="arrow-left" size="11px" /> Kembali ke ujian
