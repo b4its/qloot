@@ -46,9 +46,18 @@ def level_for_xp(xp: int) -> tuple[int, int, int]:
         # cumulative XP required to *reach* level n
         return 500 * (n - 1) * n // 2
 
+    # Invert the quadratic directly instead of walking level-by-level: the
+    # leaderboard calls this for every user, so an O(level) loop is wasteful.
+    # Solve 500*(n-1)*n/2 <= xp for the largest integer n in [1, 999].
     level = 1
-    while xp_for_level(level + 1) <= xp and level < 999:
-        level += 1
+    if xp > 0:
+        # n^2 - n - (2*xp/500) <= 0  →  n <= (1 + sqrt(1 + 4*2*xp/500)) / 2
+        level = min(999, int((1 + (1 + 16 * xp / 500) ** 0.5) / 2))
+        # Guard against float rounding at exact thresholds.
+        while xp_for_level(level + 1) <= xp and level < 999:
+            level += 1
+        while level > 1 and xp_for_level(level) > xp:
+            level -= 1
     floor = xp_for_level(level)
     ceiling = xp_for_level(level + 1)
     return level, floor, ceiling
