@@ -105,6 +105,7 @@
   };
 
   async function load() {
+    error = "";
     try {
       const [r, p, rk, h, lb] = await Promise.all([
         api.get<Room>(`/rooms/${roomId}`),
@@ -262,9 +263,12 @@
         <Icon name="arrow-left" size="10px" />
         <span>Kembali ke Semua Ruang</span>
       </a>
-      <p class="alert-error">
+      <p class="alert-error" role="alert" aria-live="assertive">
         {error}
       </p>
+      <button class="btn-secondary" on:click={load}>
+        <Icon name="rotate" size="12px" /> Coba lagi
+      </button>
     </div>
   {:else if room}
     <!-- Breadcrumbs & Quick link -->
@@ -455,7 +459,9 @@
             <span>{inviteBusy ? "Mengundang…" : "Buat Undangan"}</span>
           </button>
         </div>
-        {#if inviteError}<p class="alert-error mt-2">{inviteError}</p>{/if}
+        {#if inviteError}<p class="alert-error mt-2" role="alert" aria-live="assertive">
+            {inviteError}
+          </p>{/if}
         {#if inviteResult}
           <div
             class="mt-3 rounded-sm border border-secondary/40 surface p-3 flex flex-wrap items-center justify-between gap-2"
