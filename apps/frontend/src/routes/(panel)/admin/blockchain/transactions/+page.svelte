@@ -9,6 +9,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -314,7 +315,7 @@
           <button class="btn-ghost !py-1 text-xs" on:click={() => (detailHash = "")}>Tutup</button>
         </div>
         {#if detailLoading}
-          <p class="mt-2 muted text-sm">Memuat…</p>
+          <div class="mt-2"><Skeleton rows={3} /></div>
         {:else if detail}
           <dl class="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             <div class="flex justify-between border-b py-1">
