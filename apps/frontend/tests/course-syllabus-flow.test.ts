@@ -139,6 +139,39 @@ describe("course syllabus and lesson UX overhaul", () => {
     expect(screen.queryByRole("link", { name: "Asynchronous JavaScript & Fetch" })).toBeNull();
   });
 
+  it("keeps lessons usable when progress analytics fail and retries only progress", async () => {
+    let progressFails = true;
+    get.mockImplementation(async (path: string) => {
+      if (path === "/courses/c-101") return mockCourse;
+      if (path === "/courses/c-101/lessons") return mockLessons;
+      if (path === "/courses/c-101/progress" && progressFails) {
+        throw new Error("analytics unavailable");
+      }
+      if (path === "/courses/c-101/progress") return mockProgress;
+      if (path.startsWith("/me/learning-progress")) return mockUserProgress;
+      return [];
+    });
+
+    render(CoursePage);
+    expect(await screen.findByText("Dasar Pemrograman Web Modern")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Pengenalan DOM dan Browser API" })).toBeTruthy();
+    expect(screen.getByText(/materi tetap dapat dibuka/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /tandai selesai/i })).toBeNull();
+
+    progressFails = false;
+    await fireEvent.click(screen.getByRole("button", { name: /muat ulang progres/i }));
+    await waitFor(() => expect(screen.getByText("50%")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Selesai (1)" })).toBeTruthy();
+  });
+
+  it("exposes aggregate course progress to assistive technology", async () => {
+    render(CoursePage);
+    expect(await screen.findByText("Dasar Pemrograman Web Modern")).toBeTruthy();
+    const bar = screen.getByRole("progressbar", { name: "Progres pembelajaran" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("50");
+    expect(bar.getAttribute("aria-valuemax")).toBe("100");
+  });
+
   it("toggles lesson completion on course page", async () => {
     render(CoursePage);
     expect(await screen.findByText("Dasar Pemrograman Web Modern")).toBeTruthy();

@@ -2,6 +2,10 @@
   import Icon from "$lib/components/Icon.svelte";
   import { onMount } from "svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
   import type { Course, Lesson, Progress } from "$lib/types";
@@ -19,6 +23,9 @@
   } | null = null;
   let loading = true;
   let error = "";
+  let progressLoading = false;
+  let progressError = "";
+  let progressLoaded = false;
   let actionError = "";
   let busy = "";
   let searchQuery = "";
@@ -26,18 +33,43 @@
 
   const courseId = $page.params.courseId;
 
+  const filterOptions = [
+    ["all", "Semua"],
+    ["completed", "Selesai"],
+    ["uncompleted", "Belum"],
+  ] as const;
+
+  async function loadProgress() {
+    progressLoading = true;
+    progressError = "";
+    try {
+      const [aggregate, mine] = await Promise.all([
+        api.get<typeof courseProgress>(`/courses/${courseId}/progress`),
+        api.get<Progress[]>(`/me/learning-progress?course_id=${courseId}&limit=200`),
+      ]);
+      courseProgress = aggregate;
+      progress = Object.fromEntries(mine.map((p) => [p.lesson_id, p]));
+      progressLoaded = true;
+    } catch (e) {
+      progressError = e instanceof ApiError ? e.message : "Progres belajar belum dapat dimuat";
+      progressLoaded = false;
+      courseProgress = null;
+      progress = {};
+      filterStatus = "all";
+    } finally {
+      progressLoading = false;
+    }
+  }
+
   async function load() {
     loading = true;
     error = "";
     try {
-      course = await api.get<Course>(`/courses/${courseId}`);
-      lessons = await api.get<Lesson[]>(`/courses/${courseId}/lessons`);
-      courseProgress = await api.get(`/courses/${courseId}/progress`);
-      // Scope the progress query to this course (no client-side over-fetch).
-      const mine = await api.get<Progress[]>(
-        `/me/learning-progress?course_id=${courseId}&limit=200`,
-      );
-      progress = Object.fromEntries(mine.map((p) => [p.lesson_id, p]));
+      [course, lessons] = await Promise.all([
+        api.get<Course>(`/courses/${courseId}`),
+        api.get<Lesson[]>(`/courses/${courseId}/lessons`),
+      ]);
+      await loadProgress();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
@@ -54,7 +86,7 @@
         progress_percent: isDone ? 0 : 100,
         completed: !isDone,
       });
-      await load();
+      await loadProgress();
     } catch (e) {
       actionError = e instanceof ApiError ? e.message : "Gagal mengubah status materi";
     } finally {
@@ -62,15 +94,31 @@
     }
   }
 
-  $: completedCount = lessons.filter((l) => !!progress[l.id]?.completed).length;
+  $: completedCount = progressLoaded
+    ? lessons.filter((l) => !!progress[l.id]?.completed).length
+    : null;
   $: filteredLessons = lessons.filter((l) => {
     const matchesSearch =
       !searchQuery.trim() || l.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
-    const isDone = !!progress[l.id]?.completed;
+    const isDone = progressLoaded && !!progress[l.id]?.completed;
     if (filterStatus === "completed") return matchesSearch && isDone;
     if (filterStatus === "uncompleted") return matchesSearch && !isDone;
     return matchesSearch;
   });
+  $: metrics = [
+    { label: "Total Materi", value: lessons.length },
+    { label: "Materi Selesai", value: completedCount ?? "—", tone: "text-mint" },
+    {
+      label: "Tersisa",
+      value: completedCount == null ? "—" : Math.max(0, lessons.length - completedCount),
+      tone: "text-primary",
+    },
+    {
+      label: "Kelulusan",
+      value: courseProgress ? `${courseProgress.percent}%` : "—",
+      tone: courseProgress?.percent === 100 ? "text-mint" : undefined,
+    },
+  ];
 
   onMount(load);
 </script>
@@ -114,32 +162,23 @@
     <p class="mt-2 text-sm muted leading-relaxed">{course.description}</p>
 
     <!-- Metrics overview -->
-    <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-      <div class="rounded-sm border p-3 surface">
-        <span class="mono-label text-[10px]">Total Materi</span>
-        <p class="font-mono text-lg font-bold mt-1">{lessons.length}</p>
+    <MetricStrip {metrics} />
+
+    {#if progressError}
+      <div
+        class="alert-warning mt-4 flex flex-wrap items-center justify-between gap-3"
+        role="status"
+      >
+        <span>
+          <strong>Materi tetap dapat dibuka.</strong>
+          {progressError}; status selesai untuk sementara tidak ditampilkan.
+        </span>
+        <button class="btn-ghost !py-1 text-xs" on:click={loadProgress} disabled={progressLoading}>
+          <Icon name={progressLoading ? "spinner" : "rotate"} spin={progressLoading} size="11px" />
+          Muat ulang progres
+        </button>
       </div>
-      <div class="rounded-sm border p-3 surface">
-        <span class="mono-label text-[10px]">Materi Selesai</span>
-        <p class="font-mono text-lg font-bold text-mint mt-1">{completedCount}</p>
-      </div>
-      <div class="rounded-sm border p-3 surface">
-        <span class="mono-label text-[10px]">Tersisa</span>
-        <p class="font-mono text-lg font-bold mt-1 text-primary">
-          {Math.max(0, lessons.length - completedCount)}
-        </p>
-      </div>
-      <div class="rounded-sm border p-3 surface">
-        <span class="mono-label text-[10px]">Kelulusan</span>
-        <p
-          class="font-mono text-lg font-bold mt-1 {courseProgress?.percent === 100
-            ? 'text-mint'
-            : 'muted'}"
-        >
-          {courseProgress?.percent ?? 0}%
-        </p>
-      </div>
-    </div>
+    {/if}
 
     {#if courseProgress}
       <div class="card mt-4">
@@ -150,7 +189,14 @@
             {courseProgress.percent}%</span
           >
         </div>
-        <div class="track mt-2 h-2">
+        <div
+          class="track mt-2 h-2"
+          role="progressbar"
+          aria-label="Progres pembelajaran"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={courseProgress.percent}
+        >
           <span style={`width:${courseProgress.percent}%`}></span>
         </div>
         {#if courseProgress.percent === 100}
@@ -186,57 +232,23 @@
 
     <!-- Search & Filter Controls -->
     <div class="mt-8 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-1.5 rounded-sm border p-1 surface">
-        <button
-          type="button"
-          class="px-2.5 py-1 text-xs rounded-xs font-medium transition-colors"
-          class:bg-primary={filterStatus === "all"}
-          class:text-[#05060A]={filterStatus === "all"}
-          class:muted={filterStatus !== "all"}
-          on:click={() => (filterStatus = "all")}
-        >
-          Semua ({lessons.length})
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 text-xs rounded-xs font-medium transition-colors"
-          class:bg-primary={filterStatus === "completed"}
-          class:text-[#05060A]={filterStatus === "completed"}
-          class:muted={filterStatus !== "completed"}
-          on:click={() => (filterStatus = "completed")}
-        >
-          Selesai ({completedCount})
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 text-xs rounded-xs font-medium transition-colors"
-          class:bg-primary={filterStatus === "uncompleted"}
-          class:text-[#05060A]={filterStatus === "uncompleted"}
-          class:muted={filterStatus !== "uncompleted"}
-          on:click={() => (filterStatus = "uncompleted")}
-        >
-          Belum ({Math.max(0, lessons.length - completedCount)})
-        </button>
-      </div>
-
-      <div class="relative w-full sm:w-64">
-        <input
-          type="text"
-          class="input text-xs !py-1.5 w-full"
-          placeholder="Cari materi..."
-          bind:value={searchQuery}
-          aria-label="Cari materi"
+      {#if progressLoaded}
+        <FilterChips
+          options={filterOptions.map(([value, label]) => [
+            value,
+            value === "all"
+              ? `${label} (${lessons.length})`
+              : value === "completed"
+                ? `${label} (${completedCount ?? 0})`
+                : `${label} (${Math.max(0, lessons.length - (completedCount ?? 0))})`,
+          ])}
+          bind:value={filterStatus}
+          label="Filter status materi"
         />
-        {#if searchQuery}
-          <button
-            type="button"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-            on:click={() => (searchQuery = "")}
-            aria-label="Bersihkan pencarian"
-          >
-            ✕
-          </button>
-        {/if}
+      {/if}
+
+      <div class="w-full sm:w-64">
+        <SearchInput bind:value={searchQuery} placeholder="Cari materi..." label="Cari materi" />
       </div>
     </div>
 
@@ -248,7 +260,7 @@
         </p>
       {/if}
       {#each filteredLessons as lesson, i}
-        {@const done = !!progress[lesson.id]?.completed}
+        {@const done = progressLoaded && !!progress[lesson.id]?.completed}
         {@const isBusy = busy === lesson.id}
         <div
           class="card flex flex-wrap items-center justify-between gap-4 transition-colors hover:border-primary/40"
@@ -280,27 +292,29 @@
                 {/if}
                 <span class="muted">·</span>
                 <span class={done ? "text-mint font-medium" : "muted"}>
-                  {done ? "Selesai" : "Belum dimulai"}
+                  {progressLoaded ? (done ? "Selesai" : "Belum dimulai") : "Status belum tersedia"}
                 </span>
               </div>
             </div>
           </div>
 
           <div class="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              class="btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5"
-              on:click={() => toggleComplete(lesson)}
-              disabled={isBusy}
-              title={done ? "Tandai belum selesai" : "Tandai selesai"}
-            >
-              {#if isBusy}
-                <Icon name="spinner" spin size="11px" />
-              {:else if done}
-                <Icon name="check" size="11px" class="text-mint" />
-              {/if}
-              <span>{done ? "Batal Selesai" : "Tandai Selesai"}</span>
-            </button>
+            {#if progressLoaded}
+              <button
+                type="button"
+                class="btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5"
+                on:click={() => toggleComplete(lesson)}
+                disabled={isBusy}
+                title={done ? "Tandai belum selesai" : "Tandai selesai"}
+              >
+                {#if isBusy}
+                  <Icon name="spinner" spin size="11px" />
+                {:else if done}
+                  <Icon name="check" size="11px" class="text-mint" />
+                {/if}
+                <span>{done ? "Batal Selesai" : "Tandai Selesai"}</span>
+              </button>
+            {/if}
             <a
               href={`/learning/${course.id}/lesson/${lesson.id}`}
               class="btn-secondary !py-1 !px-3 text-xs"
@@ -312,11 +326,22 @@
       {/each}
 
       {#if lessons.length === 0}
-        <p class="card text-center text-sm muted py-8">Belum ada materi pelajaran di kursus ini.</p>
+        <EmptyState
+          icon="book-open"
+          title="Belum ada materi pelajaran"
+          description="Guru belum menerbitkan materi untuk pelajaran ini."
+        />
       {:else if filteredLessons.length === 0}
-        <p class="card text-center text-sm muted py-8">
-          Tidak ada materi yang sesuai dengan pencarian atau filter yang dipilih.
-        </p>
+        <EmptyState
+          icon="magnifying-glass"
+          title="Tidak ada materi yang cocok"
+          description="Ubah pencarian atau filter status materi."
+          actionLabel="Reset Filter"
+          onAction={() => {
+            searchQuery = "";
+            filterStatus = "all";
+          }}
+        />
       {/if}
     </div>
   {/if}
