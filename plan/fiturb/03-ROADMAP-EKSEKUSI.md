@@ -163,10 +163,12 @@ Target commit:
 | W2 | Student onboarding to first verified reward | `fa4a92c` |
 | W3 | Exam publish readiness guidance | `f250cc5` |
 | W3 | Quest reward budget preview vs on-chain cap | `4379f4e` |
+| W3 | Campaign stepper linking the authoring pipeline | `5b14ae3` |
+| W3 | Student preview entry from the campaign stepper | `2c4d23b` |
 
 ### Berikutnya
 
-Sisa item W3 (campaign stepper, student preview), sisa W5 (retention/appeal workflow backend,
+W3 (Teacher Campaign Builder) kini lengkap. Sisa item W5 (retention/appeal workflow backend,
 minor consent), sisa W7 (season/team, digest), dan W8 (institutional scale) belum dikerjakan dan
 tetap menjadi backlog terurut. Kerjakan sesuai dependency graph di bagian berikut.
 
