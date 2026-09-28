@@ -44,6 +44,9 @@
   let confirmingEmailChange = false;
   // COMM-06: the caller's follower/following counts.
   let followCounts: { followers: number; following: number } | null = null;
+  // Distinguish "counts not loaded" from "zero followers" so a failed fetch
+  // does not silently hide the follow summary.
+  let followCountsError = false;
   $: user = $auth.user;
 
   async function load() {
@@ -55,9 +58,15 @@
         api.get<GamificationProfile>("/gamification/me"),
       ]);
       if (user?.id) {
-        followCounts = await api
-          .get<{ followers: number; following: number }>(`/users/${user.id}/follow`)
-          .catch(() => null);
+        followCountsError = false;
+        try {
+          followCounts = await api.get<{ followers: number; following: number }>(
+            `/users/${user.id}/follow`,
+          );
+        } catch {
+          followCounts = null;
+          followCountsError = true;
+        }
       }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat sesi";
@@ -300,6 +309,8 @@
                   <strong>{followCounts.followers}</strong> pengikut ·
                   <strong>{followCounts.following}</strong> mengikuti
                 </p>
+              {:else if followCountsError}
+                <p class="mt-1 text-xs muted">Jumlah pengikut belum dapat dimuat.</p>
               {/if}
             </div>
           </div>

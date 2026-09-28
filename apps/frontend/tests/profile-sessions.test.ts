@@ -96,4 +96,32 @@ describe("profile — active sessions and revoke confirmation", () => {
     await fireEvent.click(confirm);
     await waitFor(() => expect(del).toHaveBeenCalledWith("/auth/sessions/s1"));
   });
+
+  it("shows follow counts, and discloses when they cannot be loaded", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/auth/sessions") return Promise.resolve(sessions);
+      if (path === "/gamification/me")
+        return Promise.resolve({
+          user_id: "u1",
+          xp: 0,
+          level: 1,
+          xp_into_level: 0,
+          xp_for_next_level: 100,
+          progress: 0,
+          breakdown: {},
+          quest_wins: 0,
+          tasks_completed: 0,
+          current_streak: 0,
+          best_streak: 0,
+          last_active_date: null,
+        });
+      if (path.startsWith("/users/")) return Promise.reject(new Error("boom"));
+      return Promise.resolve([]);
+    });
+
+    render(ProfilePage);
+    await waitFor(() =>
+      expect(screen.getByText(/jumlah pengikut belum dapat dimuat/i)).toBeTruthy(),
+    );
+  });
 });
