@@ -249,6 +249,21 @@ async def test_teacher_analytics_and_submissions(client):
     assert subs.status_code == 200
 
 
+async def test_teacher_analytics_exposes_action_queue(client):
+    """W3: the analytics payload carries an actionable teacher queue."""
+    await _register(client, "t_queue@ex.com", "teacher")
+    analytics = await client.get("/api/v1/teacher/analytics")
+    assert analytics.status_code == 200
+    body = analytics.json()
+    assert "actions" in body
+    assert isinstance(body["actions"], list)
+    # A fresh teacher has nothing pending, so the queue is empty (counts > 0 only).
+    for action in body["actions"]:
+        assert set(action) >= {"kind", "count", "href", "label", "severity"}
+        assert action["count"] > 0
+        assert action["severity"] in {"info", "warning", "urgent"}
+
+
 async def test_muted_kind_suppresses_notification_creation(client):
     """GAME-14: a muted kind produces no Notification row for that kind."""
     await _register(client, "mute_owner@ex.com", "teacher")

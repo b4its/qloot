@@ -483,6 +483,14 @@ export interface AIJob {
   finished_at?: string | null;
 }
 
+export interface TeacherActionItem {
+  kind: "question_review" | "grading_failed" | "career_review" | "consultation";
+  count: number;
+  href: string;
+  label: string;
+  severity: "info" | "warning" | "urgent";
+}
+
 export interface TeacherAnalytics {
   exams: number;
   graded_attempts: number;
@@ -491,6 +499,7 @@ export interface TeacherAnalytics {
   quests: number;
   winners: number;
   opc_awarded: number;
+  actions?: TeacherActionItem[];
 }
 
 export interface SubmissionRow {

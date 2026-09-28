@@ -4,6 +4,8 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import { api, ApiError } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
+  import Skeleton from "$lib/components/Skeleton.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import type { TeacherAnalytics } from "$lib/types";
   import { bpToPercent } from "$lib/utils/format";
   import { teacherNav } from "$lib/data/role-nav";
@@ -14,17 +16,37 @@
 
   let analytics: TeacherAnalytics | null = null;
   let error = "";
+  let loading = true;
 
   // The hub shows every teacher section except the "Ringkasan" entry (this page).
   const links = teacherNav.filter((l) => l.href !== "/teacher");
 
-  onMount(async () => {
+  $: metrics = analytics
+    ? [
+        { label: "Ujian", value: analytics.exams },
+        { label: "Dinilai", value: analytics.graded_attempts },
+        { label: "Rata-rata", value: bpToPercent(analytics.average_score_bp) },
+        { label: "Kelulusan", value: bpToPercent(analytics.pass_rate_bp), tone: "text-mint" },
+        { label: "Quest", value: analytics.quests },
+        { label: "OPT dibagi", value: analytics.opc_awarded, tone: "text-highlight" },
+      ]
+    : [];
+
+  $: actionQueue = analytics?.actions ?? [];
+
+  async function load() {
+    loading = true;
+    error = "";
     try {
       analytics = await api.get<TeacherAnalytics>("/teacher/analytics");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat analitik";
+    } finally {
+      loading = false;
     }
-  });
+  }
+
+  onMount(load);
 </script>
 
 <svelte:head><title>Panel Guru — QLoot</title></svelte:head>
@@ -35,21 +57,73 @@
   <p class="mt-2 muted">Buat materi, jalankan ujian, dan pantau kemajuan siswa.</p>
 
   {#if error}
-    <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
+    <div class="alert-error mt-4 flex flex-wrap items-center justify-between gap-3" role="alert">
+      <span>{error}</span>
+      <button class="btn-ghost !py-1 text-xs" on:click={load} disabled={loading}>
+        <Icon name="rotate" size="11px" /> Coba lagi
+      </button>
+    </div>
   {/if}
 
-  {#if analytics}
+  {#if loading}
     <div class="mt-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-      {#each [{ l: "Ujian", v: String(analytics.exams), i: "file-pen" }, { l: "Dinilai", v: String(analytics.graded_attempts), i: "check-double" }, { l: "Rata-rata", v: bpToPercent(analytics.average_score_bp), i: "chart-line" }, { l: "Kelulusan", v: bpToPercent(analytics.pass_rate_bp), i: "award" }, { l: "Quest", v: String(analytics.quests), i: "trophy" }, { l: "OPT dibagi", v: String(analytics.opc_awarded), i: "gem" }] as s}
-        <div class="card">
-          <div class="flex items-center justify-between">
-            <span class="mono-label">{s.l}</span>
-            <Icon name={s.i} size="13px" class="text-primary" />
-          </div>
-          <p class="mt-2 font-display text-2xl font-bold">{s.v}</p>
-        </div>
-      {/each}
+      {#each Array(6) as _}<div class="skeleton h-24"></div>{/each}
     </div>
+  {:else if analytics}
+    <MetricStrip {metrics} columns={3} />
+
+    <!-- Action queue: what needs the teacher's attention now -->
+    <section class="mt-8" aria-labelledby="action-queue-heading">
+      <div class="flex items-center justify-between">
+        <h2 id="action-queue-heading" class="font-display font-bold">Perlu tindakan</h2>
+        {#if actionQueue.length}
+          <span class="mono-label">{actionQueue.length} antrean</span>
+        {/if}
+      </div>
+      {#if actionQueue.length}
+        <ul class="mt-3 grid gap-2 sm:grid-cols-2" data-role="teacher-action-queue">
+          {#each actionQueue as a (a.kind)}
+            <li>
+              <a
+                href={a.href}
+                class="card flex items-center justify-between gap-3 !p-4 hover:border-primary/50"
+              >
+                <span class="flex items-center gap-3 min-w-0">
+                  <span
+                    class="tile h-10 w-10 flex-none {a.severity === 'urgent'
+                      ? 'bg-danger/10 text-danger'
+                      : a.severity === 'warning'
+                        ? 'bg-amber/10 text-amber'
+                        : 'bg-secondary/10 text-secondary'}"
+                  >
+                    <Icon
+                      name={a.kind === "grading_failed"
+                        ? "triangle-exclamation"
+                        : a.kind === "consultation"
+                          ? "comments"
+                          : a.kind === "career_review"
+                            ? "compass"
+                            : "file-circle-question"}
+                      size="16px"
+                    />
+                  </span>
+                  <span class="min-w-0">
+                    <span class="block text-sm font-semibold">{a.label}</span>
+                    <span class="block text-xs muted">{a.count} item</span>
+                  </span>
+                </span>
+                <span class="badge badge-neutral flex-none">{a.count}</span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <div class="card mt-3 flex items-center gap-3">
+          <Icon name="circle-check" size="18px" class="text-mint" />
+          <p class="text-sm muted">Tidak ada antrean mendesak. Semua tinjauan sudah tertangani.</p>
+        </div>
+      {/if}
+    </section>
   {/if}
 
   <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

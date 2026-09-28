@@ -8,8 +8,10 @@ from fastapi import APIRouter
 from sqlalchemy import case, func, or_, select
 
 from app.api.deps import DbSession, LimitParam, OffsetParam, TeacherUser
+from app.models.career import CareerRecommendation, Consultation
 from app.models.exam import Exam, ExamAttempt, Question, QuestionOption, StudentAnswer
 from app.models.identity import User
+from app.models.learning import LearningMaterial
 from app.models.quest import Quest, QuestWinner
 from app.models.wallet import RewardAllocation
 
@@ -183,6 +185,92 @@ async def analytics(user: TeacherUser, db: DbSession):
         or 0
     )
 
+    # Action queue: work a teacher must resolve, aggregated across owned content.
+    # Each count is scoped object-level to this teacher's own materials/exams.
+    pending_drafts = int(
+        (
+            await db.execute(
+                select(func.count())
+                .select_from(Question)
+                .join(LearningMaterial, LearningMaterial.id == Question.material_id)
+                .where(
+                    LearningMaterial.owner_id == user.id,
+                    Question.review_status == "pending",
+                )
+            )
+        ).scalar_one()
+    )
+    grading_failed = int(
+        (
+            await db.execute(
+                select(func.count())
+                .select_from(ExamAttempt)
+                .join(Exam, Exam.id == ExamAttempt.exam_id)
+                .where(Exam.owner_id == user.id, ExamAttempt.status == "grading_failed")
+            )
+        ).scalar_one()
+    )
+    pending_career_reviews = int(
+        (
+            await db.execute(
+                select(func.count())
+                .select_from(CareerRecommendation)
+                .where(CareerRecommendation.status == "in_review")
+            )
+        ).scalar_one()
+    )
+    open_consultations = int(
+        (
+            await db.execute(
+                select(func.count())
+                .select_from(Consultation)
+                .where(Consultation.status == "pending")
+            )
+        ).scalar_one()
+    )
+
+    all_actions = [
+        (
+            "question_review",
+            pending_drafts,
+            "/teacher/materials",
+            "Draf soal menunggu tinjauan",
+            "warning",
+        ),
+        (
+            "grading_failed",
+            grading_failed,
+            "/teacher/submissions?status=ungraded",
+            "Penilaian gagal / perlu dinilai ulang",
+            "urgent",
+        ),
+        (
+            "career_review",
+            pending_career_reviews,
+            "/career/roadmap",
+            "Rekomendasi karier menunggu persetujuan",
+            "warning",
+        ),
+        (
+            "consultation",
+            open_consultations,
+            "/teacher/consultations",
+            "Permintaan konsultasi baru",
+            "info",
+        ),
+    ]
+    actions = [
+        {
+            "kind": kind,
+            "count": count,
+            "href": href,
+            "label": label,
+            "severity": severity,
+        }
+        for kind, count, href, label, severity in all_actions
+        if count > 0
+    ]
+
     return {
         "exams": exam_count,
         "graded_attempts": attempt_count,
@@ -191,4 +279,5 @@ async def analytics(user: TeacherUser, db: DbSession):
         "quests": quest_count,
         "winners": winners_count,
         "opc_awarded": opc_awarded,
+        "actions": actions,
     }
