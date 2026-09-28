@@ -10,6 +10,8 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "admin")) goto("/login");
 
@@ -148,20 +150,12 @@
 
   <!-- Search & filters (server-side) -->
   <div class="mt-6 flex flex-wrap items-center gap-2">
-    <div class="relative flex-1 min-w-[200px]">
-      <Icon
-        name="magnifying-glass"
-        size="12px"
-        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-      />
-      <input
-        class="input text-xs !py-1.5 !pl-8 w-full"
-        placeholder="Cari email atau nama..."
-        bind:value={query}
-        on:input={refilter}
-        aria-label="Cari pengguna"
-      />
-    </div>
+    <SearchInput
+      bind:value={query}
+      placeholder="Cari email atau nama..."
+      label="Cari pengguna"
+      oninput={refilter}
+    />
     <select
       class="input text-xs !py-1.5 w-auto"
       bind:value={roleFilter}
@@ -173,23 +167,19 @@
       <option value="teacher">Guru</option>
       <option value="admin">Admin</option>
     </select>
-    <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
-      {#each [["all", "Semua"], ["active", "Aktif"], ["inactive", "Nonaktif"]] as [val, label]}
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === val}
-          class:text-[#05060A]={statusFilter === val}
-          class:muted={statusFilter !== val}
-          on:click={() => {
-            statusFilter = val as typeof statusFilter;
-            refilter();
-          }}
-        >
-          {label}
-        </button>
-      {/each}
-    </div>
+    <FilterChips
+      value={statusFilter}
+      onchange={(v) => {
+        statusFilter = v as typeof statusFilter;
+        refilter();
+      }}
+      label="Filter status akun"
+      options={[
+        ["all", "Semua"],
+        ["active", "Aktif"],
+        ["inactive", "Nonaktif"],
+      ]}
+    />
     {#if hasFilters}
       <button class="btn-ghost !py-1.5 text-xs" on:click={resetFilters}>Reset</button>
     {/if}
