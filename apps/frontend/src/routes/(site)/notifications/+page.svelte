@@ -8,6 +8,9 @@
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { reveal } from "$lib/actions/reveal";
 
   const PAGE = 20;
@@ -128,12 +131,6 @@
   function setKind(kind: string) {
     if (activeKind === kind) return;
     activeKind = kind;
-    refilter();
-  }
-
-  function setReadFilter(val: "all" | "unread" | "read") {
-    if (readFilter === val) return;
-    readFilter = val;
     refilter();
   }
 
@@ -341,26 +338,14 @@
   {/if}
 
   <!-- Overview metrics -->
-  <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-    <div class="card p-4">
-      <p class="mono-label text-[10px]">Total</p>
-      <p class="mt-1 font-display text-3xl font-bold">{total}</p>
-    </div>
-    <div class="card p-4">
-      <p class="mono-label text-[10px]">Belum dibaca</p>
-      <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="unread">
-        {unread}
-      </p>
-    </div>
-    <div class="card p-4">
-      <p class="mono-label text-[10px]">Sudah dibaca</p>
-      <p class="mt-1 font-display text-3xl font-bold text-mint">{readCount}</p>
-    </div>
-    <div class="card p-4">
-      <p class="mono-label text-[10px]">Rasio dibaca</p>
-      <p class="mt-1 font-display text-3xl font-bold">{readPct}%</p>
-    </div>
-  </div>
+  <MetricStrip
+    metrics={[
+      { label: "Total", value: total },
+      { label: "Belum dibaca", value: unread, tone: "text-highlight", role: "unread" },
+      { label: "Sudah dibaca", value: readCount, tone: "text-mint" },
+      { label: "Rasio dibaca", value: `${readPct}%` },
+    ]}
+  />
 
   {#if showPrefs}
     <div class="card mt-4" id="notification-prefs">
@@ -393,50 +378,26 @@
 
   <!-- Search & filters -->
   <div class="mt-6 flex flex-wrap items-center gap-2">
-    <div class="relative w-full sm:w-64">
-      <Icon
-        name="magnifying-glass"
-        size="12px"
-        class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-      />
-      <input
-        class="input text-xs !py-1.5 !pl-9 w-full"
-        placeholder="Cari notifikasi..."
+    <div class="w-full sm:w-64">
+      <SearchInput
         bind:value={query}
-        on:input={onSearchInput}
-        aria-label="Cari notifikasi"
+        placeholder="Cari notifikasi..."
+        label="Cari notifikasi"
+        oninput={onSearchInput}
       />
-      {#if query}
-        <button
-          type="button"
-          class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-          on:click={() => (query = "")}
-          aria-label="Bersihkan pencarian"
-        >
-          ✕
-        </button>
-      {/if}
     </div>
 
-    <div
-      class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
-      role="group"
-      aria-label="Filter status baca"
-    >
-      {#each [["all", "Semua"], ["unread", "Belum dibaca"], ["read", "Dibaca"]] as [val, label]}
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={readFilter === val}
-          class:text-[#05060A]={readFilter === val}
-          class:muted={readFilter !== val}
-          aria-pressed={readFilter === val}
-          on:click={() => setReadFilter(val as typeof readFilter)}
-        >
-          {label}
-        </button>
-      {/each}
-    </div>
+    <FilterChips
+      options={[
+        ["all", "Semua"],
+        ["unread", "Belum dibaca"],
+        ["read", "Dibaca"],
+      ]}
+      bind:value={readFilter}
+      label="Filter status baca"
+      ariaLabel="Filter status baca"
+      onchange={refilter}
+    />
 
     <select
       class="input text-xs !py-1.5 w-auto"
