@@ -124,6 +124,61 @@
         </div>
       {/if}
     </section>
+
+    <!-- Cohort mastery + transparent, non-punitive at-risk list (W6) -->
+    {#if (analytics.mastery?.length ?? 0) > 0 || (analytics.at_risk?.length ?? 0) > 0}
+      <section class="mt-8" aria-labelledby="cohort-heading">
+        <h2 id="cohort-heading" class="font-display font-bold">Analitik kelas</h2>
+        <div class="mt-3 grid gap-4 lg:grid-cols-2">
+          <div class="card" data-role="cohort-mastery">
+            <p class="mono-label text-[10px]">Penguasaan per ujian</p>
+            {#if (analytics.mastery?.length ?? 0) > 0}
+              <ul class="mt-3 divide-y text-sm">
+                {#each analytics.mastery ?? [] as m (m.exam_id)}
+                  <li class="flex items-center justify-between gap-3 py-2">
+                    <span class="min-w-0">
+                      <span class="block truncate font-medium">{m.exam_title}</span>
+                      <span class="block text-xs muted">{m.attempts} percobaan dinilai</span>
+                    </span>
+                    <span class="flex-none text-right">
+                      <span class="block font-mono text-sm">{bpToPercent(m.average_score_bp)}</span>
+                      <span class="block text-xs muted">lulus {bpToPercent(m.pass_rate_bp)}</span>
+                    </span>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="mt-2 text-sm muted">Belum ada percobaan dinilai.</p>
+            {/if}
+          </div>
+
+          <div class="card" data-role="cohort-at-risk">
+            <p class="mono-label text-[10px]">Perlu pendampingan</p>
+            <p class="mt-1 text-xs muted">
+              Siswa dengan skor terbaik di bawah ambang kelulusan. Bersifat mendukung, bukan hukuman
+              — pertimbangkan materi tambahan atau konsultasi.
+            </p>
+            {#if (analytics.at_risk?.length ?? 0) > 0}
+              <ul class="mt-3 divide-y text-sm">
+                {#each analytics.at_risk ?? [] as s (s.student_id)}
+                  <li class="flex items-center justify-between gap-3 py-2">
+                    <span class="truncate">{s.student_name}</span>
+                    <span class="flex-none font-mono text-xs muted">
+                      {bpToPercent(s.best_score_bp)} / {bpToPercent(s.passing_score_bp)}
+                    </span>
+                  </li>
+                {/each}
+              </ul>
+              <a href="/teacher/consultations" class="btn-secondary mt-3 !py-1.5 text-xs">
+                <Icon name="comments" size="11px" /> Jadwalkan pendampingan
+              </a>
+            {:else}
+              <p class="mt-2 text-sm muted">Semua siswa yang dinilai memenuhi ambang kelulusan.</p>
+            {/if}
+          </div>
+        </div>
+      </section>
+    {/if}
   {/if}
 
   <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

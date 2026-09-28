@@ -264,6 +264,19 @@ async def test_teacher_analytics_exposes_action_queue(client):
         assert action["severity"] in {"info", "warning", "urgent"}
 
 
+async def test_teacher_analytics_exposes_cohort_mastery_and_at_risk(client):
+    """W6: analytics carries per-exam mastery and a transparent at-risk list."""
+    await _register(client, "t_cohort@ex.com", "teacher")
+    analytics = await client.get("/api/v1/teacher/analytics")
+    assert analytics.status_code == 200
+    body = analytics.json()
+    assert "mastery" in body and isinstance(body["mastery"], list)
+    assert "at_risk" in body and isinstance(body["at_risk"], list)
+    # With no graded attempts yet, both are empty rather than fabricated.
+    assert body["mastery"] == []
+    assert body["at_risk"] == []
+
+
 async def test_muted_kind_suppresses_notification_creation(client):
     """GAME-14: a muted kind produces no Notification row for that kind."""
     await _register(client, "mute_owner@ex.com", "teacher")

@@ -271,6 +271,69 @@ async def analytics(user: TeacherUser, db: DbSession):
         if count > 0
     ]
 
+    # Cohort mastery: per-exam aggregate over graded attempts on this teacher's
+    # exams, so the intervention view is transparent about where the risk is.
+    exam_rows = (
+        await db.execute(
+            select(
+                Exam.id,
+                Exam.title,
+                func.count(ExamAttempt.id),
+                func.coalesce(func.avg(ExamAttempt.score_bp), 0),
+                func.coalesce(func.sum(case((ExamAttempt.passed.is_(True), 1), else_=0)), 0),
+            )
+            .join(ExamAttempt, ExamAttempt.exam_id == Exam.id)
+            .where(Exam.owner_id == user.id, ExamAttempt.status == "graded")
+            .group_by(Exam.id, Exam.title)
+            .order_by(Exam.title)
+        )
+    ).all()
+    mastery = [
+        {
+            "exam_id": str(exam_id),
+            "exam_title": title,
+            "attempts": int(n or 0),
+            "average_score_bp": int(avg or 0),
+            "pass_rate_bp": int(round(int(p or 0) * 10_000 / int(n))) if n else 0,
+        }
+        for exam_id, title, n, avg, p in exam_rows
+    ]
+
+    # At-risk students: best graded score on this teacher's exams is below the
+    # exam's own passing bar. Best-per-exam avoids punishing a single bad retake.
+    best_rows = (
+        await db.execute(
+            select(
+                User.id,
+                User.full_name,
+                func.max(ExamAttempt.score_bp).label("best"),
+                func.max(Exam.passing_score_bp).label("needed"),
+            )
+            .select_from(ExamAttempt)
+            .join(Exam, Exam.id == ExamAttempt.exam_id)
+            .join(User, User.id == ExamAttempt.user_id)
+            .where(
+                Exam.owner_id == user.id,
+                ExamAttempt.status == "graded",
+                User.is_active.is_(True),
+            )
+            .group_by(User.id, User.full_name)
+        )
+    ).all()
+    at_risk = sorted(
+        (
+            {
+                "student_id": str(sid),
+                "student_name": name,
+                "best_score_bp": int(best or 0),
+                "passing_score_bp": int(needed or 0),
+            }
+            for sid, name, best, needed in best_rows
+            if int(best or 0) < int(needed or 0)
+        ),
+        key=lambda r: r["best_score_bp"],
+    )
+
     return {
         "exams": exam_count,
         "graded_attempts": attempt_count,
@@ -280,4 +343,6 @@ async def analytics(user: TeacherUser, db: DbSession):
         "winners": winners_count,
         "opc_awarded": opc_awarded,
         "actions": actions,
+        "mastery": mastery,
+        "at_risk": at_risk,
     }

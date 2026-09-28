@@ -500,6 +500,21 @@ export interface TeacherActionItem {
   severity: "info" | "warning" | "urgent";
 }
 
+export interface TeacherMasteryRow {
+  exam_id: string;
+  exam_title: string;
+  attempts: number;
+  average_score_bp: number;
+  pass_rate_bp: number;
+}
+
+export interface TeacherAtRisk {
+  student_id: string;
+  student_name: string;
+  best_score_bp: number;
+  passing_score_bp: number;
+}
+
 export interface TeacherAnalytics {
   exams: number;
   graded_attempts: number;
@@ -509,6 +524,8 @@ export interface TeacherAnalytics {
   winners: number;
   opc_awarded: number;
   actions?: TeacherActionItem[];
+  mastery?: TeacherMasteryRow[];
+  at_risk?: TeacherAtRisk[];
 }
 
 export interface SubmissionRow {

@@ -99,4 +99,47 @@ describe("teacher hub — action queue (W3)", () => {
     render(TeacherHub);
     await waitFor(() => expect(screen.getByText(/tidak ada antrean mendesak/i)).toBeTruthy());
   });
+
+  it("renders cohort mastery and a transparent at-risk list", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/teacher/analytics")
+        return Promise.resolve({
+          exams: 2,
+          graded_attempts: 12,
+          average_score_bp: 7000,
+          pass_rate_bp: 6000,
+          quests: 0,
+          winners: 0,
+          opc_awarded: 0,
+          actions: [],
+          mastery: [
+            {
+              exam_id: "e1",
+              exam_title: "Ujian Aljabar",
+              attempts: 8,
+              average_score_bp: 7200,
+              pass_rate_bp: 6250,
+            },
+          ],
+          at_risk: [
+            {
+              student_id: "s1",
+              student_name: "Rani",
+              best_score_bp: 4500,
+              passing_score_bp: 6000,
+            },
+          ],
+        });
+      return Promise.resolve([]);
+    });
+
+    render(TeacherHub);
+    await waitFor(() =>
+      expect(document.querySelector('[data-role="cohort-mastery"]')).toBeTruthy(),
+    );
+    expect(screen.getByText("Ujian Aljabar")).toBeTruthy();
+    expect(screen.getByText("Rani")).toBeTruthy();
+    expect(screen.getByText(/45.0% \/ 60.0%/)).toBeTruthy();
+    expect(screen.getByText(/bukan hukuman/i)).toBeTruthy();
+  });
 });
