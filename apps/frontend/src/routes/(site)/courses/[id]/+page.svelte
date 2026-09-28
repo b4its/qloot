@@ -13,6 +13,9 @@
   let progress: Progress[] = [];
   let loading = true;
   let error = "";
+  // Progress is a secondary, per-student fetch. If it fails we keep the course
+  // usable but say so, rather than rendering it as fully un-started.
+  let progressError = "";
 
   $: id = $page.params.id;
   $: canManage = hasRole($auth.user, "teacher");
@@ -29,14 +32,18 @@
   async function load() {
     loading = true;
     error = "";
+    progressError = "";
     try {
       course = await api.get<Course>(`/courses/${id}`);
       lessons = await api.get<Lesson[]>(`/courses/${id}/lessons`);
       // Learning progress is per-student; teachers/admins manage, not learn.
       if (!$auth.loading && $auth.user && !canManage) {
-        progress = await api
-          .get<Progress[]>(`/me/learning-progress?course_id=${id}&limit=200`)
-          .catch(() => []);
+        try {
+          progress = await api.get<Progress[]>(`/me/learning-progress?course_id=${id}&limit=200`);
+        } catch {
+          progress = [];
+          progressError = "Progres belajarmu belum dapat dimuat pada pelajaran ini.";
+        }
       }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
@@ -141,7 +148,12 @@
             </li>
           </ul>
           {#if lessons.length}
-            {#if progress.length > 0 || (!canManage && $auth.user)}
+            {#if progressError}
+              <p class="alert-info mt-4 text-xs" role="status" aria-live="polite">
+                <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" />
+                {progressError}
+              </p>
+            {:else if progress.length > 0 || (!canManage && $auth.user)}
               <!-- Progress bar -->
               <div class="mt-4">
                 <div class="flex items-center justify-between text-xs">

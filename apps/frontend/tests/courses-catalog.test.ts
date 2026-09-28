@@ -172,4 +172,18 @@ describe("courses catalog — progress-aware", () => {
     );
     expect(get).not.toHaveBeenCalled();
   });
+
+  it("keeps the catalog usable and warns when progress fails to load", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/me/learning-progress")) return Promise.reject(new Error("boom"));
+      if (path.startsWith("/courses")) return Promise.resolve(courses);
+      return Promise.resolve([]);
+    });
+
+    render(CoursesPage);
+
+    // The catalog still renders instead of blanking on the progress failure.
+    await waitFor(() => expect(screen.getByText("Fisika Dasar")).toBeTruthy());
+    expect(await screen.findByText(/progres belajar belum dapat dimuat/i)).toBeTruthy();
+  });
 });

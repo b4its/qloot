@@ -16,6 +16,9 @@
   let progress: Progress[] = [];
   let loading = true;
   let error = "";
+  // Progress is a secondary fetch; if it fails we keep the catalog usable but
+  // warn instead of silently painting every course as un-started (0%).
+  let progressError = "";
   let query = "";
   let classFilter = "all";
   let subjectFilter = "all";
@@ -96,18 +99,27 @@
 
   async function load() {
     loading = true;
+    error = "";
+    progressError = "";
     try {
-      const [cs, pr] = await Promise.all([
-        api.get<Course[]>("/courses?limit=200"),
-        api.get<Progress[]>("/me/learning-progress?limit=200").catch(() => [] as Progress[]),
-      ]);
-      subjects = cs;
-      progress = pr;
+      subjects = await api.get<Course[]>("/courses?limit=200");
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
-    } finally {
       loading = false;
+      return;
     }
+    // Progress feeds the per-course bars; a failure here must not blank the
+    // catalog, but it should say so rather than show a misleading 0%.
+    try {
+      progress = await api.get<Progress[]>("/me/learning-progress?limit=200");
+    } catch (e) {
+      progress = [];
+      progressError =
+        e instanceof ApiError
+          ? `Progres belajar belum dapat dimuat: ${e.message}`
+          : "Progres belajar belum dapat dimuat.";
+    }
+    loading = false;
   }
 
   onMount(() => {
@@ -184,6 +196,13 @@
       </section>
     {:else if error}
       <p class="alert-error mt-4">{error}</p>
+    {/if}
+
+    {#if progressError && !error}
+      <p class="alert-info mt-4" role="status" aria-live="polite">
+        <Icon name="circle-info" size="12px" class="mt-0.5 flex-none" />
+        {progressError}
+      </p>
     {/if}
 
     {#if loading}

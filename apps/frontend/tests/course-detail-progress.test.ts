@@ -105,4 +105,20 @@ describe("course detail — student progress awareness", () => {
     expect(document.querySelector('[data-lesson="l2"]')?.getAttribute("data-done")).toBe("false");
     expect(screen.getByText("Lanjutkan di sini")).toBeTruthy();
   });
+
+  it("warns instead of pretending the course is un-started when progress fails", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.includes("/me/learning-progress")) return Promise.reject(new Error("boom"));
+      if (path.includes("/lessons")) return Promise.resolve(lessons);
+      if (path.startsWith("/courses/")) return Promise.resolve(course);
+      return Promise.resolve([]);
+    });
+
+    render(CourseDetailPage);
+
+    // Course still loads; the failed progress fetch is disclosed.
+    await waitFor(() => expect(document.querySelector('[data-lesson="l1"]')).toBeTruthy());
+    expect(await screen.findByText(/progres belajarmu belum dapat dimuat/i)).toBeTruthy();
+    expect(screen.queryByRole("progressbar", { name: "Progres pelajaran" })).toBeNull();
+  });
 });
