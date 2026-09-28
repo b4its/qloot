@@ -8,6 +8,9 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -175,52 +178,28 @@
     />
   {:else}
     <!-- Metrics -->
-    <div class="mt-6 grid grid-cols-3 gap-3">
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Total Quest</p>
-        <p class="mt-1 font-display text-3xl font-bold">{quests.length}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Aktif</p>
-        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="open-count">
-          {counts.open}
-        </p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Difinalisasi</p>
-        <p class="mt-1 font-display text-3xl font-bold text-secondary">{counts.finalized}</p>
-      </div>
-    </div>
+    <MetricStrip
+      columns={3}
+      metrics={[
+        { label: "Total Quest", value: quests.length },
+        { label: "Aktif", value: counts.open, tone: "text-mint", role: "open-count" },
+        { label: "Difinalisasi", value: counts.finalized, tone: "text-secondary" },
+      ]}
+    />
 
     <!-- Search + status filter -->
     <div class="mt-5 flex flex-wrap items-center gap-2">
-      <div class="relative flex-1 min-w-[180px]">
-        <Icon
-          name="magnifying-glass"
-          size="12px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input text-xs !py-1.5 !pl-8 w-full"
-          placeholder="Cari quest..."
-          bind:value={query}
-          aria-label="Cari quest"
-        />
-      </div>
-      <div class="flex flex-wrap items-center gap-1 rounded-sm border p-1 surface text-xs">
-        {#each [["all", "Semua"], ["draft", "Draf"], ["open", "Aktif"], ["finalized", "Difinalisasi"]] as [val, label]}
-          <button
-            type="button"
-            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-            class:bg-primary={statusFilter === val}
-            class:text-[#05060A]={statusFilter === val}
-            class:muted={statusFilter !== val}
-            on:click={() => (statusFilter = val as typeof statusFilter)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
+      <SearchInput bind:value={query} placeholder="Cari quest..." label="Cari quest" />
+      <FilterChips
+        options={[
+          ["all", "Semua"],
+          ["draft", "Draf"],
+          ["open", "Aktif"],
+          ["finalized", "Difinalisasi"],
+        ]}
+        bind:value={statusFilter}
+        label="Filter status quest"
+      />
     </div>
 
     {#if filtered.length === 0}
