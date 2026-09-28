@@ -6,6 +6,9 @@
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
 
@@ -54,6 +57,20 @@
   $: totalLessons = courses.reduce((s, c) => s + (c.lesson_count ?? 0), 0);
   $: doneLessons = progress.filter((p) => p.completed).length;
   $: overallPct = totalLessons > 0 ? Math.round((doneLessons / totalLessons) * 100) : 0;
+
+  $: metrics = [
+    { label: "Pelajaran", value: courses.length },
+    { label: "Berjalan", value: startedCourses, tone: "text-highlight" },
+    { label: "Selesai", value: doneCourses, tone: "text-mint", role: "done-courses" },
+    { label: "Progres", value: `${overallPct}%` },
+  ];
+
+  const statusOptions = [
+    ["all", "Semua"],
+    ["new", "Baru"],
+    ["started", "Berjalan"],
+    ["done", "Selesai"],
+  ] as const;
 
   // The course most recently progressed but not finished — the natural resume.
   $: resumeCourse =
@@ -178,61 +195,22 @@
     {/if}
 
     <!-- Overview metrics -->
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Pelajaran</p>
-        <p class="mt-1 font-display text-3xl font-bold">{courses.length}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Berjalan</p>
-        <p class="mt-1 font-display text-3xl font-bold text-highlight">{startedCourses}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Selesai</p>
-        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="done-courses">
-          {doneCourses}
-        </p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Progres</p>
-        <p class="mt-1 font-display text-3xl font-bold">{overallPct}%</p>
-      </div>
-    </div>
+    <MetricStrip {metrics} />
 
     <!-- Search & filters -->
     <div class="mt-5 flex flex-wrap items-center gap-2">
-      <div class="relative flex-1 min-w-[180px]">
-        <Icon
-          name="magnifying-glass"
-          size="12px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input text-xs !py-1.5 !pl-8 w-full"
-          placeholder="Cari pelajaran..."
-          bind:value={query}
-          on:input={() => (currentPage = 1)}
-          aria-label="Cari pelajaran"
-        />
-      </div>
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
-        {#each [["all", "Semua"], ["new", "Baru"], ["started", "Berjalan"], ["done", "Selesai"]] as [val, label]}
-          <button
-            type="button"
-            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-            class:bg-primary={statusFilter === val}
-            class:text-[#05060A]={statusFilter === val}
-            class:muted={statusFilter !== val}
-            aria-pressed={statusFilter === val}
-            on:click={() => {
-              statusFilter = val as typeof statusFilter;
-              currentPage = 1;
-            }}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
+      <SearchInput
+        bind:value={query}
+        placeholder="Cari pelajaran..."
+        label="Cari pelajaran"
+        oninput={() => (currentPage = 1)}
+      />
+      <FilterChips
+        options={statusOptions}
+        bind:value={statusFilter}
+        label="Filter status"
+        onchange={() => (currentPage = 1)}
+      />
       <select
         class="input text-xs !py-1.5 w-auto"
         bind:value={sortBy}

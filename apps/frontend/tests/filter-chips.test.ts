@@ -10,21 +10,19 @@ const options: readonly (readonly [string, string])[] = [
 ];
 
 describe("FilterChips", () => {
-  it("renders each option and marks the selected one as checked", () => {
+  it("renders each option and marks the selected one as pressed", () => {
     render(FilterChips, { props: { options, value: "new", label: "Status" } });
-    const group = screen.getByRole("radiogroup", { name: "Status" });
+    const group = screen.getByRole("group", { name: "Status" });
     expect(group).toBeTruthy();
-    const radios = screen.getAllByRole("radio");
-    expect(radios).toHaveLength(3);
-    expect(screen.getByRole("radio", { name: "Baru" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByRole("radio", { name: "Semua" }).getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByRole("button", { name: "Baru" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Semua" }).getAttribute("aria-pressed")).toBe("false");
     cleanup();
   });
 
   it("fires onchange with the next value when a different chip is clicked", async () => {
     const onchange = vi.fn();
     render(FilterChips, { props: { options, value: "all", label: "Status", onchange } });
-    await fireEvent.click(screen.getByRole("radio", { name: "Selesai" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Selesai" }));
     expect(onchange).toHaveBeenCalledWith("done");
     cleanup();
   });
@@ -32,7 +30,7 @@ describe("FilterChips", () => {
   it("does not fire onchange when the active chip is re-clicked", async () => {
     const onchange = vi.fn();
     render(FilterChips, { props: { options, value: "all", label: "Status", onchange } });
-    await fireEvent.click(screen.getByRole("radio", { name: "Semua" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Semua" }));
     expect(onchange).not.toHaveBeenCalled();
     cleanup();
   });
@@ -41,7 +39,7 @@ describe("FilterChips", () => {
     render(FilterChips, {
       props: { options, value: "all", label: "ignored", ariaLabel: "Filter status badge" },
     });
-    expect(screen.getByRole("radiogroup", { name: "Filter status badge" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Filter status badge" })).toBeTruthy();
     cleanup();
   });
 });

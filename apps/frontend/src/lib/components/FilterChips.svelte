@@ -4,9 +4,10 @@
    * `rounded-sm border p-1` button groups scattered across the app — one
    * consistent look, one consistent accessibility contract.
    *
-   * Semantics: rendered as a radio group of toggle buttons so screen readers
-   * announce the active filter. `onchange` fires after `value` updates so
-   * callers can reset pagination in the same place.
+   * Semantics: rendered as a toolbar of toggle buttons (`aria-pressed`) so
+   * screen readers announce the active filter while staying a plain button
+   * group — matching the behaviour callers and tests already rely on.
+   * `onchange` fires after `value` updates so callers can reset pagination.
    */
   export let options: readonly (readonly [T, string])[];
   export let value: T;
@@ -26,14 +27,13 @@
 
 <div
   class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
-  role="radiogroup"
+  role="group"
   aria-label={ariaLabel ?? label}
 >
   {#each options as [val, text] (val)}
     <button
       type="button"
-      role="radio"
-      aria-checked={value === val}
+      aria-pressed={value === val}
       class="{size === 'md' ? 'px-3 py-1.5' : 'px-2.5 py-1'} rounded-xs font-medium transition-colors"
       class:bg-primary={value === val}
       class:text-[#05060A]={value === val}
