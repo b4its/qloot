@@ -5,6 +5,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
   import { formatDate, examCategory, type ExamCategory } from "$lib/utils/format";
@@ -226,11 +227,11 @@
       {#each Array(2) as _}<div class="skeleton h-32"></div>{/each}
     </div>
   {:else if exams.length === 0}
-    <div class="card mt-6 grid place-items-center py-16 text-center">
-      <Icon name="file-pen" size="28px" class="muted" />
-      <p class="mt-3 font-semibold">Belum ada ujian</p>
-      <p class="text-sm muted">Ujian yang dipublikasikan akan muncul di sini.</p>
-    </div>
+    <EmptyState
+      icon="file-pen"
+      title="Belum ada ujian"
+      description="Ujian yang dipublikasikan akan muncul di sini."
+    />
   {:else}
     <!-- Overview metrics -->
     <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -359,12 +360,13 @@
     </div>
 
     {#if filtered.length === 0}
-      <div class="card mt-6 grid place-items-center py-16 text-center">
-        <Icon name="file-pen" size="28px" class="muted" />
-        <p class="mt-3 font-semibold">Tidak ada ujian yang cocok</p>
-        <p class="text-sm muted">Coba ubah kategori, status, atau pencarianmu.</p>
-        <button class="btn-ghost mt-3 !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-      </div>
+      <EmptyState
+        icon="file-pen"
+        title="Tidak ada ujian yang cocok"
+        description="Coba ubah kategori, status, atau pencarianmu."
+        actionLabel="Reset Filter"
+        onAction={resetFilters}
+      />
     {:else if groupedView}
       {#each SECTIONS as section}
         {@const sectionExams = pagedExams.filter((e) => categoryOf(e) === section.key)}
