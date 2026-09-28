@@ -6,6 +6,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
 
@@ -213,14 +214,13 @@
         {#each Array(6) as _}<div class="skeleton h-44"></div>{/each}
       </div>
     {:else if user && subjects.length === 0}
-      <div class="card mt-8 grid place-items-center py-16 text-center">
-        <Icon name="book-open" size="28px" class="muted" />
-        <p class="mt-3 font-semibold">Belum ada pelajaran</p>
-        <p class="text-sm muted">
-          {#if user}Guru belum menambahkan pelajaran untuk kelasmu.{:else}Masuk untuk melihat
-            pelajaran kelasmu.{/if}
-        </p>
-      </div>
+      <EmptyState
+        icon="book-open"
+        title="Belum ada pelajaran"
+        description={user
+          ? "Guru belum menambahkan pelajaran untuk kelasmu."
+          : "Masuk untuk melihat pelajaran kelasmu."}
+      />
     {:else if user}
       <!-- Overview metrics -->
       <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -287,12 +287,13 @@
       </div>
 
       {#if filtered.length === 0}
-        <div class="card mt-8 grid place-items-center py-16 text-center">
-          <Icon name="book-open" size="28px" class="muted" />
-          <p class="mt-3 font-semibold">Tidak ada pelajaran yang cocok</p>
-          <p class="text-sm muted">Coba ubah pencarian atau filtermu.</p>
-          <button class="btn-ghost mt-3 !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-        </div>
+        <EmptyState
+          icon="book-open"
+          title="Tidak ada pelajaran yang cocok"
+          description="Coba ubah pencarian atau filtermu."
+          actionLabel="Reset Filter"
+          onAction={resetFilters}
+        />
       {:else}
         <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {#each paged as s, i (s.id)}
