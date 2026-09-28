@@ -6,6 +6,7 @@
   import { formatNumber } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
 
   type RankingPeriod = "all" | "weekly" | "monthly";
 
@@ -313,10 +314,11 @@
       onNext={() => goRank(1)}
     />
   {:else}
-    <div class="card mt-6 grid place-items-center py-14 text-center">
-      <Icon name="ranking-star" size="26px" class="muted" />
-      <p class="mt-3 font-semibold">Belum ada data peringkat</p>
-    </div>
+    <EmptyState
+      icon="ranking-star"
+      title="Belum ada data peringkat"
+      description="Papan peringkat akan terisi begitu ada aktivitas belajar."
+    />
   {/if}
 
   {#if levels && levels.entries.length}
@@ -367,20 +369,23 @@
       onNext={() => goLevel(1)}
     />
   {:else if levelError}
-    <div class="card mt-10 grid place-items-center py-10 text-center" role="alert">
-      <Icon name="triangle-exclamation" size="24px" class="text-tertiary" />
-      <p class="mt-2 font-semibold">Gagal memuat papan XP</p>
-      <p class="text-sm muted">{levelError}</p>
-      <button class="btn-ghost mt-3 !py-1 text-xs" on:click={loadLevels}>Coba lagi</button>
-    </div>
+    <EmptyState
+      tone="error"
+      icon="triangle-exclamation"
+      title="Gagal memuat papan XP"
+      description={levelError}
+      actionLabel="Coba lagi"
+      onAction={loadLevels}
+    />
   {:else if levelLoading}
     <div class="mt-10 space-y-2">
       {#each Array(4) as _}<div class="skeleton h-10"></div>{/each}
     </div>
   {:else}
-    <div class="card mt-10 grid place-items-center py-10 text-center">
-      <Icon name="ranking-star" size="24px" class="muted" />
-      <p class="mt-2 text-sm muted">Belum ada data XP untuk ditampilkan.</p>
-    </div>
+    <EmptyState
+      icon="ranking-star"
+      title="Belum ada data XP"
+      description="Belum ada data XP untuk ditampilkan."
+    />
   {/if}
 </div>
