@@ -7,6 +7,7 @@
   import { relativeTime } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { reveal } from "$lib/actions/reveal";
 
   const PAGE = 20;
@@ -133,6 +134,13 @@
   function setReadFilter(val: "all" | "unread" | "read") {
     if (readFilter === val) return;
     readFilter = val;
+    refilter();
+  }
+
+  function resetFilters() {
+    query = "";
+    activeKind = "all";
+    readFilter = "all";
     refilter();
   }
 
@@ -507,19 +515,21 @@
       {#each Array(4) as _}<div class="skeleton h-20 w-full"></div>{/each}
     </div>
   {:else if items.length === 0}
-    <div class="card mt-6 grid place-items-center py-14 text-center">
-      <Icon name="bell-slash" size="26px" class="muted" />
-      <p class="mt-3 font-semibold">
-        {query || activeKind !== "all" || readFilter !== "all"
-          ? "Tidak ada notifikasi yang cocok"
-          : "Belum ada notifikasi"}
-      </p>
-      <p class="text-sm muted">
-        {query || activeKind !== "all" || readFilter !== "all"
-          ? "Coba ubah pencarian atau filter."
-          : "Kabar tentang hadiah, quest, dan badge akan muncul di sini."}
-      </p>
-    </div>
+    {#if query || activeKind !== "all" || readFilter !== "all"}
+      <EmptyState
+        icon="bell-slash"
+        title="Tidak ada notifikasi yang cocok"
+        description="Coba ubah pencarian atau filter."
+        actionLabel="Reset Filter"
+        onAction={resetFilters}
+      />
+    {:else}
+      <EmptyState
+        icon="bell-slash"
+        title="Belum ada notifikasi"
+        description="Kabar tentang hadiah, quest, dan badge akan muncul di sini."
+      />
+    {/if}
   {:else}
     <ul class="mt-4 space-y-2">
       {#each visibleItems as n, i (n.id)}
