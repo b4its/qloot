@@ -94,7 +94,9 @@ class SwapRequestIn(BaseModel):
     """Convert OPT into QTC or ORT via the OryphemProxy (ORX)."""
 
     asset: str = Field(pattern="^(QTC|ORT)$")
-    amount: int = Field(gt=0, description="Units of the target asset to receive")
+    # Upper bound guards against an absurd OPT cost (rate * amount) that could
+    # overflow the integer balance column.
+    amount: int = Field(gt=0, le=10_000_000, description="Units of the target asset to receive")
 
 
 class AIRequestIn(BaseModel):

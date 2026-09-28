@@ -53,6 +53,13 @@ async def test_swap_requires_opt_balance(client):
     assert r.status_code == 409, r.text  # no OPT to pay with
 
 
+async def test_swap_amount_is_bounded(client):
+    """An absurd amount is rejected before it can produce an overflowing cost."""
+    await _register(client, "swap_huge@ex.com")
+    r = await client.post("/api/v1/wallet/swap", json={"asset": "ORT", "amount": 10_000_001})
+    assert r.status_code == 422, r.text
+
+
 async def test_swap_opt_to_ort_and_qtc(client, engine):
     user = await _register(client, "swap_rich@ex.com")
 
