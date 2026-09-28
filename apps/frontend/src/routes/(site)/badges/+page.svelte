@@ -5,6 +5,9 @@
   import { relativeTime, formatDate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { reveal } from "$lib/actions/reveal";
 
   let catalog: Badge[] = [];
@@ -141,6 +144,19 @@
     statusFilter = "all";
     sortBy = "rarity";
   }
+
+  const statusOptions = [
+    ["all", "Semua"],
+    ["unlocked", "Diraih"],
+    ["locked", "Terkunci"],
+  ] as const;
+
+  $: metrics = [
+    { label: "Diperoleh", value: unlockedCount, tone: "text-highlight" },
+    { label: "Total Badge", value: catalog.length },
+    { label: "Kelengkapan", value: `${completionPct}%`, tone: "text-mint" },
+    { label: "Poin Badge", value: totalPoints },
+  ];
 </script>
 
 <svelte:head><title>Badge — QLoot</title></svelte:head>
@@ -176,84 +192,20 @@
     />
   {:else}
     <!-- Overview metrics -->
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Diperoleh</p>
-        <p class="mt-1 font-display text-3xl font-bold text-highlight">{unlockedCount}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Total Badge</p>
-        <p class="mt-1 font-display text-3xl font-bold">{catalog.length}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Kelengkapan</p>
-        <p class="mt-1 font-display text-3xl font-bold text-mint">{completionPct}%</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Poin Badge</p>
-        <p class="mt-1 font-display text-3xl font-bold">{totalPoints}</p>
-      </div>
-    </div>
+    <MetricStrip {metrics} />
 
     <!-- Search & filters -->
     <div class="mt-6 flex flex-wrap items-center gap-2">
-      <div class="relative w-full sm:w-64">
-        <Icon
-          name="magnifying-glass"
-          size="12px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input text-xs !py-1.5 !pl-9 w-full"
-          placeholder="Cari badge..."
-          bind:value={query}
-          aria-label="Cari badge"
-        />
-        {#if query}
-          <button
-            type="button"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-            on:click={() => (query = "")}
-            aria-label="Bersihkan pencarian"
-          >
-            ✕
-          </button>
-        {/if}
+      <div class="w-full sm:w-64">
+        <SearchInput bind:value={query} placeholder="Cari badge..." label="Cari badge" />
       </div>
 
-      <div
-        class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
-        role="group"
-        aria-label="Filter status badge"
-      >
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "all"}
-          class:text-[#05060A]={statusFilter === "all"}
-          class:muted={statusFilter !== "all"}
-          aria-pressed={statusFilter === "all"}
-          on:click={() => (statusFilter = "all")}>Semua</button
-        >
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "unlocked"}
-          class:text-[#05060A]={statusFilter === "unlocked"}
-          class:muted={statusFilter !== "unlocked"}
-          aria-pressed={statusFilter === "unlocked"}
-          on:click={() => (statusFilter = "unlocked")}>Diraih</button
-        >
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "locked"}
-          class:text-[#05060A]={statusFilter === "locked"}
-          class:muted={statusFilter !== "locked"}
-          aria-pressed={statusFilter === "locked"}
-          on:click={() => (statusFilter = "locked")}>Terkunci</button
-        >
-      </div>
+      <FilterChips
+        options={statusOptions}
+        bind:value={statusFilter}
+        label="Filter status badge"
+        ariaLabel="Filter status badge"
+      />
 
       <select
         class="input text-xs !py-1.5 w-auto"

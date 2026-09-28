@@ -7,6 +7,9 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { reveal } from "$lib/actions/reveal";
   import { opt } from "$lib/stores/opt";
 
@@ -70,6 +73,27 @@
   $: earnedOpt = tasks
     .filter((t) => completed[t.id])
     .reduce((sum, t) => sum + (t.reward_amount || 0), 0);
+
+  $: metrics = [
+    { label: "Total Tugas", value: tasks.length },
+    { label: "Tugas Selesai", value: completedCount, tone: "text-mint" },
+    { label: "Tugas Tersedia", value: pendingCount },
+    { label: "OPT Didapat", value: `+${earnedOpt} OPT`, tone: "text-highlight" },
+  ];
+
+  $: kindOptions = [
+    ["all", `Semua (${tasks.length})`],
+    ["daily", "Harian"],
+    ["weekly", "Mingguan"],
+    ["learning", "Materi"],
+    ["exam", "Ujian"],
+  ] as const;
+
+  const statusOptions = [
+    ["all", "Semua Status"],
+    ["pending", "Tersedia"],
+    ["done", "Selesai"],
+  ] as const;
 
   function resetFilters() {
     searchQuery = "";
@@ -148,145 +172,34 @@
 
   <!-- Overview Metrics -->
   {#if !loading && tasks.length > 0}
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">Total Tugas</span>
-        <div class="mt-1 font-display text-xl font-bold">{tasks.length}</div>
-      </div>
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">Tugas Selesai</span>
-        <div class="mt-1 font-display text-xl font-bold text-mint">{completedCount}</div>
-      </div>
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">Tugas Tersedia</span>
-        <div class="mt-1 font-display text-xl font-bold text-foreground">{pendingCount}</div>
-      </div>
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">OPT Didapat</span>
-        <div class="mt-1 font-display text-xl font-bold text-highlight">+{earnedOpt} OPT</div>
-      </div>
-    </div>
+    <MetricStrip {metrics} />
   {/if}
 
   <!-- Search & Filter Controls -->
   <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
     <div class="flex flex-wrap items-center gap-2 flex-1">
-      <div class="relative w-full sm:w-64">
-        <input
-          type="text"
-          class="input text-xs !py-1.5 w-full"
-          placeholder="Cari tugas..."
+      <div class="w-full sm:w-64">
+        <SearchInput
           bind:value={searchQuery}
-          aria-label="Cari tugas"
+          placeholder="Cari tugas..."
+          label="Cari tugas"
+          oninput={() => (currentPage = 1)}
         />
-        {#if searchQuery}
-          <button
-            type="button"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-            on:click={() => (searchQuery = "")}
-            aria-label="Bersihkan pencarian"
-          >
-            ✕
-          </button>
-        {/if}
       </div>
 
-      <!-- Kind filter tabs -->
-      <div
-        class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
-        role="group"
-        aria-label="Filter jenis tugas"
-      >
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={kindFilter === "all"}
-          class:text-[#05060A]={kindFilter === "all"}
-          class:muted={kindFilter !== "all"}
-          aria-pressed={kindFilter === "all"}
-          on:click={() => (kindFilter = "all")}
-        >
-          Semua ({tasks.length})
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={kindFilter === "daily"}
-          class:text-[#05060A]={kindFilter === "daily"}
-          class:muted={kindFilter !== "daily"}
-          aria-pressed={kindFilter === "daily"}
-          on:click={() => (kindFilter = "daily")}
-        >
-          Harian
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={kindFilter === "weekly"}
-          class:text-[#05060A]={kindFilter === "weekly"}
-          class:muted={kindFilter !== "weekly"}
-          aria-pressed={kindFilter === "weekly"}
-          on:click={() => (kindFilter = "weekly")}
-        >
-          Mingguan
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={kindFilter === "learning"}
-          class:text-[#05060A]={kindFilter === "learning"}
-          class:muted={kindFilter !== "learning"}
-          aria-pressed={kindFilter === "learning"}
-          on:click={() => (kindFilter = "learning")}
-        >
-          Materi
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={kindFilter === "exam"}
-          class:text-[#05060A]={kindFilter === "exam"}
-          class:muted={kindFilter !== "exam"}
-          aria-pressed={kindFilter === "exam"}
-          on:click={() => (kindFilter = "exam")}
-        >
-          Ujian
-        </button>
-      </div>
+      <FilterChips
+        options={kindOptions}
+        bind:value={kindFilter}
+        label="Filter jenis tugas"
+        onchange={() => (currentPage = 1)}
+      />
 
-      <!-- Status filter tabs -->
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
-        <button
-          type="button"
-          class="px-2 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "all"}
-          class:text-[#05060A]={statusFilter === "all"}
-          class:muted={statusFilter !== "all"}
-          on:click={() => (statusFilter = "all")}
-        >
-          Semua Status
-        </button>
-        <button
-          type="button"
-          class="px-2 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "pending"}
-          class:text-[#05060A]={statusFilter === "pending"}
-          class:muted={statusFilter !== "pending"}
-          on:click={() => (statusFilter = "pending")}
-        >
-          Tersedia
-        </button>
-        <button
-          type="button"
-          class="px-2 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "done"}
-          class:text-[#05060A]={statusFilter === "done"}
-          class:muted={statusFilter !== "done"}
-          on:click={() => (statusFilter = "done")}
-        >
-          Selesai
-        </button>
-      </div>
+      <FilterChips
+        options={statusOptions}
+        bind:value={statusFilter}
+        label="Filter status tugas"
+        onchange={() => (currentPage = 1)}
+      />
     </div>
   </div>
 
