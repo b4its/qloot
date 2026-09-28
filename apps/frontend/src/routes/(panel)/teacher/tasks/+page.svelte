@@ -7,6 +7,7 @@
   import { formatDate, paginate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -409,11 +410,11 @@
     {#if loading}
       {#each Array(3) as _}<div class="skeleton h-20"></div>{/each}
     {:else if tasks.length === 0}
-      <div class="card grid place-items-center py-12 text-center">
-        <Icon name="list-check" size="26px" class="muted" />
-        <p class="mt-3 font-semibold">Belum ada tugas</p>
-        <p class="text-sm muted">Buat tugas pertama dengan formulir di atas.</p>
-      </div>
+      <EmptyState
+        icon="list-check"
+        title="Belum ada tugas"
+        description="Buat tugas pertama dengan formulir di atas."
+      />
     {:else}
       {#each pagedTasks as t (t.id)}
         {@const st = statusOf(t)}
