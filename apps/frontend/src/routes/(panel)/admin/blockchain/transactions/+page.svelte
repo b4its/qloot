@@ -51,16 +51,31 @@
   let detailHash = "";
   let detail: TxDetail | null = null;
   let detailLoading = false;
+  let detailError = "";
 
   async function openDetail(tx: BlockchainTx) {
     if (!tx.transaction_hash) return;
     detailHash = tx.transaction_hash;
     detail = null;
+    detailError = "";
     detailLoading = true;
     try {
       detail = await api.get<TxDetail>(`/blockchain/transactions/${tx.transaction_hash}`);
     } catch (e) {
-      error = e instanceof ApiError ? e.message : "Gagal memuat detail transaksi";
+      detailError = e instanceof ApiError ? e.message : "Gagal memuat detail transaksi";
+    } finally {
+      detailLoading = false;
+    }
+  }
+
+  async function openDetailByHash() {
+    detail = null;
+    detailError = "";
+    detailLoading = true;
+    try {
+      detail = await api.get<TxDetail>(`/blockchain/transactions/${detailHash}`);
+    } catch (e) {
+      detailError = e instanceof ApiError ? e.message : "Gagal memuat detail transaksi";
     } finally {
       detailLoading = false;
     }
@@ -316,6 +331,13 @@
         </div>
         {#if detailLoading}
           <div class="mt-2"><Skeleton rows={3} /></div>
+        {:else if detailError}
+          <div class="mt-3 space-y-2" role="alert" aria-live="assertive">
+            <p class="text-sm text-danger">{detailError}</p>
+            <button class="btn-secondary !py-1.5 text-xs" on:click={() => openDetailByHash()}>
+              <Icon name="rotate" size="12px" /> Coba lagi
+            </button>
+          </div>
         {:else if detail}
           <dl class="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             <div class="flex justify-between border-b py-1">
