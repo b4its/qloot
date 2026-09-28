@@ -7,6 +7,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -165,14 +166,13 @@
       {#each Array(3) as _}<div class="skeleton h-20"></div>{/each}
     </div>
   {:else if quests.length === 0}
-    <div class="card mt-6 grid place-items-center py-12 text-center">
-      <Icon name="trophy" size="26px" class="muted" />
-      <p class="mt-3 font-semibold">Belum ada quest</p>
-      <p class="text-sm muted">Buat quest pertama untuk memotivasi siswa.</p>
-      <a href="/teacher/quests/new" class="btn-primary mt-4">
-        <Icon name="plus" size="12px" /> Buat quest
-      </a>
-    </div>
+    <EmptyState
+      icon="trophy"
+      title="Belum ada quest"
+      description="Buat quest pertama untuk memotivasi siswa."
+      actionHref="/teacher/quests/new"
+      actionLabel="Buat quest"
+    />
   {:else}
     <!-- Metrics -->
     <div class="mt-6 grid grid-cols-3 gap-3">
@@ -224,16 +224,16 @@
     </div>
 
     {#if filtered.length === 0}
-      <div class="card mt-6 grid place-items-center py-12 text-center">
-        <p class="muted text-sm">Tidak ada quest yang cocok dengan filtermu.</p>
-        <button
-          class="btn-ghost mt-3 !py-1 text-xs"
-          on:click={() => {
-            query = "";
-            statusFilter = "all";
-          }}>Reset Filter</button
-        >
-      </div>
+      <EmptyState
+        icon="magnifying-glass"
+        title="Tidak ada quest yang cocok"
+        description="Tidak ada quest yang cocok dengan filtermu."
+        actionLabel="Reset Filter"
+        onAction={() => {
+          query = "";
+          statusFilter = "all";
+        }}
+      />
     {:else}
       <div class="mt-4 space-y-4">
         {#each filtered as q, i (q.id)}
