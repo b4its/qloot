@@ -155,14 +155,15 @@ Target commit:
 | W5 | Exam proctoring telemetry disclosure | `b8c3523` |
 | W5 | E2E shell scenario aligned with CSRF + admin-created teacher | `4f30f8d` |
 | W5 | CI secret/dependency/contract scan gates | `a60ee55` |
+| W5 | Self-service data export + retention notice | `20ff9a6` |
+| W4 | Admin custody invariant checks on blockchain hub | `42107d9` |
 
 ### Berikutnya
 
 Sisa item W2/W3 (grouped navigation, onboarding, campaign stepper, reward budget preview, student
-preview), sisa W4 (admin treasury coverage dashboard), sisa W5 (retention/appeal workflow, data
-export/deletion, minor consent), W6 (teacher analytics), W7 (social gamification), dan W8
-(institutional scale) belum dikerjakan dan tetap menjadi backlog terurut. Kerjakan sesuai
-dependency graph di bagian berikut.
+preview), sisa W5 (retention/appeal workflow backend, minor consent), W6 (teacher analytics),
+W7 (social gamification), dan W8 (institutional scale) belum dikerjakan dan tetap menjadi backlog
+terurut. Kerjakan sesuai dependency graph di bagian berikut.
 
 ## 4. Dependency Graph
 
