@@ -88,6 +88,25 @@ make blockchain-upgrade NETWORK=localhost ASSET=ALL    # preserves all state
 - In development (`BLOCKCHAIN_DRY_RUN=true`) an in-process fake chain returns
   deterministic pseudo-hashes so the whole pipeline runs offline.
 
+## Withdrawal settlement
+
+A withdrawal **transfers pooled tokens to the user's personal wallet** — it is
+not a burn. The custodial treasury/operator account holds the pooled OPT and
+signs a `safeTransferFrom` (ERC-1155) to the approved `destination_address`:
+
+1. The user requests a withdrawal; the ledger debit and fee are recorded and the
+   amount is put on hold.
+2. An admin approves it; only then is the `withdrawal` outbox item enqueued.
+3. The worker transfers the amount from the operator account to the destination
+   address and marks the request `submitted`.
+4. The indexer waits for confirmations and marks it `completed`; a revert marks
+   it `failed` and the ledger debit is refunded.
+
+A withdrawal payload missing its destination is rejected retryably (never
+burned). `verify_invariants()` (surfaced in `GET /blockchain/status/admin`)
+checks that every asset contract is configured, the signer address is known,
+the treasury is configured, and the signer holds `MINTER_ROLE` on OPT.
+
 ## Roles & key management
 
 Recommended production layout (identical role set on each asset):
@@ -100,6 +119,18 @@ Recommended production layout (identical role set on each asset):
 | `ROUTER_ROLE` | the OryphemProxy (ORX) contract |
 | `PAUSER_ROLE` | multisig or security operator |
 | `URI_MANAGER_ROLE` | multisig |
+
+### Role handover & incident recovery
+
+- Deploy with a deployer EOA, then grant `DEFAULT_ADMIN_ROLE`, `ADMIN_ROLE` and
+  `PAUSER_ROLE` to the multisig and **renounce** them from the deployer.
+- Keep `REWARDER_ROLE`/`MINTER_ROLE` only on the backend signer; rotate the
+  signer key by granting the role to the new address before revoking the old.
+- On a compromised signer: pause the affected asset (`PAUSER_ROLE`), revoke its
+  roles from the multisig, then restart the worker with the new key.
+- Production refuses to start with a placeholder secret or an incomplete live
+  chain config (`BLOCKCHAIN_DRY_RUN=false` without OPT address, treasury, or
+  signer key) so the system never silently runs in simulated mode.
 
 ## What is (and isn't) on-chain
 

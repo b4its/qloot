@@ -510,6 +510,53 @@
       </div>
     </div>
 
+    <!-- Settlement lifecycle: what each balance/status actually means -->
+    <details class="card mt-4" data-role="settlement-guide">
+      <summary class="cursor-pointer font-display font-bold">
+        Bagaimana hadiah dan penarikan diselesaikan?
+      </summary>
+      <div class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <p class="mono-label text-[10px]">Penarikan (withdrawal)</p>
+          <ol class="mt-1 space-y-1 text-xs muted">
+            <li>
+              <strong class="text-ink">Diminta</strong> — pengajuan dibuat, saldo OPT langsung ditahan.
+            </li>
+            <li><strong class="text-ink">Disetujui</strong> — admin meninjau dan menyetujui.</li>
+            <li>
+              <strong class="text-ink">Dikirim</strong> — transfer on-chain ke alamat dompet pribadimu.
+            </li>
+            <li>
+              <strong class="text-ink">Terkonfirmasi</strong> — transaksi diterima jaringan; dana ada
+              di dompetmu.
+            </li>
+          </ol>
+        </div>
+        <div>
+          <p class="mono-label text-[10px]">Hadiah (reward)</p>
+          <ol class="mt-1 space-y-1 text-xs muted">
+            <li>
+              <strong class="text-ink">Menunggu</strong> — hadiah tercatat di buku besar, menunggu rantai.
+            </li>
+            <li>
+              <strong class="text-ink">Terkonfirmasi</strong> — transaksi berhasil; saldo risiko nol.
+            </li>
+            <li>
+              <strong class="text-ink">Gagal</strong> — transaksi ditolak; saldo dikembalikan otomatis.
+            </li>
+            <li>
+              <strong class="text-ink">Dibatalkan</strong> — hadiah ditarik kembali (mis. koreksi nilai).
+            </li>
+          </ol>
+        </div>
+      </div>
+      <p class="mt-3 text-xs muted">
+        <Icon name="circle-info" size="11px" class="text-primary" />
+        “Verifikasi saldo” memeriksa integritas buku besar (cache vs ledger), bukan konfirmasi pada rantai.
+        Saldo baru dianggap final setelah status <strong>terkonfirmasi</strong>.
+      </p>
+    </details>
+
     <div class="mt-4 grid gap-4">
       <div class="card">
         <div class="mono-label">Aset digital QLoot</div>
