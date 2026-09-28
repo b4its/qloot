@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
-from app.core.errors import ConflictError, ForbiddenError
+from app.core.errors import ConflictError, ForbiddenError, QLootError
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit
 from app.schemas.exam import (
@@ -398,6 +398,11 @@ async def record_attempt_events(
             n = await ExamService(db).record_events(
                 attempt_id, user, [e.model_dump() for e in payload.events]
             )
+        except QLootError:
+            # Auth/ownership failures must surface (403/404) — swallowing them
+            # would let a caller probe arbitrary attempt ids by always getting
+            # a 200 {"recorded": 0}.
+            raise
         except Exception:  # noqa: BLE001 - telemetry must never break the flow
             n = 0
     return {"recorded": n}

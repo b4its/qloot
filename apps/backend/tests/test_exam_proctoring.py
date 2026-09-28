@@ -147,3 +147,21 @@ async def test_telemetry_never_blocks_submit(make_actor):
     )
     submit = await student.client.post(f"/api/v1/attempts/{attempt_id}/submit")
     assert submit.status_code == 200, submit.text
+
+
+async def test_telemetry_rejects_other_users_attempt(make_actor):
+    """Telemetry is best-effort, but it must not become an authz oracle: a
+    student posting events for someone else's attempt gets 403, not a 200."""
+    teacher = await make_actor("pro4_teacher@ex.com", "teacher")
+    exam_id, _qid = await _mc_exam(teacher)
+
+    owner = await make_actor("pro4_owner@ex.com", "student")
+    attempt_id = (
+        await owner.client.post(f"/api/v1/exams/{exam_id}/attempts")
+    ).json()["id"]
+
+    intruder = await make_actor("pro4_intruder@ex.com", "student")
+    r = await intruder.client.post(
+        f"/api/v1/attempts/{attempt_id}/events", json={"events": [{"kind": "blur"}]}
+    )
+    assert r.status_code == 403, r.text
