@@ -21,6 +21,7 @@
   let query = "";
   let openId = "";
   let thread: ConsultationMessage[] = [];
+  let threadLoading = false;
   let draft = "";
   let sendingMessage = false;
 
@@ -124,10 +125,16 @@
 
   async function openThread(c: Consultation) {
     openId = c.id;
+    threadLoading = true;
+    // Clear the previous thread so a stale conversation never flashes while the
+    // new one loads.
+    thread = [];
     try {
       thread = await api.get<ConsultationMessage[]>(`/career/consultations/${c.id}/messages`);
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pesan";
+    } finally {
+      threadLoading = false;
     }
   }
 
@@ -315,8 +322,12 @@
           </button>
         </div>
 
-        <div class="mt-3 max-h-80 space-y-3 overflow-y-auto px-1 py-2">
-          {#if thread.length === 0}
+        <div class="mt-3 max-h-80 space-y-3 overflow-y-auto px-1 py-2" role="log" aria-live="polite">
+          {#if threadLoading}
+            <div class="space-y-2">
+              {#each Array(3) as _}<div class="skeleton h-12"></div>{/each}
+            </div>
+          {:else if thread.length === 0}
             <div class="text-center py-8">
               <p class="text-xs muted">
                 Belum ada pesan. Mulai percakapan dengan siswa di bawah ini.
