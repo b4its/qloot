@@ -134,13 +134,19 @@
   }
   let plagiarism: PlagiarismFinding[] = [];
   let plagiarismChecked = false;
+  // A failed plagiarism check must never read as "no findings" — that is a
+  // silent false negative on an integrity signal.
+  let plagiarismError = "";
 
   async function loadPlagiarism() {
     try {
       const res = await api.get<{ findings: PlagiarismFinding[] }>(`/exams/${examId}/plagiarism`);
       plagiarism = res?.findings ?? [];
-    } catch {
+      plagiarismError = "";
+    } catch (e) {
       plagiarism = [];
+      plagiarismError =
+        e instanceof ApiError ? e.message : "Data kemiripan jawaban gagal dimuat.";
     } finally {
       plagiarismChecked = true;
     }
@@ -161,12 +167,15 @@
     questions: AnalyticsQuestion[];
   }
   let analytics: Analytics | null = null;
+  let analyticsError = "";
 
   async function loadAnalytics() {
     try {
       analytics = await api.get<Analytics>(`/exams/${examId}/analytics`);
-    } catch {
+      analyticsError = "";
+    } catch (e) {
       analytics = null;
+      analyticsError = e instanceof ApiError ? e.message : "Analitik ujian gagal dimuat.";
     }
   }
 
@@ -252,6 +261,12 @@
     </div>
   {/if}
 
+  {#if analyticsError && !analytics}
+    <p class="alert-info mt-4 text-xs" role="status" aria-live="polite">
+      <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" /> {analyticsError}
+    </p>
+  {/if}
+
   {#if plagiarismChecked && plagiarism.length}
     <div class="card mt-4 border-tertiary">
       <p class="mono-label mb-2 text-tertiary">
@@ -266,6 +281,14 @@
         {/each}
       </ul>
     </div>
+  {:else if plagiarismError}
+    <p class="alert-warning mt-4 text-sm" role="status" aria-live="polite">
+      <Icon name="triangle-exclamation" size="12px" class="mt-0.5 flex-none" />
+      Pemeriksaan kemiripan tidak dapat diselesaikan: {plagiarismError} Hasil ini <strong
+        >belum tentu</strong
+      >
+      bebas dari indikasi kemiripan.
+    </p>
   {/if}
 
   {#if loading}

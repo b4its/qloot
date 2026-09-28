@@ -195,4 +195,18 @@ describe("teacher exam results review", () => {
     expect(await screen.findByText("Budi Salah")).toBeTruthy();
     expect(screen.queryByText("Andi Benar")).toBeNull();
   });
+
+  it("warns when the plagiarism check fails instead of implying it is clean", async () => {
+    (api.get as unknown as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.includes("/results/review")) return Promise.resolve(reviewPayload);
+      if (path.includes("/plagiarism")) return Promise.reject(new Error("boom"));
+      if (path.includes("/analytics")) return Promise.reject(new Error("boom"));
+      return Promise.resolve(reviewPayload.exam);
+    });
+    render(ResultsPage, {});
+    await screen.findByText("Andi Benar");
+
+    expect(await screen.findByText(/Pemeriksaan kemiripan tidak dapat diselesaikan/)).toBeTruthy();
+    expect(screen.getByText(/Analitik ujian gagal dimuat/)).toBeTruthy();
+  });
 });
