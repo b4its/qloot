@@ -304,7 +304,10 @@
 
 <div class="mx-auto min-h-screen max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
   {#if loading}
-    <p class="muted" role="status">Memuat pengerjaan…</p>
+    <div class="space-y-4" role="status" aria-live="polite" aria-label="Memuat pengerjaan">
+      <div class="skeleton h-16"></div>
+      <div class="skeleton h-64"></div>
+    </div>
   {:else if error}
     <div class="card mx-auto mt-16 max-w-xl text-center">
       <Icon name="triangle-exclamation" size="24px" class="text-danger" />
