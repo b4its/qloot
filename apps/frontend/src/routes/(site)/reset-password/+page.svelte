@@ -58,11 +58,13 @@
         <h1 class="mt-4 font-display text-2xl font-bold">Kata sandi baru</h1>
 
         {#if error}
-          <p class="alert-error mt-4">{error}</p>
+          <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
         {/if}
 
         {#if done}
-          <p class="alert-ok mt-4">Kata sandi berhasil diperbarui. Mengalihkan ke halaman masuk…</p>
+          <p class="alert-ok mt-4" role="status" aria-live="polite">
+            Kata sandi berhasil diperbarui. Mengalihkan ke halaman masuk…
+          </p>
         {:else}
           <p class="mt-1 text-sm muted">Masukkan kata sandi baru untuk akunmu.</p>
           <form class="mt-5 space-y-4" on:submit={submit}>

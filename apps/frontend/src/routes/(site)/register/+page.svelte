@@ -15,11 +15,18 @@
 
   const classTypes = ["IPA", "IPS", "Bahasa", "Umum"];
 
+  const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  $: nameValid = full_name.trim().length >= 2;
+  $: emailValid = EMAIL_RE.test(email.trim());
+  $: passwordValid = password.length >= 8;
+  $: classValid = class_code.trim().length >= 1;
+  $: canSubmit = nameValid && emailValid && passwordValid && classValid && !loading;
+
   function validate(): string | null {
-    if (full_name.trim().length < 2) return "Nama minimal 2 karakter.";
-    if (password.length < 8) return "Kata sandi minimal 8 karakter.";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "Masukkan email yang valid.";
-    if (class_code.trim().length < 1) return "Masukkan kelasmu (mis. 1A).";
+    if (!nameValid) return "Nama minimal 2 karakter.";
+    if (!passwordValid) return "Kata sandi minimal 8 karakter.";
+    if (!emailValid) return "Masukkan email yang valid.";
+    if (!classValid) return "Masukkan kelasmu (mis. 1A).";
     return null;
   }
 
@@ -64,7 +71,7 @@
         <p class="mt-1 text-sm muted">Gratis. Tanpa kartu kredit. Sertifikat digital menanti.</p>
 
         {#if error}
-          <p class="alert-error mt-4" role="alert">
+          <p class="alert-error mt-4" role="alert" aria-live="assertive">
             {error}
           </p>
         {/if}
@@ -122,7 +129,7 @@
             <Icon name="circle-info" size="10px" /> Kamu akan melihat pelajaran untuk kelas {class_code ||
               "—"}. Akun guru dibuat oleh admin.
           </p>
-          <button class="btn-primary w-full" type="submit" disabled={loading}>
+          <button class="btn-primary w-full" type="submit" disabled={!canSubmit}>
             {#if loading}<Icon name="spinner" spin size="13px" />{:else}<Icon
                 name="user-plus"
                 size="13px"
