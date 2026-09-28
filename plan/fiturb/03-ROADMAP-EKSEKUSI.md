@@ -161,13 +161,14 @@ Target commit:
 | W7 | Per-user daily reward budget safeguard | `3d6b011` |
 | W2 | Grouped student navigation by learning journey | `41328ef` |
 | W2 | Student onboarding to first verified reward | `fa4a92c` |
+| W3 | Exam publish readiness guidance | `f250cc5` |
+| W3 | Quest reward budget preview vs on-chain cap | `4379f4e` |
 
 ### Berikutnya
 
-Sisa item W2/W3 (campaign stepper, reward budget preview, student preview), sisa W5
-(retention/appeal workflow backend, minor consent), sisa W7 (season/team, digest), dan W8
-(institutional scale) belum dikerjakan dan tetap menjadi backlog terurut. Kerjakan sesuai
-dependency graph di bagian berikut.
+Sisa item W3 (campaign stepper, student preview), sisa W5 (retention/appeal workflow backend,
+minor consent), sisa W7 (season/team, digest), dan W8 (institutional scale) belum dikerjakan dan
+tetap menjadi backlog terurut. Kerjakan sesuai dependency graph di bagian berikut.
 
 ## 4. Dependency Graph
 
