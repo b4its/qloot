@@ -108,6 +108,11 @@ describe("teacher subject detail — lesson metrics, dirty-save, and delete conf
     expect(states[1]).toBe("done");
     // The next-step call-to-action is shown with the first unfinished step.
     expect(document.querySelector('[data-role="campaign-next"]')).toBeTruthy();
+    // A student-facing preview link opens the learning view in a new tab.
+    const preview = document.querySelector('[data-role="campaign-preview"]') as HTMLAnchorElement;
+    expect(preview).toBeTruthy();
+    expect(preview.getAttribute("href")).toBe("/learning/c1");
+    expect(preview.getAttribute("target")).toBe("_blank");
   });
 
   it("disables save until the course form changes", async () => {

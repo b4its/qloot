@@ -311,10 +311,27 @@
           <span class="muted"
             >Langkah berikutnya: <strong class="text-ink">{nextStep.label}</strong></span
           >
-          <a href={nextStep.href} class="btn-secondary !py-1" data-role="campaign-next">
-            <Icon name="arrow-right" size="11px" /> Lanjutkan
-          </a>
+          <div class="flex flex-wrap items-center gap-2">
+            <a
+              href={`/learning/${courseId}`}
+              target="_blank"
+              rel="noopener"
+              class="btn-ghost !py-1"
+              data-role="campaign-preview"
+            >
+              <Icon name="eye" size="11px" /> Pratinjau sebagai siswa
+            </a>
+            <a href={nextStep.href} class="btn-secondary !py-1" data-role="campaign-next">
+              <Icon name="arrow-right" size="11px" /> Lanjutkan
+            </a>
+          </div>
         </div>
+        {#if !course.is_published}
+          <p class="mt-2 text-xs muted" data-role="campaign-preview-note">
+            Pelajaran masih draf: pratinjau berguna untuk memeriksa tampilan, tetapi siswa belum
+            melihatnya sampai kamu menerbitkan pelajaran.
+          </p>
+        {/if}
       {/if}
     </div>
 
