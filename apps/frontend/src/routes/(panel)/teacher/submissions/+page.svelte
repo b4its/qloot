@@ -9,6 +9,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Pagination from "$lib/components/Pagination.svelte";
   import Dialog from "$lib/components/Dialog.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -273,56 +274,18 @@
     </div>
 
     <!-- Status filter tabs -->
-    <div
-      class="flex items-center gap-1 rounded-sm border p-1 surface text-xs"
-      role="group"
-      aria-label="Filter status jawaban"
-    >
-      <button
-        type="button"
-        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-        class:bg-primary={statusFilter === "all"}
-        class:text-[#05060A]={statusFilter === "all"}
-        class:muted={statusFilter !== "all"}
-        aria-pressed={statusFilter === "all"}
-        on:click={() => setStatus("all")}
-      >
-        Semua
-      </button>
-      <button
-        type="button"
-        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-        class:bg-primary={statusFilter === "correct"}
-        class:text-[#05060A]={statusFilter === "correct"}
-        class:muted={statusFilter !== "correct"}
-        aria-pressed={statusFilter === "correct"}
-        on:click={() => setStatus("correct")}
-      >
-        Benar
-      </button>
-      <button
-        type="button"
-        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-        class:bg-primary={statusFilter === "incorrect"}
-        class:text-[#05060A]={statusFilter === "incorrect"}
-        class:muted={statusFilter !== "incorrect"}
-        aria-pressed={statusFilter === "incorrect"}
-        on:click={() => setStatus("incorrect")}
-      >
-        Salah
-      </button>
-      <button
-        type="button"
-        class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-        class:bg-primary={statusFilter === "ungraded"}
-        class:text-[#05060A]={statusFilter === "ungraded"}
-        class:muted={statusFilter !== "ungraded"}
-        aria-pressed={statusFilter === "ungraded"}
-        on:click={() => setStatus("ungraded")}
-      >
-        Esai/Manual
-      </button>
-    </div>
+    <FilterChips
+      value={statusFilter}
+      onchange={setStatus}
+      label="Filter status jawaban"
+      ariaLabel="Filter status jawaban"
+      options={[
+        ["all", "Semua"],
+        ["correct", "Benar"],
+        ["incorrect", "Salah"],
+        ["ungraded", "Esai/Manual"],
+      ]}
+    />
   </div>
 
   {#if loading}

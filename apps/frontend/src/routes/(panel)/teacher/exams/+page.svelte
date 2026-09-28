@@ -10,6 +10,9 @@
   import EmptyState from "$lib/components/EmptyState.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { examCategory, paginate, type ExamCategory } from "$lib/utils/format";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
@@ -155,26 +158,14 @@
     />
   {:else}
     <!-- Overview metrics -->
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Total Ujian</p>
-        <p class="mt-1 font-display text-3xl font-bold">{exams.length}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Aktif</p>
-        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="active-count">
-          {activeCount}
-        </p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Draf</p>
-        <p class="mt-1 font-display text-3xl font-bold text-highlight">{draftCount}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Total Soal</p>
-        <p class="mt-1 font-display text-3xl font-bold">{totalQuestions}</p>
-      </div>
-    </div>
+    <MetricStrip
+      metrics={[
+        { label: "Total Ujian", value: exams.length },
+        { label: "Aktif", value: activeCount, tone: "text-mint", role: "active-count" },
+        { label: "Draf", value: draftCount, tone: "text-highlight" },
+        { label: "Total Soal", value: totalQuestions },
+      ]}
+    />
 
     <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Kategori ujian">
       <button
@@ -226,50 +217,24 @@
 
     <!-- Search + status filter -->
     <div class="mt-3 flex flex-wrap items-center gap-2">
-      <div class="relative w-full sm:w-64">
-        <Icon
-          name="magnifying-glass"
-          size="12px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input text-xs !py-1.5 !pl-9 w-full"
-          placeholder="Cari ujian..."
+      <div class="w-full sm:w-64">
+        <SearchInput
           bind:value={query}
-          on:input={() => (page = 1)}
-          aria-label="Cari ujian"
+          placeholder="Cari ujian..."
+          label="Cari ujian"
+          oninput={() => (page = 1)}
         />
-        {#if query}
-          <button
-            type="button"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-            on:click={() => {
-              query = "";
-              page = 1;
-            }}
-            aria-label="Bersihkan pencarian"
-          >
-            ✕
-          </button>
-        {/if}
       </div>
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
-        {#each [["all", "Semua"], ["active", "Aktif"], ["draft", "Draf"]] as [val, label]}
-          <button
-            type="button"
-            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-            class:bg-primary={statusFilter === val}
-            class:text-[#05060A]={statusFilter === val}
-            class:muted={statusFilter !== val}
-            on:click={() => {
-              statusFilter = val as typeof statusFilter;
-              page = 1;
-            }}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
+      <FilterChips
+        options={[
+          ["all", "Semua"],
+          ["active", "Aktif"],
+          ["draft", "Draf"],
+        ]}
+        bind:value={statusFilter}
+        label="Filter status ujian"
+        onchange={() => (page = 1)}
+      />
     </div>
 
     {#if visibleExams.length === 0}
