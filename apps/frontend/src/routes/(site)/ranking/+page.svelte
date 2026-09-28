@@ -145,7 +145,7 @@
           aria-selected={period === p}
           class="btn-ghost !px-3 !py-1.5 text-xs"
           class:bg-primary={period === p}
-          class:text-white={period === p}
+          class:text-[#05060A]={period === p}
           on:click={() => changePeriod(p)}
         >
           {periodLabel[p]}
@@ -205,6 +205,11 @@
           <div
             class="mt-2 h-2 w-full overflow-hidden rounded-full"
             style="background: rgb(var(--line))"
+            role="progressbar"
+            aria-valuenow={Math.round(Math.min(100, Math.max(0, me.level_progress * 100)))}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Progres ke level ${me.level + 1}`}
           >
             <div
               class="h-full rounded-full bg-primary transition-all"

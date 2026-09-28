@@ -370,6 +370,11 @@
             <div
               class="mt-2 h-2 w-full overflow-hidden rounded-full"
               style="background: rgb(var(--line))"
+              role="progressbar"
+              aria-valuenow={Math.round(Math.min(100, Math.max(0, profile.progress * 100)))}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Menuju level ${profile.level + 1}`}
             >
               <div
                 class="h-full rounded-full bg-primary transition-all"
