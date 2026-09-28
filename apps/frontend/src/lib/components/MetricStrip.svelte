@@ -1,12 +1,5 @@
-<script lang="ts">
-  /**
-   * Shared KPI strip (UIX-04): the `grid grid-cols-2 sm:grid-cols-4` row of
-   * cards repeated on courses, exams, learning, badges, tasks, ranking,
-   * notifications, quests, certificates, and the panel hubs.
-   *
-   * Pass an array of `{ label, value, tone?, sub? }`; the grid adapts to the
-   * number of metrics (capped at four columns for readability).
-   */
+<script lang="ts" context="module">
+  /** A single KPI card in the strip. */
   export type Metric = {
     label: string;
     value: string | number;
@@ -16,7 +9,17 @@
     /** data-role for tests, forwarded to the value element. */
     role?: string;
   };
+</script>
 
+<script lang="ts">
+  /**
+   * Shared KPI strip (UIX-04): the `grid grid-cols-2 sm:grid-cols-4` row of
+   * cards repeated on courses, exams, learning, badges, tasks, ranking,
+   * notifications, quests, certificates, and the panel hubs.
+   *
+   * Pass an array of `{ label, value, tone?, sub? }`; the grid adapts to the
+   * number of metrics (capped at four columns for readability).
+   */
   export let metrics: Metric[] = [];
   export let columns: 2 | 3 | 4 = 4;
 </script>
