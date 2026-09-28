@@ -48,7 +48,13 @@
   $: titleValid = form.title.trim().length >= 2;
   // Each winner must receive at least 1 OPT, otherwise the quest awards nothing.
   $: ranksValid = ranks.length > 0 && ranks.every((r) => r >= 1);
-  $: canSubmit = titleValid && ranksValid && !busy;
+  // Reward budget preview (W3): the ledger refuses any single credit above the
+  // per-transaction cap, so warn before the teacher authors an unrewardable
+  // rank. The cap matches the backend default (opc_max_reward_per_tx).
+  const PER_TX_CAP = 100_000;
+  $: overCap = ranks.filter((r) => r > PER_TX_CAP);
+  $: budgetOk = overCap.length === 0;
+  $: canSubmit = titleValid && ranksValid && budgetOk && !busy;
 
   async function create() {
     error = "";
@@ -63,6 +69,10 @@
     }
     if (!ranksValid) {
       error = "Hadiah tidak boleh negatif.";
+      return;
+    }
+    if (!budgetOk) {
+      error = `Hadiah per peringkat maksimal ${formatNumber(PER_TX_CAP)} OPT (batas per transaksi).`;
       return;
     }
     busy = true;
@@ -159,6 +169,21 @@
             Setiap peringkat pemenang harus mendapat minimal 1 OPT.
           </p>
         {/if}
+        {#if !budgetOk}
+          <p class="mt-2 text-xs text-danger" role="alert" data-role="budget-warning">
+            Hadiah per peringkat maksimal {formatNumber(PER_TX_CAP)} OPT (batas per transaksi on-chain).
+            Turunkan peringkat #{overCap.length > 0 ? ranks.indexOf(overCap[0]) + 1 : ""}.
+          </p>
+        {/if}
+        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span class="badge badge-mint" data-role="budget-pool">
+            Total pool {formatNumber(totalPool)} OPT
+          </span>
+          <span class="badge {budgetOk ? 'badge-neutral' : 'badge-magenta'}">
+            Maks/peringkat {formatNumber(Math.max(0, ...ranks))} OPT
+          </span>
+          <span class="badge badge-neutral">Plafon {formatNumber(PER_TX_CAP)} OPT</span>
+        </div>
         <p class="mt-2 text-xs muted">
           <Icon name="circle-info" size="10px" />
           Kolom hadiah otomatis mengikuti jumlah pemenang. Pemenang ditentukan deterministik (skor, lalu

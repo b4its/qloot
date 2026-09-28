@@ -60,7 +60,19 @@ describe("teacher new-quest form — rank sync, preview, and submit", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Hadiah peringkat 5")).toBeTruthy());
     // Total pool reflects 5 ranks.
-    expect(screen.getByText(/Total pool/)).toBeTruthy();
+    expect(document.querySelector('[data-role="budget-pool"]')?.textContent).toMatch(/Total pool/);
+  });
+
+  it("warns when a rank exceeds the per-transaction reward cap", async () => {
+    render(NewQuestPage);
+    const rank1 = screen.getByLabelText("Hadiah peringkat 1") as HTMLInputElement;
+    await fireEvent.input(rank1, { target: { value: "200000" } });
+
+    await waitFor(() =>
+      expect(document.querySelector('[data-role="budget-warning"]')).toBeTruthy(),
+    );
+    const submit = screen.getByRole("button", { name: /Buat quest/i }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
   });
 
   it("updates the live preview with the title and pool", async () => {
