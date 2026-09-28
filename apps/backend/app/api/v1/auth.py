@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 
@@ -191,6 +192,134 @@ async def me(user: CurrentUser, request: Request, db: DbSession) -> UserOut:
         if session is not None:
             expires_at = session.expires_at
     return _user_out(user, expires_at)
+
+
+@router.get("/export")
+async def export_my_data(user: CurrentUser, db: DbSession) -> Response:
+    """Return a portable JSON export of the caller's own data (W5).
+
+    A self-service data portability endpoint: the authenticated user downloads
+    everything the platform stores about *them* (profile, learning progress,
+    exam attempts, wallet ledger, badges, certificates). No other user's data is
+    included and no secrets (password hash, session tokens) are exposed.
+    """
+    from sqlalchemy import select
+
+    from app.models.certificate import Certificate
+    from app.models.exam import ExamAttempt
+    from app.models.learning import LessonProgress
+    from app.models.social import Badge, UserBadge
+    from app.models.wallet import WalletAccount, WalletLedgerEntry
+
+    export: dict = {
+        "exported_at": datetime.now(UTC).isoformat(),
+        "schema_version": 1,
+        "profile": {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+            "class_code": user.class_code,
+            "class_type": user.class_type,
+            "chain_user_ref": user.chain_user_ref,
+            "roles": sorted(user.role_names) if user.role_names else [],
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        },
+    }
+
+    progress_rows = (
+        await db.execute(select(LessonProgress).where(LessonProgress.user_id == user.id))
+    ).scalars().all()
+    export["learning_progress"] = [
+        {
+            "course_id": str(p.course_id),
+            "lesson_id": str(p.lesson_id),
+            "progress_percent": p.progress_percent,
+            "completed": p.completed,
+            "completed_at": p.completed_at.isoformat() if p.completed_at else None,
+        }
+        for p in progress_rows
+    ]
+
+    attempt_rows = (
+        await db.execute(select(ExamAttempt).where(ExamAttempt.user_id == user.id))
+    ).scalars().all()
+    export["exam_attempts"] = [
+        {
+            "id": str(a.id),
+            "exam_id": str(a.exam_id),
+            "attempt_number": a.attempt_number,
+            "status": a.status,
+            "score_bp": a.score_bp,
+            "passed": a.passed,
+            "started_at": a.started_at.isoformat() if a.started_at else None,
+            "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+        }
+        for a in attempt_rows
+    ]
+
+    badge_rows = (
+        await db.execute(
+            select(UserBadge, Badge.code)
+            .join(Badge, Badge.id == UserBadge.badge_id)
+            .where(UserBadge.user_id == user.id)
+        )
+    ).all()
+    export["badges"] = [
+        {
+            "code": code,
+            "awarded_at": ub.awarded_at.isoformat() if ub.awarded_at else None,
+        }
+        for ub, code in badge_rows
+    ]
+
+    account = (
+        await db.execute(select(WalletAccount).where(WalletAccount.user_id == user.id))
+    ).scalar_one_or_none()
+    if account is not None:
+        ledger_rows = (
+            await db.execute(
+                select(WalletLedgerEntry)
+                .where(WalletLedgerEntry.account_id == account.id)
+                .order_by(WalletLedgerEntry.created_at)
+            )
+        ).scalars().all()
+        export["wallet"] = {
+            "token_id": account.token_id,
+            "withdrawal_address": account.withdrawal_address,
+            "entries": [
+                {
+                    "entry_type": e.entry_type,
+                    "amount": e.amount,
+                    "balance_after": e.balance_after,
+                    "reference_type": e.reference_type,
+                    "description": e.description,
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+                for e in ledger_rows
+            ],
+        }
+
+    cert_rows = (
+        await db.execute(select(Certificate).where(Certificate.user_id == user.id))
+    ).scalars().all()
+    export["certificates"] = [
+        {
+            "credential_id": c.credential_id,
+            "course_title": c.course_title,
+            "issued_at": c.issued_at.isoformat() if c.issued_at else None,
+            "revoked_at": c.revoked_at.isoformat() if c.revoked_at else None,
+        }
+        for c in cert_rows
+    ]
+
+    payload = json.dumps(export, ensure_ascii=False, indent=2)
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="qloot-export-{user.id}.json"'
+        },
+    )
 
 
 @router.patch("/profile", response_model=UserOut)

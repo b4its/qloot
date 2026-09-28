@@ -92,6 +92,33 @@
     confirmingSignOutAll = true;
   }
 
+  // Data export (W5): fetch the caller's own data as a JSON download.
+  let exporting = false;
+  let exportError = "";
+  async function downloadMyData() {
+    exportError = "";
+    exporting = true;
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/export`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`Ekspor gagal (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `qloot-data-${user?.id ?? "saya"}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      exportError = e instanceof ApiError ? e.message : "Gagal mengunduh data";
+    } finally {
+      exporting = false;
+    }
+  }
+
   let confirmingSignOutAll = false;
   async function confirmSignOutEverywhere() {
     confirmingSignOutAll = false;
@@ -530,6 +557,36 @@
       </div>
     </div>
   {/if}
+
+  <!-- Privacy & data (W5): self-service data portability -->
+  <div class="mt-6 card" data-role="privacy-data">
+    <div class="flex items-center justify-between">
+      <h2 class="font-display font-bold">Privasi &amp; data</h2>
+      <Icon name="user-shield" size="16px" class="text-primary" />
+    </div>
+    <p class="mt-1 text-sm muted">
+      Kamu dapat mengunduh salinan data akunmu (profil, progres belajar, riwayat ujian, dompet,
+      badge, dan sertifikat) dalam format JSON. Data ini hanya berisi milikmu; kata sandi dan token
+      sesi tidak pernah disertakan.
+    </p>
+    <button
+      class="btn-secondary mt-3"
+      on:click={downloadMyData}
+      disabled={exporting}
+      data-role="export-data"
+    >
+      <Icon name={exporting ? "spinner" : "download"} spin={exporting} size="12px" />
+      {exporting ? "Menyiapkan…" : "Unduh data saya"}
+    </button>
+    {#if exportError}
+      <p class="alert-error mt-3 text-sm" role="alert">{exportError}</p>
+    {/if}
+    <p class="mt-3 text-xs muted">
+      Catatan retensi: catatan aktivitas ujian (mis. berpindah tab) disimpan sebagai konteks
+      pembelajaran dan dapat ditinjau ulang bersama guru; hubungi wali kelas untuk permintaan
+      koreksi atau penghapusan.
+    </p>
+  </div>
 </div>
 
 <!-- Revoke-session confirmation modal -->
