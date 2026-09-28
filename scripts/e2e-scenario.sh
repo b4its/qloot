@@ -2,12 +2,14 @@
 # ============================================================================
 # QLoot end-to-end scenario (blueprint §24.4)
 #
-# Exercises the live stack: teacher registers, uploads a PDF, generates
-# questions with AI, creates an exam + quest, three students submit, AI grades,
-# winners are finalized deterministically, rewards flow through the ledger and
-# the blockchain worker, and admin can reconcile.
+# Exercises the live stack: admin creates a teacher, teacher uploads a PDF,
+# generates questions with AI, creates an exam + quest, three students register
+# and submit, AI grades, winners are finalized deterministically, rewards flow
+# through the ledger and the blockchain worker, and admin can reconcile.
 #
 # Requires: `make up` + `make db-migrate` with the stack healthy.
+# Uses the seeded admin (admin@qloot.example) to create the teacher, and the
+# double-submit CSRF header on every unsafe request.
 # ============================================================================
 set -euo pipefail
 
@@ -21,27 +23,68 @@ ok()  { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 jqget() { python3 -c "import sys,json; d=json.load(sys.stdin); print(d$1)"; }
 
 # --- helpers ---------------------------------------------------------------
-register() {
-  local jar="$1" email="$2" name="$3" role="$4"
-  curl -fsS -c "$jar" -X POST "$API/auth/register" \
-    -H 'Content-Type: application/json' \
-    -d "{\"email\":\"$email\",\"full_name\":\"$name\",\"password\":\"Password123!\",\"role\":\"$role\"}"
+# Self-registration is student-only (AUTH-12), so the teacher must be created
+# by an admin. Login as the seeded admin and use POST /admin/users.
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@qloot.example}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-AdminPass123!}"
+
+# CSRF: the API uses double-submit (cookie qloot_csrf + X-CSRF-Token header) on
+# unsafe methods. Read the token from the jar and echo it for the header.
+csrf() {
+  local jar="$1"
+  awk '/qloot_csrf/ { print $7 }' "$jar" | tail -n1
 }
+
+# api <jar> <method> <url> [curl args...] — adds CSRF for unsafe methods.
+api() {
+  local jar="$1"; shift
+  local method="$1"; shift
+  local url="$1"; shift
+  if [ "$method" = "GET" ] || [ "$method" = "HEAD" ]; then
+    curl -fsS -b "$jar" -X "$method" "$url" "$@"
+  else
+    curl -fsS -b "$jar" -c "$jar" -X "$method" "$url" \
+      -H "X-CSRF-Token: $(csrf "$jar")" "$@"
+  fi
+}
+
+# Bootstrap: ensure the server has issued a CSRF cookie before mutations.
+seed_csrf() {
+  local jar="$1"
+  curl -fsS -c "$jar" "$API/health/live" >/dev/null || true
+}
+
+register_student() {
+  local jar="$1" email="$2" name="$3"
+  seed_csrf "$jar"
+  curl -fsS -b "$jar" -c "$jar" -X POST "$API/auth/register" \
+    -H 'Content-Type: application/json' -H "X-CSRF-Token: $(csrf "$jar")" \
+    -d "{\"email\":\"$email\",\"full_name\":\"$name\",\"password\":\"Password123!\",\"role\":\"student\"}"
+}
+
 login() {
   local jar="$1" email="$2" password="${3:-Password123!}"
-  curl -fsS -c "$jar" -X POST "$API/auth/login" \
-    -H 'Content-Type: application/json' \
+  seed_csrf "$jar"
+  curl -fsS -b "$jar" -c "$jar" -X POST "$API/auth/login" \
+    -H 'Content-Type: application/json' -H "X-CSRF-Token: $(csrf "$jar")" \
     -d "{\"email\":\"$email\",\"password\":\"$password\"}"
 }
-api() { local jar="$1"; shift; curl -fsS -b "$jar" "$@"; }
 
 SUF="$(date +%s)"
 
 # ---------------------------------------------------------------------------
-say "1. Teacher registers"
+say "0. Admin logs in"
+ADMIN="$TMP/admin.jar"
+login "$ADMIN" "$ADMIN_EMAIL" "$ADMIN_PASSWORD" >/dev/null
+ok "admin session established"
+
+say "1. Admin creates the teacher account"
 TEACHER="$TMP/teacher.jar"
-register "$TEACHER" "e2e_teacher_$SUF@example.com" "E2E Teacher" teacher >/dev/null
-ok "teacher account created"
+TEACHER_EMAIL="e2e_teacher_$SUF@example.com"
+api "$ADMIN" POST "$API/admin/users" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$TEACHER_EMAIL\",\"full_name\":\"E2E Teacher\",\"password\":\"TeacherPass123!\",\"role\":\"teacher\"}" >/dev/null
+login "$TEACHER" "$TEACHER_EMAIL" "TeacherPass123!" >/dev/null
+ok "teacher account created and logged in"
 
 say "2. Teacher uploads a PDF material"
 PDF="$TMP/material.pdf"
@@ -66,18 +109,18 @@ for off in offs[1:]:
 out += b"trailer << /Root 1 0 R /Size %d >>\nstartxref\n%d\n%%%%EOF" % (len(objs) + 1, xref)
 open(sys.argv[1], "wb").write(out)
 PY
-MATERIAL=$(api "$TEACHER" -X POST "$API/materials/upload" -F "file=@$PDF;type=application/pdf")
+MATERIAL=$(api "$TEACHER" POST "$API/materials/upload" -F "file=@$PDF;type=application/pdf")
 MATERIAL_ID=$(echo "$MATERIAL" | jqget "['id']")
 ok "material $MATERIAL_ID uploaded"
 
 say "3. AI generates questions from the material"
-GEN=$(api "$TEACHER" -X POST "$API/materials/$MATERIAL_ID/generate-questions-sync" \
+GEN=$(api "$TEACHER" POST "$API/materials/$MATERIAL_ID/generate-questions-sync" \
   -H 'Content-Type: application/json' -d '{"count":2,"language":"en"}')
 NQ=$(echo "$GEN" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 ok "$NQ questions generated (pending review)"
 
 say "4. Teacher creates an exam, adds approved questions, publishes"
-EXAM=$(api "$TEACHER" -X POST "$API/exams" -H 'Content-Type: application/json' \
+EXAM=$(api "$TEACHER" POST "$API/exams" -H 'Content-Type: application/json' \
   -d '{"title":"E2E AI Exam","duration_minutes":30,"passing_score_bp":5000}')
 EXAM_ID=$(echo "$EXAM" | jqget "['id']")
 
@@ -88,20 +131,20 @@ import sys, json
 for q in json.load(sys.stdin):
     print(json.dumps({'prompt': q['prompt'], 'correct_answer': q.get('correct_answer') or ''}))
 " | while IFS= read -r body; do
-  CREATED=$(api "$TEACHER" -X POST "$API/exams/$EXAM_ID/questions" \
+  CREATED=$(api "$TEACHER" POST "$API/exams/$EXAM_ID/questions" \
     -H 'Content-Type: application/json' -d "$body")
   echo "$CREATED" | jqget "['id']" >> "$TMP/qids.txt"
 done
 QIDS=$(cat "$TMP/qids.txt")
 NQID=$(echo "$QIDS" | grep -c .)
-PUB=$(api "$TEACHER" -X POST "$API/exams/$EXAM_ID/publish")
+PUB=$(api "$TEACHER" POST "$API/exams/$EXAM_ID/publish")
 ok "exam published with $NQID questions"
 
 say "5. Teacher creates a quest with 3 reward ranks (100/60/40 OPT)"
-QUEST=$(api "$TEACHER" -X POST "$API/quests" -H 'Content-Type: application/json' \
+QUEST=$(api "$TEACHER" POST "$API/quests" -H 'Content-Type: application/json' \
   -d "{\"title\":\"E2E Speed Quest\",\"exam_id\":\"$EXAM_ID\",\"top_n_winners\":3,\"rules\":[{\"rank\":1,\"reward_amount\":100},{\"rank\":2,\"reward_amount\":60},{\"rank\":3,\"reward_amount\":40}]}")
 QUEST_ID=$(echo "$QUEST" | jqget "['id']")
-api "$TEACHER" -X POST "$API/quests/$QUEST_ID/publish" >/dev/null
+api "$TEACHER" POST "$API/quests/$QUEST_ID/publish" >/dev/null
 ok "quest $QUEST_ID open"
 
 say "6. Three students register and submit answers"
@@ -109,32 +152,32 @@ declare -a STUDENT_JARS=()
 declare -a ATTEMPT_IDS=()
 for i in 1 2 3; do
   JAR="$TMP/student$i.jar"
-  register "$JAR" "e2e_student${i}_$SUF@example.com" "E2E Student $i" student >/dev/null
+  register_student "$JAR" "e2e_student${i}_$SUF@example.com" "E2E Student $i" >/dev/null
   STUDENT_JARS+=("$JAR")
-  ATT=$(api "$JAR" -X POST "$API/exams/$EXAM_ID/attempts")
+  ATT=$(api "$JAR" POST "$API/exams/$EXAM_ID/attempts")
   ATT_ID=$(echo "$ATT" | jqget "['id']")
   ATTEMPT_IDS+=("$ATT_ID")
   # Answer every question that belongs to this exam.
   echo "$QIDS" | while read -r qid; do
     [ -z "$qid" ] && continue
-    api "$JAR" -X PUT "$API/attempts/$ATT_ID/answers/$qid" -H 'Content-Type: application/json' \
+    api "$JAR" PUT "$API/attempts/$ATT_ID/answers/$qid" -H 'Content-Type: application/json' \
       -d '{"answer_text":"Machine learning is a branch of artificial intelligence that uses labelled data."}' >/dev/null
   done
-  api "$JAR" -X POST "$API/attempts/$ATT_ID/submit" >/dev/null
+  api "$JAR" POST "$API/attempts/$ATT_ID/submit" >/dev/null
   ok "student $i submitted attempt $ATT_ID"
 done
 
 say "7. AI worker grades the attempts"
 sleep 6
 for ATT_ID in "${ATTEMPT_IDS[@]}"; do
-  RES=$(api "$TEACHER" "$API/attempts/$ATT_ID/result")
+  RES=$(api "$TEACHER" GET "$API/attempts/$ATT_ID/result")
   STATUS=$(echo "$RES" | jqget "['attempt']['status']")
   SCORE=$(echo "$RES" | jqget "['attempt']['score_bp']")
   ok "attempt $ATT_ID status=$STATUS score_bp=$SCORE"
 done
 
 say "8. Teacher finalizes the quest -> deterministic winners"
-FIN=$(api "$TEACHER" -X POST "$API/quests/$QUEST_ID/finalize")
+FIN=$(api "$TEACHER" POST "$API/quests/$QUEST_ID/finalize")
 echo "$FIN" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
@@ -146,7 +189,7 @@ ok "winners finalized"
 
 say "9. Blockchain worker processes reward outbox (dry-run chain)"
 sleep 8
-TXS=$(api "$TEACHER" "$API/blockchain/transactions")
+TXS=$(api "$TEACHER" GET "$API/blockchain/transactions")
 NTX=$(echo "$TXS" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 echo "$TXS" | python3 -c "
 import sys, json
@@ -157,18 +200,18 @@ ok "$NTX blockchain transactions recorded"
 
 say "10. Student wallet reflects the OPT reward + ledger"
 WINNER_JAR="${STUDENT_JARS[0]}"
-WALLET=$(api "$WINNER_JAR" "$API/wallet")
+WALLET=$(api "$WINNER_JAR" GET "$API/wallet")
 echo "$WALLET" | python3 -c "
 import sys, json
 w = json.load(sys.stdin)
 print(f\"    available={w['available']} pending={w['pending']} token_id={w['token_id']}\")
 "
-LEDGER=$(api "$WINNER_JAR" "$API/wallet/ledger")
+LEDGER=$(api "$WINNER_JAR" GET "$API/wallet/ledger")
 NLEDGER=$(echo "$LEDGER" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 ok "ledger has $NLEDGER entries"
 
 say "11. Reconciliation: cached balance == computed ledger balance"
-REC=$(api "$WINNER_JAR" "$API/wallet/reconciliation")
+REC=$(api "$WINNER_JAR" GET "$API/wallet/reconciliation")
 echo "$REC" | python3 -c "
 import sys, json
 r = json.load(sys.stdin)
@@ -178,7 +221,7 @@ assert r['ok'], 'LEDGER MISMATCH!'
 ok "ledger reconciles"
 
 say "12. Ranking reflects scores"
-RANK=$(api "$WINNER_JAR" "$API/rankings/me")
+RANK=$(api "$WINNER_JAR" GET "$API/rankings/me")
 echo "$RANK" | python3 -c "
 import sys, json
 r = json.load(sys.stdin)
@@ -189,14 +232,14 @@ ok "ranking available"
 say "13. Admin reconciles rewards and blockchain state"
 ADMIN="$TMP/admin.jar"
 login "$ADMIN" "admin@qloot.example" "AdminPass123!" >/dev/null
-api "$ADMIN" "$API/admin/rewards" | python3 -c "
+api "$ADMIN" GET "$API/admin/rewards" | python3 -c "
 import sys, json
 rows = json.load(sys.stdin)
 print('    reward allocations:', len(rows))
 for r in rows[:4]:
     print(f\"      status={r['status']} amount={r['amount']}\")
 "
-api "$ADMIN" "$API/blockchain/status" | python3 -c "
+api "$ADMIN" GET "$API/blockchain/status" | python3 -c "
 import sys, json
 s = json.load(sys.stdin)
 print(f\"    chain={s['network']} dry_run={s['dry_run']} confirmations={s['confirmations_required']}\")
