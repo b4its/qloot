@@ -118,7 +118,9 @@
       <div class="skeleton h-64"></div>
     </div>
   {:else if !lesson}
-    <p class="alert-error">{error || "Materi tidak ditemukan."}</p>
+    <p class="alert-error" role="alert" aria-live="assertive">
+      {error || "Materi tidak ditemukan."}
+    </p>
   {:else}
     <div class="flex flex-wrap items-center justify-between gap-2">
       <a
