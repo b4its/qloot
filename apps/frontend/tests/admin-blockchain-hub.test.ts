@@ -89,4 +89,28 @@ describe("admin blockchain hub — allocation metrics and control confirmation",
     await fireEvent.click(confirm);
     await waitFor(() => expect(post).toHaveBeenCalledWith("/admin/blockchain/pause?asset=OPT"));
   });
+
+  it("renders the custody invariants panel with per-check status", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/blockchain/status"))
+        return Promise.resolve({
+          ...status,
+          invariants: [
+            { key: "OPT_contract_configured", ok: true, detail: "configured" },
+            { key: "signer_has_minter_role", ok: false, detail: "signer lacks MINTER_ROLE" },
+          ],
+          invariants_ok: false,
+        });
+      if (path.startsWith("/blockchain/contract")) return Promise.resolve(contract);
+      if (path.startsWith("/blockchain/allocations")) return Promise.resolve(allocations);
+      return Promise.resolve([]);
+    });
+
+    render(BlockchainPage);
+    await waitFor(() =>
+      expect(document.querySelector('[data-role="custody-invariants"]')).toBeTruthy(),
+    );
+    expect(screen.getByText("OPT_contract_configured")).toBeTruthy();
+    expect(screen.getByText(/Perlu perhatian/)).toBeTruthy();
+  });
 });

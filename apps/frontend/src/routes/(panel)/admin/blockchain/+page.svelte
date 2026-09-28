@@ -177,6 +177,40 @@
       </div>
     {/if}
 
+    {#if status.invariants?.length}
+      <div class="card mt-4" data-role="custody-invariants">
+        <div class="flex items-center justify-between">
+          <h2 class="font-display font-bold">Pemeriksaan custodian</h2>
+          {#if status.invariants_ok}
+            <span class="badge badge-mint"><Icon name="circle-check" size="10px" /> Semua OK</span>
+          {:else}
+            <span class="badge badge-magenta"
+              ><Icon name="triangle-exclamation" size="10px" /> Perlu perhatian</span
+            >
+          {/if}
+        </div>
+        <p class="mt-1 text-xs muted">
+          Memverifikasi asumsi kustodi: kontrak aset terkonfigurasi, alamat signer dikenali, dan
+          signer memegang peran yang dibutuhkan jalur hadiah/penarikan.
+        </p>
+        <ul class="mt-3 divide-y text-sm">
+          {#each status.invariants as c (c.key)}
+            <li class="flex items-center justify-between gap-3 py-2">
+              <span class="flex items-center gap-2 min-w-0">
+                <Icon
+                  name={c.ok ? "circle-check" : "circle-xmark"}
+                  size="12px"
+                  class={c.ok ? "text-mint flex-none" : "text-danger flex-none"}
+                />
+                <span class="truncate font-mono text-xs">{c.key}</span>
+              </span>
+              <span class="text-xs muted flex-none">{c.detail}</span>
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {/if}
+
     <div class="mt-4 flex flex-wrap items-center gap-2">
       <select
         class="input !w-auto"

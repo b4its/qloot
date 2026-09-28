@@ -261,6 +261,12 @@ export interface AssetInfo {
   role?: string;
 }
 
+export interface ChainInvariant {
+  key: string;
+  ok: boolean;
+  detail: string;
+}
+
 export interface BlockchainStatus {
   dry_run: boolean;
   network: string;
@@ -272,6 +278,9 @@ export interface BlockchainStatus {
   treasury_address?: string | null;
   /** Per-asset addresses (OPT/QTC/ORT/ORX); only on the admin status endpoint. */
   assets?: Record<string, AssetInfo>;
+  /** Custody invariant checks; only on the admin status endpoint. */
+  invariants?: ChainInvariant[];
+  invariants_ok?: boolean;
 }
 
 export interface BlockchainTx {
