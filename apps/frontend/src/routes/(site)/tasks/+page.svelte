@@ -6,6 +6,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { reveal } from "$lib/actions/reveal";
   import { opt } from "$lib/stores/opt";
 
@@ -295,16 +296,19 @@
       <Skeleton rows={4} />
     </div>
   {:else if tasks.length === 0}
-    <div class="card mt-6 grid place-items-center py-16 text-center">
-      <Icon name="list-check" size="28px" class="muted" />
-      <p class="mt-3 font-semibold text-foreground">Tidak ada tugas aktif</p>
-      <p class="text-sm muted">Tugas dan misi baru akan muncul di sini secara berkala.</p>
-    </div>
+    <EmptyState
+      icon="list-check"
+      title="Tidak ada tugas aktif"
+      description="Tugas dan misi baru akan muncul di sini secara berkala."
+    />
   {:else if filteredTasks.length === 0}
-    <div class="card mt-6 text-center py-12 space-y-3">
-      <p class="muted text-sm">Tidak ada tugas yang sesuai dengan filter atau pencarian Anda.</p>
-      <button class="btn-ghost !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-    </div>
+    <EmptyState
+      icon="magnifying-glass"
+      title="Tidak ada tugas yang cocok"
+      description="Tidak ada tugas yang sesuai dengan filter atau pencarian Anda."
+      actionLabel="Reset Filter"
+      onAction={resetFilters}
+    />
   {:else}
     <div class="mt-6 space-y-3">
       {#each pagedTasks as t, i}
