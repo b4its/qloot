@@ -19,6 +19,7 @@
   } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { opt } from "$lib/stores/opt";
   import { connectWalletAddress, hasInjectedWallet } from "$lib/utils/metamask";
 
@@ -237,6 +238,7 @@
   }
 
   async function load() {
+    error = "";
     try {
       wallet = await api.get<Wallet>("/wallet");
       // Seed the editable + withdrawal address from the saved personal wallet.
@@ -451,14 +453,27 @@
   </p>
 
   {#if error}
-    <p class="alert-error mt-4">
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">
       {error}
     </p>
   {/if}
 
   {#if loading}
-    <p class="mt-6 muted">Memuat dompet…</p>
-  {:else if wallet}
+    <div class="mt-6 grid gap-4 sm:grid-cols-3">
+      {#each Array(3) as _}<div class="skeleton h-32"></div>{/each}
+    </div>
+    <div class="mt-6 space-y-2">
+      {#each Array(3) as _}<div class="skeleton h-24"></div>{/each}
+    </div>
+  {:else if !wallet}
+    <EmptyState
+      tone="error"
+      title="Dompet tidak dapat dimuat"
+      description={error || "Terjadi kesalahan saat memuat data dompet."}
+      actionLabel="Coba lagi"
+      onAction={load}
+    />
+  {:else}
     <div class="mt-6 grid gap-4 sm:grid-cols-3">
       <div class="card">
         <div class="mono-label">Tersedia</div>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/svelte";
+import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/svelte";
 
 vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 
@@ -118,5 +118,29 @@ describe("wallet ledger — localized labels and description", () => {
     await waitFor(() => expect(screen.getByText("Hadiah terbaru")).toBeTruthy());
     // reward_type "quest" → "Hadiah quest" (also appears in the ledger, so use getAll).
     expect(screen.getAllByText("Hadiah quest").length).toBeGreaterThan(0);
+  });
+
+  it("shows a retry when the wallet itself fails to load", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/wallet") return Promise.reject(new Error("boom"));
+      return Promise.resolve([]);
+    });
+    render(WalletPage);
+
+    // The wallet summary is the primary fetch; a failure must be recoverable.
+    const retry = await screen.findByRole("button", { name: /Coba lagi/ });
+    get.mockImplementation((path: string) => {
+      if (path === "/wallet") return Promise.resolve({ available: 80, pending: 0 });
+      if (path.startsWith("/wallet/withdrawals")) return Promise.resolve({ items: [], has_more: false });
+      if (path.startsWith("/wallet/assets")) return Promise.resolve([]);
+      if (path.startsWith("/wallet/ledger")) return Promise.resolve({ items: [], has_more: false });
+      if (path.startsWith("/wallet/rewards")) return Promise.resolve({ items: [], has_more: false });
+      if (path.startsWith("/blockchain/transactions")) return Promise.resolve([]);
+      if (path.startsWith("/blockchain/status"))
+        return Promise.resolve({ paused: false, chain_id: 31337 });
+      return Promise.resolve([]);
+    });
+    await fireEvent.click(retry);
+    await waitFor(() => expect(screen.getByText("Tersedia")).toBeTruthy(), { timeout: 3000 });
   });
 });
