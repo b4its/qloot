@@ -7,6 +7,8 @@
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
 
@@ -223,45 +225,28 @@
       />
     {:else if user}
       <!-- Overview metrics -->
-      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div class="card p-4">
-          <p class="mono-label text-[10px]">Pelajaran</p>
-          <p class="mt-1 font-display text-3xl font-bold">{subjects.length}</p>
-        </div>
-        <div class="card p-4">
-          <p class="mono-label text-[10px]">Total Materi</p>
-          <p class="mt-1 font-display text-3xl font-bold">{totalLessons}</p>
-        </div>
-        <div class="card p-4">
-          <p class="mono-label text-[10px]">Materi Selesai</p>
-          <p class="mt-1 font-display text-3xl font-bold text-mint">{completedLessons}</p>
-        </div>
-        <div class="card p-4">
-          <p class="mono-label text-[10px]">Progres Belajar</p>
-          <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="overall-pct">
-            {overallPct}%
-          </p>
-          {#if finishedCourses > 0}
-            <p class="text-[10px] muted">{finishedCourses} pelajaran tuntas</p>
-          {/if}
-        </div>
-      </div>
+      <MetricStrip
+        metrics={[
+          { label: "Pelajaran", value: subjects.length },
+          { label: "Total Materi", value: totalLessons },
+          { label: "Materi Selesai", value: completedLessons, tone: "text-mint" },
+          {
+            label: "Progres Belajar",
+            value: `${overallPct}%`,
+            tone: "text-highlight",
+            role: "overall-pct",
+            sub: finishedCourses > 0 ? `${finishedCourses} pelajaran tuntas` : undefined,
+          },
+        ]}
+      />
 
       <!-- Search & filters -->
       <div class="mt-6 flex flex-wrap items-center gap-3">
-        <div class="relative flex-1 min-w-[220px]">
-          <Icon
-            name="magnifying-glass"
-            size="13px"
-            class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-          />
-          <input
-            class="input !pl-9"
-            placeholder="Cari pelajaran, mata pelajaran, atau guru…"
-            bind:value={query}
-            aria-label="Cari pelajaran"
-          />
-        </div>
+        <SearchInput
+          bind:value={query}
+          placeholder="Cari pelajaran, mata pelajaran, atau guru…"
+          label="Cari pelajaran"
+        />
         {#if classes.length > 1}
           <select class="input !w-auto" bind:value={classFilter} aria-label="Filter kelas">
             <option value="all">Semua kelas</option>
