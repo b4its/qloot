@@ -476,7 +476,7 @@ class CommunityService:
                     )
                 )
             ).all()
-            post_bodies = dict(rows)
+            post_bodies = {row[0]: row[1] for row in rows}
         if comment_ids:
             rows = (
                 await self.session.execute(
@@ -485,7 +485,7 @@ class CommunityService:
                     )
                 )
             ).all()
-            comment_bodies = dict(rows)
+            comment_bodies = {row[0]: row[1] for row in rows}
 
         out = []
         for r in reports:

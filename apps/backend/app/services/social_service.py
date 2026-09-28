@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any, cast
 
 from sqlalchemy import func, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -296,10 +298,13 @@ class NotificationService:
         """Clear the caller's already-read notifications. Returns the count."""
         from sqlalchemy import delete as sa_delete
 
-        result = await self.session.execute(
-            sa_delete(Notification).where(
-                Notification.user_id == user_id, Notification.read_at.is_not(None)
-            )
+        result = cast(
+            CursorResult[Any],
+            await self.session.execute(
+                sa_delete(Notification).where(
+                    Notification.user_id == user_id, Notification.read_at.is_not(None)
+                )
+            ),
         )
         await self.session.flush()
         return int(result.rowcount or 0)

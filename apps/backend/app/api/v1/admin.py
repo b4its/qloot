@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import String, cast, func, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.deps import AdminUser, DbSession, LimitParam, OffsetParam
 from app.blockchain.worker_logic import process_outbox_item
@@ -89,7 +90,7 @@ async def list_users(
     """
     from app.models.identity import Role, UserRole
 
-    conditions = []
+    conditions: list[ColumnElement[bool]] = []
     if q and q.strip():
         pattern = f"%{q.strip().lower()}%"
         conditions.append(

@@ -891,18 +891,17 @@ class ExamService:
             .scalars()
             .all()
         }
-        counts = dict(
-            (
-                await self.session.execute(
-                    select(AttemptEvent.attempt_id, func.count())
-                    .where(
-                        AttemptEvent.attempt_id.in_(attempt_ids),
-                        AttemptEvent.kind.in_(self._VIOLATION_KINDS),
-                    )
-                    .group_by(AttemptEvent.attempt_id)
+        count_rows = (
+            await self.session.execute(
+                select(AttemptEvent.attempt_id, func.count())
+                .where(
+                    AttemptEvent.attempt_id.in_(attempt_ids),
+                    AttemptEvent.kind.in_(self._VIOLATION_KINDS),
                 )
-            ).all()
-        )
+                .group_by(AttemptEvent.attempt_id)
+            )
+        ).all()
+        counts: dict[uuid.UUID, int] = {row[0]: row[1] for row in count_rows}
         out: dict[uuid.UUID, tuple[bool, str | None, int]] = {}
         for aid in attempt_ids:
             a = attempts.get(aid)
