@@ -109,10 +109,12 @@
     const failed = (...labels: string[]) => labels.some((l) => unavailable.includes(l));
     switch (href) {
       case "/admin/users":
-        if (failed("pengguna")) return { status: "Data tak tersedia", tone: "neutral", alert: false };
+        if (failed("pengguna"))
+          return { status: "Data tak tersedia", tone: "neutral", alert: false };
         return { status: `${activeUsers} aktif`, tone: "mint", alert: false };
       case "/admin/withdrawals":
-        if (failed("penarikan")) return { status: "Data tak tersedia", tone: "neutral", alert: false };
+        if (failed("penarikan"))
+          return { status: "Data tak tersedia", tone: "neutral", alert: false };
         return pendingWithdrawals
           ? { status: `${pendingWithdrawals} menunggu`, tone: "amber", alert: true }
           : { status: "Tidak ada antrean", tone: "neutral", alert: false };
@@ -124,7 +126,8 @@
             ? { status: `${pendingRewards} tertunda`, tone: "amber", alert: true }
             : { status: "Semua terkirim", tone: "mint", alert: false };
       case "/admin/ledger":
-        if (failed("buku besar")) return { status: "Data tak tersedia", tone: "neutral", alert: false };
+        if (failed("buku besar"))
+          return { status: "Data tak tersedia", tone: "neutral", alert: false };
         return negative.length
           ? { status: `${negative.length} saldo negatif`, tone: "danger", alert: true }
           : { status: "Seimbang", tone: "mint", alert: false };

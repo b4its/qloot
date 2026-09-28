@@ -34,7 +34,9 @@
     <button
       type="button"
       aria-pressed={value === val}
-      class="{size === 'md' ? 'px-3 py-1.5' : 'px-2.5 py-1'} rounded-xs font-medium transition-colors"
+      class="{size === 'md'
+        ? 'px-3 py-1.5'
+        : 'px-2.5 py-1'} rounded-xs font-medium transition-colors"
       class:bg-primary={value === val}
       class:text-[#05060A]={value === val}
       class:muted={value !== val}

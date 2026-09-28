@@ -15,7 +15,9 @@ describe("FilterChips", () => {
     const group = screen.getByRole("group", { name: "Status" });
     expect(group).toBeTruthy();
     expect(screen.getByRole("button", { name: "Baru" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "Semua" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "Semua" }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
     cleanup();
   });
 

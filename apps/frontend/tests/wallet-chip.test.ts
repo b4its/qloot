@@ -19,7 +19,9 @@ describe("WalletChip copy feedback", () => {
 
   it("surfaces a failure instead of a silent no-op", async () => {
     cleanup();
-    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("no")) } });
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error("no")) },
+    });
     render(WalletChip, { props: { address: ADDR } });
     await fireEvent.click(screen.getByRole("button"));
     expect(await screen.findByText(/tidak dapat disalin/i)).toBeTruthy();

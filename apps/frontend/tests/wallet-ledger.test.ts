@@ -131,10 +131,12 @@ describe("wallet ledger — localized labels and description", () => {
     const retry = await screen.findByRole("button", { name: /Coba lagi/ });
     get.mockImplementation((path: string) => {
       if (path === "/wallet") return Promise.resolve({ available: 80, pending: 0 });
-      if (path.startsWith("/wallet/withdrawals")) return Promise.resolve({ items: [], has_more: false });
+      if (path.startsWith("/wallet/withdrawals"))
+        return Promise.resolve({ items: [], has_more: false });
       if (path.startsWith("/wallet/assets")) return Promise.resolve([]);
       if (path.startsWith("/wallet/ledger")) return Promise.resolve({ items: [], has_more: false });
-      if (path.startsWith("/wallet/rewards")) return Promise.resolve({ items: [], has_more: false });
+      if (path.startsWith("/wallet/rewards"))
+        return Promise.resolve({ items: [], has_more: false });
       if (path.startsWith("/blockchain/transactions")) return Promise.resolve([]);
       if (path.startsWith("/blockchain/status"))
         return Promise.resolve({ paused: false, chain_id: 31337 });

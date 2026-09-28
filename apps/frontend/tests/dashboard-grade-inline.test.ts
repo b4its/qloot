@@ -61,9 +61,7 @@ describe("dashboard inline grade editing (no native prompt)", () => {
     await fireEvent.input(input, { target: { value: "90" } });
     await fireEvent.click(screen.getByLabelText("Simpan nilai Matematika"));
 
-    await waitFor(() =>
-      expect(put).toHaveBeenCalledWith("/career/grades/g1", { grade: 90 }),
-    );
+    await waitFor(() => expect(put).toHaveBeenCalledWith("/career/grades/g1", { grade: 90 }));
   });
 
   it("deletes a grade through the themed confirm dialog", async () => {

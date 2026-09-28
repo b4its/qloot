@@ -31,7 +31,8 @@
   {#if actionLabel}
     {#if onAction}
       <button class="btn-primary mt-4" on:click={onAction}>
-        <Icon name={actionIcon} size="12px" /> {actionLabel}
+        <Icon name={actionIcon} size="12px" />
+        {actionLabel}
       </button>
     {:else if actionHref}
       <a href={actionHref} class="btn-primary mt-4">{actionLabel}</a>

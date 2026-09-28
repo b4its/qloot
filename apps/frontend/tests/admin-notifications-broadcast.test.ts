@@ -114,9 +114,7 @@ describe("admin broadcast notifications — preview, count, picker, confirm", ()
     get.mockRejectedValueOnce(new Error("boom"));
     render(AdminNotifications);
 
-    await waitFor(() =>
-      expect(document.body.textContent).toContain("jumlah tidak diketahui"),
-    );
+    await waitFor(() => expect(document.body.textContent).toContain("jumlah tidak diketahui"));
 
     await fireEvent.click(screen.getByLabelText("Penerima Spesifik"));
     await fireEvent.input(screen.getByLabelText(/Cari penerima/), { target: { value: "zoe" } });

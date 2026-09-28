@@ -146,8 +146,7 @@
       plagiarismError = "";
     } catch (e) {
       plagiarism = [];
-      plagiarismError =
-        e instanceof ApiError ? e.message : "Data kemiripan jawaban gagal dimuat.";
+      plagiarismError = e instanceof ApiError ? e.message : "Data kemiripan jawaban gagal dimuat.";
     } finally {
       plagiarismChecked = true;
     }
@@ -242,8 +241,7 @@
             <tr
               ><th class="py-1" scope="col">Soal</th><th class="text-right" scope="col"
                 >Kesukaran</th
-              ><th class="text-right" scope="col">Daya beda</th
-              ></tr
+              ><th class="text-right" scope="col">Daya beda</th></tr
             >
           </thead>
           <tbody>
@@ -266,7 +264,8 @@
 
   {#if analyticsError && !analytics}
     <p class="alert-info mt-4 text-xs" role="status" aria-live="polite">
-      <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" /> {analyticsError}
+      <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" />
+      {analyticsError}
     </p>
   {/if}
 
@@ -287,9 +286,8 @@
   {:else if plagiarismError}
     <p class="alert-warning mt-4 text-sm" role="status" aria-live="polite">
       <Icon name="triangle-exclamation" size="12px" class="mt-0.5 flex-none" />
-      Pemeriksaan kemiripan tidak dapat diselesaikan: {plagiarismError} Hasil ini <strong
-        >belum tentu</strong
-      >
+      Pemeriksaan kemiripan tidak dapat diselesaikan: {plagiarismError} Hasil ini
+      <strong>belum tentu</strong>
       bebas dari indikasi kemiripan.
     </p>
   {/if}

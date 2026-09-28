@@ -22,6 +22,6 @@ describe("dashboard grade edit and delete (UIX-05)", () => {
     expect(dashboardSrc).toContain("/notifications/page?");
     expect(dashboardSrc).toContain("/badges/progress");
     expect(dashboardSrc).toContain("nearestBadges");
-    expect(dashboardSrc).toContain("data-role=\"next-goals\"");
+    expect(dashboardSrc).toContain('data-role="next-goals"');
   });
 });

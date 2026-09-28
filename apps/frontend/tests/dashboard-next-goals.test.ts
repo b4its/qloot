@@ -97,9 +97,7 @@ describe("dashboard — next goals widget", () => {
     });
 
     render(DashboardPage);
-    await waitFor(() =>
-      expect(screen.getByText(/sebagian data belum dapat dimuat/i)).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText(/sebagian data belum dapat dimuat/i)).toBeTruthy());
     expect(screen.getByText(/profil kepribadian/i)).toBeTruthy();
   });
 });

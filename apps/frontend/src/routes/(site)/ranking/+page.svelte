@@ -232,7 +232,12 @@
     <MetricStrip
       metrics={[
         { label: "Di halaman ini", value: global.entries.length },
-        { label: "Skor tertinggi", value: `${pageTopScore.toFixed(1)}%`, tone: "text-highlight", role: "top-score" },
+        {
+          label: "Skor tertinggi",
+          value: `${pageTopScore.toFixed(1)}%`,
+          tone: "text-highlight",
+          role: "top-score",
+        },
         { label: "Rata-rata halaman", value: `${pageAvgScore.toFixed(1)}%` },
         { label: "Peringkatmu", value: `#${me?.rank ?? "—"}`, tone: "text-primary" },
       ]}

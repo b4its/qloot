@@ -322,7 +322,11 @@
           </button>
         </div>
 
-        <div class="mt-3 max-h-80 space-y-3 overflow-y-auto px-1 py-2" role="log" aria-live="polite">
+        <div
+          class="mt-3 max-h-80 space-y-3 overflow-y-auto px-1 py-2"
+          role="log"
+          aria-live="polite"
+        >
           {#if threadLoading}
             <div class="space-y-2">
               {#each Array(3) as _}<div class="skeleton h-12"></div>{/each}

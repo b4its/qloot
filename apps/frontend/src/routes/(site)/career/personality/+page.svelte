@@ -220,9 +220,8 @@
       </div>
       {#if retaking}
         <p class="alert-info mt-2 text-xs" role="status">
-          <Icon name="circle-info" size="11px" class="inline-flex" /> Jawab ulang kuesioner di
-          kiri lalu kirim untuk memperbarui hasil. Hasil saat ini tetap tersimpan sampai kamu
-          mengirim yang baru.
+          <Icon name="circle-info" size="11px" class="inline-flex" /> Jawab ulang kuesioner di kiri lalu
+          kirim untuk memperbarui hasil. Hasil saat ini tetap tersimpan sampai kamu mengirim yang baru.
         </p>
       {/if}
       {#if loading}

@@ -166,7 +166,11 @@
     { label: "Total Ujian", value: counts.all },
     { label: "Terbuka", value: statusCounts.open, tone: "text-mint", role: "open-count" },
     { label: "Selesai", value: completedCount },
-    { label: "Rata-rata skor terbaik", value: avgBest != null ? `${avgBest}%` : "—", tone: "text-highlight" },
+    {
+      label: "Rata-rata skor terbaik",
+      value: avgBest != null ? `${avgBest}%` : "—",
+      tone: "text-highlight",
+    },
   ];
 
   const statusOptions = [

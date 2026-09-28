@@ -22,7 +22,9 @@ describe("MetricStrip", () => {
   });
 
   it("forwards data-role to the value element", () => {
-    render(MetricStrip, { props: { metrics: [{ label: "Selesai", value: 5, role: "done-courses" }] } });
+    render(MetricStrip, {
+      props: { metrics: [{ label: "Selesai", value: 5, role: "done-courses" }] },
+    });
     expect(document.querySelector('[data-role="done-courses"]')?.textContent?.trim()).toBe("5");
     cleanup();
   });

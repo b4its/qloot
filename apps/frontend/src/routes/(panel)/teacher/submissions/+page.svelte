@@ -190,7 +190,8 @@
 
   {#if analyticsError && !analytics}
     <p class="alert-info mt-4 text-xs" role="status" aria-live="polite">
-      <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" /> {analyticsError}
+      <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" />
+      {analyticsError}
     </p>
   {/if}
 

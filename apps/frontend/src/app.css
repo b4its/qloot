@@ -568,7 +568,11 @@ html.theme-init * {
   }
   /* Cyan/magenta variant for headings that want a cooler neon. */
   .text-grad-cyan {
-    background-image: linear-gradient(135deg, rgb(var(--neon-cyan)) 0%, rgb(var(--neon-magenta)) 100%);
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--neon-cyan)) 0%,
+      rgb(var(--neon-magenta)) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -581,7 +585,11 @@ html.theme-init * {
     box-shadow: 0 0 18px -6px rgb(var(--neon-blue) / 0.8);
   }
   .brand-mark-cool {
-    background-image: linear-gradient(135deg, rgb(var(--neon-cyan)) 0%, rgb(var(--neon-magenta)) 100%);
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--neon-cyan)) 0%,
+      rgb(var(--neon-magenta)) 100%
+    );
     color: #05060a;
     box-shadow: 0 0 18px -6px rgba(0, 240, 255, 0.8);
   }
@@ -819,7 +827,12 @@ html.theme-init * {
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, rgb(var(--accent)), rgb(var(--neon-cyan)), rgb(var(--neon-magenta)));
+    background: linear-gradient(
+      90deg,
+      rgb(var(--accent)),
+      rgb(var(--neon-cyan)),
+      rgb(var(--neon-magenta))
+    );
     opacity: 0.55;
   }
   /* Clipped angular panel (no neon corner). */
