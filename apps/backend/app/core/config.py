@@ -243,6 +243,46 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _fail_closed_in_production(self) -> Settings:
+        """Refuse to start production with placeholder secrets or a half-live chain.
+
+        Production must never run on the documented placeholder session secret,
+        and it must never silently fall back to dry-run (fake hashes) when a live
+        chain was intended. Failing at startup surfaces the misconfiguration
+        immediately instead of producing simulated "successful" transactions.
+        """
+        if not self.is_production:
+            return self
+
+        placeholder_secrets = {"change-me", "change_me", "changeme", "secret", ""}
+        if self.session_secret.strip().lower() in placeholder_secrets:
+            raise ValueError(
+                "SESSION_SECRET must be a strong, unique value in production "
+                "(the placeholder value is refused)"
+            )
+        if (self.database_url or "").find("change-me") != -1:
+            raise ValueError(
+                "DATABASE_URL still contains the placeholder password in production"
+            )
+
+        if not self.blockchain_dry_run:
+            missing = [
+                name
+                for name, value in (
+                    ("OPT_CONTRACT_ADDRESS", self.asset_address("OPT")),
+                    ("TREASURY_ADDRESS", self.treasury_address),
+                    ("BLOCKCHAIN_PRIVATE_KEY", self.blockchain_private_key),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    "Live chain (BLOCKCHAIN_DRY_RUN=false) in production requires "
+                    f"a complete configuration; missing: {', '.join(missing)}"
+                )
+        return self
+
     @property
     def rpc_url(self) -> str:
         if self.blockchain_network == "sepolia":

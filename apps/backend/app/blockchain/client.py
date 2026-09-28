@@ -125,6 +125,23 @@ ASSET_ABI_MIN = [
         "stateMutability": "view",
         "type": "function",
     },
+    {
+        "inputs": [
+            {"internalType": "bytes32", "name": "role", "type": "bytes32"},
+            {"internalType": "address", "name": "account", "type": "address"},
+        ],
+        "name": "hasRole",
+        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "MINTER_ROLE",
+        "outputs": [{"internalType": "bytes32", "name": "", "type": "bytes32"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
 ]
 
 # Minimal ABI of the OryphemProxy (ORX) router.
@@ -627,8 +644,11 @@ class ChainClient:
 
     def admin_status(self) -> dict:
         """Privileged status including every asset/router address (admin only)."""
+        invariants = self.verify_invariants()
         return {
             **self.status(),
+            "invariants": invariants,
+            "invariants_ok": all(c["ok"] for c in invariants),
             # Backwards-compatible single-contract fields = OPT.
             "contract_address": settings.asset_address("OPT") or None,
             "treasury_address": settings.treasury_address or None,
@@ -660,6 +680,78 @@ class ChainClient:
                 },
             },
         }
+
+    def verify_invariants(self) -> list[dict]:
+        """Read-only custody invariant checks for the admin surface.
+
+        Verifies the assumptions the withdrawal/swap/reward paths rely on:
+        every asset contract is configured, the operator (signer) address is
+        known, the treasury identity is sane, and the signer holds the role the
+        paths require. In dry-run the checks are reported as informational so
+        the offline demo still shows a coherent (all-good) status.
+
+        Returns a list of ``{key, ok, detail}`` rows; additive and non-fatal so
+        the admin page can render partial failures without blanking.
+        """
+        checks: list[dict] = []
+        assets = ("OPT", "QTC", "ORT")
+        for asset in assets:
+            configured = bool(settings.asset_address(asset))
+            checks.append(
+                {
+                    "key": f"{asset}_contract_configured",
+                    "ok": configured or self.dry_run,
+                    "detail": "configured" if configured else "not configured",
+                }
+            )
+        checks.append(
+            {
+                "key": "orx_contract_configured",
+                "ok": bool(settings.asset_address("ORX")) or self.dry_run,
+                "detail": "configured"
+                if settings.asset_address("ORX")
+                else "not configured",
+            }
+        )
+
+        operator = self.operator_address
+        treasury = settings.treasury_address or ""
+        checks.append(
+            {
+                "key": "signer_address_known",
+                "ok": bool(operator) and operator != "0x" + "0" * 40,
+                "detail": "signer set" if operator else "missing signer",
+            }
+        )
+        checks.append(
+            {
+                "key": "treasury_configured",
+                "ok": bool(treasury) or self.dry_run,
+                "detail": "treasury set" if treasury else "treasury missing",
+            }
+        )
+        # The signer must hold MINTER_ROLE on OPT for rewards to succeed.
+        if self.dry_run:
+            checks.append(
+                {"key": "signer_has_minter_role", "ok": True, "detail": "dry-run"}
+            )
+        else:
+            role_ok = False
+            detail = "could not read MINTER_ROLE"
+            try:
+                assert self._account is not None
+                opt = self._asset("OPT")
+                minter_role = opt.functions.MINTER_ROLE().call()
+                role_ok = bool(
+                    opt.functions.hasRole(minter_role, self._account.address).call()
+                )
+                detail = "granted" if role_ok else "signer lacks MINTER_ROLE on OPT"
+            except Exception as exc:  # noqa: BLE001
+                detail = f"role check failed: {exc}"
+            checks.append(
+                {"key": "signer_has_minter_role", "ok": role_ok, "detail": detail}
+            )
+        return checks
 
     def explorer_url(self, tx_hash: str) -> str | None:
         if settings.chain_id == 11155111:
