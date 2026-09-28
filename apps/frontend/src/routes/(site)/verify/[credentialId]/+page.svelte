@@ -18,8 +18,13 @@
   async function copy(value: string, key: string) {
     if (!value) return;
     copyError = "";
+    if (!navigator.clipboard?.writeText) {
+      copyError = "Papan klip tidak tersedia. Salin manual dari teks di layar.";
+      setTimeout(() => (copyError = ""), 4000);
+      return;
+    }
     try {
-      await navigator.clipboard?.writeText(value);
+      await navigator.clipboard.writeText(value);
       copied = key;
       setTimeout(() => (copied = ""), 1500);
     } catch {
