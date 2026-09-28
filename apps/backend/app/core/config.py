@@ -162,6 +162,9 @@ class Settings(BaseSettings):
     opc_token_id: int = 0
     opc_confirmations: int = 2
     opc_max_reward_per_tx: int = 100_000
+    # Total OPT a single user may be credited in one UTC day (anti-farming
+    # velocity guard). 0 disables the check (unlimited).
+    reward_daily_user_budget: int = 0
     blockchain_dry_run: bool = True
     blockchain_poll_seconds: int = 5
     # EIP-1559 fee estimation (WEB3-06). The priority-fee buffer multiplies the

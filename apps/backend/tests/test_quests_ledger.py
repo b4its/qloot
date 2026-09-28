@@ -497,6 +497,63 @@ async def test_reward_cap_enforced_before_ledger_write(session):
     assert await engine.balance(student.id) == settings.opc_max_reward_per_tx
 
 
+async def test_daily_reward_budget_caps_velocity(session, monkeypatch):
+    """W7: many small credits still respect a per-user daily budget."""
+    from app.core import metrics
+    from app.core.config import settings
+    from app.core.errors import ConflictError
+
+    monkeypatch.setattr(settings, "reward_daily_user_budget", 100)
+    student = await _user(session, "budget@q.com")
+    engine = RewardEngine(session)
+
+    before = metrics.render().count("reward_daily_budget_rejections_total ")
+
+    # Two 40-credit rewards fit under the 100/day budget.
+    for i in range(2):
+        await engine.credit(
+            user=student,
+            amount=40,
+            reference_type="reward",
+            reference_id=f"budget-{i}",
+            reward_key_value=f"rk-budget-{i}",
+            token_id=0,
+        )
+    assert await engine.balance(student.id) == 80
+
+    # A third credit would exceed the daily budget and must be refused.
+    with pytest.raises(ConflictError):
+        await engine.credit(
+            user=student,
+            amount=40,
+            reference_type="reward",
+            reference_id="budget-over",
+            reward_key_value="rk-budget-over",
+            token_id=0,
+        )
+    assert await engine.balance(student.id) == 80
+    after = metrics.render().count("reward_daily_budget_rejections_total ")
+    assert after >= before + 1
+
+
+async def test_daily_reward_budget_zero_disables_check(session, monkeypatch):
+    """W7: budget=0 means unlimited (the default for dev/demo)."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "reward_daily_user_budget", 0)
+    student = await _user(session, "unlimited@q.com")
+    engine = RewardEngine(session)
+    await engine.credit(
+        user=student,
+        amount=500,
+        reference_type="reward",
+        reference_id="unlimited-1",
+        reward_key_value="rk-unlimited-1",
+        token_id=0,
+    )
+    assert await engine.balance(student.id) == 500
+
+
 async def test_quest_kind_is_fenced_to_exam(client):
     """GAME-02: `quiz`/`task` quest kinds have no attempt-recording or
     winner-selection path (finalize always yields zero winners) — the schema

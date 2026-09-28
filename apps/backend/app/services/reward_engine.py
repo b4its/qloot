@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,7 +90,36 @@ class RewardEngine:
                 f"of {settings.opc_max_reward_per_tx}"
             )
 
+        # Daily budget safeguard (W7 anti-farming): cap the total OPT a single
+        # user can be credited in one UTC day. This bounds velocity abuse from
+        # many small rewards even when each is under the per-tx ceiling. A
+        # configured value of 0 disables the check (unlimited).
         account = await self.get_or_create_account(user.id)
+        daily_budget = getattr(settings, "reward_daily_user_budget", 0)
+        if daily_budget > 0:
+            from datetime import UTC, datetime, timedelta
+
+            since = datetime.now(UTC) - timedelta(days=1)
+            credited_today = int(
+                (
+                    await self.session.execute(
+                        select(func.coalesce(func.sum(WalletLedgerEntry.amount), 0)).where(
+                            WalletLedgerEntry.entry_type == "credit",
+                            WalletLedgerEntry.account_id == account.id,
+                            WalletLedgerEntry.created_at >= since,
+                        )
+                    )
+                ).scalar_one()
+                or 0
+            )
+            if credited_today + amount > daily_budget:
+                from app.core import metrics
+
+                metrics.incr("reward_daily_budget_rejections_total")
+                raise ConflictError(
+                    f"Daily reward budget exceeded ({credited_today + amount} > {daily_budget})"
+                )
+
         if account.is_frozen:
             raise ConflictError("Wallet is frozen")
 
