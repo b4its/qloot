@@ -218,7 +218,12 @@
         {#each providers as p}<option value={p}>{p}</option>{/each}
       </select>
     {/if}
-    <select class="input text-xs !py-1.5 w-auto" bind:value={sortBy} aria-label="Urutkan">
+    <select
+      class="input text-xs !py-1.5 w-auto"
+      bind:value={sortBy}
+      on:change={() => (currentPage = 1)}
+      aria-label="Urutkan"
+    >
       <option value="title">Judul (A–Z)</option>
       <option value="provider">Penyedia</option>
     </select>
@@ -233,8 +238,9 @@
   {#if loading}
     <Skeleton rows={4} />
   {:else if !items.length}
-    <div class="card mt-4 text-center">
-      <p class="muted">Belum ada sumber daya yang cocok.</p>
+    <div class="card mt-4 text-center space-y-3">
+      <p class="muted">Belum ada sumber daya yang cocok dengan pencarianmu.</p>
+      <button class="btn-ghost" on:click={resetFilters}>Reset Filter</button>
     </div>
   {:else if !filtered.length}
     <div class="card mt-4 text-center space-y-3">

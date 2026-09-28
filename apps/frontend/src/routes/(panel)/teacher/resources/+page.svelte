@@ -47,9 +47,17 @@
 
   // Debounced search so typing filters without hammering the API.
   let debounce: ReturnType<typeof setTimeout> | null = null;
+
   function onSearch() {
     if (debounce) clearTimeout(debounce);
     debounce = setTimeout(() => void load(), 250);
+  }
+
+  function resetFilters() {
+    if (debounce) clearTimeout(debounce);
+    query = "";
+    category = "";
+    void load();
   }
 
   // --- metrics ---------------------------------------------------------------
@@ -243,15 +251,24 @@
         {#each Array(5) as _}<div class="skeleton h-8"></div>{/each}
       </div>
     {:else if items.length === 0}
-      <p class="muted">Belum ada sumber daya.</p>
+      {#if query.trim() || category}
+        <div class="space-y-3 text-center">
+          <p class="muted">Tidak ada sumber daya yang cocok dengan filtermu.</p>
+          <button class="btn-ghost" on:click={resetFilters}>Reset Filter</button>
+        </div>
+      {:else}
+        <p class="muted">Belum ada sumber daya.</p>
+      {/if}
     {:else}
       <table class="w-full text-sm">
+        <caption class="sr-only">Daftar sumber daya</caption>
         <thead class="text-left muted">
-          <tr
-            ><th class="py-1">Kode</th><th>Kategori</th><th>Judul</th><th class="text-right"
-              >Aksi</th
-            ></tr
-          >
+          <tr>
+            <th class="py-1" scope="col">Kode</th>
+            <th scope="col">Kategori</th>
+            <th scope="col">Judul</th>
+            <th class="text-right" scope="col">Aksi</th>
+          </tr>
         </thead>
         <tbody>
           {#each items as r (r.code)}

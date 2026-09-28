@@ -65,6 +65,14 @@
     load();
   }
 
+  // Debounced search so typing filters the trail without a click, matching the
+  // other admin lists, while still allowing Enter to apply immediately.
+  let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  function onSearchInput() {
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(applyFilter, 250);
+  }
+
   function toggleExpand(id: string) {
     if (expanded.has(id)) expanded.delete(id);
     else expanded.add(id);
@@ -119,6 +127,7 @@
         class="input text-xs !py-1.5 !pl-8 w-full"
         placeholder="Cari tindakan, entitas, aktor, atau request id..."
         bind:value={query}
+        on:input={onSearchInput}
         on:keydown={(e) => e.key === "Enter" && applyFilter()}
         aria-label="Cari audit"
       />
