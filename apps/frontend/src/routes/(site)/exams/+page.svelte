@@ -6,6 +6,9 @@
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
   import { formatDate, examCategory, type ExamCategory } from "$lib/utils/format";
@@ -147,11 +150,6 @@
     currentPage = 1;
   }
 
-  function selectStatus(s: Status) {
-    status = s;
-    currentPage = 1;
-  }
-
   function setQuery() {
     currentPage = 1;
   }
@@ -163,6 +161,20 @@
     sortBy = "recent";
     currentPage = 1;
   }
+
+  $: metrics = [
+    { label: "Total Ujian", value: counts.all },
+    { label: "Terbuka", value: statusCounts.open, tone: "text-mint", role: "open-count" },
+    { label: "Selesai", value: completedCount },
+    { label: "Rata-rata skor terbaik", value: avgBest != null ? `${avgBest}%` : "—", tone: "text-highlight" },
+  ];
+
+  const statusOptions = [
+    ["all", "Semua"],
+    ["open", "Terbuka"],
+    ["upcoming", "Akan datang"],
+    ["closed", "Ditutup"],
+  ] as const;
 
   function categoryOf(exam: Exam): ExamCategory {
     return examCategory(exam);
@@ -234,28 +246,7 @@
     />
   {:else}
     <!-- Overview metrics -->
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Total Ujian</p>
-        <p class="mt-1 font-display text-3xl font-bold">{counts.all}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Terbuka</p>
-        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="open-count">
-          {statusCounts.open}
-        </p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Selesai</p>
-        <p class="mt-1 font-display text-3xl font-bold">{completedCount}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Rata-rata skor terbaik</p>
-        <p class="mt-1 font-display text-3xl font-bold text-highlight">
-          {avgBest != null ? `${avgBest}%` : "—"}
-        </p>
-      </div>
-    </div>
+    <MetricStrip {metrics} />
 
     <!-- Category tabs -->
     <div class="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Kategori ujian">
@@ -308,48 +299,21 @@
 
     <!-- Search + status + sort -->
     <div class="mt-3 flex flex-wrap items-center gap-2">
-      <div class="relative w-full sm:w-64">
-        <Icon
-          name="magnifying-glass"
-          size="12px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input text-xs !py-1.5 !pl-9 w-full"
-          placeholder="Cari ujian..."
+      <div class="w-full sm:w-64">
+        <SearchInput
           bind:value={query}
-          on:input={setQuery}
-          aria-label="Cari ujian"
+          placeholder="Cari ujian..."
+          label="Cari ujian"
+          oninput={setQuery}
         />
-        {#if query}
-          <button
-            type="button"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-            on:click={() => {
-              query = "";
-              setQuery();
-            }}
-            aria-label="Bersihkan pencarian"
-          >
-            ✕
-          </button>
-        {/if}
       </div>
 
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
-        {#each [["all", "Semua"], ["open", "Terbuka"], ["upcoming", "Akan datang"], ["closed", "Ditutup"]] as [val, label]}
-          <button
-            type="button"
-            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-            class:bg-primary={status === val}
-            class:text-[#05060A]={status === val}
-            class:muted={status !== val}
-            on:click={() => selectStatus(val as Status)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
+      <FilterChips
+        options={statusOptions}
+        bind:value={status}
+        label="Filter status"
+        onchange={() => (currentPage = 1)}
+      />
 
       <select class="input text-xs !py-1.5 w-auto" bind:value={sortBy} aria-label="Urutkan">
         <option value="recent">Terbaru</option>
