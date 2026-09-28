@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
 
   const roles = [
     {
@@ -60,6 +61,10 @@
   <p class="mt-3 muted">
     Kami mencari orang yang percaya bahwa belajar bisa menyenangkan dan terukur.
   </p>
+  <p class="mono-label mt-3 text-xs muted">
+    Posisi di bawah ini adalah contoh untuk keperluan demo. Kirim minat lewat email untuk mendaftar
+    ke daftar tunggu.
+  </p>
 
   <!-- Filters -->
   <div class="mt-8 flex flex-wrap items-center gap-2">
@@ -110,10 +115,13 @@
   </div>
 
   {#if filtered.length === 0}
-    <div class="card mt-6 grid place-items-center py-12 text-center">
-      <p class="muted text-sm">Tidak ada posisi yang cocok dengan filtermu.</p>
-      <button class="btn-ghost mt-3 !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-    </div>
+    <EmptyState
+      icon="magnifying-glass"
+      title="Tidak ada posisi yang cocok"
+      description="Coba ubah tipe pekerjaan, filter remote, atau kata kuncimu."
+      actionLabel="Reset Filter"
+      onAction={resetFilters}
+    />
   {:else}
     <div class="mt-6 space-y-4">
       {#each filtered as r (r.title)}
