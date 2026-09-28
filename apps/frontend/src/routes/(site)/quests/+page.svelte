@@ -9,6 +9,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import Dialog from "$lib/components/Dialog.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
 
   const PAGE_SIZE = 12;
   let quests: Quest[] = [];
@@ -282,18 +283,19 @@
   {#if loading}
     <div class="mt-6"><Skeleton rows={4} /></div>
   {:else if quests.length === 0}
-    <div class="card mt-6 text-center py-12">
-      <Icon name="trophy" size="32px" class="mx-auto text-muted mb-2" />
-      <p class="font-medium text-foreground">Belum ada quest yang tersedia</p>
-      <p class="text-xs muted mt-1">
-        Nantikan tantangan baru dari guru Anda untuk memenangkan hadiah.
-      </p>
-    </div>
+    <EmptyState
+      icon="trophy"
+      title="Belum ada quest yang tersedia"
+      description="Nantikan tantangan baru dari guru Anda untuk memenangkan hadiah."
+    />
   {:else if filteredQuests.length === 0}
-    <div class="card mt-6 text-center py-12 space-y-3">
-      <p class="muted text-sm">Tidak ada quest yang cocok dengan filter atau pencarian Anda.</p>
-      <button class="btn-ghost !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-    </div>
+    <EmptyState
+      icon="magnifying-glass"
+      title="Tidak ada quest yang cocok"
+      description="Tidak ada quest yang cocok dengan filter atau pencarian Anda."
+      actionLabel="Reset Filter"
+      onAction={resetFilters}
+    />
   {:else}
     <div class="mt-6 grid gap-6 lg:grid-cols-2">
       {#each pagedQuests as q}
