@@ -7,6 +7,7 @@
   import { auth } from "$lib/stores/auth";
   import { relativeTime } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import Dialog from "$lib/components/Dialog.svelte";
 
@@ -648,11 +649,11 @@
     {#if loading}
       {#each Array(3) as _}<div class="skeleton h-28"></div>{/each}
     {:else if posts.length === 0}
-      <div class="card grid place-items-center py-14 text-center">
-        <Icon name="comments" size="26px" class="muted" />
-        <p class="mt-3 font-semibold">Belum ada diskusi</p>
-        <p class="text-sm muted">Jadilah yang pertama memulai percakapan.</p>
-      </div>
+      <EmptyState
+        icon="comments"
+        title="Belum ada diskusi"
+        description="Jadilah yang pertama memulai percakapan."
+      />
     {:else}
       {#each posts as f (f.id)}
         <article class="card scroll-mt-24" id={`post-${f.id}`}>
