@@ -157,13 +157,17 @@ Target commit:
 | W5 | CI secret/dependency/contract scan gates | `a60ee55` |
 | W5 | Self-service data export + retention notice | `20ff9a6` |
 | W4 | Admin custody invariant checks on blockchain hub | `42107d9` |
+| W6 | Teacher cohort mastery + transparent at-risk analytics | `8170faa` |
+| W7 | Per-user daily reward budget safeguard | `3d6b011` |
+| W2 | Grouped student navigation by learning journey | `41328ef` |
+| W2 | Student onboarding to first verified reward | `fa4a92c` |
 
 ### Berikutnya
 
-Sisa item W2/W3 (grouped navigation, onboarding, campaign stepper, reward budget preview, student
-preview), sisa W5 (retention/appeal workflow backend, minor consent), W6 (teacher analytics),
-W7 (social gamification), dan W8 (institutional scale) belum dikerjakan dan tetap menjadi backlog
-terurut. Kerjakan sesuai dependency graph di bagian berikut.
+Sisa item W2/W3 (campaign stepper, reward budget preview, student preview), sisa W5
+(retention/appeal workflow backend, minor consent), sisa W7 (season/team, digest), dan W8
+(institutional scale) belum dikerjakan dan tetap menjadi backlog terurut. Kerjakan sesuai
+dependency graph di bagian berikut.
 
 ## 4. Dependency Graph
 
