@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
 
   const faqs = [
     {
@@ -65,14 +66,13 @@
   </div>
 
   {#if filtered.length === 0}
-    <div class="card mt-6 grid place-items-center py-12 text-center">
-      <Icon name="circle-question" size="26px" class="muted" />
-      <p class="mt-3 font-medium">Tidak ada pertanyaan yang cocok</p>
-      <p class="text-sm muted">Coba kata kunci lain, atau tanyakan langsung di komunitas.</p>
-      <a href="/community" class="btn-primary mt-4"
-        ><Icon name="comment-dots" size="12px" /> Tanya di komunitas</a
-      >
-    </div>
+    <EmptyState
+      icon="circle-question"
+      title="Tidak ada pertanyaan yang cocok"
+      description="Coba kata kunci lain, atau tanyakan langsung di komunitas."
+      actionHref="/community"
+      actionLabel="Tanya di komunitas"
+    />
   {:else}
     <div class="mt-6 card !p-0 divide-y">
       {#each filtered as f, i (f.q)}
