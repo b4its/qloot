@@ -144,4 +144,16 @@ describe("certificates page — metrics, search, and status filter", () => {
     await fireEvent.click(screen.getByRole("button", { name: /Coba anchor lagi/ }));
     await waitFor(() => expect(post).toHaveBeenCalledWith("/certificates/CRED-F/anchor"));
   });
+
+  it("reports a copy failure instead of silently doing nothing", async () => {
+    // Simulate a denied clipboard write.
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    });
+    render(CertificatesPage);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Salin tautan/ })).toBeTruthy());
+
+    await fireEvent.click(screen.getByRole("button", { name: /Salin tautan/ }));
+    expect(await screen.findByText(/gagal menyalin tautan/i)).toBeTruthy();
+  });
 });

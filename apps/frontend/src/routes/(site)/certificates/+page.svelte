@@ -14,6 +14,7 @@
   let loading = true;
   let error = "";
   let copied = false;
+  let copyError = "";
   let revoking = false;
   let anchoring = false;
   let syncing = false;
@@ -123,12 +124,17 @@
 
   async function copyLink() {
     if (!active) return;
+    copyError = "";
+    if (!navigator.clipboard?.writeText) {
+      copyError = "Papan klip tidak tersedia — salin tautan secara manual.";
+      return;
+    }
     try {
-      await navigator.clipboard?.writeText(verifyUrl(active.credential_id));
+      await navigator.clipboard.writeText(verifyUrl(active.credential_id));
       copied = true;
       setTimeout(() => (copied = false), 1500);
     } catch {
-      /* clipboard unavailable */
+      copyError = "Gagal menyalin tautan. Izinkan akses papan klip lalu coba lagi.";
     }
   }
 
@@ -359,6 +365,9 @@
             <Icon name={copied ? "check" : "copy"} size="12px" />
             {copied ? "Tersalin" : "Salin tautan"}
           </button>
+          {#if copyError}
+            <p class="mt-2 text-xs text-danger" role="alert" aria-live="assertive">{copyError}</p>
+          {/if}
         </div>
         <div class="card space-y-2">
           <button class="btn-primary w-full" on:click={download}>
