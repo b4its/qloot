@@ -461,15 +461,39 @@ class CommunityService:
             stmt = stmt.where(CommunityReport.status == status)
         stmt = stmt.limit(limit).offset(offset)
         reports = list((await self.session.execute(stmt)).scalars().all())
+
+        # Batch-load the reported targets' bodies so the moderation queue is two
+        # extra queries rather than one per report.
+        post_ids = [r.target_id for r in reports if r.target_type == "post"]
+        comment_ids = [r.target_id for r in reports if r.target_type != "post"]
+        post_bodies: dict[uuid.UUID, str] = {}
+        comment_bodies: dict[uuid.UUID, str] = {}
+        if post_ids:
+            rows = (
+                await self.session.execute(
+                    select(CommunityPost.id, CommunityPost.body).where(
+                        CommunityPost.id.in_(post_ids)
+                    )
+                )
+            ).all()
+            post_bodies = dict(rows)
+        if comment_ids:
+            rows = (
+                await self.session.execute(
+                    select(CommunityComment.id, CommunityComment.body).where(
+                        CommunityComment.id.in_(comment_ids)
+                    )
+                )
+            ).all()
+            comment_bodies = dict(rows)
+
         out = []
         for r in reports:
-            body = None
-            if r.target_type == "post":
-                p = await self.session.get(CommunityPost, r.target_id)
-                body = p.body if p else None
-            else:
-                c = await self.session.get(CommunityComment, r.target_id)
-                body = c.body if c else None
+            body = (
+                post_bodies.get(r.target_id)
+                if r.target_type == "post"
+                else comment_bodies.get(r.target_id)
+            )
             out.append(
                 {
                     "id": r.id,
