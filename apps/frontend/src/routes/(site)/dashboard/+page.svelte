@@ -622,7 +622,9 @@
               Guru belum menambahkan pelajaran.
             </li>{/if}
         </ul>
-        <a href="/learning" class="btn-secondary mt-4 w-full">Buka pelajaran saya</a>
+        {#if subjects.length > 0}
+          <a href="/learning" class="btn-secondary mt-4 w-full">Buka pelajaran saya</a>
+        {/if}
       </div>
     </div>
 
