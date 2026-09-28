@@ -580,6 +580,7 @@
                 type="button"
                 class="text-muted hover:text-foreground p-1 transition-colors"
                 title="Salin kode"
+                aria-label={`Salin kode ruang ${room.code}`}
                 on:click={(e) => copyRoomCode(room.code, e)}
               >
                 {#if copiedCode === room.code}
