@@ -1,5 +1,14 @@
 /** Svelte action: fade/slide element in when it enters the viewport. */
 export function reveal(node: HTMLElement, options: { delay?: number } = {}) {
+  // Respect the user's motion preference: show immediately, never animate.
+  if (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
+    node.classList.add("in");
+    return {};
+  }
   if (typeof IntersectionObserver === "undefined") {
     node.classList.add("in");
     return {};
