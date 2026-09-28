@@ -259,11 +259,13 @@
       <p class="py-2 muted">Tidak ada hadiah yang cocok dengan filtermu.</p>
     {:else}
       <table class="w-full text-sm">
+        <caption class="sr-only">Daftar hadiah</caption>
         <thead class="text-left muted">
           <tr
-            ><th class="py-1">Kunci</th><th>Pengguna</th><th class="text-right">Jumlah</th><th
-              >Status</th
-            ><th>Catatan</th><th></th></tr
+            ><th class="py-1" scope="col">Kunci</th><th scope="col">Pengguna</th><th
+              class="text-right"
+              scope="col">Jumlah</th
+            ><th scope="col">Status</th><th scope="col">Catatan</th><th scope="col"></th></tr
           >
         </thead>
         <tbody>
