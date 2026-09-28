@@ -502,6 +502,45 @@
       return false;
     return true;
   });
+
+  // --- publish readiness (W3 campaign readiness) -----------------------------
+  // Each check reflects a real backend constraint so "Terbitkan" never fails
+  // silently: at least one question, no pending/rejected drafts treated as
+  // approved, and a coherent time window.
+  $: pendingDrafts = questions.filter((q) => q.review_status === "pending").length;
+  $: rejectedDrafts = questions.filter((q) => q.review_status === "rejected").length;
+  $: readiness = exam
+    ? [
+        {
+          key: "questions",
+          ok: questions.length > 0,
+          label: "Minimal satu soal",
+          detail:
+            questions.length > 0 ? `${questions.length} soal siap` : "Belum ada soal ditambahkan",
+        },
+        {
+          key: "drafts",
+          ok: pendingDrafts === 0,
+          label: "Tidak ada draf menunggu tinjauan",
+          detail:
+            pendingDrafts === 0
+              ? rejectedDrafts > 0
+                ? `${rejectedDrafts} draf ditolak — hapus atau perbaiki`
+                : "Semua soal ditinjau"
+              : `${pendingDrafts} draf menunggu disetujui`,
+        },
+        {
+          key: "window",
+          ok: !(form.opens_at && form.closes_at) || form.opens_at < form.closes_at,
+          label: "Jendela waktu valid",
+          detail:
+            form.opens_at && form.closes_at && form.opens_at >= form.closes_at
+              ? "Waktu buka harus sebelum waktu tutup"
+              : "Jendela waktu wajar",
+        },
+      ]
+    : [];
+  $: readyToPublish = readiness.length > 0 && readiness.every((c) => c.ok);
 </script>
 
 <svelte:head><title>Kelola Ujian — Panel Guru — QLoot</title></svelte:head>
@@ -614,13 +653,56 @@
         ></textarea>
       </label>
       <div class="mt-3 flex items-center justify-between">
-        <button class="btn-secondary" on:click={togglePublish} disabled={busy === "publish"}>
+        <button
+          class="btn-secondary"
+          on:click={togglePublish}
+          disabled={busy === "publish" || (!exam.is_active && !readyToPublish)}
+          title={!exam.is_active && !readyToPublish
+            ? "Lengkapi butir kesiapan sebelum menerbitkan"
+            : undefined}
+        >
           {exam.is_active ? "Tutup ujian" : "Terbitkan ujian"}
         </button>
         <button class="btn-primary" on:click={saveExam} disabled={busy === "exam"}>
           {busy === "exam" ? "Menyimpan…" : "Simpan perubahan"}
         </button>
       </div>
+    </div>
+
+    <!-- Publish readiness: what still blocks a clean publish (W3) -->
+    <div class="card mt-4" data-role="exam-readiness">
+      <div class="flex items-center justify-between">
+        <h2 class="font-display font-bold">Kesiapan terbit</h2>
+        {#if readyToPublish}
+          <span class="badge badge-mint" data-role="readiness-state">
+            <Icon name="circle-check" size="10px" /> Siap
+          </span>
+        {:else}
+          <span class="badge badge-amber" data-role="readiness-state">
+            <Icon name="triangle-exclamation" size="10px" /> Perlu tindakan
+          </span>
+        {/if}
+      </div>
+      <ul class="mt-3 divide-y text-sm">
+        {#each readiness as c (c.key)}
+          <li class="flex items-center justify-between gap-3 py-2">
+            <span class="flex items-center gap-2 min-w-0">
+              <Icon
+                name={c.ok ? "circle-check" : "circle-xmark"}
+                size="12px"
+                class={c.ok ? "text-mint flex-none" : "text-danger flex-none"}
+              />
+              <span class="truncate">{c.label}</span>
+            </span>
+            <span class="text-xs muted flex-none">{c.detail}</span>
+          </li>
+        {/each}
+      </ul>
+      {#if !exam.is_active && !readyToPublish}
+        <p class="mt-3 text-xs muted">
+          Perbaiki butir di atas sebelum menerbitkan agar siswa tidak menemui ujian yang belum siap.
+        </p>
+      {/if}
     </div>
 
     <div class="card mt-4">
