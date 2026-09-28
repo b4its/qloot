@@ -120,13 +120,44 @@ storage = Storage()
 
 
 def scan_for_viruses(data: bytes) -> bool:
-    """Antivirus policy hook (LEARN-07).
+    """Malware policy hook for uploaded documents.
 
-    A real deployment would call ClamAV/ICAP here. The default is a documented
-    no-op that accepts the content; wire a scanner by overriding this function
-    (or injecting one) without touching call sites.
+    Returns True when the content is safe to store. The scanner is pluggable via
+    ``settings.av_scanner``:
+
+    - ``eicar`` (default): a deterministic offline scanner that rejects the
+      industry-standard EICAR test signature and any content carrying a
+      configured deny-signature. This keeps the path enforced and testable
+      without an external service, and matches the simulation-first default.
+    - ``disabled``: accept everything (explicitly opt out; logged as a risk).
+    - ``clamav``: reserved for a real ClamAV/ICAP integration; currently fails
+      closed (rejects) until a scanner is wired, so enabling a real scanner name
+      can never silently accept everything.
+
+    Overriding this function (or injecting a scanner) never touches call sites.
     """
-    # TODO(security): integrate ClamAV; return False to reject a document.
+    mode = getattr(settings, "av_scanner", "eicar").lower()
+
+    if mode == "disabled":
+        log.warning("av_scan_disabled")
+        return True
+
+    if mode == "clamav":
+        # No in-process ClamAV client is bundled; fail closed rather than
+        # pretend to scan. Operators wire a real client by replacing this hook.
+        log.error("av_scanner_not_implemented", mode=mode)
+        return False
+
+    # Default deterministic scanner: reject the EICAR test file and any custom
+    # deny signature. This is a *real* rejection, not a no-op.
+    signatures = [b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE"]
+    deny = getattr(settings, "av_deny_signature", "") or ""
+    if deny:
+        signatures.append(deny.encode("utf-8"))
+    for sig in signatures:
+        if sig and sig in data:
+            log.warning("av_signature_detected", signature=sig.decode("utf-8", "ignore"))
+            return False
     return True
 
 

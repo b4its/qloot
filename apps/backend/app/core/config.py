@@ -116,6 +116,12 @@ class Settings(BaseSettings):
     # Optional OCR fallback for scanned PDFs. Off by default (needs tesseract);
     # when off, a text-less PDF is marked extraction_status="empty" and warned.
     material_ocr_enabled: bool = False
+    # Upload malware scanning policy: "eicar" (deterministic offline scanner,
+    # default), "disabled" (accept everything; logged as a risk), or "clamav"
+    # (reserved for a real scanner; fails closed until wired).
+    av_scanner: str = "eicar"
+    # Optional extra deny signature the deterministic scanner rejects.
+    av_deny_signature: str = ""
     ai_http_timeout_seconds: int = 60
     ai_max_upload_bytes: int = 10 * 1024 * 1024
     ai_max_questions: int = 20

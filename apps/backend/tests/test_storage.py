@@ -49,7 +49,39 @@ def test_minio_presign_returns_url(monkeypatch):
     assert captured["key"] == "materials/a/b.pdf"
 
 
-def test_av_hook_defaults_to_accept():
+def test_av_hook_defaults_to_accept_clean_pdf():
     from app.services.storage import scan_for_viruses
 
     assert scan_for_viruses(b"%PDF-1.4 whatever") is True
+
+
+def test_av_hook_rejects_eicar_signature():
+    from app.services.storage import scan_for_viruses
+
+    eicar = b"%PDF-1.4 X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+    assert scan_for_viruses(eicar) is False
+
+
+def test_av_hook_can_be_disabled_explicitly(monkeypatch):
+    from app.services import storage as storage_mod
+
+    monkeypatch.setattr(storage_mod.settings, "av_scanner", "disabled")
+    assert storage_mod.scan_for_viruses(b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE") is True
+
+
+def test_av_hook_clamav_mode_fails_closed(monkeypatch):
+    from app.services import storage as storage_mod
+
+    monkeypatch.setattr(storage_mod.settings, "av_scanner", "clamav")
+    # A real scanner name without a wired client must reject, never accept.
+    assert storage_mod.scan_for_viruses(b"%PDF-1.4 clean-looking") is False
+
+
+def test_av_hook_custom_deny_signature(monkeypatch):
+    from app.services import storage as storage_mod
+
+    monkeypatch.setattr(storage_mod.settings, "av_scanner", "eicar")
+    monkeypatch.setattr(storage_mod.settings, "av_deny_signature", "MALWARE-XYZ")
+    assert storage_mod.scan_for_viruses(b"%PDF-1.4 MALWARE-XYZ payload") is False
+    assert storage_mod.scan_for_viruses(b"%PDF-1.4 benign") is True
+
