@@ -119,7 +119,12 @@ async def list_tasks(
 
 
 @router.get("/me/completions", response_model=list[TaskCompletionOut])
-async def list_my_completions(user: CurrentUser, db: DbSession):
+async def list_my_completions(
+    user: CurrentUser,
+    db: DbSession,
+    limit: LimitParam = 50,
+    offset: OffsetParam = 0,
+):
     now = datetime.now(UTC)
     daily_period = _period_key("daily", now)
     weekly_period = _period_key("weekly", now)
@@ -128,6 +133,8 @@ async def list_my_completions(user: CurrentUser, db: DbSession):
         .where(TaskCompletion.user_id == user.id)
         .where(TaskCompletion.period_key.in_(("", daily_period, weekly_period)))
         .order_by(TaskCompletion.completed_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     return list((await db.execute(stmt)).scalars().all())
 
