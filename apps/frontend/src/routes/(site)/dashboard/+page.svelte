@@ -56,7 +56,13 @@
   let gradeMsg = "";
 
   async function reloadAcademic() {
-    acad = await api.get<AcademicDashboard>("/career/dashboard").catch(() => acad);
+    // Re-fetch after a grade write. If the refresh fails the write still
+    // succeeded, so note it rather than silently showing stale academic data.
+    try {
+      acad = await api.get<AcademicDashboard>("/career/dashboard");
+    } catch {
+      gradeMsg = "Nilai tersimpan, tetapi ringkasan akademik belum dapat diperbarui.";
+    }
   }
 
   async function addGrade() {
@@ -211,7 +217,9 @@
     try {
       const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np] = await Promise.all([
         safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
-        api.get<Personality | null>("/career/personality").catch(() => null),
+        // A failed personality fetch must not look like "never taken the test",
+        // so route it through the shared unavailable-sections tracker.
+        safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
         safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
         safe(api.get<{ available: number; token_id: number } | null>("/wallet"), null, "saldo OPT"),
         safe(api.get<Course[]>("/courses"), [], "pelajaran"),
@@ -266,7 +274,7 @@
   <p class="mt-1 muted">Lanjutkan belajarmu dan jaga momentum.</p>
 
   {#if error}
-    <p class="alert-error mt-4">{error}</p>
+    <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
   {/if}
   {#if unavailableSections.length}
     <div class="alert-warning mt-4 flex items-start gap-3" role="status">
@@ -406,11 +414,23 @@
         Masukkan nilai rapor — dipakai untuk dashboard, tren, dan rekomendasi jurusan.
       </p>
       <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
-        <select class="input" bind:value={gradeSubject}>
+        <select class="input" bind:value={gradeSubject} aria-label="Mata pelajaran">
           {#each SUBJECTS as s}<option value={s}>{s}</option>{/each}
         </select>
-        <input class="input" type="number" min="0" max="100" bind:value={gradeValue} />
-        <input class="input" placeholder="2025/2026-genap" bind:value={gradeTerm} />
+        <input
+          class="input"
+          type="number"
+          min="0"
+          max="100"
+          bind:value={gradeValue}
+          aria-label="Nilai (0–100)"
+        />
+        <input
+          class="input"
+          placeholder="2025/2026-genap"
+          bind:value={gradeTerm}
+          aria-label="Semester"
+        />
         <button class="btn-primary" on:click={addGrade} disabled={gradeBusy}>
           {#if gradeBusy}<Icon name="spinner" spin size="12px" />{:else}<Icon
               name="plus"
@@ -419,7 +439,9 @@
           Simpan
         </button>
       </div>
-      {#if gradeMsg}<p class="mt-2 text-xs muted">{gradeMsg}</p>{/if}
+      {#if gradeMsg}
+        <p class="mt-2 text-xs muted" role="status" aria-live="polite">{gradeMsg}</p>
+      {/if}
       {#if grades.length}
         <div class="mt-3 flex flex-wrap gap-1.5">
           {#each grades as g}

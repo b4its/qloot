@@ -86,4 +86,20 @@ describe("dashboard — next goals widget", () => {
     expect(screen.queryByText("First Quest")).toBeNull();
     expect(screen.getByText("4/5")).toBeTruthy();
   });
+
+  it("flags a failed personality fetch instead of faking 'never taken'", async () => {
+    get.mockImplementation((path: string) => {
+      if (path === "/career/personality") return Promise.reject(new Error("boom"));
+      if (path.startsWith("/notifications/page"))
+        return Promise.resolve({ items: [], total: 0, unread: 0, kind_counts: {} });
+      if (path === "/badges/progress") return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+
+    render(DashboardPage);
+    await waitFor(() =>
+      expect(screen.getByText(/sebagian data belum dapat dimuat/i)).toBeTruthy(),
+    );
+    expect(screen.getByText(/profil kepribadian/i)).toBeTruthy();
+  });
 });
