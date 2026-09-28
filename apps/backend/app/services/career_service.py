@@ -1409,18 +1409,21 @@ class CareerService:
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def get_conversation(
-        self, user_id: uuid.UUID, conversation_id: uuid.UUID
+        self, user_id: uuid.UUID, conversation_id: uuid.UUID, *, message_limit: int = 500
     ) -> tuple[AssistantConversation, list[AssistantMessage]]:
 
         conv = await self.session.get(AssistantConversation, conversation_id)
         if conv is None or conv.user_id != user_id:
             raise NotFoundError("Conversation not found")
+        # Bound the payload: return the most recent `message_limit` turns, then
+        # present them oldest-first so the transcript reads top-to-bottom.
         stmt = (
             select(AssistantMessage)
             .where(AssistantMessage.conversation_id == conversation_id)
-            .order_by(AssistantMessage.created_at, AssistantMessage.id)
+            .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id.desc())
+            .limit(message_limit)
         )
-        messages = list((await self.session.execute(stmt)).scalars().all())
+        messages = list(reversed((await self.session.execute(stmt)).scalars().all()))
         return conv, messages
 
     async def delete_conversation(self, user_id: uuid.UUID, conversation_id: uuid.UUID) -> None:
