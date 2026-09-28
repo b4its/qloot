@@ -254,4 +254,21 @@ describe("Teacher Submissions Flow", () => {
     expect(click).toHaveBeenCalled();
     vi.restoreAllMocks();
   });
+
+  it("discloses analytics and exam-filter load failures", async () => {
+    get.mockImplementation(async (path: string) => {
+      if (path.startsWith("/teacher/submissions")) return mockSubmissions;
+      if (path === "/teacher/analytics") throw new Error("boom");
+      if (path.startsWith("/exams")) throw new Error("boom");
+      return [];
+    });
+
+    render(SubmissionsPage);
+    expect(await screen.findByText("Ahmad Siswa")).toBeTruthy();
+
+    expect(screen.getByText("Ringkasan analitik belum dapat dimuat.")).toBeTruthy();
+    expect(screen.getByText("Daftar ujian belum dapat dimuat.")).toBeTruthy();
+    // The metrics must not be faked when the fetch failed.
+    expect(screen.queryByText("Ternilai")).toBeNull();
+  });
 });

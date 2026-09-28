@@ -18,6 +18,8 @@
   let analytics: TeacherAnalytics | null = null;
   let loading = true;
   let error = "";
+  let examsError = "";
+  let analyticsError = "";
   let page = 1;
   let hasMore = false;
 
@@ -65,6 +67,9 @@
     try {
       exams = await api.get<Exam[]>("/exams?limit=200");
     } catch {
+      // Non-fatal: the exam filter just won't populate, but say so instead of
+      // silently dropping the dropdown.
+      examsError = "Daftar ujian belum dapat dimuat.";
       exams = [];
     }
   }
@@ -74,6 +79,7 @@
       analytics = await api.get<TeacherAnalytics>("/teacher/analytics");
     } catch {
       analytics = null;
+      analyticsError = "Ringkasan analitik belum dapat dimuat.";
     }
   }
 
@@ -173,8 +179,17 @@
   </div>
 
   {#if error}
-    <p class="alert-error mt-4">
-      {error}
+    <div class="mt-4 space-y-2" role="alert" aria-live="assertive">
+      <p class="alert-error">{error}</p>
+      <button class="btn-secondary !py-1.5 text-xs" on:click={load}>
+        <Icon name="rotate" size="12px" /> Coba lagi
+      </button>
+    </div>
+  {/if}
+
+  {#if analyticsError && !analytics}
+    <p class="alert-info mt-4 text-xs" role="status" aria-live="polite">
+      <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" /> {analyticsError}
     </p>
   {/if}
 
@@ -223,11 +238,13 @@
           placeholder="Cari siswa, ujian, atau soal..."
           bind:value={searchQuery}
           on:keydown={(e) => e.key === "Enter" && handleSearch()}
+          aria-label="Cari pengumpulan"
         />
         {#if searchQuery}
           <button
             type="button"
             class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
+            aria-label="Bersihkan pencarian"
             on:click={() => {
               searchQuery = "";
               handleSearch();
@@ -243,12 +260,15 @@
           class="input text-xs !py-1.5 !w-auto"
           bind:value={selectedExamId}
           on:change={handleSearch}
+          aria-label="Filter ujian"
         >
           <option value="">Semua Ujian</option>
           {#each exams as e}
             <option value={e.id}>{e.title}</option>
           {/each}
         </select>
+      {:else if examsError}
+        <span class="text-xs muted" role="status" aria-live="polite">{examsError}</span>
       {/if}
     </div>
 
