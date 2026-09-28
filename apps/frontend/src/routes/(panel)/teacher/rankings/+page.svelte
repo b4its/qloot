@@ -7,6 +7,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { reveal } from "$lib/actions/reveal";
 
@@ -136,11 +137,11 @@
       {#each Array(6) as _}<div class="skeleton h-10"></div>{/each}
     </div>
   {:else if entries.length === 0}
-    <div class="card mt-6 grid place-items-center py-14 text-center">
-      <Icon name="ranking-star" size="26px" class="muted" />
-      <p class="mt-3 font-semibold">Belum ada data peringkat</p>
-      <p class="text-sm muted">Peringkat muncul setelah siswa mengerjakan ujian.</p>
-    </div>
+    <EmptyState
+      icon="ranking-star"
+      title="Belum ada data peringkat"
+      description="Peringkat muncul setelah siswa mengerjakan ujian."
+    />
   {:else}
     <!-- Overview metrics (over the current page) -->
     <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -200,12 +201,13 @@
     </div>
 
     {#if displayed.length === 0}
-      <div class="card mt-6 grid place-items-center py-12 text-center">
-        <p class="muted text-sm">Tidak ada siswa yang cocok dengan pencarianmu.</p>
-        <button class="btn-ghost mt-3 !py-1 text-xs" on:click={() => (query = "")}
-          >Reset Pencarian</button
-        >
-      </div>
+      <EmptyState
+        icon="magnifying-glass"
+        title="Tidak ada siswa yang cocok"
+        description="Tidak ada siswa yang cocok dengan pencarianmu."
+        actionLabel="Reset Pencarian"
+        onAction={() => (query = "")}
+      />
     {:else}
       <div class="card mt-6 overflow-x-auto !p-0">
         <table class="w-full text-sm">
