@@ -236,13 +236,14 @@
       <p class="py-2 muted mt-3">Tidak ada snapshot yang cocok dengan filtermu.</p>
     {:else}
       <table class="w-full text-sm mt-3">
+        <caption class="sr-only">Snapshot papan peringkat</caption>
         <thead class="text-left muted">
           <tr>
-            <th class="py-1">Cakupan</th>
-            <th>ID</th>
-            <th>Periode</th>
-            <th>Diperbarui</th>
-            <th></th>
+            <th class="py-1" scope="col">Cakupan</th>
+            <th scope="col">ID</th>
+            <th scope="col">Periode</th>
+            <th scope="col">Diperbarui</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

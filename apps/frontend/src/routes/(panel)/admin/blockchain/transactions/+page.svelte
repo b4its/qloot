@@ -212,11 +212,14 @@
         <p class="p-5 muted">Tidak ada transaksi gagal yang cocok dengan pencarianmu.</p>
       {:else}
         <table class="w-full text-sm">
+          <caption class="sr-only">Transaksi gagal</caption>
           <thead class="mono-label border-b text-left">
             <tr
-              ><th class="px-5 py-3">Metode</th><th class="px-5 py-3">Kode</th><th class="px-5 py-3"
-                >Pesan</th
-              ><th class="px-5 py-3">Sumber</th></tr
+              ><th class="px-5 py-3" scope="col">Metode</th><th class="px-5 py-3" scope="col"
+                >Kode</th
+              ><th class="px-5 py-3" scope="col">Pesan</th><th class="px-5 py-3" scope="col"
+                >Sumber</th
+              ></tr
             >
           </thead>
           <tbody>
@@ -253,12 +256,18 @@
         <p class="p-5 muted">Tidak ada transaksi yang cocok dengan filtermu.</p>
       {:else}
         <table class="w-full text-sm">
+          <caption class="sr-only">Transaksi on-chain</caption>
           <thead class="mono-label border-b text-left">
             <tr
-              ><th class="px-5 py-3">Metode</th><th class="px-5 py-3">Status</th><th
-                class="px-5 py-3">Hash</th
-              ><th class="px-5 py-3 text-right">Konf</th><th class="px-5 py-3 text-right">Waktu</th
-              ><th class="px-5 py-3"></th></tr
+              ><th class="px-5 py-3" scope="col">Metode</th><th class="px-5 py-3" scope="col"
+                >Status</th
+              ><th class="px-5 py-3" scope="col">Hash</th><th
+                class="px-5 py-3 text-right"
+                scope="col">Konf</th
+              ><th class="px-5 py-3 text-right" scope="col">Waktu</th><th
+                class="px-5 py-3"
+                scope="col"
+              ></th></tr
             >
           </thead>
           <tbody>

@@ -178,7 +178,11 @@
     {/if}
 
     <div class="mt-4 flex flex-wrap items-center gap-2">
-      <select class="input !w-auto" bind:value={pauseAsset} aria-label="Pilih aset">
+      <select
+        class="input !w-auto"
+        bind:value={pauseAsset}
+        aria-label="Pilih aset untuk dijeda/dilanjutkan"
+      >
         <option value="OPT">OPT</option>
         <option value="QTC">QTC</option>
         <option value="ORT">ORT</option>
@@ -201,19 +205,24 @@
         {assetCount} aset · {deployedContracts} deployment
       </span>
     </div>
+    <p class="mt-2 text-xs muted">
+      Jeda/lanjutkan berlaku untuk token OPT, QTC, dan ORT. ORX adalah kontrak router (bukan token
+      yang dapat dijeda).
+    </p>
     {#if contractData && contractData.deployments && contractData.deployments.length > 0}
       <div class="card mt-6">
         <h2 class="font-display text-lg font-bold">Deployment Kontrak Aktif</h2>
         <p class="text-xs muted mb-3">Daftar deployment kontrak on-chain yang tercatat.</p>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
+            <caption class="sr-only">Deployment kontrak</caption>
             <thead>
               <tr class="border-b text-muted">
-                <th class="py-2">Nama</th>
-                <th class="py-2">Jaringan (Chain ID)</th>
-                <th class="py-2">Alamat Kontrak</th>
-                <th class="py-2">Treasury</th>
-                <th class="py-2">Tx Hash</th>
+                <th class="py-2" scope="col">Nama</th>
+                <th class="py-2" scope="col">Jaringan (Chain ID)</th>
+                <th class="py-2" scope="col">Alamat Kontrak</th>
+                <th class="py-2" scope="col">Treasury</th>
+                <th class="py-2" scope="col">Tx Hash</th>
               </tr>
             </thead>
             <tbody>
@@ -270,13 +279,14 @@
 
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs">
+            <caption class="sr-only">Alokasi hadiah on-chain</caption>
             <thead>
               <tr class="border-b text-muted">
-                <th class="py-2">Reward Key</th>
-                <th class="py-2">Jumlah</th>
-                <th class="py-2">Status</th>
-                <th class="py-2">User ID</th>
-                <th class="py-2">Tx ID</th>
+                <th class="py-2" scope="col">Reward Key</th>
+                <th class="py-2" scope="col">Jumlah</th>
+                <th class="py-2" scope="col">Status</th>
+                <th class="py-2" scope="col">User ID</th>
+                <th class="py-2" scope="col">Tx ID</th>
               </tr>
             </thead>
             <tbody>

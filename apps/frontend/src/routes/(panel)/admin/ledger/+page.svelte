@@ -172,11 +172,13 @@
     <div class="card mt-6">
       <p class="mono-label mb-2">Drift terakhir diperbaiki ({drift.length})</p>
       <table class="w-full text-sm">
+        <caption class="sr-only">Akun dengan selisih saldo</caption>
         <thead class="text-left muted"
           ><tr
-            ><th class="py-1">Akun</th><th>Ref</th><th class="text-right">Cached</th><th
-              class="text-right">Seharusnya</th
-            ></tr
+            ><th class="py-1" scope="col">Akun</th><th scope="col">Ref</th><th
+              class="text-right"
+              scope="col">Cached</th
+            ><th class="text-right" scope="col">Seharusnya</th></tr
           ></thead
         >
         <tbody>
@@ -203,8 +205,13 @@
       <p class="py-2 muted">Tidak ada akun yang cocok dengan pencarianmu.</p>
     {:else}
       <table class="w-full text-sm">
+        <caption class="sr-only">Akun dengan saldo negatif</caption>
         <thead class="text-left muted"
-          ><tr><th class="py-1">Akun</th><th>Pengguna</th><th class="text-right">Saldo</th></tr
+          ><tr
+            ><th class="py-1" scope="col">Akun</th><th scope="col">Pengguna</th><th
+              class="text-right"
+              scope="col">Saldo</th
+            ></tr
           ></thead
         >
         <tbody>
