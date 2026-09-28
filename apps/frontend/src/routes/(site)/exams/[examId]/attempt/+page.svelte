@@ -283,7 +283,27 @@
     reportEvent("paste", { target: (e.target as HTMLElement)?.tagName ?? null });
   }
 
+  // Telemetry disclosure (W5): students must be told what is monitored before
+  // it happens. Stored per-exam so returning to an attempt does not re-show it.
+  let showTelemetryNotice = true;
+  function dismissTelemetryNotice() {
+    showTelemetryNotice = false;
+    try {
+      sessionStorage.setItem(`qloot-telemetry-acked:${examId}`, "1");
+    } catch {
+      /* sessionStorage may be unavailable; the notice simply re-appears */
+    }
+  }
+
   onMount(() => {
+    // Respect a prior acknowledgement for this exam within the session.
+    try {
+      if (sessionStorage.getItem(`qloot-telemetry-acked:${examId}`)) {
+        showTelemetryNotice = false;
+      }
+    } catch {
+      /* sessionStorage unavailable — keep the default (show) */
+    }
     window.addEventListener("beforeunload", warnBeforeUnload);
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("blur", onBlur);
@@ -362,6 +382,28 @@
         <span class="flex-1">{loadWarning}</span>
         <button class="btn-secondary !py-1 flex-none" on:click={() => window.location.reload()}>
           Muat ulang
+        </button>
+      </div>
+    {/if}
+
+    {#if showTelemetryNotice}
+      <div
+        class="alert-info mb-4 flex flex-wrap items-start gap-3 !py-2 text-xs"
+        role="status"
+        data-role="telemetry-notice"
+      >
+        <Icon name="shield-halved" size="14px" class="mt-0.5 flex-none text-primary" />
+        <p class="flex-1">
+          <strong>Perhatian integritas.</strong> Selama ujian, sistem mencatat peristiwa seperti berpindah
+          tab, kehilangan fokus, dan menempel (paste) sebagai konteks bagi guru. Catatan ini bukan bukti
+          otomatis; hasil dapat ditinjau ulang bersama gurumu. Waktu ujian tetap berjalan di server.
+        </p>
+        <button
+          class="btn-ghost !py-1 text-xs flex-none"
+          on:click={dismissTelemetryNotice}
+          aria-label="Mengerti, sembunyikan pemberitahuan integritas"
+        >
+          Mengerti
         </button>
       </div>
     {/if}
