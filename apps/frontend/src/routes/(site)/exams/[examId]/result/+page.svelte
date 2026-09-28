@@ -204,7 +204,7 @@
           aria-selected={scoreFilter === val}
           class="btn-ghost !py-1 text-xs"
           class:bg-primary={scoreFilter === val}
-          class:!text-white={scoreFilter === val}
+          class:!text-[#05060A]={scoreFilter === val}
           on:click={() => (scoreFilter = val as ScoreFilter)}
         >
           {label}

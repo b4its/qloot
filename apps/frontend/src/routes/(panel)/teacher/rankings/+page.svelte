@@ -120,7 +120,7 @@
         aria-selected={period === p}
         class="btn-ghost !px-3 !py-1.5 text-xs"
         class:bg-primary={period === p}
-        class:!text-white={period === p}
+        class:!text-[#05060A]={period === p}
         on:click={() => changePeriod(p)}
       >
         {periodLabel[p]}

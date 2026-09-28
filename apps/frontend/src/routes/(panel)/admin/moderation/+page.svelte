@@ -133,7 +133,7 @@
         aria-selected={statusFilter === t.value}
         class="btn-ghost !px-3 !py-1.5 text-xs"
         class:bg-primary={statusFilter === t.value}
-        class:!text-white={statusFilter === t.value}
+        class:!text-[#05060A]={statusFilter === t.value}
         on:click={() => {
           statusFilter = t.value;
           applyFilter();
