@@ -59,6 +59,30 @@ async def _question_out(service: ExamService, q, *, reveal_answers: bool) -> Que
     return base
 
 
+async def _questions_out(
+    service: ExamService, questions: list, *, reveal_answers: bool
+) -> list[QuestionOut]:
+    """Serialise many questions with a single options query (no N+1)."""
+    options_map = await service.options_for_many([q.id for q in questions])
+    out: list[QuestionOut] = []
+    for q in questions:
+        base = QuestionOut.model_validate(q)
+        base.options = [
+            OptionOut(
+                id=o.id,
+                label=o.label,
+                text=o.text,
+                position=o.position,
+                is_correct=(o.is_correct if reveal_answers else None),
+            )
+            for o in options_map.get(q.id, [])
+        ]
+        if not reveal_answers:
+            base = base.model_copy(update={"correct_answer": None, "answer_json": None})
+        out.append(base)
+    return out
+
+
 async def _exam_out(service: ExamService, exam) -> ExamOut:
     """Serialise an exam with its (total, mc, essay) question counts."""
     counts = await service.question_counts([exam.id])
@@ -104,9 +128,7 @@ async def get_exam(exam_id: uuid.UUID, user: CurrentUser, db: DbSession):
     base = await _exam_out(service, exam)
     return ExamDetailOut(
         **base.model_dump(),
-        questions=[
-            await _question_out(service, q, reveal_answers=reveal_answers) for q in questions
-        ],
+        questions=await _questions_out(service, questions, reveal_answers=reveal_answers),
     )
 
 
@@ -425,9 +447,7 @@ async def attempt_result(attempt_id: uuid.UUID, user: CurrentUser, db: DbSession
         exam=await _exam_out(service, exam),
         answers=[AnswerOut.model_validate(a) for a in answers],
         questions=(
-            [await _question_out(service, q, reveal_answers=True) for q in questions]
-            if graded
-            else []
+            await _questions_out(service, questions, reveal_answers=True) if graded else []
         ),
     )
 

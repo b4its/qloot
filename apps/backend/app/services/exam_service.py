@@ -224,6 +224,22 @@ class ExamService:
         )
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def options_for_many(
+        self, question_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[QuestionOption]]:
+        """Batch-load options for many questions in one query (avoids N+1)."""
+        if not question_ids:
+            return {}
+        stmt = (
+            select(QuestionOption)
+            .where(QuestionOption.question_id.in_(question_ids))
+            .order_by(QuestionOption.question_id, QuestionOption.position)
+        )
+        grouped: dict[uuid.UUID, list[QuestionOption]] = {qid: [] for qid in question_ids}
+        for opt in (await self.session.execute(stmt)).scalars().all():
+            grouped.setdefault(opt.question_id, []).append(opt)
+        return grouped
+
     async def attempt_questions(
         self, attempt_id: uuid.UUID, user: User
     ) -> list[tuple[Question, list[QuestionOption]]]:
