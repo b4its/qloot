@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
   import { API_BASE } from "$lib/api/client";
+  import { groupStudentNav } from "$lib/data/student-nav";
 
   const primaryNav = [
     { href: "/courses", label: "Pelajaran" },
@@ -230,15 +231,18 @@
             >
           {/each}
           <div class="my-2 border-t"></div>
-          {#each appNav as item}
-            <a
-              href={item.href}
-              class="block rounded-sm px-3 py-2 text-sm"
-              aria-current={isNavActive(item.href) ? "page" : undefined}
-              on:click={() => (mobileOpen = false)}
-            >
-              <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
-            </a>
+          {#each groupStudentNav(appNav) as group}
+            <p class="mono-label !text-primary mt-3 mb-1 px-3 text-[10px]">{group.group}</p>
+            {#each group.items as item}
+              <a
+                href={item.href}
+                class="block rounded-sm px-3 py-2 text-sm"
+                aria-current={isNavActive(item.href) ? "page" : undefined}
+                on:click={() => (mobileOpen = false)}
+              >
+                <Icon name={item.icon} size="12px" class="mr-2" />{item.label}
+              </a>
+            {/each}
           {/each}
           {#if hasRole(user, "teacher")}
             <div class="my-2 border-t"></div>
