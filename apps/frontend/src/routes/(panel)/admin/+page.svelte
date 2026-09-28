@@ -99,25 +99,32 @@
   };
 
   // Attach a live status to the relevant nav entries (best-effort by href).
+  // When the underlying fetch failed, the card must not claim a healthy
+  // state — report it as unavailable instead.
   function statusFor(href: string): {
     status: string | null;
     tone: AdminLink["tone"];
     alert: boolean;
   } {
+    const failed = (...labels: string[]) => labels.some((l) => unavailable.includes(l));
     switch (href) {
       case "/admin/users":
+        if (failed("pengguna")) return { status: "Data tak tersedia", tone: "neutral", alert: false };
         return { status: `${activeUsers} aktif`, tone: "mint", alert: false };
       case "/admin/withdrawals":
+        if (failed("penarikan")) return { status: "Data tak tersedia", tone: "neutral", alert: false };
         return pendingWithdrawals
           ? { status: `${pendingWithdrawals} menunggu`, tone: "amber", alert: true }
           : { status: "Tidak ada antrean", tone: "neutral", alert: false };
       case "/admin/rewards":
+        if (failed("hadiah")) return { status: "Data tak tersedia", tone: "neutral", alert: false };
         return failedRewards
           ? { status: `${failedRewards} gagal`, tone: "danger", alert: true }
           : pendingRewards
             ? { status: `${pendingRewards} tertunda`, tone: "amber", alert: true }
             : { status: "Semua terkirim", tone: "mint", alert: false };
       case "/admin/ledger":
+        if (failed("buku besar")) return { status: "Data tak tersedia", tone: "neutral", alert: false };
         return negative.length
           ? { status: `${negative.length} saldo negatif`, tone: "danger", alert: true }
           : { status: "Seimbang", tone: "mint", alert: false };
@@ -136,6 +143,7 @@
     void failedRewards;
     void pendingRewards;
     void negative;
+    void unavailable;
     const s = statusFor(l.href);
     return { ...l, status: s.status, tone: s.tone, alert: s.alert } satisfies AdminLink;
   });

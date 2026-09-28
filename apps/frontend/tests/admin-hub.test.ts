@@ -148,4 +148,18 @@ describe("admin hub — status-aware operational overview", () => {
     await waitFor(() => expect(screen.getByText("user.role_changed")).toBeTruthy());
     expect(screen.getByText("Aktivitas terbaru")).toBeTruthy();
   });
+
+  it("marks a module unavailable instead of a healthy status when its fetch fails", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/admin/ledger/negative")) return Promise.reject(new Error("boom"));
+      return Promise.resolve([]);
+    });
+    render(AdminHub);
+    await waitFor(() => {
+      const mod = document.querySelector('[data-module="/admin/ledger"]') as HTMLElement;
+      expect(mod?.textContent).toContain("Data tak tersedia");
+      // Must not claim the ledger is balanced when we could not read it.
+      expect(mod?.textContent).not.toContain("Seimbang");
+    });
+  });
 });
