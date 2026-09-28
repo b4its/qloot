@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { render, screen, cleanup } from "@testing-library/svelte";
+import { render, screen, cleanup, fireEvent } from "@testing-library/svelte";
 
 import Skeleton from "$lib/components/Skeleton.svelte";
 import EmptyState from "$lib/components/EmptyState.svelte";
@@ -24,6 +24,16 @@ describe("shared loading/empty components (UIX-03)", () => {
     });
     expect(screen.getByText("Belum ada data")).toBeTruthy();
     expect(screen.getByText("Tambah")).toBeTruthy();
+  });
+
+  it("EmptyState supports an in-page action callback", async () => {
+    cleanup();
+    let clicked = 0;
+    render(EmptyState, {
+      props: { title: "Kosong", actionLabel: "Coba lagi", onAction: () => (clicked += 1) },
+    });
+    await fireEvent.click(screen.getByRole("button", { name: /Coba lagi/ }));
+    expect(clicked).toBe(1);
   });
 
   it("no career page uses the bare 'Memuat …' text anymore", () => {
