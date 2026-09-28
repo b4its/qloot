@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     readiness_check_redis: bool = True
     readiness_check_storage: bool = True
 
+    # Optional bearer token guarding /metrics. When empty (default) the endpoint
+    # stays open (backwards-compatible); set it in production to keep process
+    # metrics off a publicly routable API.
+    metrics_token: str = ""
+
     # --- Sessions / auth ---------------------------------------------------
     session_secret: str = "change-me"
     session_cookie_name: str = "qloot_session"

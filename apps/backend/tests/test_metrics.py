@@ -31,6 +31,23 @@ async def test_metrics_endpoint_renders_prometheus_text(client):
     assert "text/plain" in resp.headers["content-type"]
 
 
+async def test_metrics_requires_token_when_configured(client, monkeypatch):
+    """When METRICS_TOKEN is set, /metrics demands a matching bearer token."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "metrics_token", "s3cret")
+
+    denied = await client.get("/api/v1/metrics")
+    assert denied.status_code == 401
+
+    wrong = await client.get("/api/v1/metrics", headers={"Authorization": "Bearer nope"})
+    assert wrong.status_code == 401
+
+    ok = await client.get("/api/v1/metrics", headers={"Authorization": "Bearer s3cret"})
+    assert ok.status_code == 200
+    assert "text/plain" in ok.headers["content-type"]
+
+
 async def test_login_emits_auth_counters(client):
     await _register(client, "metrics_login@ex.com", "student")
     await client.post("/api/v1/auth/logout")
