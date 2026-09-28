@@ -37,14 +37,20 @@
   );
 
   async function copyMessage(text: string, index: number) {
+    copyError = "";
+    if (!navigator.clipboard?.writeText) {
+      copyError = "Papan klip tidak tersedia — salin pesan secara manual.";
+      return;
+    }
     try {
-      await navigator.clipboard?.writeText(text);
+      await navigator.clipboard.writeText(text);
       copiedIndex = index;
       setTimeout(() => (copiedIndex = null), 1500);
     } catch {
-      /* clipboard unavailable */
+      copyError = "Gagal menyalin pesan.";
     }
   }
+  let copyError = "";
 
   const suggestions = [
     "Bedanya SNBP dan SNBT?",
@@ -363,6 +369,10 @@
         </div>
       {/each}
     </div>
+
+    {#if copyError}
+      <p class="px-5 pb-2 text-xs text-danger" role="alert" aria-live="assertive">{copyError}</p>
+    {/if}
 
     <div class="border-t px-5 py-3">
       <p class="mono-label" id="suggestions-label">Pertanyaan populer</p>
