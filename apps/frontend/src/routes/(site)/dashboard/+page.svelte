@@ -528,7 +528,14 @@
                   <span>{dim.dimension}</span>
                   <span class="mono muted">{dim.value}</span>
                 </div>
-                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-sm bg-ink/10">
+                <div
+                  class="mt-1 h-1.5 w-full overflow-hidden rounded-sm bg-ink/10"
+                  role="progressbar"
+                  aria-label={`Nilai minat ${dim.dimension}`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.max(0, Math.min(100, dim.value))}
+                >
                   <div
                     class="h-full rounded-sm bg-primary"
                     style={`width:${Math.max(0, Math.min(100, dim.value))}%`}
@@ -639,7 +646,14 @@
                 <div class="flex justify-between text-xs">
                   <span class="muted">{t.l}</span><span class="mono">{t.v}</span>
                 </div>
-                <div class="track mt-1 h-1">
+                <div
+                  class="track mt-1 h-1"
+                  role="progressbar"
+                  aria-label={`Nilai kepribadian ${t.l}`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={t.v}
+                >
                   <span style={`width:${t.v}%`}></span>
                 </div>
               </div>

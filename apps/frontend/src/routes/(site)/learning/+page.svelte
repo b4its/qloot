@@ -267,7 +267,14 @@
             </p>
             {#if total > 0}
               <div class="mt-3">
-                <div class="track h-1.5">
+                <div
+                  class="track h-1.5"
+                  role="progressbar"
+                  aria-label={`Progres ${course.title}`}
+                  aria-valuemin={0}
+                  aria-valuemax={total}
+                  aria-valuenow={done}
+                >
                   <span style={`width:${Math.round((done / total) * 100)}%`}></span>
                 </div>
                 <p class="mono-label mt-1">{done} / {total} materi selesai</p>
