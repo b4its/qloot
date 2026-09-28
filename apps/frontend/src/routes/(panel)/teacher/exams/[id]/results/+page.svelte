@@ -10,6 +10,7 @@
   import Pagination from "$lib/components/Pagination.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -298,11 +299,11 @@
       {#each Array(4) as _}<div class="skeleton h-10"></div>{/each}
     </div>
   {:else if results.length === 0}
-    <div class="card mt-6 grid place-items-center py-12 text-center">
-      <Icon name="inbox" size="26px" class="muted" />
-      <p class="mt-3 font-semibold">Belum ada pengumpulan</p>
-      <p class="text-sm muted">Hasil akan muncul setelah siswa mengerjakan ujian.</p>
-    </div>
+    <EmptyState
+      icon="inbox"
+      title="Belum ada pengumpulan"
+      description="Hasil akan muncul setelah siswa mengerjakan ujian."
+    />
   {:else}
     <p class="mt-4 text-xs muted">
       Klik seorang peserta untuk melihat soal, jawaban, dan benarnya.
@@ -340,9 +341,11 @@
     </div>
 
     {#if filteredResults.length === 0}
-      <div class="card mt-3 grid place-items-center py-10 text-center">
-        <p class="muted text-sm">Tidak ada peserta yang cocok dengan filtermu.</p>
-      </div>
+      <EmptyState
+        icon="magnifying-glass"
+        title="Tidak ada peserta yang cocok"
+        description="Tidak ada peserta yang cocok dengan filtermu."
+      />
     {:else}
       <div class="mt-3 space-y-2">
         {#each filteredResults as a (a.id)}
