@@ -10,6 +10,9 @@
   import EmptyState from "$lib/components/EmptyState.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
 
   // Redirect once auth resolves; a mount-only check could fire before the
   // session loaded, briefly exposing teacher-only UI.
@@ -132,56 +135,27 @@
     />
   {:else}
     <!-- Overview metrics -->
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Total Pelajaran</p>
-        <p class="mt-1 font-display text-3xl font-bold">{subjects.length}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Terbit</p>
-        <p class="mt-1 font-display text-3xl font-bold text-mint" data-role="published-count">
-          {publishedCount}
-        </p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Draf</p>
-        <p class="mt-1 font-display text-3xl font-bold text-highlight">{draftCount}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Total Materi</p>
-        <p class="mt-1 font-display text-3xl font-bold">{totalLessons}</p>
-      </div>
-    </div>
+    <MetricStrip
+      metrics={[
+        { label: "Total Pelajaran", value: subjects.length },
+        { label: "Terbit", value: publishedCount, tone: "text-mint", role: "published-count" },
+        { label: "Draf", value: draftCount, tone: "text-highlight" },
+        { label: "Total Materi", value: totalLessons },
+      ]}
+    />
 
     <!-- Search & filters -->
     <div class="mt-5 flex flex-wrap items-center gap-2">
-      <div class="relative flex-1 min-w-[180px]">
-        <Icon
-          name="magnifying-glass"
-          size="12px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input text-xs !py-1.5 !pl-8 w-full"
-          placeholder="Cari pelajaran..."
-          bind:value={query}
-          aria-label="Cari pelajaran"
-        />
-      </div>
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
-        {#each [["all", "Semua"], ["published", "Terbit"], ["draft", "Draf"]] as [val, label]}
-          <button
-            type="button"
-            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-            class:bg-primary={publishFilter === val}
-            class:text-[#05060A]={publishFilter === val}
-            class:muted={publishFilter !== val}
-            on:click={() => (publishFilter = val as typeof publishFilter)}
-          >
-            {label}
-          </button>
-        {/each}
-      </div>
+      <SearchInput bind:value={query} placeholder="Cari pelajaran..." label="Cari pelajaran" />
+      <FilterChips
+        options={[
+          ["all", "Semua"],
+          ["published", "Terbit"],
+          ["draft", "Draf"],
+        ]}
+        bind:value={publishFilter}
+        label="Filter publikasi"
+      />
       {#if classes.length > 1}
         <select
           class="input text-xs !py-1.5 w-auto"
