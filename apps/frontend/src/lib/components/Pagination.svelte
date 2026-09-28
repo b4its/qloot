@@ -30,7 +30,10 @@
 </script>
 
 {#if visible}
-  <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+  <nav
+    class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm"
+    aria-label={`Navigasi halaman ${label}`}
+  >
     <p class="muted">
       {#if total !== undefined}
         {rangeStart}–{rangeEnd} dari {total} {label}
@@ -49,5 +52,5 @@
         Berikutnya <Icon name="chevron-right" size="11px" />
       </button>
     </div>
-  </div>
+  </nav>
 {/if}
