@@ -75,12 +75,24 @@ describe("career personality — progress gate and results", () => {
     expect(screen.getByText("Terendah: Neurotisisme (30)")).toBeTruthy();
   });
 
-  it("resets the questionnaire on retake", async () => {
+  it("offers retake while keeping the saved result until a new test is sent", async () => {
     get.mockResolvedValue(result);
     render(PersonalityPage);
     await waitFor(() => expect(screen.getByRole("button", { name: /Ulangi/ })).toBeTruthy());
 
+    // Entering retake resets the questionnaire but keeps the stored profile on
+    // screen, so navigating away never loses a saved result.
     await fireEvent.click(screen.getByRole("button", { name: /Ulangi/ }));
-    await waitFor(() => expect(screen.queryByText("Ciri dominan")).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Batal ulangi/ })).toBeTruthy(),
+    );
+    expect(screen.getByText("Ciri dominan")).toBeTruthy();
+    const submit = document.querySelector('[data-role="submit"]') as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+
+    // Cancelling returns to the read-only result view.
+    await fireEvent.click(screen.getByRole("button", { name: /Batal ulangi/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /Ulangi/ })).toBeTruthy());
+    expect(screen.getByText("Ciri dominan")).toBeTruthy();
   });
 });

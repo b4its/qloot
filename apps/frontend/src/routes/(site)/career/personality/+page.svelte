@@ -31,6 +31,12 @@
   let saving = false;
   let error = "";
   let message = "";
+  // Distinguish "no profile yet" from "failed to load" so the panel does not
+  // claim the user has never taken the test when the request simply failed.
+  let loadError = "";
+  // Retake keeps the stored profile on screen until a new questionnaire is
+  // submitted, so leaving mid-way cannot silently wipe a saved result.
+  let retaking = false;
 
   const labels = ["Sangat tidak setuju", "Tidak setuju", "Netral", "Setuju", "Sangat setuju"];
 
@@ -44,10 +50,12 @@
 
   async function load() {
     loading = true;
+    loadError = "";
     try {
       result = await api.get<Personality | null>("/career/personality");
-    } catch {
+    } catch (e) {
       result = null;
+      loadError = e instanceof ApiError ? e.message : "Gagal memuat profil kepribadian.";
     } finally {
       loading = false;
     }
@@ -60,6 +68,7 @@
     message = "";
     try {
       result = await api.post<Personality>("/career/personality", { answers });
+      retaking = false;
       message = "Profil kepribadian diperbarui.";
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menilai tes";
@@ -69,9 +78,18 @@
   }
 
   function retake() {
+    // Enter "retake mode" without discarding the saved profile: the previous
+    // result stays visible (and stored server-side) until a new test is
+    // submitted, so navigating away cannot lose it.
+    retaking = true;
     answers = new Array(statements.length).fill(0);
-    result = null;
     message = "";
+    error = "";
+  }
+
+  function cancelRetake() {
+    retaking = false;
+    answers = new Array(statements.length).fill(0);
     error = "";
   }
 
@@ -189,13 +207,31 @@
       <div class="flex items-center justify-between">
         <h2 class="hud font-display text-lg font-bold">Hasilmu</h2>
         {#if result && !loading}
-          <button class="btn-ghost !py-1 text-xs" on:click={retake}>
-            <Icon name="rotate" size="11px" /> Ulangi
-          </button>
+          {#if retaking}
+            <button class="btn-ghost !py-1 text-xs" on:click={cancelRetake}>
+              <Icon name="xmark" size="11px" /> Batal ulangi
+            </button>
+          {:else}
+            <button class="btn-ghost !py-1 text-xs" on:click={retake}>
+              <Icon name="rotate" size="11px" /> Ulangi
+            </button>
+          {/if}
         {/if}
       </div>
+      {#if retaking}
+        <p class="alert-info mt-2 text-xs" role="status">
+          <Icon name="circle-info" size="11px" class="inline-flex" /> Jawab ulang kuesioner di
+          kiri lalu kirim untuk memperbarui hasil. Hasil saat ini tetap tersimpan sampai kamu
+          mengirim yang baru.
+        </p>
+      {/if}
       {#if loading}
         <Skeleton rows={4} />
+      {:else if loadError}
+        <div class="mt-3 space-y-2" role="alert" aria-live="assertive">
+          <p class="text-sm text-danger">{loadError}</p>
+          <button class="btn-ghost !py-1 text-xs" on:click={load}>Coba lagi</button>
+        </div>
       {:else if result}
         <div class="mt-3 space-y-3">
           {#if dominant}
