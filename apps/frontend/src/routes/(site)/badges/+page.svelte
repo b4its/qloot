@@ -4,6 +4,7 @@
   import type { Badge, UserBadge, BadgeProgress } from "$lib/types";
   import { relativeTime, formatDate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { reveal } from "$lib/actions/reveal";
 
   let catalog: Badge[] = [];
@@ -168,11 +169,11 @@
       {#each Array(6) as _}<div class="skeleton h-44"></div>{/each}
     </div>
   {:else if catalog.length === 0}
-    <div class="card mt-8 grid place-items-center py-16 text-center">
-      <Icon name="award" size="28px" class="muted" />
-      <p class="mt-3 font-semibold">Belum ada badge</p>
-      <p class="text-sm muted">Katalog badge akan muncul di sini.</p>
-    </div>
+    <EmptyState
+      icon="award"
+      title="Belum ada badge"
+      description="Katalog badge akan muncul di sini."
+    />
   {:else}
     <!-- Overview metrics -->
     <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -275,10 +276,13 @@
     </div>
 
     {#if filtered.length === 0}
-      <div class="card mt-6 text-center py-12 space-y-3">
-        <p class="muted text-sm">Tidak ada badge yang cocok dengan filter atau pencarianmu.</p>
-        <button class="btn-ghost !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-      </div>
+      <EmptyState
+        icon="magnifying-glass"
+        title="Tidak ada badge yang cocok"
+        description="Tidak ada badge yang cocok dengan filter atau pencarianmu."
+        actionLabel="Reset Filter"
+        onAction={resetFilters}
+      />
     {:else}
       <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {#each filtered as b, i (b.code)}
