@@ -266,7 +266,11 @@
                   </button>
                 {/if}
                 {#if q.status === "finalized"}
-                  <button class="btn-ghost" on:click={() => loadWinners(q)}>
+                  <button
+                    class="btn-ghost"
+                    on:click={() => loadWinners(q)}
+                    aria-expanded={!!winnerList}
+                  >
                     <Icon name="ranking-star" size="11px" />
                     {winnerList ? "Sembunyikan pemenang" : "Lihat pemenang"}
                   </button>
