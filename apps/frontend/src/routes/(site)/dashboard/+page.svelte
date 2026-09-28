@@ -11,9 +11,14 @@
     NotificationPage,
     Progress,
     Attempt,
+    Exam,
     GradeRow,
     GamificationProfile,
+    Quest,
+    Reward,
+    Task,
   } from "$lib/types";
+  import { buildMissions, primaryMission } from "$lib/utils/mission";
   import { auth } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import ProgressRing from "$lib/components/ProgressRing.svelte";
@@ -34,6 +39,15 @@
   let loading = true;
   let error = "";
   let unavailableSections: string[] = [];
+
+  // Mission control data (reuses already-fetched courses/progress/exams/attempts).
+  let exams: Exam[] = [];
+  let attempts: Attempt[] = [];
+  let quests: Quest[] = [];
+  let tasks: Task[] = [];
+  let taskCompletions: { task_id: string }[] = [];
+  let rewards: Reward[] = [];
+  let learningProgress: Progress[] = [];
 
   // Grade entry (feeds the academic dashboard + recommender).
   const SUBJECTS = [
@@ -215,22 +229,33 @@
     };
 
     try {
-      const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np] = await Promise.all([
-        safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
-        // A failed personality fetch must not look like "never taken the test",
-        // so route it through the shared unavailable-sections tracker.
-        safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
-        safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
-        safe(api.get<{ available: number; token_id: number } | null>("/wallet"), null, "saldo OPT"),
-        safe(api.get<Course[]>("/courses"), [], "pelajaran"),
-        safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
-        safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
-        safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
-        safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
-        safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
-        safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
-        safe(api.get<NotificationPage | null>("/notifications/page?limit=1"), null, "notifikasi"),
-      ]);
+      const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] = await Promise.all(
+        [
+          safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
+          // A failed personality fetch must not look like "never taken the test",
+          // so route it through the shared unavailable-sections tracker.
+          safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
+          safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
+          safe(
+            api.get<{ available: number; token_id: number } | null>("/wallet"),
+            null,
+            "saldo OPT",
+          ),
+          safe(api.get<Course[]>("/courses"), [], "pelajaran"),
+          safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
+          safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
+          safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
+          safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
+          safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
+          safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
+          safe(api.get<NotificationPage | null>("/notifications/page?limit=1"), null, "notifikasi"),
+          safe(api.get<Exam[]>("/exams"), [], "daftar ujian"),
+          safe(api.get<Quest[]>("/quests"), [], "quest"),
+          safe(api.get<Task[]>("/tasks"), [], "tugas"),
+          safe(api.get<{ task_id: string }[]>("/tasks/me/completions"), [], "status tugas"),
+          safe(api.get<Reward[]>("/wallet/rewards?limit=20"), [], "hadiah"),
+        ],
+      );
       acad = a;
       personality = p;
       badges = b;
@@ -240,8 +265,15 @@
       badgeCatalog = bc;
       gamification = gam;
       activityCounts = buildActivity(prog, atts, b);
+      learningProgress = prog;
       badgeProgress = bp;
       unread = np?.unread ?? 0;
+      exams = ex;
+      attempts = atts;
+      quests = qu;
+      tasks = tk;
+      taskCompletions = tc;
+      rewards = rw;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "";
     } finally {
@@ -262,6 +294,20 @@
     .slice(0, 3);
 
   $: user = $auth.user;
+
+  // Unified next-action feed derived from already-fetched data.
+  $: missions = buildMissions({
+    courses: subjects,
+    progress: learningProgress,
+    exams,
+    attempts,
+    quests,
+    tasks,
+    completions: taskCompletions,
+    rewards,
+  });
+  $: topMission = primaryMission(missions);
+  $: followUpMissions = missions.filter((m) => m.id !== topMission?.id).slice(0, 4);
 </script>
 
 <svelte:head><title>Dashboard — QLoot</title></svelte:head>
@@ -291,6 +337,90 @@
       {#each Array(3) as _}<div class="skeleton h-32"></div>{/each}
     </div>
   {:else}
+    <!-- Mission control: the single most valuable next action -->
+    <section class="mt-6" aria-labelledby="mission-heading" data-role="mission-feed">
+      <div class="flex items-center justify-between">
+        <h2 id="mission-heading" class="font-display font-bold">Misi berikutnya</h2>
+        {#if missions.length > 1}
+          <span class="mono-label">{missions.length} tindakan</span>
+        {/if}
+      </div>
+
+      {#if topMission}
+        <a
+          href={topMission.href}
+          class="card lift mt-3 flex flex-wrap items-center justify-between gap-4 {topMission.tone ===
+          'urgent'
+            ? 'border-danger/50'
+            : ''}"
+          data-role="mission-primary"
+        >
+          <div class="flex items-center gap-4">
+            <span
+              class="tile h-12 w-12 {topMission.tone === 'urgent'
+                ? '!bg-danger/10 !text-danger'
+                : ''}"
+            >
+              <Icon
+                name={topMission.tone === "urgent"
+                  ? "triangle-exclamation"
+                  : topMission.kind === "settlement"
+                    ? "coins"
+                    : "circle-play"}
+                size="20px"
+              />
+            </span>
+            <div>
+              <p class="mono-label text-[10px]">
+                {topMission.tone === "urgent" ? "Perlu segera" : "Lanjutkan di sini"}
+              </p>
+              <p class="font-display text-lg font-bold">{topMission.title}</p>
+              <p class="text-xs muted">{topMission.description}</p>
+            </div>
+          </div>
+          <span class="btn-primary" data-role="mission-primary-cta">
+            Buka <Icon name="arrow-right" size="11px" />
+          </span>
+        </a>
+      {:else}
+        <div class="card mt-3 flex items-center gap-3">
+          <Icon name="circle-check" size="18px" class="text-mint" />
+          <p class="text-sm muted">
+            Semua misi selesai. Jelajahi <a href="/learning" class="text-primary">pelajaran</a> atau
+            <a href="/community" class="text-primary">komunitas</a> untuk hal baru.
+          </p>
+        </div>
+      {/if}
+
+      {#if followUpMissions.length}
+        <ul class="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Tindakan lain">
+          {#each followUpMissions as m (m.id)}
+            <li>
+              <a
+                href={m.href}
+                class="card flex items-center justify-between gap-3 !p-3 hover:border-primary/50"
+                data-role="mission-item"
+              >
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-semibold">{m.title}</span>
+                  <span class="block truncate text-xs muted">{m.description}</span>
+                </span>
+                <span
+                  class="badge {m.tone === 'urgent'
+                    ? 'badge-magenta'
+                    : m.tone === 'reward'
+                      ? 'badge-amber'
+                      : 'badge-neutral'} flex-none"
+                >
+                  {m.kind}
+                </span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
     <!-- top stats -->
     <div class="mt-6 grid gap-4 sm:grid-cols-3">
       <div class="card flex items-center gap-4">
