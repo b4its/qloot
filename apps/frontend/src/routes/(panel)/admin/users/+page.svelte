@@ -86,11 +86,14 @@
     try {
       await api.patch(`/admin/users/${u.id}/active`, { is_active: !u.is_active });
       message = `${u.email} ${u.is_active ? "dinonaktifkan" : "diaktifkan"}.`;
-      await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengubah status akun";
-      await load();
     } finally {
+      // Reload to reflect the server state; `load()` clears `error`, so restore
+      // any failure message afterwards so the user can actually read it.
+      const failed = error;
+      await load();
+      if (failed) error = failed;
       busy = "";
     }
   }
@@ -114,12 +117,13 @@
     try {
       await api.patch(`/admin/users/${u.id}/role`, { role });
       message = `${u.email} → ${role}`;
-      await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal mengubah peran";
-      // Reload to revert the select's optimistic value.
-      await load();
     } finally {
+      // Reload to revert the select's optimistic value; keep the error visible.
+      const failed = error;
+      await load();
+      if (failed) error = failed;
       busy = "";
     }
   }
@@ -205,11 +209,16 @@
       </p>
     {:else}
       <table class="w-full text-sm">
+        <caption class="sr-only">Daftar pengguna</caption>
         <thead class="text-left muted">
-          <tr
-            ><th class="py-1">Email</th><th>Nama</th><th>Peran</th><th>Status</th><th>Bergabung</th
-            ><th>Atur peran</th></tr
-          >
+          <tr>
+            <th class="py-1" scope="col">Email</th>
+            <th scope="col">Nama</th>
+            <th scope="col">Peran</th>
+            <th scope="col">Status</th>
+            <th scope="col">Bergabung</th>
+            <th scope="col">Atur peran</th>
+          </tr>
         </thead>
         <tbody>
           {#each users as u}
@@ -235,6 +244,8 @@
                     class="input !py-1"
                     value={u.roles[0] ?? "student"}
                     disabled={busy === u.id}
+                    aria-label={`Peran utama untuk ${u.email}`}
+                    title="Menetapkan peran utama pengguna"
                     on:change={(e) => setRole(u, (e.currentTarget as HTMLSelectElement).value)}
                   >
                     <option value="student">Siswa</option>
