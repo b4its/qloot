@@ -121,7 +121,8 @@ class WithdrawalService:
             entity_id=str(wd.id),
             data={"amount": wd.amount, "fee": wd.fee_amount},
         )
-        # Enqueue the on-chain burn only now (approval is the gate).
+        # Enqueue the on-chain settlement only now (approval is the gate). The
+        # worker transfers pooled tokens to the user's destination wallet.
         wd_user = await self.session.get(User, wd.user_id) if wd.user_id else None
         self.session.add(
             TransactionOutbox(

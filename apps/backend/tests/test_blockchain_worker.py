@@ -284,17 +284,57 @@ async def test_pause_topic_calls_contract(session):
     assert tx.method == "pause"
 
 
-async def test_withdrawal_topic_burns_and_confirms(session):
-    """A withdrawal outbox item burns on-chain and completes on confirmation."""
+async def test_withdrawal_topic_transfers_to_destination_and_confirms(session):
+    """A withdrawal transfers pooled tokens to the user's destination wallet."""
     from sqlalchemy import select
 
     from app.models.wallet import WithdrawalRequest
 
     student = await _mk_user(session, "wdflow@q.com")
+    destination = "0x" + "9" * 40
     wd = WithdrawalRequest(
         user_id=student.id,
         reward_key="wd-0",
-        destination_address="0x" + "9" * 40,
+        destination_address=destination,
+        token_id=0,
+        amount=10,
+        status="requested",
+    )
+    session.add(wd)
+    await session.flush()
+    item = await _mk_outbox(
+        session,
+        "withdrawal",
+        {
+            "withdrawal_id": str(wd.id),
+            "amount": 10,
+            "asset": "OPT",
+            "destination": destination,
+        },
+        "wdflow-1",
+    )
+    assert await process_outbox_item(session, item.id) is True
+    tx = (await session.execute(select(BlockchainTransaction))).scalars().first()
+    # Settlement is a real transfer to the user's wallet, never a burn.
+    assert tx.method == "safeTransferFrom"
+    assert tx.to_address == destination
+    # The withdrawal is linked to the tx now.
+    assert (await session.get(WithdrawalRequest, wd.id)).status == "submitted"
+
+    # Indexing confirms it and completes the withdrawal.
+    await refresh_confirmations(session)
+    assert (await session.get(WithdrawalRequest, wd.id)).status == "completed"
+
+
+async def test_withdrawal_without_destination_is_rejected(session):
+    """A withdrawal payload missing its destination must fail, not burn."""
+    from app.models.wallet import WithdrawalRequest
+
+    student = await _mk_user(session, "wdnodest@q.com")
+    wd = WithdrawalRequest(
+        user_id=student.id,
+        reward_key="wd-1",
+        destination_address="0x" + "8" * 40,
         token_id=0,
         amount=10,
         status="requested",
@@ -305,17 +345,11 @@ async def test_withdrawal_topic_burns_and_confirms(session):
         session,
         "withdrawal",
         {"withdrawal_id": str(wd.id), "amount": 10, "asset": "OPT"},
-        "wdflow-1",
+        "wdnodest-1",
     )
-    assert await process_outbox_item(session, item.id) is True
-    tx = (await session.execute(select(BlockchainTransaction))).scalars().first()
-    assert tx.method == "burn"
-    # The withdrawal is linked to the tx now.
-    assert (await session.get(WithdrawalRequest, wd.id)).status == "submitted"
-
-    # Indexing confirms it and completes the withdrawal.
-    await refresh_confirmations(session)
-    assert (await session.get(WithdrawalRequest, wd.id)).status == "completed"
+    assert await process_outbox_item(session, item.id) is False
+    # Still pending review, never marked as submitted.
+    assert (await session.get(WithdrawalRequest, wd.id)).status == "requested"
 
 
 async def test_unknown_topic_is_rejected_retryably(session):

@@ -137,18 +137,23 @@ async def process_outbox_item(session: AsyncSession, outbox_id: uuid.UUID) -> bo
                 )
                 tx.method = "mint"
             elif item.topic == "withdrawal":
-                # A withdrawal removes the amount from circulation on-chain. The
-                # backend operator signs the burn, so it must burn from its OWN
-                # account (the operator holds the pooled tokens); burning from
-                # the treasury address would revert (operator is not approved).
+                # A withdrawal settles pooled tokens to the user's personal
+                # wallet: transfer the amount from the operator/treasury account
+                # to the requested destination address. Burning would destroy
+                # the tokens without the user ever receiving them.
                 payload = item.payload or {}
-                _require(payload, "amount")
-                receipt = await client.burn(
-                    from_=payload.get("from", client.operator_address),
+                _require(payload, "amount", "destination")
+                destination = str(payload["destination"]).strip()
+                if not destination:
+                    raise ChainError("Withdrawal destination address is required")
+                receipt = await client.transfer_asset(
+                    from_=client.operator_address,
+                    to=destination,
                     amount=int(payload["amount"]),
                     asset=payload.get("asset", "OPT"),
                 )
-                tx.method = "burn"
+                tx.method = "safeTransferFrom"
+                tx.to_address = destination
                 if payload.get("withdrawal_id"):
                     wd = await session.get(WithdrawalRequest, uuid.UUID(payload["withdrawal_id"]))
                     if wd is not None:
@@ -541,7 +546,7 @@ async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> No
                 amount=allocation.amount,
                 allocation_id=allocation.id,
             )
-    if tx.method == "burn" and args.get("withdrawal_id"):
+    if tx.method in ("burn", "safeTransferFrom") and args.get("withdrawal_id"):
         wd = await session.get(WithdrawalRequest, uuid.UUID(args["withdrawal_id"]))
         if wd is not None and wd.status not in ("completed", "cancelled"):
             wd.status = "failed"
@@ -584,7 +589,7 @@ async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> N
         if allocation is not None:
             allocation.status = "confirmed"
             allocation.confirmed_at = datetime.now(UTC)
-    if tx.method == "burn" and args.get("withdrawal_id"):
+    if tx.method in ("burn", "safeTransferFrom") and args.get("withdrawal_id"):
         wd = await session.get(WithdrawalRequest, uuid.UUID(args["withdrawal_id"]))
         if wd is not None:
             wd.status = "completed"

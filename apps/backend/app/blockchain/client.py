@@ -61,6 +61,19 @@ ASSET_ABI_MIN = [
         "type": "function",
     },
     {
+        "inputs": [
+            {"internalType": "address", "name": "from", "type": "address"},
+            {"internalType": "address", "name": "to", "type": "address"},
+            {"internalType": "uint256", "name": "id", "type": "uint256"},
+            {"internalType": "uint256", "name": "amount", "type": "uint256"},
+            {"internalType": "bytes", "name": "data", "type": "bytes"},
+        ],
+        "name": "safeTransferFrom",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
         "inputs": [],
         "name": "pause",
         "outputs": [],
@@ -212,8 +225,8 @@ class ChainClient:
         """Address the backend signs with (in dry-run: the treasury).
 
         In the custodial model the operator account holds the pooled tokens, so
-        withdrawals burn from here (burning from treasury would revert unless
-        the operator is approved).
+        withdrawals transfer real tokens from here to the user's destination
+        wallet via ``safeTransferFrom``.
         """
         if self._account is not None:
             return self._account.address
@@ -279,6 +292,35 @@ class ChainClient:
             )
         assert self._w3 is not None
         fn = self._asset(asset).functions.burn(self._w3.to_checksum_address(from_), int(amount))
+        return await self._send(fn)
+
+    async def transfer_asset(
+        self, *, from_: str, to: str, amount: int, asset: str = "OPT"
+    ) -> TxReceipt:
+        """Transfer `amount` of an asset from the pooled account to `to`.
+
+        This is the settlement primitive for withdrawals: the treasury/operator
+        holds the pooled tokens, so a withdrawal credits the user's personal
+        wallet by transferring real tokens rather than burning them.
+        """
+        asset = asset.upper()
+        if not to:
+            raise ChainError("Withdrawal destination address is required")
+        if self.dry_run:
+            return TxReceipt(
+                tx_hash=self._fake_hash("transfer", asset, from_, to, str(amount)),
+                status=1,
+                dry_run=True,
+            )
+        if self._w3 is None:
+            raise ChainError("Web3 client is not initialised")
+        fn = self._asset(asset).functions.safeTransferFrom(
+            self._w3.to_checksum_address(from_),
+            self._w3.to_checksum_address(to),
+            0,
+            int(amount),
+            b"",
+        )
         return await self._send(fn)
 
     async def pause(self, asset: str = "OPT") -> TxReceipt:
