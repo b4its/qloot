@@ -86,7 +86,9 @@ async def test_assistant_stream_failure_refunds_ort_idempotently(
 
     assert resp.status_code == 200
     assert "event: error" in body
-    assert "provider unavailable" in body
+    # The client must get a generic message, not provider internals.
+    assert "provider unavailable" not in body
+    assert "Streaming gagal" in body
 
     async with sm() as session:
         charge = (

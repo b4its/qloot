@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
+from app.core.logging import get_logger
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit
 from app.schemas.career import (
@@ -42,6 +43,7 @@ from app.services.career_service import CareerService
 from app.services.reward_engine import RewardEngine
 
 router = APIRouter(prefix="/career", tags=["career"])
+_log = get_logger("career.api")
 
 
 # --- academic dashboard ----------------------------------------------------
@@ -447,13 +449,21 @@ async def assistant_stream(payload: ChatIn, user: CurrentUser, db: DbSession):
                 yield f"event: done\ndata: {_json.dumps({'conversation_id': conv_id})}\n\n"
         except Exception as exc:  # noqa: BLE001 - surface, do not hang the stream
             await usage.refund_job(user_id=user.id, job_id=ref)
-            yield f"event: error\ndata: {_json.dumps({'message': str(exc)})}\n\n"
+            # Log the detail server-side; return a generic message so provider
+            # internals are never echoed to the client.
+            _log.warning("assistant_stream_failed", error=str(exc))
+            yield (
+                "event: error\n"
+                f"data: {_json.dumps({'message': 'Streaming gagal. Coba lagi.'})}\n\n"
+            )
 
     return StreamingResponse(
         _events(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
 @router.get("/assistant/conversations", response_model=list[AssistantConversationOut])
 async def list_assistant_conversations(
     user: CurrentUser, db: DbSession, limit: LimitParam = 50, offset: OffsetParam = 0
