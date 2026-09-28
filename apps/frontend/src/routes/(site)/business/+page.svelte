@@ -13,7 +13,7 @@
       Program pelatihan terkurasi, laporan kemajuan, dan sertifikasi digital untuk kebutuhan
       organisasi.
     </p>
-    <a href="/register" class="btn-primary mt-6"
+    <a href="mailto:sales@qloot.id?subject=Konsultasi%20bisnis" class="btn-primary mt-6"
       ><Icon name="briefcase" size="13px" /> Konsultasi Gratis</a
     >
   </div>
