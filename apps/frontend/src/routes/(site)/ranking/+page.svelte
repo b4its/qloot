@@ -7,6 +7,8 @@
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
 
   type RankingPeriod = "all" | "weekly" | "monthly";
 
@@ -227,40 +229,18 @@
     </div>
   {:else if global && global.entries.length}
     <!-- Metrics + search -->
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Di halaman ini</p>
-        <p class="mt-1 font-display text-3xl font-bold">{global.entries.length}</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Skor tertinggi</p>
-        <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="top-score">
-          {pageTopScore.toFixed(1)}%
-        </p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Rata-rata halaman</p>
-        <p class="mt-1 font-display text-3xl font-bold">{pageAvgScore.toFixed(1)}%</p>
-      </div>
-      <div class="card p-4">
-        <p class="mono-label text-[10px]">Peringkatmu</p>
-        <p class="mt-1 font-display text-3xl font-bold text-primary">#{me?.rank ?? "—"}</p>
-      </div>
-    </div>
+    <MetricStrip
+      metrics={[
+        { label: "Di halaman ini", value: global.entries.length },
+        { label: "Skor tertinggi", value: `${pageTopScore.toFixed(1)}%`, tone: "text-highlight", role: "top-score" },
+        { label: "Rata-rata halaman", value: `${pageAvgScore.toFixed(1)}%` },
+        { label: "Peringkatmu", value: `#${me?.rank ?? "—"}`, tone: "text-primary" },
+      ]}
+    />
 
     <div class="mt-4 flex flex-wrap items-center gap-2">
-      <div class="relative w-full sm:w-64">
-        <Icon
-          name="magnifying-glass"
-          size="12px"
-          class="absolute left-3 top-1/2 -translate-y-1/2 muted"
-        />
-        <input
-          class="input text-xs !py-1.5 !pl-8 w-full"
-          placeholder="Cari nama pengguna..."
-          bind:value={query}
-          aria-label="Cari pengguna"
-        />
+      <div class="w-full sm:w-64">
+        <SearchInput bind:value={query} placeholder="Cari nama pengguna..." label="Cari pengguna" />
       </div>
       {#if myEntry && !q}
         <span class="badge badge-indigo">Barismu ditandai</span>
