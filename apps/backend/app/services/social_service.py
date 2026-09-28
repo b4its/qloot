@@ -115,10 +115,25 @@ class NotificationService:
         body: str | None = None,
         data: dict | None = None,
     ) -> int:
+        from app.models.social import NotificationPreference
+
+        # Batch-load mute preferences so a broadcast is one extra query rather
+        # than one per recipient.
+        muted: set[uuid.UUID] = set()
+        if user_ids:
+            rows = (
+                await self.session.execute(
+                    select(
+                        NotificationPreference.user_id, NotificationPreference.muted_kinds
+                    ).where(NotificationPreference.user_id.in_(user_ids))
+                )
+            ).all()
+            muted = {uid for uid, kinds in rows if kind in (kinds or [])}
+
         count = 0
         created: list[Notification] = []
         for uid in user_ids:
-            if await self._is_muted(uid, kind):
+            if uid in muted:
                 continue
             n = Notification(user_id=uid, kind=kind, title=title, body=body, data=data)
             self.session.add(n)
