@@ -490,6 +490,18 @@ html.theme-init * {
   html.dark .alert-info {
     color: #fcee0a;
   }
+  /* Warning tone sits between info and error: used for recoverable notices
+     (e.g. "5 minutes left", partially-unavailable dashboard sections) that must
+     not be mistaken for a hard failure. */
+  .alert-warning {
+    @apply alert;
+    background-color: rgba(255, 176, 32, 0.12);
+    border-color: rgba(255, 176, 32, 0.4);
+    color: #8a5a00;
+  }
+  html.dark .alert-warning {
+    color: #ffc966;
+  }
 
   /* Angular icon tile (replaces rounded-xl icon chips) ------------------ */
   .tile {

@@ -345,7 +345,7 @@
     </div>
 
     {#if secondsLeft > 0 && secondsLeft <= 300}
-      <div class="alert-error mb-4 flex items-center gap-2 !py-2 text-xs">
+      <div class="alert-warning mb-4 flex items-center gap-2 !py-2 text-xs" role="status">
         <Icon name="alert-triangle" size="14px" />
         <span
           >Peringatan: Sisa waktu pengerjaan kurang dari 5 menit! Jawaban akan dikumpulkan otomatis
