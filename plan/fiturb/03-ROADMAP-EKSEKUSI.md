@@ -151,13 +151,18 @@ Target commit:
 | W4 | Withdrawal settles to the destination wallet (not burn) | `f9b1b9a` |
 | W4 | Production fail-closed + signer/treasury/role invariants | `bb454a3` |
 | W4 | Wallet settlement lifecycle explanation + runbook | `b0f4277` |
+| W5 | Real malware policy on uploaded materials | `d7f276b` |
+| W5 | Exam proctoring telemetry disclosure | `b8c3523` |
+| W5 | E2E shell scenario aligned with CSRF + admin-created teacher | `4f30f8d` |
+| W5 | CI secret/dependency/contract scan gates | `a60ee55` |
 
 ### Berikutnya
 
 Sisa item W2/W3 (grouped navigation, onboarding, campaign stepper, reward budget preview, student
-preview), sisa W4 (admin treasury coverage dashboard), W5 (security), W6 (teacher analytics),
-W7 (social gamification), dan W8 (institutional scale) belum dikerjakan dan tetap menjadi backlog
-terurut. Kerjakan sesuai dependency graph di bagian berikut.
+preview), sisa W4 (admin treasury coverage dashboard), sisa W5 (retention/appeal workflow, data
+export/deletion, minor consent), W6 (teacher analytics), W7 (social gamification), dan W8
+(institutional scale) belum dikerjakan dan tetap menjadi backlog terurut. Kerjakan sesuai
+dependency graph di bagian berikut.
 
 ## 4. Dependency Graph
 
