@@ -681,6 +681,8 @@
                           class:!border-secondary={opt.is_correct}
                           class:!text-secondary={opt.is_correct}
                           title="Tandai jawaban benar"
+                          aria-label={`Tandai opsi ${OPTION_LABELS[oi]} sebagai jawaban benar`}
+                          aria-pressed={opt.is_correct}
                           on:click={() => setCorrect(editQ.options, oi)}
                         >
                           <Icon name={opt.is_correct ? "circle-check" : "circle"} size="11px" />
@@ -946,6 +948,8 @@
                     class:!border-secondary={opt.is_correct}
                     class:!text-secondary={opt.is_correct}
                     title="Tandai jawaban benar"
+                    aria-label={`Tandai opsi ${OPTION_LABELS[oi]} sebagai jawaban benar`}
+                    aria-pressed={opt.is_correct}
                     on:click={() => setCorrect(newQ.options, oi)}
                   >
                     <Icon name={opt.is_correct ? "circle-check" : "circle"} size="11px" />
