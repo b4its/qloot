@@ -134,7 +134,29 @@ Target commit:
 - Worker health, alert rules, log shipping.
 - Signed image, SBOM, release provenance.
 
-## 3. Dependency Graph
+## 3. Status Implementasi
+
+### Selesai
+
+| Wave | Item | Commit |
+|---|---|---|
+| W0 | Master plan dan audit | `ab423e0` |
+| W1 | Fondasi blue-first semantic color | `e54929f` |
+| W1 | Standardisasi shared controls dan data states | `8d6fc9b`, `2b6088c`, `a2f45b6`, `396ed45`, `9128f24`, `d22c4ca`, `c8c32b4`, `e8a5966`, `d4c98f7`, `1dc2f9f`, `ea88f13`, `9600cfa` |
+| W1 | Kontrak test tema dan a11y progress | `a34b93c`, `22a31e4` |
+| W2 | Unified student mission feed | `d7ca40d` |
+| W2 | Resilient learning continuation | `878216d` |
+| W2 | Precise notification deep links | `e8c1eff` |
+| W3 | Teacher action queue (grading, review, career, consultation) | `51184c9` |
+
+### Berikutnya
+
+Sisa item W2/W3 (grouped navigation, onboarding, campaign stepper, reward budget preview, student
+preview), W4 (Web3 financial correctness), W5 (security), W6 (teacher analytics), W7 (social
+gamification), dan W8 (institutional scale) belum dikerjakan dan tetap menjadi backlog terurut.
+Kerjakan sesuai dependency graph di bagian berikut.
+
+## 4. Dependency Graph
 
 ```text
 W0 ──► W1 ──► W2 ──► W3
@@ -148,7 +170,7 @@ W0 ──► W1 ──► W2 ──► W3
 W4 dan W5 boleh berjalan paralel setelah baseline W0. W2/W3 baru dimulai setelah token visual
 W1 stabil agar halaman tidak dimigrasikan dua kali.
 
-## 4. Aturan Atomic Commit
+## 5. Aturan Atomic Commit
 
 - Satu commit = satu perilaku; test terkait berada di commit yang sama.
 - Jangan mencampur token redesign, feature logic, dan formatting massal.
@@ -158,7 +180,7 @@ W1 stabil agar halaman tidak dimigrasikan dua kali.
 - Sebelum commit: `git status`, `git diff`, test relevan.
 - Setelah wave: full suite + build + docs consistency.
 
-## 5. Prioritas Backlog Ringkas
+## 6. Prioritas Backlog Ringkas
 
 | Priority | Item | Outcome |
 |---|---|---|
@@ -174,7 +196,7 @@ W1 stabil agar halaman tidak dimigrasikan dua kali.
 | P2 | Institutional lifecycle | Siap sekolah nyata/multi-tenant |
 | P2 | Team seasons/skill tree | Diferensiasi setelah core aman |
 
-## 6. Exit Criteria Release
+## 7. Exit Criteria Release
 
 - Tidak ada P0 terbuka.
 - Backend/frontend/contracts unit suite hijau.
