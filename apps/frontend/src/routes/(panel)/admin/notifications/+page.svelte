@@ -26,12 +26,14 @@
 
   // Recipient count for the "all users" mode.
   let activeUsers: number | null = null;
+  let activeUsersError = false;
   onMount(async () => {
     try {
       const res = await apiGetPaged<User[]>("/admin/users?is_active=true&limit=1");
       activeUsers = res.total ?? res.data.length;
     } catch {
       activeUsers = null;
+      activeUsersError = true;
     }
   });
 
@@ -39,12 +41,14 @@
   let userQuery = "";
   let userResults: User[] = [];
   let searching = false;
+  let searchError = "";
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   function searchUsers() {
     if (searchDebounce) clearTimeout(searchDebounce);
     searchDebounce = setTimeout(async () => {
       const q = userQuery.trim();
+      searchError = "";
       if (q.length < 2) {
         userResults = [];
         return;
@@ -54,6 +58,7 @@
         userResults = await api.get<User[]>(`/admin/users?q=${encodeURIComponent(q)}&limit=8`);
       } catch {
         userResults = [];
+        searchError = "Pencarian penerima gagal. Coba lagi.";
       } finally {
         searching = false;
       }
@@ -196,6 +201,7 @@
             <span
               >Semua Pengguna Aktif {#if activeUsers !== null}<span class="muted"
                   >({formatNumber(activeUsers)})</span
+                >{:else if activeUsersError}<span class="muted">(jumlah tidak diketahui)</span
                 >{/if}</span
             >
           </label>
@@ -233,7 +239,9 @@
             />
           </div>
           {#if searching}
-            <p class="mt-1 text-xs muted">Mencari…</p>
+            <p class="mt-1 text-xs muted" role="status" aria-live="polite">Mencari…</p>
+          {:else if searchError}
+            <p class="mt-1 text-xs text-danger" role="alert" aria-live="assertive">{searchError}</p>
           {:else if userResults.length > 0}
             <ul class="mt-1 card !p-0 divide-y max-h-56 overflow-y-auto">
               {#each userResults as u (u.id)}

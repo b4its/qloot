@@ -108,4 +108,18 @@ describe("admin broadcast notifications — preview, count, picker, confirm", ()
     // The selected recipient chip appears.
     await waitFor(() => expect(screen.getByText(/Dikirim ke 1 penerima/)).toBeTruthy());
   });
+
+  it("reports a failed recipient search and an unknown audience size", async () => {
+    getPaged.mockRejectedValueOnce(new Error("boom"));
+    get.mockRejectedValueOnce(new Error("boom"));
+    render(AdminNotifications);
+
+    await waitFor(() =>
+      expect(document.body.textContent).toContain("jumlah tidak diketahui"),
+    );
+
+    await fireEvent.click(screen.getByLabelText("Penerima Spesifik"));
+    await fireEvent.input(screen.getByLabelText(/Cari penerima/), { target: { value: "zoe" } });
+    expect(await screen.findByText(/Pencarian penerima gagal/)).toBeTruthy();
+  });
 });
