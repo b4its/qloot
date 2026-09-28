@@ -5,6 +5,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import { paginate } from "$lib/utils/format";
   import { reveal } from "$lib/actions/reveal";
 
@@ -141,18 +142,15 @@
       {#each Array(3) as _}<div class="skeleton h-40"></div>{/each}
     </div>
   {:else if courses.length === 0}
-    <div class="card mt-6 grid place-items-center py-16 text-center">
-      <Icon name="book-open" size="28px" class="muted" />
-      <p class="mt-3 font-semibold">Belum ada pelajaran</p>
-      <p class="mt-1 text-sm muted">
-        {canManage
-          ? "Buat pelajaran dan targetkan ke sebuah kelas."
-          : "Pelajaran untuk kelasmu akan muncul di sini setelah gurumu menerbitkannya."}
-      </p>
-      {#if canManage}
-        <a href="/teacher/subjects" class="btn-primary mt-4">Buat Pelajaran</a>
-      {/if}
-    </div>
+    <EmptyState
+      icon="book-open"
+      title="Belum ada pelajaran"
+      description={canManage
+        ? "Buat pelajaran dan targetkan ke sebuah kelas."
+        : "Pelajaran untuk kelasmu akan muncul di sini setelah gurumu menerbitkannya."}
+      actionHref={canManage ? "/teacher/subjects" : undefined}
+      actionLabel={canManage ? "Buat Pelajaran" : undefined}
+    />
   {:else}
     <!-- Continue-learning banner -->
     {#if resumeCourse}
@@ -248,10 +246,13 @@
     </div>
 
     {#if filtered.length === 0}
-      <div class="card mt-6 grid place-items-center py-12 text-center">
-        <p class="muted text-sm">Tidak ada pelajaran yang cocok dengan filtermu.</p>
-        <button class="btn-ghost mt-3 !py-1 text-xs" on:click={resetFilters}>Reset Filter</button>
-      </div>
+      <EmptyState
+        icon="magnifying-glass"
+        title="Tidak ada pelajaran yang cocok"
+        description="Tidak ada pelajaran yang cocok dengan filtermu."
+        actionLabel="Reset Filter"
+        onAction={resetFilters}
+      />
     {:else}
       <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {#each pagedCourses as course, i (course.id)}
