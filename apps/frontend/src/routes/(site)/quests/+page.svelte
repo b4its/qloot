@@ -10,6 +10,9 @@
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import Dialog from "$lib/components/Dialog.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import FilterChips from "$lib/components/FilterChips.svelte";
+  import SearchInput from "$lib/components/SearchInput.svelte";
+  import MetricStrip from "$lib/components/MetricStrip.svelte";
 
   const PAGE_SIZE = 12;
   let quests: Quest[] = [];
@@ -78,6 +81,20 @@
     statusFilter = "all";
     currentPage = 1;
   }
+
+  $: metrics = [
+    { label: "Total Quest", value: quests.length },
+    { label: "Quest Aktif", value: openQuestsCount, tone: "text-mint" },
+    { label: "Quest Selesai", value: finalizedQuestsCount, tone: "text-indigo-400" },
+    { label: "Total Pool Hadiah", value: `${totalRewardsPool} OPT`, tone: "text-highlight" },
+  ];
+
+  $: statusOptions = [
+    ["all", `Semua (${quests.length})`],
+    ["open", "Aktif"],
+    ["finalized", "Selesai"],
+    ...(canManage ? ([["draft", "Draf"]] as const) : []),
+  ] as readonly (readonly [typeof statusFilter, string])[];
 
   async function openQuestLeaderboard(q: Quest) {
     viewingQuestLeaderboard = { id: q.id, title: q.title };
@@ -186,96 +203,28 @@
 
   <!-- Overview Metrics -->
   {#if !loading && quests.length > 0}
-    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">Total Quest</span>
-        <div class="mt-1 font-display text-xl font-bold">{quests.length}</div>
-      </div>
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">Quest Aktif</span>
-        <div class="mt-1 font-display text-xl font-bold text-mint">{openQuestsCount}</div>
-      </div>
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">Quest Selesai</span>
-        <div class="mt-1 font-display text-xl font-bold text-indigo-400">
-          {finalizedQuestsCount}
-        </div>
-      </div>
-      <div class="card p-3">
-        <span class="mono-label text-[10px]">Total Pool Hadiah</span>
-        <div class="mt-1 font-display text-xl font-bold text-highlight">{totalRewardsPool} OPT</div>
-      </div>
-    </div>
+    <MetricStrip {metrics} />
   {/if}
 
   <!-- Search & Filter Controls -->
   <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
     <div class="flex flex-wrap items-center gap-2 flex-1">
-      <div class="relative w-full sm:w-64">
-        <input
-          type="text"
-          class="input text-xs !py-1.5 w-full"
-          placeholder="Cari judul quest..."
+      <div class="w-full sm:w-64">
+        <SearchInput
           bind:value={searchQuery}
-          aria-label="Cari quest"
+          placeholder="Cari judul quest..."
+          label="Cari quest"
+          oninput={() => (currentPage = 1)}
         />
-        {#if searchQuery}
-          <button
-            type="button"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-            on:click={() => (searchQuery = "")}
-            aria-label="Bersihkan pencarian"
-          >
-            ✕
-          </button>
-        {/if}
       </div>
 
       <!-- Status filter tabs -->
-      <div class="flex items-center gap-1 rounded-sm border p-1 surface text-xs">
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "all"}
-          class:text-[#05060A]={statusFilter === "all"}
-          class:muted={statusFilter !== "all"}
-          on:click={() => (statusFilter = "all")}
-        >
-          Semua ({quests.length})
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "open"}
-          class:text-[#05060A]={statusFilter === "open"}
-          class:muted={statusFilter !== "open"}
-          on:click={() => (statusFilter = "open")}
-        >
-          Aktif
-        </button>
-        <button
-          type="button"
-          class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-          class:bg-primary={statusFilter === "finalized"}
-          class:text-[#05060A]={statusFilter === "finalized"}
-          class:muted={statusFilter !== "finalized"}
-          on:click={() => (statusFilter = "finalized")}
-        >
-          Selesai
-        </button>
-        {#if canManage}
-          <button
-            type="button"
-            class="px-2.5 py-1 rounded-xs font-medium transition-colors"
-            class:bg-primary={statusFilter === "draft"}
-            class:text-[#05060A]={statusFilter === "draft"}
-            class:muted={statusFilter !== "draft"}
-            on:click={() => (statusFilter = "draft")}
-          >
-            Draf
-          </button>
-        {/if}
-      </div>
+      <FilterChips
+        options={statusOptions}
+        bind:value={statusFilter}
+        label="Filter status quest"
+        onchange={() => (currentPage = 1)}
+      />
     </div>
   </div>
 
