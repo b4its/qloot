@@ -87,6 +87,29 @@ describe("teacher subject detail — lesson metrics, dirty-save, and delete conf
     await waitFor(() => expect(screen.getByText("2 terbit · 1 draf")).toBeTruthy());
   });
 
+  it("renders the campaign stepper with a next-step action", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.includes("/lessons")) return Promise.resolve(lessons);
+      if (path.startsWith("/exams")) return Promise.resolve([]);
+      if (path.startsWith("/quests")) return Promise.resolve([]);
+      if (path.startsWith("/courses/")) return Promise.resolve(course);
+      return Promise.resolve([]);
+    });
+
+    render(SubjectDetailPage);
+    await waitFor(() =>
+      expect(document.querySelector('[data-role="campaign-stepper"]')).toBeTruthy(),
+    );
+    const stepEls = document.querySelectorAll('[data-role="campaign-step"]');
+    expect(stepEls.length).toBe(5);
+    // Course + material are done (title set, lessons exist).
+    const states = Array.from(stepEls).map((el) => el.getAttribute("data-state"));
+    expect(states[0]).toBe("done");
+    expect(states[1]).toBe("done");
+    // The next-step call-to-action is shown with the first unfinished step.
+    expect(document.querySelector('[data-role="campaign-next"]')).toBeTruthy();
+  });
+
   it("disables save until the course form changes", async () => {
     render(SubjectDetailPage);
     await waitFor(() => expect(screen.getByRole("button", { name: /Tersimpan/i })).toBeTruthy());

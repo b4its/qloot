@@ -3,12 +3,13 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { api, ApiError } from "$lib/api/client";
-  import type { Course, Lesson } from "$lib/types";
+  import type { Course, Exam, Lesson, Quest } from "$lib/types";
   import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import { campaignProgress, campaignSteps, nextCampaignStep } from "$lib/utils/campaign";
 
   $: if (!$auth.loading && !hasRole($auth.user, "teacher")) goto("/login");
 
@@ -39,6 +40,28 @@
   let editLesson = { title: "", content_md: "", video_url: "", is_published: true };
   // Deleting a lesson is destructive; require an explicit confirmation.
   let deletingLesson: Lesson | null = null;
+
+  // Campaign stepper data (W3): exams for this course + their quests.
+  let courseExams: Exam[] = [];
+  let courseQuests: Quest[] = [];
+  async function loadCampaign() {
+    try {
+      const exams = await api.get<Exam[]>("/exams?limit=200");
+      courseExams = exams.filter((e) => e.course_id === courseId);
+      const examIds = new Set(courseExams.map((e) => e.id));
+      const quests = await api.get<Quest[]>("/quests?limit=200");
+      courseQuests = quests.filter((q) => q.exam_id && examIds.has(q.exam_id));
+    } catch {
+      // The stepper is guidance, not a hard dependency: a failed fetch leaves
+      // it empty rather than blocking the authoring page.
+      courseExams = [];
+      courseQuests = [];
+    }
+  }
+  $: steps = campaignSteps({ course, lessons, exams: courseExams, quests: courseQuests });
+  $: nextStep = nextCampaignStep(steps);
+  $: progress = campaignProgress(steps);
+  $: progressPct = Math.round(progress * 100);
 
   async function loadCourse() {
     loading = true;
@@ -195,6 +218,7 @@
   onMount(() => {
     loadCourse();
     loadLessons();
+    loadCampaign();
   });
 
   // --- derived metrics + dirty tracking --------------------------------------
@@ -231,6 +255,69 @@
       <div class="skeleton h-40"></div>
     </div>
   {:else if course}
+    <!-- Campaign stepper: the authoring pipeline for this course (W3) -->
+    <div class="card mt-6" data-role="campaign-stepper">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-display font-bold">Alur kampanye</h2>
+        <span class="mono-label text-[10px]">{progressPct}% selesai</span>
+      </div>
+      <div
+        class="track mt-2 h-1.5"
+        role="progressbar"
+        aria-label="Progres kampanye"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progressPct}
+      >
+        <span style={`width:${progressPct}%`}></span>
+      </div>
+      <ol class="mt-3 grid gap-2 sm:grid-cols-5">
+        {#each steps as step, i (step.key)}
+          <li>
+            <a
+              href={step.href}
+              class="block rounded-sm border p-2.5 text-xs transition-colors hover:border-primary/50 {step.state ===
+              'done'
+                ? 'border-mint/40'
+                : step.state === 'ready'
+                  ? 'border-primary/40'
+                  : ''}"
+              data-role="campaign-step"
+              data-state={step.state}
+            >
+              <span class="flex items-center gap-1.5">
+                <Icon
+                  name={step.state === "done"
+                    ? "circle-check"
+                    : step.state === "ready"
+                      ? "circle-half-stroke"
+                      : "circle"}
+                  size="12px"
+                  class={step.state === "done"
+                    ? "text-mint"
+                    : step.state === "ready"
+                      ? "text-primary"
+                      : "muted"}
+                />
+                <span class="font-medium">{i + 1}. {step.label}</span>
+              </span>
+              <span class="mt-1 block muted">{step.detail}</span>
+            </a>
+          </li>
+        {/each}
+      </ol>
+      {#if nextStep}
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs">
+          <span class="muted"
+            >Langkah berikutnya: <strong class="text-ink">{nextStep.label}</strong></span
+          >
+          <a href={nextStep.href} class="btn-secondary !py-1" data-role="campaign-next">
+            <Icon name="arrow-right" size="11px" /> Lanjutkan
+          </a>
+        </div>
+      {/if}
+    </div>
+
     <!-- course details -->
     <div class="card mt-6">
       <div class="flex items-center justify-between">
