@@ -128,7 +128,7 @@
         <div class="card">
           <div
             class="grid h-32 place-items-center rounded-sm"
-            style="background-image:linear-gradient(135deg,rgba(252,238,10,.15),rgba(0,240,255,.15))"
+            style="background-image:linear-gradient(135deg,rgb(var(--neon-blue)/.15),rgb(var(--neon-cyan)/.15))"
           >
             <Icon name="book-open-reader" size="30px" class="text-primary/70" />
           </div>

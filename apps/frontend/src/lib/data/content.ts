@@ -42,7 +42,7 @@ export const classTracks: ClassTrack[] = [
     subjects: ["Matematika", "Bahasa Indonesia", "Fisika"],
     students: 32,
     icon: "flask-vial",
-    accent: "linear-gradient(135deg,#FCEE0A,#FF6B2C)",
+    accent: "linear-gradient(135deg,#168BFF,#00E5FF)",
   },
   {
     code: "2D",
@@ -51,7 +51,7 @@ export const classTracks: ClassTrack[] = [
     subjects: ["Ekonomi", "Sosiologi", "Sejarah"],
     students: 30,
     icon: "earth-asia",
-    accent: "linear-gradient(135deg,#00F0FF,#FCEE0A)",
+    accent: "linear-gradient(135deg,#00E5FF,#168BFF)",
   },
   {
     code: "3A",
@@ -60,7 +60,7 @@ export const classTracks: ClassTrack[] = [
     subjects: ["Fisika", "Kimia", "Biologi"],
     students: 28,
     icon: "atom",
-    accent: "linear-gradient(135deg,#FF2E88,#FCEE0A)",
+    accent: "linear-gradient(135deg,#FF2E88,#168BFF)",
   },
   {
     code: "3B",

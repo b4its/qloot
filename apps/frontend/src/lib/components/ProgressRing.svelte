@@ -27,8 +27,8 @@
   >
     <defs>
       <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#FCEE0A" />
-        <stop offset="100%" stop-color="#00F0FF" />
+        <stop offset="0%" stop-color="rgb(var(--neon-blue))" />
+        <stop offset="100%" stop-color="rgb(var(--neon-cyan))" />
       </linearGradient>
     </defs>
     <circle
