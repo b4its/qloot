@@ -270,3 +270,54 @@ export function buildMissions(input: MissionInput): Mission[] {
 export function primaryMission(missions: Mission[]): Mission | null {
   return missions[0] ?? null;
 }
+
+export interface OnboardingStep {
+  key: string;
+  title: string;
+  description: string;
+  href: string;
+  done: boolean;
+}
+
+export interface OnboardingInput {
+  hasClass: boolean;
+  hasCourse: boolean;
+  hasCompletedLesson: boolean;
+  hasEarnedReward: boolean;
+}
+
+/**
+ * Guided onboarding for a new student: class → first lesson → first verified
+ * reward. Steps are derived purely from existing signals so the checklist is
+ * truthful (a done step is never shown as pending).
+ */
+export function onboardingSteps(input: OnboardingInput): OnboardingStep[] {
+  return [
+    {
+      key: "class",
+      title: "Masuk ke kelasmu",
+      description: "Pastikan kamu terdaftar pada kelas yang benar.",
+      href: "/profile",
+      done: input.hasClass,
+    },
+    {
+      key: "lesson",
+      title: "Selesaikan materi pertamamu",
+      description: "Buka pelajaran dan tandai satu materi selesai.",
+      href: "/learning",
+      done: input.hasCompletedLesson,
+    },
+    {
+      key: "reward",
+      title: "Raih hadiah pertamamu",
+      description: "Kerjakan tugas atau quest untuk mendapatkan OPT pertama.",
+      href: "/tasks",
+      done: input.hasEarnedReward,
+    },
+  ];
+}
+
+/** True when the checklist is complete (nothing left to onboard). */
+export function onboardingComplete(steps: OnboardingStep[]): boolean {
+  return steps.every((s) => s.done);
+}

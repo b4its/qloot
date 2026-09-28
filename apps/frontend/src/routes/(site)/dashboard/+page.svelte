@@ -19,6 +19,7 @@
     Task,
   } from "$lib/types";
   import { buildMissions, primaryMission } from "$lib/utils/mission";
+  import { onboardingSteps, onboardingComplete } from "$lib/utils/mission";
   import { auth } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import ProgressRing from "$lib/components/ProgressRing.svelte";
@@ -308,6 +309,15 @@
   });
   $: topMission = primaryMission(missions);
   $: followUpMissions = missions.filter((m) => m.id !== topMission?.id).slice(0, 4);
+
+  // Onboarding checklist: only meaningful while the student is still ramping up.
+  $: onboarding = onboardingSteps({
+    hasClass: !!user?.class_code,
+    hasCourse: subjects.length > 0,
+    hasCompletedLesson: learningProgress.some((p) => p.completed),
+    hasEarnedReward: rewards.length > 0 || (wallet?.available ?? 0) > 0,
+  });
+  $: onboardingDone = onboardingComplete(onboarding);
 </script>
 
 <svelte:head><title>Dashboard — QLoot</title></svelte:head>
@@ -382,6 +392,40 @@
             Buka <Icon name="arrow-right" size="11px" />
           </span>
         </a>
+      {:else if !onboardingDone}
+        <!-- New-student onboarding: guide to the first verified reward (W2) -->
+        <div class="card mt-3" data-role="onboarding-checklist">
+          <p class="font-semibold">Mulai dari sini</p>
+          <p class="mt-1 text-xs muted">
+            Tiga langkah untuk memulai perjalanan belajarmu dan meraih hadiah pertama.
+          </p>
+          <ol class="mt-3 space-y-2">
+            {#each onboarding as step (step.key)}
+              <li>
+                <a
+                  href={step.href}
+                  class="flex items-center gap-3 rounded-sm border p-3 text-sm transition-colors hover:border-primary/50 {step.done
+                    ? 'opacity-70'
+                    : ''}"
+                  data-role="onboarding-step"
+                  data-done={step.done}
+                >
+                  <Icon
+                    name={step.done ? "circle-check" : "circle"}
+                    size="16px"
+                    class={step.done ? "text-mint flex-none" : "muted flex-none"}
+                  />
+                  <span class="min-w-0">
+                    <span class="block font-medium {step.done ? 'line-through' : ''}"
+                      >{step.title}</span
+                    >
+                    <span class="block text-xs muted">{step.description}</span>
+                  </span>
+                </a>
+              </li>
+            {/each}
+          </ol>
+        </div>
       {:else}
         <div class="card mt-3 flex items-center gap-3">
           <Icon name="circle-check" size="18px" class="text-mint" />

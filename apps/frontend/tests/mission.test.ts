@@ -5,6 +5,8 @@ import {
   buildMissions,
   examAvailability,
   nextCourseFor,
+  onboardingComplete,
+  onboardingSteps,
   primaryMission,
 } from "$lib/utils/mission";
 
@@ -220,5 +222,30 @@ describe("mission feed — ordering and content", () => {
     });
     expect(missions).toEqual([]);
     expect(primaryMission(missions)).toBeNull();
+  });
+});
+
+describe("onboarding checklist (W2)", () => {
+  it("marks steps done only when the real signal is present", () => {
+    const steps = onboardingSteps({
+      hasClass: true,
+      hasCourse: false,
+      hasCompletedLesson: false,
+      hasEarnedReward: false,
+    });
+    expect(steps.map((s) => s.key)).toEqual(["class", "lesson", "reward"]);
+    expect(steps.find((s) => s.key === "class")?.done).toBe(true);
+    expect(steps.find((s) => s.key === "lesson")?.done).toBe(false);
+    expect(onboardingComplete(steps)).toBe(false);
+  });
+
+  it("reports complete only when every step is done", () => {
+    const done = onboardingSteps({
+      hasClass: true,
+      hasCourse: true,
+      hasCompletedLesson: true,
+      hasEarnedReward: true,
+    });
+    expect(onboardingComplete(done)).toBe(true);
   });
 });
