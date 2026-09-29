@@ -24,8 +24,8 @@ describe("format utils", () => {
     expect(shortHash(null)).toBe("—");
   });
 
-  it("formats numbers with grouping", () => {
-    expect(formatNumber(1234567)).toBe("1,234,567");
+  it("formats numbers with the Indonesian grouping locale", () => {
+    expect(formatNumber(1234567)).toBe("1.234.567");
     expect(formatNumber(null)).toBe("0");
   });
 

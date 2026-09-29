@@ -53,7 +53,10 @@ export function shortHash(hash: string | null | undefined, size = 6): string {
 
 export function formatNumber(n: number | null | undefined): string {
   if (n === null || n === undefined) return "0";
-  return new Intl.NumberFormat().format(n);
+  // Match the app-wide Indonesian locale (toLocaleString("id-ID") elsewhere),
+  // otherwise the grouping separator depends on the runtime locale and the same
+  // page shows e.g. both "1.234" and "1,234".
+  return new Intl.NumberFormat("id-ID").format(n);
 }
 
 /**

@@ -66,7 +66,7 @@ describe("profile gamification card", () => {
 
     expect(get).toHaveBeenCalledWith("/gamification/me");
     expect(screen.getByText("4")).toBeTruthy();
-    expect(screen.getByText("1,234")).toBeTruthy();
+    expect(screen.getByText("1.234")).toBeTruthy();
     expect(screen.getByText("Menuju level 5")).toBeTruthy();
     expect(screen.getByText("Ujian 800 XP")).toBeTruthy();
     expect(screen.getByText("Quest 300 XP")).toBeTruthy();
