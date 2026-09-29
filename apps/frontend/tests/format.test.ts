@@ -8,6 +8,7 @@ import {
   relativeTime,
   paginate,
   examCategory,
+  toLocalInput,
 } from "../src/lib/utils/format";
 
 describe("format utils", () => {
@@ -63,6 +64,24 @@ describe("format utils", () => {
     expect(paginate(items, 4, 3)).toEqual([]);
     expect(paginate(items, 0, 3)).toEqual([1, 2, 3]);
     expect(paginate([], 1, 10)).toEqual([]);
+  });
+
+  it("formats an ISO instant for a datetime-local input in LOCAL time", () => {
+    // An instant is rendered using the runtime's local timezone, never UTC —
+    // using `toISOString()` here would shift the displayed time by the offset.
+    const iso = "2026-03-04T15:30:00.000Z";
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const expectedLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    expect(toLocalInput(iso)).toBe(expectedLocal);
+
+    // Parse-back round-trips to the same instant (what the pages submit).
+    expect(new Date(toLocalInput(iso)).getTime()).toBe(d.getTime());
+
+    // Empty / invalid input yields an empty field rather than "Invalid Date".
+    expect(toLocalInput(null)).toBe("");
+    expect(toLocalInput(undefined)).toBe("");
+    expect(toLocalInput("not-a-date")).toBe("");
   });
 });
 

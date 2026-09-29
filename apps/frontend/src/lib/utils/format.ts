@@ -56,6 +56,20 @@ export function formatNumber(n: number | null | undefined): string {
   return new Intl.NumberFormat().format(n);
 }
 
+/**
+ * Convert an ISO instant to a `datetime-local` input value in the user's local
+ * timezone. `toISOString()` cannot be used here: it returns UTC, while a
+ * `datetime-local` input is interpreted as local time, so pre-filling one with
+ * the other shifts the displayed time by the UTC offset.
+ */
+export function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** Human-readable Indonesian label for an internal status value. */
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draf",

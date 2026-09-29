@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { Consultation, ConsultationMessage } from "$lib/types";
-  import { formatDate, statusLabel } from "$lib/utils/format";
+  import { formatDate, statusLabel, toLocalInput } from "$lib/utils/format";
   import { auth, hasRole } from "$lib/stores/auth";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
@@ -90,16 +90,7 @@
 
   function openReschedule(c: Consultation) {
     rescheduleTarget = c;
-    if (c.scheduled_at) {
-      try {
-        const d = new Date(c.scheduled_at);
-        rescheduleInput = d.toISOString().slice(0, 16);
-      } catch {
-        rescheduleInput = "";
-      }
-    } else {
-      rescheduleInput = "";
-    }
+    rescheduleInput = toLocalInput(c.scheduled_at);
   }
 
   /** CARE-06: reschedule a consultation to a new slot (ISO datetime). */
