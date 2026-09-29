@@ -34,4 +34,18 @@ describe("MetricStrip", () => {
     expect(container.querySelector(".card")).toBeNull();
     cleanup();
   });
+
+  it("renders duplicate labels without throwing (each-key uniqueness)", () => {
+    render(MetricStrip, {
+      props: {
+        metrics: [
+          { label: "Total", value: 1, role: "a" },
+          { label: "Total", value: 2, role: "b" },
+        ],
+      },
+    });
+    expect(document.querySelector('[data-role="a"]')?.textContent?.trim()).toBe("1");
+    expect(document.querySelector('[data-role="b"]')?.textContent?.trim()).toBe("2");
+    cleanup();
+  });
 });

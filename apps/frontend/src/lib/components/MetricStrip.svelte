@@ -30,7 +30,7 @@
     class:sm:grid-cols-3={columns === 3}
     class:sm:grid-cols-4={columns === 4}
   >
-    {#each metrics as m (m.label)}
+    {#each metrics as m, i (m.role ?? i)}
       <div class="card p-4">
         <p class="mono-label text-[10px]">{m.label}</p>
         <p class="mt-1 font-display text-3xl font-bold {m.tone ?? ''}" data-role={m.role}>
