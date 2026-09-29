@@ -143,6 +143,27 @@ describe("Teacher Tasks Panel", () => {
     });
   });
 
+  it("refetches without the query when the clear-search button is clicked", async () => {
+    render(TeacherTasksPage);
+    await screen.findByText("Live Harian");
+
+    const search = screen.getByPlaceholderText("Cari tugas...");
+    await fireEvent.input(search, { target: { value: "Harian" } });
+    await fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => expect(get).toHaveBeenCalledWith(expect.stringContaining("q=Harian")));
+
+    get.mockClear();
+    await fireEvent.click(screen.getByRole("button", { name: "Bersihkan pencarian" }));
+
+    // Clearing must refetch the unfiltered list, not leave the filtered one on
+    // screen with an empty input.
+    await waitFor(() => {
+      expect(get).toHaveBeenCalledWith(expect.stringContaining("/tasks"));
+      const listCall = get.mock.calls.find((c) => String(c[0]).startsWith("/tasks"));
+      expect(listCall ? String(listCall[0]) : "").not.toContain("q=Harian");
+    });
+  });
+
   it("creates a task with a schedule window", async () => {
     render(TeacherTasksPage);
     await screen.findByText("Live Harian");

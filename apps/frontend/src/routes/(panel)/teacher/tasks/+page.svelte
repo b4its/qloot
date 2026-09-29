@@ -378,7 +378,10 @@
         <button
           type="button"
           class="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs"
-          on:click={() => (searchQuery = "")}
+          on:click={() => {
+            searchQuery = "";
+            applyFilters();
+          }}
           aria-label="Bersihkan pencarian"
         >
           ✕
