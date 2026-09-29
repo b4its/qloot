@@ -301,9 +301,14 @@
         body: replyDraft.trim(),
         parent_id: activeReplyTarget.parentCommentId,
       });
+      // loadComments() installs a FRESH post object carrying the new reply; bump
+      // the fresh object's count rather than mutating/reinstating the stale
+      // reference (which would drop the just-loaded reply from the thread).
+      const postId = activeReplyTarget.post.id;
       await loadComments(activeReplyTarget.post);
-      activeReplyTarget.post.comment_count += 1;
-      posts = posts.map((x) => (x.id === activeReplyTarget!.post.id ? activeReplyTarget!.post : x));
+      posts = posts.map((x) =>
+        x.id === postId ? { ...x, comment_count: x.comment_count + 1 } : x,
+      );
       activeReplyTarget = null;
       replyDraft = "";
     } catch (e) {
@@ -739,7 +744,7 @@
           </div>
 
           {#if openComments.has(f.id)}
-            <div class="mt-3 space-y-3 border-t pt-3">
+            <div class="mt-3 space-y-3 border-t pt-3" data-thread={f.id}>
               {#each f.comments ?? [] as c (c.id)}
                 <div class="flex items-start gap-2 text-sm">
                   <Icon name="user" size="11px" class="mt-1 muted" />
