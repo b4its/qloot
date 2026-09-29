@@ -27,7 +27,9 @@
       return;
     }
     function frame(now: number) {
-      const t = Math.min(1, (now - start) / duration);
+      // Clamp to [0, 1]: a frame timestamp can be earlier than `start` (e.g. a
+      // requestAnimationFrame shim), and a negative t would blow up the easing.
+      const t = Math.max(0, Math.min(1, (now - start) / duration));
       const eased = 1 - Math.pow(1 - t, 3);
       display = Math.round(from + (value - from) * eased);
       if (t < 1) rafId = requestAnimationFrame(frame);
