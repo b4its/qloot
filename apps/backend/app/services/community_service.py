@@ -121,10 +121,18 @@ class CommunityService:
         return await self._decorate(posts, viewer_id)
 
     async def get_post(
-        self, post_id: uuid.UUID, viewer_id: uuid.UUID | None
+        self,
+        post_id: uuid.UUID,
+        viewer_id: uuid.UUID | None,
+        *,
+        viewer_is_admin: bool = False,
     ) -> dict:
         post = await self.session.get(CommunityPost, post_id)
         if post is None:
+            raise NotFoundError("Post not found")
+        # A moderated (hidden) post must not be readable by its id — mirror the
+        # feed's visibility rules: only the author and admins may see it.
+        if post.hidden and not viewer_is_admin and viewer_id != post.author_id:
             raise NotFoundError("Post not found")
         decorated = (await self._decorate([post], viewer_id))[0]
         include_hidden_for = viewer_id if viewer_id == post.author_id else None

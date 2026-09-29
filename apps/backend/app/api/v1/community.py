@@ -63,7 +63,9 @@ async def create_post(payload: PostCreate, user: CurrentUser, db: DbSession):
 
 @router.get("/posts/{post_id}", response_model=PostDetailOut)
 async def get_post(post_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    return await CommunityService(db).get_post(post_id, user.id)
+    return await CommunityService(db).get_post(
+        post_id, user.id, viewer_is_admin=user.has_role("admin")
+    )
 
 
 @router.delete("/posts/{post_id}", response_model=Message)

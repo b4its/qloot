@@ -80,6 +80,45 @@ async def test_admin_can_hide_a_reported_post_and_it_leaves_feed_but_not_author(
     assert any(p["id"] == post_id and p["hidden"] for p in own_feed.json())
 
 
+async def test_hidden_post_is_not_readable_by_id(client):
+    """A hidden post must 404 on its detail endpoint for everyone but the author
+    and admins — otherwise moderation 'hide' is bypassable by direct id."""
+    await _register(client, "mod_author_id@ex.com")
+    post_id = await _make_post(client, body="Pos rahasia")
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "mod_reporter_id@ex.com")
+    rep = await client.post(
+        "/api/v1/community/reports",
+        json={"target_type": "post", "target_id": post_id, "reason": "Spam"},
+    )
+    report_id = rep.json()["id"]
+    await client.post("/api/v1/auth/logout")
+
+    await _register(client, "mod_admin_id@ex.com", "admin")
+    hidden = await client.post(
+        f"/api/v1/community/reports/{report_id}/moderate",
+        json={"action": "hide", "reason": "Pelanggaran"},
+    )
+    assert hidden.status_code == 200, hidden.text
+    # Admin can still read it for review.
+    admin_view = await client.get(f"/api/v1/community/posts/{post_id}")
+    assert admin_view.status_code == 200, admin_view.text
+    await client.post("/api/v1/auth/logout")
+
+    # A bystander must not be able to read the hidden post by id.
+    await _register(client, "mod_bystander_id@ex.com")
+    assert (await client.get(f"/api/v1/community/posts/{post_id}")).status_code == 404
+    await client.post("/api/v1/auth/logout")
+
+    # The author can still read their own hidden post.
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "mod_author_id@ex.com", "password": "Password123!"},
+    )
+    assert (await client.get(f"/api/v1/community/posts/{post_id}")).status_code == 200
+
+
 async def test_admin_can_dismiss_a_report(client):
     await _register(client, "mod_author3@ex.com")
     post_id = await _make_post(client)
