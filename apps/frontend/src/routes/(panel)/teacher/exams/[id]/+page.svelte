@@ -86,17 +86,22 @@
     options: blankOptions(),
   };
 
-  function addOption(list: OptionDraft[]) {
-    if (list.length < 8) list.push({ text: "", is_correct: false });
+  // Option edits return a NEW array so the caller can reassign the draft
+  // (`newQ` / `editQ`). Mutating the array in place inside a handler never
+  // invalidates the component in legacy (non-runes) reactivity, so the
+  // `{#each}` rows would not re-render.
+  function addOption(list: OptionDraft[]): OptionDraft[] {
+    if (list.length >= 8) return list;
+    return [...list, { text: "", is_correct: false }];
   }
-  function removeOption(list: OptionDraft[], i: number) {
-    if (list.length <= 2) return;
-    const wasCorrect = list[i].is_correct;
-    list.splice(i, 1);
-    if (wasCorrect && list.length) list[0].is_correct = true;
+  function removeOption(list: OptionDraft[], i: number): OptionDraft[] {
+    if (list.length <= 2) return list;
+    const next = list.filter((_, j) => j !== i);
+    if (list[i]?.is_correct && next.length) next[0] = { ...next[0], is_correct: true };
+    return next;
   }
-  function setCorrect(list: OptionDraft[], i: number) {
-    list.forEach((o, j) => (o.is_correct = j === i));
+  function setCorrect(list: OptionDraft[], i: number): OptionDraft[] {
+    return list.map((o, j) => ({ ...o, is_correct: j === i }));
   }
   function validOptions(qtype: string, list: OptionDraft[]): boolean {
     if (list.length < 2 || !list.every((o) => o.text.trim().length > 0)) return false;
@@ -765,7 +770,8 @@
                           title="Tandai jawaban benar"
                           aria-label={`Tandai opsi ${OPTION_LABELS[oi]} sebagai jawaban benar`}
                           aria-pressed={opt.is_correct}
-                          on:click={() => setCorrect(editQ.options, oi)}
+                          on:click={() =>
+                            (editQ = { ...editQ, options: setCorrect(editQ.options, oi) })}
                         >
                           <Icon name={opt.is_correct ? "circle-check" : "circle"} size="11px" />
                         </button>
@@ -778,7 +784,8 @@
                         <button
                           type="button"
                           class="btn-icon !text-tertiary flex-none"
-                          on:click={() => removeOption(editQ.options, oi)}
+                          on:click={() =>
+                            (editQ = { ...editQ, options: removeOption(editQ.options, oi) })}
                           disabled={editQ.options.length <= 2}
                           aria-label="Hapus pilihan"
                         >
@@ -789,7 +796,7 @@
                     <button
                       type="button"
                       class="btn-ghost !py-1 text-xs"
-                      on:click={() => addOption(editQ.options)}
+                      on:click={() => (editQ = { ...editQ, options: addOption(editQ.options) })}
                     >
                       <Icon name="plus" size="10px" /> Tambah pilihan
                     </button>
@@ -1032,7 +1039,7 @@
                     title="Tandai jawaban benar"
                     aria-label={`Tandai opsi ${OPTION_LABELS[oi]} sebagai jawaban benar`}
                     aria-pressed={opt.is_correct}
-                    on:click={() => setCorrect(newQ.options, oi)}
+                    on:click={() => (newQ = { ...newQ, options: setCorrect(newQ.options, oi) })}
                   >
                     <Icon name={opt.is_correct ? "circle-check" : "circle"} size="11px" />
                   </button>
@@ -1041,7 +1048,7 @@
                   <button
                     type="button"
                     class="btn-icon !text-tertiary flex-none"
-                    on:click={() => removeOption(newQ.options, oi)}
+                    on:click={() => (newQ = { ...newQ, options: removeOption(newQ.options, oi) })}
                     disabled={newQ.options.length <= 2}
                     aria-label="Hapus pilihan"
                   >
@@ -1052,7 +1059,7 @@
               <button
                 type="button"
                 class="btn-ghost !py-1 text-xs"
-                on:click={() => addOption(newQ.options)}
+                on:click={() => (newQ = { ...newQ, options: addOption(newQ.options) })}
               >
                 <Icon name="plus" size="10px" /> Tambah pilihan
               </button>
