@@ -203,3 +203,44 @@ async def test_service_owns_generation_job_status(session):
     # Cleanup so leftovers do not leak into other tests.
     await session.execute(update(GradingJob).where(GradingJob.id.in_([job.id, bad.id])).values(status="failed"))
     await session.flush()
+
+
+async def test_reaped_exhausted_job_refunds_ort(session, monkeypatch):
+    """A stuck job that exhausts its attempts is failed AND its ORT refunded.
+
+    The ORT is debited at submission; if the worker dies mid-job the reaper must
+    return it when it finally fails the job, not silently keep the charge.
+    """
+    from datetime import timedelta
+
+    from app.core.config import settings
+    from app.services.ai_usage_service import AiUsageService
+    from app.services.reward_engine import RewardEngine
+    from app.workers.main import _reap_stuck_jobs
+
+    monkeypatch.setattr(settings, "ai_free_requests", 0)  # force ORT debit
+    student, _attempt, job = await _seed_grading_job(session)
+    # Fund ORT and charge the job (1 ORT), as the submission path does.
+    await RewardEngine(session).credit_asset(user_id=student.id, asset="ORT", amount=5)
+    await AiUsageService(session).charge_job(user=student, job_id=job.id)
+    await session.flush()
+    assert await RewardEngine(session).asset_balance(student.id, "ORT") == 4
+
+    # Mark it running, past the timeout, with attempts already exhausted.
+    job.status = "running"
+    job.attempts = job.max_attempts
+    job.started_at = datetime.now(UTC) - timedelta(seconds=10_000)
+    await session.flush()
+
+    reaped = await _reap_stuck_jobs(session)
+    assert reaped >= 1
+    await session.refresh(job)
+    assert job.status == "failed"
+    assert job.error_code == "timeout"
+    # The ORT charge was returned.
+    assert await RewardEngine(session).asset_balance(student.id, "ORT") == 5
+    # Cleanup so the leftover failed job does not affect other tests.
+    from sqlalchemy import update
+
+    await session.execute(update(GradingJob).where(GradingJob.id == job.id).values(status="failed"))
+    await session.flush()

@@ -65,6 +65,13 @@ async def _reap_stuck_jobs(session) -> int:
             job.error_code = "timeout"
             job.error_message = "Job exceeded the worker timeout"
             job.finished_at = datetime.now(UTC)
+            # The ORT for this AI job was debited at submission and never
+            # refunded if the worker died mid-flight; return it now that the job
+            # has reached a terminal failure (mirrors the in-service failure
+            # paths). Idempotent per job.
+            from app.services.ai_usage_service import AiUsageService
+
+            await AiUsageService(session).refund_job(user_id=job.owner_id, job_id=job.id)
         else:
             job.status = "queued"
             job.available_at = datetime.now(UTC) + timedelta(seconds=30)
