@@ -672,53 +672,78 @@ class RewardEngine:
         ``sum(credits) - sum(debits)``. Any mismatch is reported (metric + row
         metadata), and the cached value is repaired to match the ledger so
         subsequent balance reads are correct again.
+
+        ``limit`` is the *page size* for the scan — the scan walks accounts in
+        keyset order ``(created_at, id)`` until exhausted, so no account is ever
+        skipped (a single ``LIMIT 200`` slice silently ignored every later
+        account).
         """
         from sqlalchemy import func
 
         from app.core import metrics
         from app.models.identity import User
 
-        accounts = (
-            await self.session.execute(
-                select(WalletAccount).order_by(WalletAccount.created_at).limit(limit)
-            )
-        ).scalars().all()
         drifted: list[dict] = []
-        for account in accounts:
-            credits = (
-                await self.session.execute(
-                    select(func.coalesce(func.sum(WalletLedgerEntry.amount), 0)).where(
-                        WalletLedgerEntry.account_id == account.id,
-                        WalletLedgerEntry.entry_type == "credit",
+        # Keyset cursor: the (created_at, id) of the last account of the previous
+        # page. Created_at may tie, so id is the tiebreaker.
+        after: tuple | None = None
+        while True:
+            stmt = select(WalletAccount).order_by(
+                WalletAccount.created_at, WalletAccount.id
+            )
+            if after is not None:
+                cursor_created, cursor_id = after
+                stmt = stmt.where(
+                    (WalletAccount.created_at > cursor_created)
+                    | (
+                        (WalletAccount.created_at == cursor_created)
+                        & (WalletAccount.id > cursor_id)
                     )
                 )
-            ).scalar_one()
-            debits = (
-                await self.session.execute(
-                    select(func.coalesce(func.sum(WalletLedgerEntry.amount), 0)).where(
-                        WalletLedgerEntry.account_id == account.id,
-                        WalletLedgerEntry.entry_type == "debit",
+            accounts = (
+                (await self.session.execute(stmt.limit(limit))).scalars().all()
+            )
+            if not accounts:
+                break
+            for account in accounts:
+                credits = (
+                    await self.session.execute(
+                        select(func.coalesce(func.sum(WalletLedgerEntry.amount), 0)).where(
+                            WalletLedgerEntry.account_id == account.id,
+                            WalletLedgerEntry.entry_type == "credit",
+                        )
                     )
-                )
-            ).scalar_one()
-            expected = int(credits) - int(debits)
-            if account.cached_balance != expected:
-                drifted.append(
-                    {
-                        "account_id": str(account.id),
-                        "user_id": str(account.user_id),
-                        "cached": account.cached_balance,
-                        "expected": expected,
-                    }
-                )
-                account.cached_balance = expected
-                metrics.incr("ledger_reconciliation_errors_total")
-                log.warning(
-                    "ledger_drift_detected",
-                    account_id=str(account.id),
-                    cached=drifted[-1]["cached"],
-                    expected=expected,
-                )
+                ).scalar_one()
+                debits = (
+                    await self.session.execute(
+                        select(func.coalesce(func.sum(WalletLedgerEntry.amount), 0)).where(
+                            WalletLedgerEntry.account_id == account.id,
+                            WalletLedgerEntry.entry_type == "debit",
+                        )
+                    )
+                ).scalar_one()
+                expected = int(credits) - int(debits)
+                if account.cached_balance != expected:
+                    drifted.append(
+                        {
+                            "account_id": str(account.id),
+                            "user_id": str(account.user_id),
+                            "cached": account.cached_balance,
+                            "expected": expected,
+                        }
+                    )
+                    account.cached_balance = expected
+                    metrics.incr("ledger_reconciliation_errors_total")
+                    log.warning(
+                        "ledger_drift_detected",
+                        account_id=str(account.id),
+                        cached=drifted[-1]["cached"],
+                        expected=expected,
+                    )
+            last = accounts[-1]
+            after = (last.created_at, last.id)
+            if len(accounts) < limit:
+                break
         if drifted:
             await self.session.flush()
         # Attach a user email-ish label for the admin view (id only, no PII leak).

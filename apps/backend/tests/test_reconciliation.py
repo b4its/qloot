@@ -152,3 +152,53 @@ async def test_admin_reconcile_endpoint(client, engine):
     r = await client.post("/api/v1/admin/ledger/reconcile")
     assert r.status_code == 200, r.text
     assert "drifted" in r.json() and "count" in r.json()
+
+
+async def test_reconcile_all_paginates_past_the_first_page(client, engine):
+    """A drift on an account created *after* ``limit`` other accounts must still
+    be found — the scan has to keyset-paginate, not take a single page slice."""
+    # Seed more accounts than one page, plus the finally-drifted one at the end.
+    await register_actor(client, "recon_page_0@ex.com", "student")
+    first = (await client.get("/api/v1/auth/me")).json()["id"]
+    me = first
+    for i in range(1, 6):
+        email = f"recon_page_{i}@ex.com"
+        await register_actor(client, email, "student")
+        me = (await client.get("/api/v1/auth/me")).json()["id"]
+
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as s:
+        # Give the last-created account a real ledger entry, then drift it.
+        user = await s.get(User, uuid.UUID(me))
+        await RewardEngine(s).credit(
+            user=user,
+            amount=100,
+            reference_type="reward",
+            reference_id="recon-page-last",
+            reward_key_value="rk-recon-page-last",
+            token_id=0,
+        )
+        await s.commit()
+
+    async with sm() as s:
+        await s.execute(
+            update(WalletAccount)
+            .where(WalletAccount.user_id == uuid.UUID(me))
+            .values(cached_balance=777)
+        )
+        await s.commit()
+
+    # Page size of 1 forces a multi-page scan; every account must be visited.
+    async with sm() as s:
+        drifted = await RewardEngine(s).reconcile_all(limit=1)
+        await s.commit()
+
+    assert any(d["user_id"] == me for d in drifted), drifted
+
+    async with sm() as s:
+        account = (
+            await s.execute(
+                select(WalletAccount).where(WalletAccount.user_id == uuid.UUID(me))
+            )
+        ).scalar_one()
+    assert account.cached_balance == 100
