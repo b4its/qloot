@@ -73,7 +73,13 @@
   });
 
   // --- derived operational signals -------------------------------------------
-  $: pendingWithdrawals = withdrawals.filter((w) => w.status === "pending").length;
+  // A withdrawal is "awaiting action" while it is anywhere in the
+  // requested → approved → submitted pipeline (matching the wallet view and the
+  // withdrawals admin page). There is no bare "pending" status.
+  const PENDING_WITHDRAWAL_STATUSES = ["requested", "approved", "submitted"];
+  $: pendingWithdrawals = withdrawals.filter((w) =>
+    PENDING_WITHDRAWAL_STATUSES.includes(w.status),
+  ).length;
   $: failedRewards = rewards.filter((r) => r.status === "failed").length;
   $: pendingRewards = rewards.filter((r) => r.status === "pending").length;
   $: activeUsers = users.filter((u) => u.is_active).length;
