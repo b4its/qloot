@@ -121,4 +121,39 @@ describe("course detail — student progress awareness", () => {
     expect(await screen.findByText(/progres belajarmu belum dapat dimuat/i)).toBeTruthy();
     expect(screen.queryByRole("progressbar", { name: "Progres pelajaran" })).toBeNull();
   });
+
+  it("loads progress once auth resolves after mount (hard refresh)", async () => {
+    // Simulate a hard refresh: the page mounts while auth is still loading, so
+    // the student is unknown at mount. Progress must still be fetched once
+    // auth settles — not left on the 0/N placeholder.
+    let resolveMe: (u: unknown) => void = () => {};
+    const mePromise = new Promise((res) => {
+      resolveMe = res;
+    });
+    get.mockImplementation((path: string) => {
+      if (path.includes("/auth/me")) return mePromise;
+      if (path.includes("/me/learning-progress")) return Promise.resolve(progress);
+      if (path.includes("/lessons")) return Promise.resolve(lessons);
+      if (path.startsWith("/courses/")) return Promise.resolve(course);
+      return Promise.resolve([]);
+    });
+
+    // Kick auth.load() (sets loading:true) but do not await — the page mounts
+    // while auth is unresolved.
+    const loading = auth.load();
+    render(CourseDetailPage);
+    // Course chrome is visible, but progress is not yet known.
+    await waitFor(() => expect(document.querySelector('[data-lesson="l1"]')).toBeTruthy());
+
+    // Auth resolves to the student now.
+    resolveMe(student);
+    await loading;
+
+    await waitFor(() =>
+      expect(get.mock.calls.some((c) => String(c[0]).includes("course_id=c1"))).toBe(true),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("progressbar", { name: "Progres pelajaran" })).toBeTruthy(),
+    );
+  });
 });

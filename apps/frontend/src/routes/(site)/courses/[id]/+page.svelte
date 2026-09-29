@@ -37,18 +37,32 @@
       course = await api.get<Course>(`/courses/${id}`);
       lessons = await api.get<Lesson[]>(`/courses/${id}/lessons`);
       // Learning progress is per-student; teachers/admins manage, not learn.
+      // Auth may still be resolving at mount, so this is also (re)loaded
+      // reactively once auth settles (see loadProgress below).
       if (!$auth.loading && $auth.user && !canManage) {
-        try {
-          progress = await api.get<Progress[]>(`/me/learning-progress?course_id=${id}&limit=200`);
-        } catch {
-          progress = [];
-          progressError = "Progres belajarmu belum dapat dimuat pada pelajaran ini.";
-        }
+        await loadProgress();
       }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat pelajaran";
     } finally {
       loading = false;
+    }
+  }
+
+  // Track which (course, auth) combination the progress was loaded for, so the
+  // student's real progress replaces the "0/N" placeholder once auth resolves
+  // (the page previously only fetched it in onMount, before auth was ready).
+  let progressLoadedFor = "";
+  async function loadProgress() {
+    if ($auth.loading || !$auth.user || canManage) return;
+    const key = `${id}:${$auth.user.id}`;
+    if (progressLoadedFor === key) return;
+    progressLoadedFor = key;
+    try {
+      progress = await api.get<Progress[]>(`/me/learning-progress?course_id=${id}&limit=200`);
+    } catch {
+      progress = [];
+      progressError = "Progres belajarmu belum dapat dimuat pada pelajaran ini.";
     }
   }
 
@@ -67,10 +81,12 @@
 
   onMount(load);
 
-  // Auth resolves asynchronously after mount; re-check the certificate whenever
-  // the id or auth state becomes available (previously only ran once, too early).
+  // Auth resolves asynchronously after mount; re-check the certificate AND the
+  // student's progress whenever the id or auth state becomes available
+  // (previously both only ran once, before auth was ready).
   $: if (id && !$auth.loading && $auth.user && !canManage) {
     loadCertificate();
+    loadProgress();
   }
 </script>
 
