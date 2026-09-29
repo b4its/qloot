@@ -241,6 +241,58 @@ async def _mk_outbox(session, topic, payload, key):
     return item
 
 
+async def test_withdrawal_terminal_failure_refunds_the_fee(session):
+    """A withdrawal that fails on-chain must return the fee, not just the amount.
+
+    ``request()`` debits ``amount + fee`` as two ledger entries; a terminal
+    failure that only refunds ``amount`` silently pockets the fee.
+    """
+    from app.models.wallet import WithdrawalRequest
+
+    student = await _mk_user(session, "wdfee_fail@q.com")
+    engine = RewardEngine(session)
+    await engine.credit(
+        user=student,
+        amount=100,
+        reference_type="reward",
+        reference_id="r-fee",
+        reward_key_value="rk-fee",
+        token_id=0,
+    )
+    wd_id = uuid.uuid4()
+    await engine.debit_for_withdrawal(
+        user=student, amount=50, withdrawal_id=wd_id, destination="0x" + "2" * 40
+    )
+    await engine.debit_withdrawal_fee(user_id=student.id, amount=5, withdrawal_id=wd_id)
+    assert await engine.balance(student.id) == 45
+
+    wd = WithdrawalRequest(
+        user_id=student.id,
+        reward_key="wd-fee",
+        destination_address="0x" + "2" * 40,
+        token_id=0,
+        amount=50,
+        fee_amount=5,
+        status="submitted",
+    )
+    session.add(wd)
+    await session.flush()
+
+    item = await _mk_outbox(
+        session, "withdrawal", {"withdrawal_id": str(wd.id)}, "wd-fee-fail-1"
+    )
+    from app.blockchain.worker_logic import _mark_failed
+
+    await _mark_failed(session, item, "payout reverted")
+    await session.flush()
+
+    # Both the amount AND the fee were returned.
+    assert await engine.balance(student.id) == 100
+    assert (await session.get(WithdrawalRequest, wd.id)).status == "failed"
+    cached, computed = await engine.reconcile(student.id)
+    assert cached == computed == 100
+
+
 async def test_airdrop_topic_mints(session):
     """An 'airdrop' outbox item mints the asset (dry-run: deterministic hash)."""
     from sqlalchemy import select

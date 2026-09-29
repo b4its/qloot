@@ -270,10 +270,14 @@ async def _mark_failed(session: AsyncSession, item, error: str) -> None:
         wd = await session.get(WithdrawalRequest, uuid.UUID(payload["withdrawal_id"]))
         if wd is not None and wd.status not in ("completed", "cancelled"):
             wd.status = "failed"
-            # Funds were debited up front; return them to the user.
+            # Funds (amount + fee) were debited up front; return both to the user.
             await engine.refund_withdrawal(
                 user_id=wd.user_id, amount=wd.amount, withdrawal_id=wd.id
             )
+            if wd.fee_amount:
+                await engine.refund_withdrawal_fee(
+                    user_id=wd.user_id, amount=wd.fee_amount, withdrawal_id=wd.id
+                )
     if item.topic == "swap":
         await _refund_swap(engine, item, payload)
     if item.topic == "ai_request" and payload.get("user_id"):
@@ -553,6 +557,10 @@ async def _mark_reverted(session: AsyncSession, tx: BlockchainTransaction) -> No
             await engine.refund_withdrawal(
                 user_id=wd.user_id, amount=wd.amount, withdrawal_id=wd.id
             )
+            if wd.fee_amount:
+                await engine.refund_withdrawal_fee(
+                    user_id=wd.user_id, amount=wd.fee_amount, withdrawal_id=wd.id
+                )
     if tx.method == "swapOptFor" and args.get("user_id"):
         await engine.refund_swap(
             user_id=uuid.UUID(args["user_id"]),
