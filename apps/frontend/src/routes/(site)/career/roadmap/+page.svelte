@@ -1,7 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
-  import { onMount } from "svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { Recommendation, Milestone, MilestoneTask, PendingReview } from "$lib/types";
@@ -184,7 +183,15 @@
   $: doneTasks = allTasks.filter((t) => t.done).length;
   $: taskPct = allTasks.length ? Math.round((doneTasks / allTasks.length) * 100) : 0;
 
-  onMount(load);
+  // Load once auth has resolved: the counselor-only "pending review" list is
+  // gated on the caller's role, so loading before auth settles (a hard refresh
+  // mounts with $auth.user still null) would leave a counselor with an empty,
+  // never-retried queue.
+  let loadedFor = "";
+  $: if (!$auth.loading && $auth.user && loadedFor !== $auth.user.id) {
+    loadedFor = $auth.user.id;
+    load();
+  }
 </script>
 
 <svelte:head><title>Analisis AI & Peta Jalan — QLoot</title></svelte:head>
