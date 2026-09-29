@@ -42,6 +42,7 @@
 
   async function loadRanking() {
     rankLoading = true;
+    error = "";
     try {
       const res = await api.get<RankingResponse>(
         `/rankings/global?limit=${PAGE}&offset=${(rankPage - 1) * PAGE}&period=${period}`,

@@ -61,4 +61,28 @@ describe("ranking page — period selector (GAME-11)", () => {
 
     await waitFor(() => expect(get).toHaveBeenCalledWith(expect.stringContaining("period=weekly")));
   });
+
+  it("clears a stale error banner after a successful retry", async () => {
+    let first = true;
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/rankings/me")) return Promise.resolve({ user_id: "u1", period: "all" });
+      if (path.startsWith("/rankings/global")) {
+        if (first) {
+          first = false;
+          return Promise.reject(new Error("boom"));
+        }
+        return Promise.resolve({ scope: "global", period: "all", entries: [] });
+      }
+      if (path.startsWith("/gamification/levels")) return Promise.resolve({ entries: [] });
+      return Promise.resolve([]);
+    });
+
+    render(RankingPage);
+    // The failed first load surfaces an error.
+    expect(await screen.findByText(/Gagal memuat peringkat/i)).toBeTruthy();
+
+    // Retry via a period switch succeeds → the error must be cleared.
+    await fireEvent.click(screen.getByRole("tab", { name: /minggu ini/i }));
+    await waitFor(() => expect(screen.queryByText(/Gagal memuat peringkat/i)).toBeNull());
+  });
 });
