@@ -181,11 +181,15 @@ class QuestService:
         await BadgeService(self.session).award(user=user, code="first_quest")
         return attempt
 
-    async def finalize(self, quest_id: uuid.UUID, user: User) -> tuple[Quest, list[QuestWinner]]:
+    async def finalize(
+        self, quest_id: uuid.UUID, user: User
+    ) -> tuple[Quest, list[QuestWinner], bool]:
         quest = await self._owned(quest_id, user)
         return await self._finalize_locked(quest)
 
-    async def finalize_system(self, quest_id: uuid.UUID) -> tuple[Quest, list[QuestWinner]]:
+    async def finalize_system(
+        self, quest_id: uuid.UUID
+    ) -> tuple[Quest, list[QuestWinner], bool]:
         """Finalize without an owning-user check — for the auto-finalize sweep.
 
         Identical winner-selection logic to :meth:`finalize`; only the
@@ -195,14 +199,25 @@ class QuestService:
         quest = await self.get(quest_id)
         return await self._finalize_locked(quest)
 
-    async def _finalize_locked(self, quest: Quest) -> tuple[Quest, list[QuestWinner]]:
+    async def _finalize_locked(
+        self, quest: Quest
+    ) -> tuple[Quest, list[QuestWinner], bool]:
         quest_id = quest.id
         if quest.status == "finalized":
             existing_winners = await self.list_winners(quest_id)
-            return quest, existing_winners
+            return quest, existing_winners, True
 
         # Lock the quest row so only one finalize runs at a time.
         await self.session.execute(select(Quest.id).where(Quest.id == quest_id).with_for_update())
+
+        # Re-read under the lock: a concurrent finalizer may have completed
+        # between the check above and acquiring the row lock. Reporting
+        # already_finalized from here (not a pre-lock read) is what keeps
+        # notifications/badges from firing twice.
+        await self.session.refresh(quest)
+        if quest.status == "finalized":
+            existing_winners = await self.list_winners(quest_id)
+            return quest, existing_winners, True
 
         rules = {r.rank: r for r in await self.list_rules(quest_id)}
         top_n = quest.top_n_winners or settings.default_top_n_winners
@@ -265,7 +280,7 @@ class QuestService:
         quest.finalized_at = datetime.now(UTC)
         await self.session.flush()
         log.info("quest_finalized", quest_id=str(quest_id), winners=len(winners))
-        return quest, winners
+        return quest, winners, False
 
     async def list_winners(
         self, quest_id: uuid.UUID, *, limit: int = 200, offset: int = 0

@@ -94,9 +94,9 @@ async def finalize_quest(quest_id: uuid.UUID, user: TeacherUser, db: DbSession):
         service = QuestService(db)
         # Whether winners already existed decides if side effects (reward
         # notifications, badges) should fire — a re-finalize must be a no-op.
-        already_finalized = (await service.get(quest_id)).status == "finalized"
-
-        quest, winners = await service.finalize(quest_id, user)
+        # finalize() reports this from inside the row lock, so a concurrent
+        # finalizer cannot double-fire the side effects.
+        quest, winners, already_finalized = await service.finalize(quest_id, user)
         rules = {r.rank: r for r in await service.list_rules(quest_id)}
 
         from app.services.quest_finalize import apply_finalize_side_effects

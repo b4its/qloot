@@ -41,12 +41,18 @@ async def apply_finalize_side_effects(
     badges = BadgeService(session)
     notifications = NotificationService(session)
 
+    # Match the winner-selection logic in _finalize_locked: a 0 is "use the
+    # default", not "no winners", otherwise every winner would be filtered out.
+    from app.core.config import settings
+
+    top_n = quest.top_n_winners or settings.default_top_n_winners
+
     created = 0
     for w in winners:
         rule = rules.get(w.rank)
         amount = rule.reward_amount if rule else 0
         user_row = await session.get(User, w.user_id)
-        if user_row is None or amount <= 0 or w.rank > quest.top_n_winners:
+        if user_row is None or amount <= 0 or w.rank > top_n:
             continue
         await engine.allocate_quest_reward(
             quest=quest, user=user_row, rank=w.rank, amount=amount, score_bp=w.score_bp
@@ -107,8 +113,9 @@ async def finalize_quest_system(session: AsyncSession, quest_id: uuid.UUID) -> i
     same side-effects the HTTP endpoint applies. Returns allocations created.
     """
     service = QuestService(session)
-    already_finalized = (await service.get(quest_id)).status == "finalized"
-    quest, winners = await service.finalize_system(quest_id)
+    # already_finalized is reported by _finalize_locked (inside the row lock),
+    # so a concurrent finalizer can never cause duplicate notifications/badges.
+    quest, winners, already_finalized = await service.finalize_system(quest_id)
     return await apply_finalize_side_effects(
         session, quest, winners, already_finalized=already_finalized
     )

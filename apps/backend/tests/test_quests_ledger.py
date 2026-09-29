@@ -91,7 +91,7 @@ async def test_winners_are_deterministic_and_fastest_valid(session):
         await QuestService(session).record_attempt(quest.id, s, exam_attempt_id=attempt.id)
     await session.flush()
 
-    _, winners = await QuestService(session).finalize(quest.id, owner)
+    _, winners, _ = await QuestService(session).finalize(quest.id, owner)
     assert len(winners) == 3
     # Rank 1: highest score, then fastest. Two 9000s -> faster (50s) is rank 1.
     assert winners[0].score_bp == 9000
@@ -118,13 +118,46 @@ async def test_finalize_is_idempotent(session):
     await session.flush()
 
     svc = QuestService(session)
-    _, w1 = await svc.finalize(quest.id, owner)
-    _, w2 = await svc.finalize(quest.id, owner)
+    _, w1, _ = await svc.finalize(quest.id, owner)
+    _, w2, _ = await svc.finalize(quest.id, owner)
     assert len(w1) == 3
     assert len(w2) == 3
     # Deterministic: same winners, same ranks.
     assert sorted(w.rank for w in w1) == sorted(w.rank for w in w2)
     assert {w.user_id for w in w1} == {w.user_id for w in w2}
+
+
+async def test_finalize_with_top_n_zero_uses_default_and_pays_rewards(session):
+    """top_n_winners == 0 means "use the default", so winners must be paid.
+
+    The winner selection already treated 0 as the default; the side-effect
+    filter compared against the raw 0 and dropped every winner, so no OPT was
+    ever allocated.
+    """
+    from app.core.config import settings
+    from app.services.quest_finalize import apply_finalize_side_effects
+
+    owner = await _user(session, "owner_zero@q.com", "teacher")
+    exam = Exam(title="EZ", owner_id=owner.id, is_active=True)
+    session.add(exam)
+    await session.flush()
+    # top_n_winners=0 → default applies.
+    quest = await _make_quest(session, owner, top_n=0)
+    students = [await _user(session, f"z{i}@q.com") for i in range(2)]
+    for s, sc, d in zip(students, [9000, 8000], [10, 20], strict=False):
+        attempt = await _graded_attempt(session, exam, s, sc, d)
+        await QuestService(session).record_attempt(quest.id, s, exam_attempt_id=attempt.id)
+    await session.flush()
+
+    _, winners, already = await QuestService(session).finalize(quest.id, owner)
+    assert not already
+    assert len(winners) >= 1
+    assert settings.default_top_n_winners >= 1
+
+    created = await apply_finalize_side_effects(session, quest, winners, already_finalized=False)
+    # The winners were actually rewarded.
+    assert created == len(winners)
+    assert await RewardEngine(session).balance(students[0].id) > 0
 
 
 async def test_reward_key_matches_expected_formula():
@@ -311,7 +344,7 @@ async def test_late_submission_is_marked_invalid_and_cannot_win(session):
     assert qa.is_valid is False
     assert qa.invalid_reason and "closed" in qa.invalid_reason
 
-    _, winners = await QuestService(session).finalize(closed.id, owner)
+    _, winners, _ = await QuestService(session).finalize(closed.id, owner)
     assert winners == []
 
 

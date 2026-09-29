@@ -609,7 +609,7 @@ async def _simulate_activity(teacher: User, students: list[User]) -> None:
             await session.execute(select(User).where(User.email == "teacher@qloot.example"))
         ).scalar_one()
         svc = QuestService(session)
-        _, winners = await svc.finalize(quest.id, owner)
+        _, winners, _already_finalized = await svc.finalize(quest.id, owner)
         rules = {r.rank: r for r in await svc.list_rules(quest.id)}
 
         from app.services.reward_engine import RewardEngine
