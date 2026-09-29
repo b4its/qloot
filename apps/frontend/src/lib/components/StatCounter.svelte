@@ -7,12 +7,20 @@
 
   let display = 0;
   let el: HTMLSpanElement;
-  let done = false;
+  // Whether the counter has entered the viewport (or the fallback fired).
+  let started = false;
+  // The value the current animation is heading towards, so a late-arriving
+  // real value (stats load async) is not dropped after the first run.
+  let animatedTo: number | null = null;
+  let rafId: number | null = null;
 
   function animate() {
-    if (done) return;
-    done = true;
+    if (!started) return;
+    if (animatedTo === value) return;
+    animatedTo = value;
+    if (rafId !== null) cancelAnimationFrame(rafId);
     const start = performance.now();
+    const from = display;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       display = value;
@@ -21,38 +29,47 @@
     function frame(now: number) {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      display = Math.round(value * eased);
-      if (t < 1) requestAnimationFrame(frame);
-      else display = value;
+      display = Math.round(from + (value - from) * eased);
+      if (t < 1) rafId = requestAnimationFrame(frame);
+      else {
+        display = value;
+        rafId = null;
+      }
     }
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
   }
 
+  // Re-animate whenever the target value changes after the counter has started
+  // (e.g. community stats render at 0, then the fetch resolves).
+  $: if (started && value !== animatedTo) animate();
+
   onMount(() => {
-    if (!el) {
-      animate();
-      return;
-    }
-    // Fallback: if IntersectionObserver is unavailable, never leave the
-    // counter stuck at a misleading "0".
-    if (typeof IntersectionObserver === "undefined") {
+    if (!el || typeof IntersectionObserver === "undefined") {
+      started = true;
       animate();
       return;
     }
     const io = new IntersectionObserver(
       (entries) =>
         entries.forEach((e) => {
-          if (e.isIntersecting) animate();
+          if (e.isIntersecting) {
+            started = true;
+            animate();
+          }
         }),
       { threshold: 0.3 },
     );
     io.observe(el);
     // Safety net: if the element is already visible but the observer never
     // fires (e.g. a display:none ancestor), still show the real value.
-    const fallback = setTimeout(() => animate(), 1500);
+    const fallback = setTimeout(() => {
+      started = true;
+      animate();
+    }, 1500);
     return () => {
       io.disconnect();
       clearTimeout(fallback);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   });
 </script>
