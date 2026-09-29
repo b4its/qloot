@@ -9,8 +9,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function loginAsTeacher(page: Page) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("teacher@qloot.example");
-  await page.getByLabel("Kata sandi").fill("TeacherPass123!");
+  await page.getByLabel("Email", { exact: true }).fill("teacher@qloot.example");
+  await page.getByLabel("Kata sandi", { exact: true }).fill("TeacherPass123!");
   await page.getByRole("button", { name: /masuk/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
@@ -19,8 +19,8 @@ test("teacher area shows its own sub-nav, not the student nav", async ({ page })
   await loginAsTeacher(page);
   await page.goto("/teacher");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Kelola pembelajaran");
-  // Role sub-nav marker.
-  await expect(page.getByText("Guru", { exact: true }).first()).toBeVisible();
+  // Role sub-nav marker: the panel brand reads "Panel Guru".
+  await expect(page.getByText(/panel guru/i).first()).toBeVisible();
   // A teacher-only link is present; the student "Dashboard" link is not.
   await expect(page.getByRole("link", { name: /pelajaran/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /^dashboard$/i })).toHaveCount(0);

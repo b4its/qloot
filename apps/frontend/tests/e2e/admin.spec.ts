@@ -9,8 +9,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("admin@qloot.example");
-  await page.getByLabel("Kata sandi").fill("AdminPass123!");
+  await page.getByLabel("Email", { exact: true }).fill("admin@qloot.example");
+  await page.getByLabel("Kata sandi", { exact: true }).fill("AdminPass123!");
   await page.getByRole("button", { name: /masuk/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }

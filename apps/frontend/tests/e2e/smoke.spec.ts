@@ -18,14 +18,21 @@ test("landing page is a one-page experience with anchor nav", async ({ page }) =
   for (const id of ["fitur", "kelas", "guru", "sertifikat", "testimoni"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
   }
-  await expect(page.getByRole("button", { name: "Fitur" })).toBeVisible();
+  // Scope to the header nav: the footer repeats the same anchor labels. The
+  // `.hud` buttons carry CSS "[ ]" decoration, so match on contained text.
+  const headerNav = page.getByRole("navigation", { name: "Navigasi landing" });
+  await expect(headerNav.getByRole("button", { name: /Fitur/i }).first()).toBeVisible();
 });
 
 test("theme toggle persists across reload", async ({ page }) => {
   await page.goto("/");
   const html = page.locator("html");
   const before = await html.getAttribute("class");
-  await page.getByRole("button", { name: /theme/i }).click();
+  // The toggle's accessible name is Indonesian ("Ganti tema tampilan").
+  await page
+    .getByRole("button", { name: /ganti tema/i })
+    .first()
+    .click();
   const after = await html.getAttribute("class");
   expect(after).not.toBe(before);
 
@@ -38,8 +45,8 @@ test("register then reach dashboard", async ({ page }) => {
   const email = `e2e_${Date.now()}@example.com`;
   await page.goto("/register");
   await page.getByLabel("Nama lengkap").fill("E2E Tester");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Kata sandi").fill("Password123!");
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Kata sandi", { exact: true }).fill("Password123!");
   await page.getByRole("button", { name: /daftar/i }).click();
   await expect(page).toHaveURL(/\/dashboard/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Halo");

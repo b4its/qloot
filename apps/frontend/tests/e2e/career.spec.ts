@@ -9,8 +9,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function loginAsStudent(page: Page) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student1@qloot.example");
-  await page.getByLabel("Kata sandi").fill("StudentPass123!");
+  await page.getByLabel("Email", { exact: true }).fill("student1@qloot.example");
+  await page.getByLabel("Kata sandi", { exact: true }).fill("StudentPass123!");
   await page.getByRole("button", { name: /masuk/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
@@ -23,7 +23,7 @@ test("student can open the career hub and the assistant", async ({ page }) => {
 
 test("assistant answers a question and streams a reply", async ({ page }) => {
   await loginAsStudent(page);
-  await page.goto("/career/assistant");
+  await page.goto("/assistant");
   const input = page.getByLabel(/pertanyaan untuk asisten/i);
   await input.fill("Apa itu SNBP?");
   await input.press("Enter");

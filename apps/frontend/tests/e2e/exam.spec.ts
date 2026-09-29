@@ -10,8 +10,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function loginAsStudent(page: Page) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student1@qloot.example");
-  await page.getByLabel("Kata sandi").fill("StudentPass123!");
+  await page.getByLabel("Email", { exact: true }).fill("student1@qloot.example");
+  await page.getByLabel("Kata sandi", { exact: true }).fill("StudentPass123!");
   await page.getByRole("button", { name: /masuk/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
@@ -20,10 +20,9 @@ test("student can list exams and open one", async ({ page }) => {
   await loginAsStudent(page);
   await page.goto("/exams");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const first = page
-    .getByRole("link")
-    .filter({ hasText: /ujian|exam/i })
-    .first();
+  // Match exam *detail* links only (href "/exams/<id>"), never the "/exams"
+  // nav link, which would keep us on the list page.
+  const first = page.locator('a[href^="/exams/"]').first();
   if (await first.count()) {
     await first.click();
     await page.waitForURL(/\/exams\/[^/]+$/);
@@ -34,10 +33,7 @@ test("student can list exams and open one", async ({ page }) => {
 test("starting an attempt opens the attempt page with a timer", async ({ page }) => {
   await loginAsStudent(page);
   await page.goto("/exams");
-  const first = page
-    .getByRole("link")
-    .filter({ hasText: /ujian|exam/i })
-    .first();
+  const first = page.locator('a[href^="/exams/"]').first();
   if (!(await first.count())) test.skip();
   await first.click();
   await page.waitForURL(/\/exams\/[^/]+$/);

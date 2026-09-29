@@ -10,8 +10,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 async function loginAsStudent(page: Page) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill("student1@qloot.example");
-  await page.getByLabel("Kata sandi").fill("StudentPass123!");
+  await page.getByLabel("Email", { exact: true }).fill("student1@qloot.example");
+  await page.getByLabel("Kata sandi", { exact: true }).fill("StudentPass123!");
   await page.getByRole("button", { name: /masuk/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
 }
@@ -19,9 +19,10 @@ async function loginAsStudent(page: Page) {
 test("student can open a lesson's material panel and request an AI summary", async ({ page }) => {
   await loginAsStudent(page);
   await page.goto("/learning");
-  await page.getByRole("link").first().click();
+  // Target the course *detail* links, not the skip-link / nav chrome.
+  await page.locator('a[href^="/learning/"]').first().click();
   await page.waitForURL(/\/learning\/[^/]+$/);
-  await page.getByRole("link").first().click();
+  await page.locator('a[href*="/lesson/"]').first().click();
   await page.waitForURL(/\/learning\/[^/]+\/lesson\/[^/]+$/);
 
   const panel = page.getByTestId("material-panel");
