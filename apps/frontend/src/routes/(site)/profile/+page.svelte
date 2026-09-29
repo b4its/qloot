@@ -57,23 +57,32 @@
         api.get<SessionInfo[]>("/auth/sessions"),
         api.get<GamificationProfile>("/gamification/me"),
       ]);
-      if (user?.id) {
-        followCountsError = false;
-        try {
-          followCounts = await api.get<{ followers: number; following: number }>(
-            `/users/${user.id}/follow`,
-          );
-        } catch {
-          followCounts = null;
-          followCountsError = true;
-        }
-      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat sesi";
     } finally {
       loading = false;
     }
   }
+
+  // The caller's follower/following counts are per-user, but auth resolves
+  // after mount (root layout). Load them once auth settles, keyed on the user
+  // id, so they are not skipped on a hard refresh.
+  let followLoadedFor = "";
+  async function loadFollowCounts() {
+    if ($auth.loading || !$auth.user) return;
+    if (followLoadedFor === $auth.user.id) return;
+    followLoadedFor = $auth.user.id;
+    followCountsError = false;
+    try {
+      followCounts = await api.get<{ followers: number; following: number }>(
+        `/users/${$auth.user.id}/follow`,
+      );
+    } catch {
+      followCounts = null;
+      followCountsError = true;
+    }
+  }
+  $: if (!$auth.loading && $auth.user) loadFollowCounts();
 
   async function revoke(id: string) {
     error = "";

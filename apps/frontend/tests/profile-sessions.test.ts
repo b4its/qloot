@@ -124,4 +124,57 @@ describe("profile — active sessions and revoke confirmation", () => {
       expect(screen.getByText(/jumlah pengikut belum dapat dimuat/i)).toBeTruthy(),
     );
   });
+
+  it("loads follow counts once auth resolves after mount (hard refresh)", async () => {
+    // Hard refresh: the page mounts while auth is still loading, so $auth.user
+    // is null when load() begins. The per-user follow counts must still load
+    // once auth settles, not be skipped forever.
+    let resolveMe: (u: unknown) => void = () => {};
+    const mePromise = new Promise((res) => {
+      resolveMe = res;
+    });
+    // Keep load()'s own first await pending so the component is still mid-load
+    // when auth resolves — the exact ordering of a hard refresh.
+    let resolveSessions: (s: unknown) => void = () => {};
+    const sessionsPromise = new Promise((res) => {
+      resolveSessions = res;
+    });
+    get.mockImplementation((path: string) => {
+      if (path.includes("/auth/me")) return mePromise;
+      if (path === "/auth/sessions") return sessionsPromise;
+      if (path === "/gamification/me")
+        return Promise.resolve({
+          user_id: "u1",
+          xp: 0,
+          level: 1,
+          xp_into_level: 0,
+          xp_for_next_level: 100,
+          progress: 0,
+          breakdown: {},
+          quest_wins: 0,
+          tasks_completed: 0,
+          current_streak: 0,
+          best_streak: 0,
+          last_active_date: null,
+        });
+      if (path.startsWith("/users/")) return Promise.resolve({ followers: 7, following: 3 });
+      return Promise.resolve([]);
+    });
+
+    auth.setUser(null);
+    const loading = auth.load();
+    render(ProfilePage);
+    // Let load()'s own fetch complete FIRST while auth is still unresolved:
+    // its `user?.id` guard then reads null and (on the buggy code) skips the
+    // follow fetch forever. Auth resolving afterwards must still trigger it.
+    resolveSessions(sessions);
+    await new Promise((r) => setTimeout(r, 0));
+    resolveMe(student);
+    await loading;
+
+    await waitFor(() =>
+      expect(get.mock.calls.some((c) => String(c[0]).includes("/users/u1/follow"))).toBe(true),
+    );
+    expect(await screen.findByText("7")).toBeTruthy();
+  });
 });
