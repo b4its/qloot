@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/svelte";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/svelte";
 
 // Configurable page store (with the exam id in params).
 const { pageStore } = vi.hoisted(() => {
@@ -208,5 +208,38 @@ describe("teacher exam results review", () => {
 
     expect(await screen.findByText(/Pemeriksaan kemiripan tidak dapat diselesaikan/)).toBeTruthy();
     expect(screen.getByText(/Analitik ujian gagal dimuat/)).toBeTruthy();
+  });
+
+  it("re-seeds the override input from the server after a save", async () => {
+    // First load: the answer scores 100%. After the override the server clamps
+    // it to 40% — the reloaded draft must reflect 40, not the stale 100.
+    const get = api.get as unknown as ReturnType<typeof vi.fn>;
+    const post = api.post as unknown as ReturnType<typeof vi.fn>;
+    let reloaded = false;
+    get.mockImplementation((path: string) => {
+      if (path.includes("/results/review")) {
+        const payload = structuredClone(reviewPayload);
+        if (reloaded) payload.results[0].answers[0].score_bp = 4000;
+        return Promise.resolve(payload);
+      }
+      return Promise.resolve(reviewPayload.exam);
+    });
+    post.mockImplementation((path: string) => {
+      if (path.includes("/override")) reloaded = true;
+      return Promise.resolve({});
+    });
+
+    render(ResultsPage, {});
+    await fireEvent.click(await screen.findByText("Andi Benar"));
+
+    const scoreInput = () =>
+      document.querySelector('input[type="number"][max="100"]') as HTMLInputElement | null;
+    await waitFor(() => expect(scoreInput()?.value).toBe("100"));
+
+    await fireEvent.click((await screen.findAllByRole("button", { name: /simpan/i }))[0]);
+
+    // The reloaded server value (40%) must replace the stale draft, not be
+    // discarded in favour of the pre-save 100.
+    await waitFor(() => expect(scoreInput()?.value).toBe("40"));
   });
 });

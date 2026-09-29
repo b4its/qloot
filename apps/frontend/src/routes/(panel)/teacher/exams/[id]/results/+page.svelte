@@ -50,6 +50,9 @@
   async function load() {
     loading = true;
     error = "";
+    // Reset per-answer drafts so the inputs re-seed from the freshly loaded
+    // scores (a regrade or override can change them server-side).
+    overrides = {};
     try {
       review = await api.get<ExamResultsReview>(
         `/exams/${examId}/results/review?limit=${PAGE}&offset=${(currentPage - 1) * PAGE}`,
@@ -81,17 +84,21 @@
   // --- regrade + per-answer override ---
   let busy = "";
   let message = "";
-  // Per-answer draft overrides keyed by `${attemptId}:${questionId}`.
+  // Per-answer draft overrides keyed by `${attemptId}:${questionId}`. Reassigned
+  // (never mutated in place) so the template — which references it directly —
+  // re-seeds the inputs from freshly loaded server scores.
   let overrides: Record<string, { score: number; feedback: string }> = {};
+  function seedDraft(ans: ReviewAnswer) {
+    return {
+      score: Math.round((ans.score_bp ?? 0) / 100),
+      feedback: ans.feedback ?? "",
+    };
+  }
+  /** Value for an override input, seeded from the server unless the teacher has
+   * already started editing it. */
   function draftFor(attemptId: string, ans: ReviewAnswer) {
     const k = `${attemptId}:${ans.question_id}`;
-    if (!overrides[k]) {
-      overrides[k] = {
-        score: Math.round((ans.score_bp ?? 0) / 100),
-        feedback: ans.feedback ?? "",
-      };
-    }
-    return overrides[k];
+    return overrides[k] ?? seedDraft(ans);
   }
 
   async function regrade(attemptId: string) {
@@ -452,7 +459,8 @@
                           </p>
                         {/if}
                         {#if a.status === "graded" || a.status === "submitted"}
-                          {@const d = draftFor(a.id, ans)}
+                          {@const draftKey = `${a.id}:${ans.question_id}`}
+                          {@const d = overrides[draftKey] ?? (overrides[draftKey] = seedDraft(ans))}
                           <div class="mt-2 flex flex-wrap items-center gap-2">
                             <span class="mono-label">Override nilai (%)</span>
                             <input
