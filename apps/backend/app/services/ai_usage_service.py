@@ -67,9 +67,9 @@ class AiUsageService:
             return  # already metered for this job
 
         free_remaining = await self.free_requests_remaining(user.id)
-        charge = AiUsageCharge(job_id=job_id, user_id=user.id, charged=False)
-        if free_remaining <= 0:
-            engine = RewardEngine(self.session)
+        engine = RewardEngine(self.session)
+        needs_debit = free_remaining <= 0
+        if needs_debit:
             balance = await engine.asset_balance(user.id, "ORT")
             if balance < 1:
                 raise PaymentRequiredError(
@@ -77,11 +77,18 @@ class AiUsageService:
                     "untuk melanjutkan.",
                     detail={"required": 1, "balance": balance},
                 )
-            await engine.debit_asset(user_id=user.id, asset="ORT", amount=1)
-            charge.charged = True
 
+        # The ORT debit and the charge-row insert live in the SAME savepoint:
+        # if a concurrent charge for this job wins the unique(job_id) race, the
+        # rollback must also undo our debit — otherwise the ORT is spent with no
+        # charge row to ever refund it.
         try:
             async with self.session.begin_nested():
+                if needs_debit:
+                    await engine.debit_asset(user_id=user.id, asset="ORT", amount=1)
+                charge = AiUsageCharge(
+                    job_id=job_id, user_id=user.id, charged=needs_debit
+                )
                 self.session.add(charge)
                 await self.session.flush()
         except IntegrityError:
@@ -91,7 +98,7 @@ class AiUsageService:
             "ai_job_metered",
             user_id=str(user.id),
             job_id=str(job_id),
-            charged=charge.charged,
+            charged=needs_debit,
         )
 
     async def refund_job(self, *, user_id: uuid.UUID | None, job_id: uuid.UUID) -> None:
