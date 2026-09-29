@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
@@ -19,10 +18,16 @@
   let saving = false;
   let saved = false;
 
-  const courseId = $page.params.courseId;
-  const lessonId = $page.params.lessonId;
+  // Reactive params: SvelteKit reuses this component when only the route params
+  // change (prev/next links, the lesson dropdown), so a one-shot `const` +
+  // onMount would leave the old lesson on screen. `$page.params` is reactive.
+  $: courseId = $page.params.courseId;
+  $: lessonId = $page.params.lessonId;
 
   async function load() {
+    loading = true;
+    error = "";
+    saved = false;
     try {
       lesson = await api.get<Lesson>(`/lessons/${lessonId}`);
       if (courseId) {
@@ -106,7 +111,12 @@
     ? Math.round((completedCount / courseLessons.length) * 100)
     : 0;
 
-  onMount(load);
+  // Reload whenever the lesson changes (initial mount + prev/next/dropdown nav).
+  let loadedLessonId: string | undefined;
+  $: if (lessonId && lessonId !== loadedLessonId) {
+    loadedLessonId = lessonId;
+    load();
+  }
 </script>
 
 <svelte:head><title>{lesson?.title ?? "Materi"} — QLoot</title></svelte:head>
