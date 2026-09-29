@@ -78,13 +78,15 @@ class AuthService:
         await self.users.assign_role(user, role)
 
         # Every user gets a custodial wallet account (double-entry ledger).
-        # The personal withdrawal wallet defaults to the platform address and
-        # can be changed by the user at /wallet.
+        # The personal withdrawal wallet defaults to the configured platform
+        # address (never the shared treasury) and can be changed at /wallet.
+        from app.services.wallet_service import default_wallet_address
+
         self.session.add(
             WalletAccount(
                 user_id=user.id,
                 token_id=settings.opc_token_id,
-                withdrawal_address=settings.default_wallet_address or None,
+                withdrawal_address=default_wallet_address() or None,
             )
         )
 

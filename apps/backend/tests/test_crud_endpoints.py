@@ -257,6 +257,25 @@ async def test_new_account_has_no_address_without_default(client, monkeypatch):
     body = (await client.get("/api/v1/wallet")).json()
     assert body["withdrawal_address"] in (None, "")
 
+async def test_default_never_falls_back_to_the_treasury(client, monkeypatch):
+    """A misconfigured default equal to the treasury must not become a user wallet.
+
+    The treasury pools every user's on-chain assets, so it must never be handed
+    out as somebody's personal withdrawal address even when
+    ``DEFAULT_WALLET_ADDRESS`` is set equal to ``TREASURY_ADDRESS``.
+    """
+    from app.core.config import settings
+
+    treasury = "0x" + "6E" * 20
+    monkeypatch.setattr(settings, "treasury_address", treasury)
+    # Same address, different case: the guard must still catch it.
+    monkeypatch.setattr(settings, "default_wallet_address", treasury.lower())
+
+    await _register(client, "wallet_treasury_guard@ex.com", "student")
+    body = (await client.get("/api/v1/wallet")).json()
+    assert body["withdrawal_address"] in (None, "")
+    assert body["withdrawal_address"] != treasury
+
 
 async def test_user_can_change_own_wallet_address(client):
     """Any user may change their own personal wallet; the change is persisted."""

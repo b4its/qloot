@@ -20,9 +20,29 @@ from app.models.wallet import WalletAccount
 from app.services.audit import record as audit_record
 
 
+def _same_address(a: str | None, b: str | None) -> bool:
+    """Case-insensitive 0x-address comparison (checksummed vs lowercase safe)."""
+    x = (a or "").strip().lower()
+    y = (b or "").strip().lower()
+    return bool(x) and x == y
+
+
 def default_wallet_address() -> str:
-    """The address applied to accounts that never set one."""
-    return (settings.default_wallet_address or "").strip()
+    """The address applied to accounts that never set one.
+
+    The shared custodial/treasury address is **never** returned here: the
+    treasury pools every user's on-chain assets, so handing it out as an
+    account's *personal* withdrawal wallet would let a user believe they own
+    (and withdraw to) the platform's pooled funds. If a misconfiguration sets
+    ``DEFAULT_WALLET_ADDRESS`` equal to ``TREASURY_ADDRESS`` we drop it and
+    leave the account without an address until the user sets a real one.
+    """
+    candidate = (settings.default_wallet_address or "").strip()
+    if not candidate:
+        return ""
+    if _same_address(candidate, settings.treasury_address):
+        return ""
+    return candidate
 
 
 def validate_wallet_address(value: str) -> str:
