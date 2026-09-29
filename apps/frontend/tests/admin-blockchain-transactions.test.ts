@@ -89,4 +89,43 @@ describe("admin blockchain transactions — metrics, search, and status filter",
     await waitFor(() => expect(screen.queryByText("award")).toBeNull());
     expect(screen.getByText("burn")).toBeTruthy();
   });
+
+  it("does not count failed/dropped transactions as pending", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/blockchain/transactions/failed")) return Promise.resolve([]);
+      if (path.startsWith("/blockchain/transactions"))
+        return Promise.resolve([
+          {
+            id: "t1",
+            method: "award",
+            status: "confirmed",
+            transaction_hash: "0xa",
+            confirmation_count: 1,
+            created_at: "2026-01-01T00:00:00Z",
+          },
+          {
+            id: "t2",
+            method: "burn",
+            status: "failed",
+            transaction_hash: "0xb",
+            confirmation_count: 0,
+            created_at: "2026-01-02T00:00:00Z",
+          },
+          {
+            id: "t3",
+            method: "swap",
+            status: "submitted",
+            transaction_hash: "0xc",
+            confirmation_count: 0,
+            created_at: "2026-01-03T00:00:00Z",
+          },
+        ]);
+      if (path.startsWith("/blockchain/status/admin")) return Promise.resolve({ chain_id: 31337 });
+      return Promise.resolve([]);
+    });
+    render(BlockchainTxPage);
+    await waitFor(() => expect(screen.getByText("award")).toBeTruthy());
+    // Only the submitted tx is pending; the failed one is terminal.
+    expect(document.querySelector('[data-role="pending-count"]')?.textContent?.trim()).toBe("1");
+  });
 });

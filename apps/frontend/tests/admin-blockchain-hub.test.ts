@@ -77,6 +77,24 @@ describe("admin blockchain hub — allocation metrics and control confirmation",
     expect(document.querySelector('[data-role="allocated-total"]')?.textContent?.trim()).toBe("35");
   });
 
+  it("does not count cancelled allocations as pending", async () => {
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/blockchain/status")) return Promise.resolve(status);
+      if (path.startsWith("/blockchain/contract")) return Promise.resolve(contract);
+      if (path.startsWith("/blockchain/allocations"))
+        return Promise.resolve([
+          { id: "al1", reward_key: "q:1", user_id: "u1", amount: 10, status: "confirmed" },
+          { id: "al2", reward_key: "q:2", user_id: "u2", amount: 20, status: "cancelled" },
+          { id: "al3", reward_key: "t:1", user_id: "u3", amount: 5, status: "pending" },
+        ]);
+      return Promise.resolve([]);
+    });
+    render(BlockchainPage);
+    await waitFor(() => expect(screen.getByText("Alokasi Hadiah Terbaru")).toBeTruthy());
+    // Only al3 is pending; the cancelled one must not inflate this count.
+    expect(document.querySelector('[data-role="pending-allocs"]')?.textContent?.trim()).toBe("1");
+  });
+
   it("confirms before pausing an asset", async () => {
     render(BlockchainPage);
     await waitFor(() => expect(screen.getByRole("button", { name: /Jeda aset/ })).toBeTruthy());

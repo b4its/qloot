@@ -105,7 +105,9 @@
   // --- allocation metrics ----------------------------------------------------
   $: confirmedAllocs = allocations.filter((a) => a.status === "confirmed").length;
   $: failedAllocs = allocations.filter((a) => a.status === "failed").length;
-  $: pendingAllocs = allocations.length - confirmedAllocs - failedAllocs;
+  // Count "pending" explicitly: a subtraction would also fold in "cancelled"
+  // allocations, which are neither pending nor failed.
+  $: pendingAllocs = allocations.filter((a) => a.status === "pending").length;
   $: totalAllocated = allocations.reduce((s, a) => s + a.amount, 0);
 
   // A paused asset is one whose worker submitted a pause; we surface the asset
@@ -301,7 +303,12 @@
           </div>
           <div class="card p-4">
             <p class="mono-label text-[10px]">Tertunda</p>
-            <p class="mt-1 font-display text-2xl font-bold text-highlight">{pendingAllocs}</p>
+            <p
+              class="mt-1 font-display text-2xl font-bold text-highlight"
+              data-role="pending-allocs"
+            >
+              {pendingAllocs}
+            </p>
           </div>
           <div class="card p-4">
             <p class="mono-label text-[10px]">Gagal</p>

@@ -127,11 +127,14 @@
 
   // --- metrics + filtering (over the current page) ---------------------------
   $: confirmedCount = txs.filter((t) => t.status === "confirmed").length;
-  $: pendingCount = txs.length - confirmedCount;
+  // "Tertunda" = still in flight. Exclude every terminal state so failed and
+  // dropped transactions are not miscounted as pending.
+  const TERMINAL_TX_STATUSES = ["confirmed", "failed", "dropped"];
+  $: pendingCount = txs.filter((t) => !TERMINAL_TX_STATUSES.includes(t.status)).length;
 
   $: filteredTxs = txs.filter((tx) => {
     if (statusFilter === "confirmed" && tx.status !== "confirmed") return false;
-    if (statusFilter === "pending" && tx.status === "confirmed") return false;
+    if (statusFilter === "pending" && TERMINAL_TX_STATUSES.includes(tx.status)) return false;
     if (query.trim()) {
       const q = query.toLowerCase().trim();
       const hash = (tx.transaction_hash ?? "").toLowerCase();
@@ -175,7 +178,9 @@
       </div>
       <div class="card p-4">
         <p class="mono-label text-[10px]">Tertunda</p>
-        <p class="mt-1 font-display text-3xl font-bold text-highlight">{pendingCount}</p>
+        <p class="mt-1 font-display text-3xl font-bold text-highlight" data-role="pending-count">
+          {pendingCount}
+        </p>
       </div>
     </div>
   {/if}
