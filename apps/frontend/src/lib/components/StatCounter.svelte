@@ -19,16 +19,19 @@
     if (animatedTo === value) return;
     animatedTo = value;
     if (rafId !== null) cancelAnimationFrame(rafId);
-    const start = performance.now();
     const from = display;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       display = value;
       return;
     }
+    // Anchor the clock on the FIRST frame's timestamp rather than a separate
+    // performance.now() call: a requestAnimationFrame shim (or any clock skew)
+    // can hand back a timestamp earlier than a previously captured now(), which
+    // would make elapsed time negative forever and stall the counter at 0.
+    let start: number | null = null;
     function frame(now: number) {
-      // Clamp to [0, 1]: a frame timestamp can be earlier than `start` (e.g. a
-      // requestAnimationFrame shim), and a negative t would blow up the easing.
+      if (start === null) start = now;
       const t = Math.max(0, Math.min(1, (now - start) / duration));
       const eased = 1 - Math.pow(1 - t, 3);
       display = Math.round(from + (value - from) * eased);

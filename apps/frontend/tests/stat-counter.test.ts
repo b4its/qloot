@@ -1,11 +1,37 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/svelte";
 
 import StatCounter from "$lib/components/StatCounter.svelte";
 
 describe("StatCounter semantics", () => {
-  afterEach(() => cleanup());
+  beforeEach(() => {
+    // The default mock never fires, which would leave the counter waiting for
+    // the 1500ms mount fallback. Fire synchronously so "started" is immediate
+    // and the test exercises the re-animation, not a timer.
+    class ImmediateIO {
+      observe(el: Element) {
+        this.cb(
+          [{ isIntersecting: true, target: el } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+      root = null;
+      rootMargin = "";
+      thresholds = [];
+      constructor(private cb: IntersectionObserverCallback) {}
+    }
+    vi.stubGlobal("IntersectionObserver", ImmediateIO as unknown as typeof IntersectionObserver);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("exposes the final value as an accessible name while animating", () => {
     cleanup();
@@ -25,8 +51,6 @@ describe("StatCounter semantics", () => {
       screen.getByLabelText("1.234").querySelector('[aria-hidden="true"]')?.textContent ?? "";
     await rerender({ value: 1234, duration: 10 });
     // The counter must pick up the late value rather than staying latched at 0.
-    // The mocked IntersectionObserver never fires, so the mount safety-net
-    // (1500ms) is what starts the animation — wait past it.
-    await waitFor(() => expect(digits().replace(/\./g, "")).toBe("1234"), { timeout: 4000 });
+    await waitFor(() => expect(digits().replace(/\./g, "")).toBe("1234"));
   });
 });
