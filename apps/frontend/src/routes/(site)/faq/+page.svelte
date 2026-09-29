@@ -24,7 +24,10 @@
       a: "Ya. Semua pelajar dapat bergabung ke komunitas untuk diskusi dan sesi tanya-jawab mingguan.",
     },
   ];
-  let open = 0;
+  // Track the open question by its text, not its index into the (filtered)
+  // list — searching re-filters and shifts indices, which would otherwise
+  // appear to toggle the wrong question.
+  let open: string | null = faqs[0]?.q ?? null;
   let query = "";
   // Filter by question or answer text.
   $: filtered = faqs.filter((f) => {
@@ -75,19 +78,19 @@
     />
   {:else}
     <div class="mt-6 card !p-0 divide-y">
-      {#each filtered as f, i (f.q)}
+      {#each filtered as f (f.q)}
         <div>
           <button
             class="flex w-full items-center justify-between px-5 py-4 text-left"
-            on:click={() => (open = open === i ? -1 : i)}
-            aria-expanded={open === i}
-            aria-controls={`faq-answer-${i}`}
+            on:click={() => (open = open === f.q ? null : f.q)}
+            aria-expanded={open === f.q}
+            aria-controls={`faq-answer-${f.q}`}
           >
             <span class="font-medium">{f.q}</span>
-            <Icon name={open === i ? "minus" : "plus"} size="12px" class="text-primary" />
+            <Icon name={open === f.q ? "minus" : "plus"} size="12px" class="text-primary" />
           </button>
-          <div id={`faq-answer-${i}`}>
-            {#if open === i}
+          <div id={`faq-answer-${f.q}`}>
+            {#if open === f.q}
               <p class="px-5 pb-4 text-sm muted">{f.a}</p>
             {/if}
           </div>

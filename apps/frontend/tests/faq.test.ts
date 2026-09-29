@@ -38,4 +38,21 @@ describe("faq — search", () => {
     await waitFor(() => expect(screen.getByText("Tidak ada pertanyaan yang cocok")).toBeTruthy());
     expect(screen.getAllByRole("link", { name: /Tanya di komunitas/ }).length).toBeGreaterThan(0);
   });
+
+  it("does not open an unrelated question when a filter reshuffles the list", async () => {
+    render(FaqPage);
+    // By default the first question is open.
+    const firstBtn = screen.getByRole("button", {
+      name: /Apakah saya perlu latar belakang teknis\?/,
+    });
+    expect(firstBtn.getAttribute("aria-expanded")).toBe("true");
+
+    // Searching for another question narrows the list; the matched question is
+    // now index 0 but was never opened, so it must stay collapsed.
+    const input = screen.getByLabelText("Cari pertanyaan") as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: "sertifikat" } });
+    await waitFor(() => expect(screen.getByText("Apakah sertifikatnya diakui?")).toBeTruthy());
+    const matched = screen.getByRole("button", { name: /Apakah sertifikatnya diakui\?/ });
+    expect(matched.getAttribute("aria-expanded")).toBe("false");
+  });
 });
