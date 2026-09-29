@@ -258,8 +258,17 @@
     return sortBy === "recent" ? tb - ta : ta - tb;
   });
 
-  $: readCount = Math.max(0, total - unread);
-  $: readPct = total > 0 ? Math.round((readCount / total) * 100) : 0;
+  // The server's `total` respects the active filters, but `unread` is always
+  // the caller's global unread count. Deriving "read" as total - unread then
+  // mixes a filtered figure with a global one and is wrong whenever a filter or
+  // search is active, so within that case we count read/unread from the loaded
+  // page instead (the strip stays consistent with the visible list).
+  $: filterActive =
+    activeKind !== "all" || readFilter !== "all" || sortBy !== "recent" || query.trim().length > 0;
+  $: readCount = filterActive ? items.filter((n) => n.read_at).length : Math.max(0, total - unread);
+  $: shownTotal = filterActive ? items.length : total;
+  $: shownUnread = filterActive ? items.filter((n) => !n.read_at).length : unread;
+  $: readPct = shownTotal > 0 ? Math.round((readCount / shownTotal) * 100) : 0;
 
   async function open(n: Notification) {
     await markOne(n);
@@ -317,9 +326,9 @@
   <!-- Overview metrics -->
   <MetricStrip
     metrics={[
-      { label: "Total", value: total },
-      { label: "Belum dibaca", value: unread, tone: "text-highlight", role: "unread" },
-      { label: "Sudah dibaca", value: readCount, tone: "text-mint" },
+      { label: "Total", value: shownTotal },
+      { label: "Belum dibaca", value: shownUnread, tone: "text-highlight", role: "unread" },
+      { label: "Sudah dibaca", value: readCount, tone: "text-mint", role: "read" },
       { label: "Rasio dibaca", value: `${readPct}%` },
     ]}
   />

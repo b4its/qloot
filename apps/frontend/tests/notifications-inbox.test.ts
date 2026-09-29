@@ -174,4 +174,35 @@ describe("notifications page — inbox UX (STUDY-09)", () => {
       expect(get.mock.calls.some((c) => String(c[0]).includes("oldest_first=true"))).toBe(true),
     );
   });
+
+  it("keeps the read metric consistent with the filtered list", async () => {
+    // Filtering returns a filtered `total` but the server's `unread` is always
+    // global. Here the filtered page has 1 read + 0 unread rows, yet the global
+    // unread count is high — the old `total - unread` would underflow to 0.
+    const filteredSeed = {
+      items: [
+        notif({ id: "r1", kind: "room", title: "Sudah dibaca", read_at: "2026-01-02T01:00:00Z" }),
+      ],
+      total: 1,
+      unread: 9,
+      kind_counts: { reward: 1, room: 1 },
+    };
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/notifications/page")) return Promise.resolve(filteredSeed);
+      if (path === "/notifications/preferences") return Promise.resolve({ muted_kinds: [] });
+      return Promise.resolve([]);
+    });
+
+    render(NotificationsPage);
+    await waitFor(() => expect(screen.getByText("Sudah dibaca")).toBeTruthy());
+    // Wait for the bundle so the kind chips (from kind_counts) are present.
+    await screen.findByText(/Ruang \(1\)/);
+    // Apply a kind filter so the metric derives from the visible rows.
+    await fireEvent.click(screen.getByText(/Ruang \(1\)/));
+
+    await waitFor(() =>
+      expect(document.querySelector('[data-role="read"]')?.textContent?.trim()).toBe("1"),
+    );
+    expect(document.querySelector('[data-role="unread"]')?.textContent?.trim()).toBe("0");
+  });
 });
