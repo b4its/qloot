@@ -97,4 +97,27 @@ describe("career library — metrics, cost filter, provider filter, sort", () =>
     expect(headings[0]).toBe("Biologi Sel");
     expect(headings[2]).toBe("Kalkulus Dasar");
   });
+
+  it("clears a stale error banner after a successful reload", async () => {
+    let first = true;
+    get.mockImplementation((path: string) => {
+      if (path.startsWith("/career/recommendations")) return Promise.resolve([]);
+      if (path.startsWith("/career/resources")) {
+        if (first) {
+          first = false;
+          return Promise.reject(new Error("boom"));
+        }
+        return Promise.resolve(resources);
+      }
+      return Promise.resolve([]);
+    });
+
+    render(LibraryPage);
+    expect(await screen.findByText(/Gagal memuat sumber daya/i)).toBeTruthy();
+
+    // Reset Filter triggers a fresh load that succeeds; the banner must go.
+    await fireEvent.click(screen.getByRole("button", { name: /Reset/i }));
+    await waitFor(() => expect(screen.getByText("Kalkulus Dasar")).toBeTruthy());
+    expect(document.querySelector(".alert-error")).toBeNull();
+  });
 });

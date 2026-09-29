@@ -52,6 +52,7 @@
 
   async function load() {
     loading = true;
+    error = "";
     try {
       const qs = new URLSearchParams({ category, limit: "200" });
       if (query.trim()) qs.set("q", query.trim());
