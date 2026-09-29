@@ -32,6 +32,15 @@
     else if (isTeacherArea && !hasRole(user, "teacher")) goto("/dashboard");
   }
 
+  // Only mount the child page once we actually know who the user is AND they
+  // are allowed here. Panel pages fetch data in `onMount(load)` and bail out
+  // when `$auth.user` is not resolved yet, so mounting them during the auth
+  // bootstrap (e.g. on a hard refresh) would leave every panel page empty.
+  $: allowed =
+    !$auth.loading &&
+    !!user &&
+    ((isAdminArea && hasRole(user, "admin")) || (isTeacherArea && hasRole(user, "teacher")));
+
   // Highlight the most specific matching item (so /teacher/subjects/new lights
   // up /teacher/subjects, not /teacher).
   function isActive(href: string): boolean {
@@ -161,7 +170,23 @@
 
     <!-- ============ CONTENT ============ -->
     <main id="panel-content" class="relative z-10 flex-1" tabindex="-1">
-      <slot />
+      {#if allowed}
+        <slot />
+      {:else if !$auth.loading}
+        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <div class="card flex items-center gap-3">
+            <Icon name="spinner" spin size="14px" />
+            <span class="muted">Mengalihkan…</span>
+          </div>
+        </div>
+      {:else}
+        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+          <div class="space-y-3">
+            <div class="skeleton h-8 w-1/3"></div>
+            <div class="skeleton h-40 w-full"></div>
+          </div>
+        </div>
+      {/if}
     </main>
   </div>
 </div>
