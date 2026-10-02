@@ -778,16 +778,16 @@ class OpenAICompatProvider(AIProvider):
 
     async def answer(self, ctx: QAContext) -> AnswerResult:
         system = (
-            "You are a helpful study/career assistant for Indonesian students. "
-            "Answer concisely. If a material is provided, ground your answer in it. "
+            "You are a helpful study and career guidance assistant for Indonesian students. "
+            "Answer concisely, warmly, and helpfully. If context or material is provided, "
+            "ground your response in it when relevant. "
             "Respond with a single valid JSON object and nothing else — no prose, no "
             'markdown, no code fences — matching: {"answer":str,"confidence_bp":int}.'
         )
         user = (
-            "Answer the question below in language "
-            f"'{ctx.language}'. If the answer is not present in the material, use "
-            "your general knowledge but say so.\n\n"
-            f"QUESTION: {ctx.question}\n\nMATERIAL:\n{ctx.text[:20000]}"
+            f"QUESTION: {ctx.question}\n\n"
+            f"CONTEXT/MATERIAL:\n{ctx.text[:20000]}\n\n"
+            f"Answer the question in language '{ctx.language}'."
         )
         text = await self._chat_raw(settings.ai_scoring_model, system, user)
         # Prefer structured JSON; some gateways/models reply in plain prose even
@@ -796,6 +796,47 @@ class OpenAICompatProvider(AIProvider):
             return AnswerResult.model_validate(_loads_lenient(text))
         except AIProviderError:
             return AnswerResult(answer=text.strip(), confidence_bp=7000)
+
+    async def answer_stream(self, ctx: QAContext):
+        """Stream the answer token-by-token from the OpenAI-compatible endpoint."""
+        system = (
+            "You are a helpful study and career guidance assistant for Indonesian students. "
+            "Answer concisely, warmly, and helpfully in markdown. "
+            "If context or material is provided, ground your response in it when relevant."
+        )
+        user = (
+            f"QUESTION: {ctx.question}\n\n"
+            f"CONTEXT/MATERIAL:\n{ctx.text[:20000]}\n\n"
+            f"Answer the question in language '{ctx.language}'."
+        )
+        body = {
+            "model": settings.ai_scoring_model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0.2,
+            "stream": True,
+        }
+        try:
+            async with self._client.stream("POST", "/chat/completions", json=body) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if not line or not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        data = json.loads(payload)
+                        delta = data["choices"][0].get("delta", {}).get("content", "")
+                        if delta:
+                            yield delta
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+        except httpx.HTTPError as exc:
+            raise AIProviderError("AI streaming request failed") from exc
 
 
 class GeminiProvider(AIProvider):

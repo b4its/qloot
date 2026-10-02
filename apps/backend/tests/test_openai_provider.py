@@ -189,3 +189,35 @@ async def test_summarize_falls_back_to_prose(monkeypatch):
     assert "Poin utama" not in result.summary
     assert result.key_points == ["Tumbuhan menyerap cahaya.", "Oksigen dilepaskan."]
     await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_answer_stream_yields_tokens(monkeypatch):
+    monkeypatch.setattr(settings, "ai_api_key", "test-key")
+    sse_body = (
+        'data: {"choices": [{"delta": {"content": "Halo "}}]}\n\n'
+        'data: {"choices": [{"delta": {"content": "siswa!"}}]}\n\n'
+        "data: [DONE]\n\n"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["stream"] is True
+        return httpx.Response(200, text=sse_body, headers={"content-type": "text/event-stream"})
+
+    provider = OpenAICompatProvider(client=_client(handler))
+    chunks = [c async for c in provider.answer_stream(QAContext(text="t", question="q"))]
+    assert "".join(chunks) == "Halo siswa!"
+    await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_answer_stream_transport_error_is_wrapped(monkeypatch):
+    monkeypatch.setattr(settings, "ai_api_key", "test-key")
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, text="bad gateway")
+
+    provider = OpenAICompatProvider(client=_client(handler))
+    with pytest.raises(AIProviderError):
+        _ = [c async for c in provider.answer_stream(QAContext(text="t", question="q"))]
+    await provider.aclose()
