@@ -1,6 +1,5 @@
 import { writable } from "svelte/store";
 import { opt } from "./opt";
-import { notifications } from "./notifications";
 
 export interface RealtimeMessage {
   type: string;
@@ -72,7 +71,10 @@ export function dispatchRealtimeMessage(message: RealtimeMessage): void {
     }
     void opt.refresh();
   } else if (message.type === "notification") {
-    void notifications.refresh();
+    // The notification store refreshes its own unread count (it owns the
+    // WebSocket that receives these frames); here we only fan out the OPT
+    // refresh for reward-like notifications. Avoid importing the notification
+    // store statically to keep this module free of a circular dependency.
     const kind = message.kind;
     if (kind && ["reward", "quest", "level", "badge", "task"].includes(kind)) {
       void opt.refresh();

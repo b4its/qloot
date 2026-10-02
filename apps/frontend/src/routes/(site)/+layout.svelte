@@ -7,6 +7,7 @@
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
   import { API_BASE } from "$lib/api/client";
   import { groupStudentNav } from "$lib/data/student-nav";
 
@@ -100,11 +101,8 @@
   {#if !isExamAttempt}
     <header class="cyber-rule sticky top-0 z-40 border-b glass">
       <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-        <a href="/" class="flex items-center gap-2.5">
-          <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm glow-yellow">
-            <Icon name="graduation-cap" size="16px" />
-          </span>
-          <span class="font-display text-lg font-bold uppercase tracking-tight">QLoot</span>
+        <a href="/" class="flex items-center gap-2.5" aria-label="Beranda QLoot">
+          <BrandLogo variant="full" height="h-7" />
         </a>
 
         <!-- primary desktop nav -->
@@ -356,12 +354,9 @@
       <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
         <div class="grid gap-8 sm:gap-10 lg:grid-cols-5">
           <div class="lg:col-span-2">
-            <div class="flex items-center gap-2.5">
-              <span class="brand-mark grid h-8 w-8 place-items-center rounded-sm">
-                <Icon name="graduation-cap" size="15px" />
-              </span>
-              <span class="font-display text-base font-bold uppercase tracking-tight">QLoot</span>
-            </div>
+            <a href="/" class="flex items-center gap-2.5" aria-label="Beranda QLoot">
+              <BrandLogo variant="full" height="h-7" />
+            </a>
             <p class="mt-3 max-w-sm text-xs leading-relaxed text-white/60 sm:text-sm">
               Platform e-learning kelas dengan gamifikasi, AI, dan teknologi on-chain. Pelajaran per
               kelas, sertifikat digital, dan komunitas dalam satu tempat.

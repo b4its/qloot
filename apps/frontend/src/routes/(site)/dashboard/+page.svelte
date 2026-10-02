@@ -27,6 +27,7 @@
   import StatCounter from "$lib/components/StatCounter.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
+  import Mascot from "$lib/components/Mascot.svelte";
   import { onRealtime } from "$lib/stores/realtime";
 
   let acad: AcademicDashboard | null = null;
@@ -414,62 +415,55 @@
       }
     };
 
-      try {
-        const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] =
-          await Promise.all([
-            safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
-            // A failed personality fetch must not look like "never taken the test",
-            // so route it through the shared unavailable-sections tracker.
-            safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
-            safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
-            safe(
-              api.get<{ available: number; token_id: number } | null>("/wallet"),
-              null,
-              "saldo OPT",
-            ),
-            safe(api.get<Course[]>("/courses"), [], "pelajaran"),
-            safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
-            safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
-            safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
-            safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
-            safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
-            safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
-            safe(
-              api.get<NotificationPage | null>("/notifications/page?limit=1"),
-              null,
-              "notifikasi",
-            ),
-            safe(api.get<Exam[]>("/exams"), [], "daftar ujian"),
-            safe(api.get<Quest[]>("/quests"), [], "quest"),
-            safe(api.get<Task[]>("/tasks"), [], "tugas"),
-            safe(api.get<{ task_id: string }[]>("/tasks/me/completions"), [], "status tugas"),
-            safe(api.get<Reward[]>("/wallet/rewards?limit=20"), [], "hadiah"),
-          ]);
-        acad = a;
-        personality = p;
-        badges = b;
-        wallet = w;
-        subjects = s;
-        grades = g;
-        badgeCatalog = bc;
-        gamification = gam;
-        activityCounts = buildActivity(prog, atts, b);
-        learningProgress = prog;
-        badgeProgress = bp;
-        unread = np?.unread ?? 0;
-        exams = ex;
-        attempts = atts;
-        quests = qu;
-        tasks = tk;
-        taskCompletions = tc;
-        rewards = rw;
-      } catch (e) {
-        error = e instanceof ApiError ? e.message : "";
-      } finally {
-        loading = false;
-      }
-    })().catch((e) => {
+    try {
+      const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] = await Promise.all(
+        [
+          safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
+          // A failed personality fetch must not look like "never taken the test",
+          // so route it through the shared unavailable-sections tracker.
+          safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
+          safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
+          safe(
+            api.get<{ available: number; token_id: number } | null>("/wallet"),
+            null,
+            "saldo OPT",
+          ),
+          safe(api.get<Course[]>("/courses"), [], "pelajaran"),
+          safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
+          safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
+          safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
+          safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
+          safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
+          safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
+          safe(api.get<NotificationPage | null>("/notifications/page?limit=1"), null, "notifikasi"),
+          safe(api.get<Exam[]>("/exams"), [], "daftar ujian"),
+          safe(api.get<Quest[]>("/quests"), [], "quest"),
+          safe(api.get<Task[]>("/tasks"), [], "tugas"),
+          safe(api.get<{ task_id: string }[]>("/tasks/me/completions"), [], "status tugas"),
+          safe(api.get<Reward[]>("/wallet/rewards?limit=20"), [], "hadiah"),
+        ],
+      );
+      acad = a;
+      personality = p;
+      badges = b;
+      wallet = w;
+      subjects = s;
+      grades = g;
+      badgeCatalog = bc;
+      gamification = gam;
+      activityCounts = buildActivity(prog, atts, b);
+      learningProgress = prog;
+      badgeProgress = bp;
+      unread = np?.unread ?? 0;
+      exams = ex;
+      attempts = atts;
+      quests = qu;
+      tasks = tk;
+      taskCompletions = tc;
+      rewards = rw;
+    } catch (e) {
       error = e instanceof ApiError ? e.message : "";
+    } finally {
       loading = false;
     }
   }
@@ -521,12 +515,55 @@
 
 <svelte:head><title>Dashboard | QLoot</title></svelte:head>
 
-<div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-  <p class="mono-label">Semester Genap 2025/2026</p>
-  <h1 class="mt-1 font-display text-3xl font-bold">
-    Halo, {user?.full_name?.split(" ")[0] ?? "Pelajar"}
-  </h1>
-  <p class="mt-1 muted">Lanjutkan belajarmu dan jaga momentum.</p>
+<div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+  <!-- Welcome Banner with Mascot Qlo -->
+  <div class="card neon-corners relative overflow-hidden !p-6 sm:!p-8">
+    <div
+      class="absolute -right-12 -top-12 -z-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="relative z-10 flex flex-col-reverse items-start justify-between gap-6 sm:flex-row sm:items-center"
+    >
+      <div class="flex-1">
+        <div class="flex items-center gap-2">
+          <span class="mono-label">Semester Genap 2025/2026</span>
+          {#if user?.class_code}
+            <span class="badge badge-mint text-[10px]"
+              >Kelas {user.class_code} · {user.class_type ?? "Umum"}</span
+            >
+          {/if}
+        </div>
+        <h1 class="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          Halo, {user?.full_name?.split(" ")[0] ?? "Pelajar"}
+        </h1>
+        <p class="mt-1 text-sm text-ink2">
+          Lanjutkan misi harianmu, raih skor maksimal, dan kumpulkan reward token.
+        </p>
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <a href="/learning" class="btn-primary !py-1.5 !px-3.5 text-xs">
+            <Icon name="book-open-reader" size="12px" /> Lanjutkan Pelajaran
+          </a>
+          <a href="/assistant" class="btn-ghost !py-1.5 !px-3.5 text-xs">
+            <Icon name="comment-dots" size="12px" /> Tanya Asisten Qlo
+          </a>
+        </div>
+      </div>
+      <div class="flex-none">
+        <Mascot
+          expression="cool"
+          size="xl"
+          glow
+          float
+          interactive
+          speech="Siap selesaikan misi hari ini?"
+          speechPosition="left"
+          alt="Mascot Qlo"
+          class="drop-shadow-lg"
+        />
+      </div>
+    </div>
+  </div>
 
   {#if error}
     <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>

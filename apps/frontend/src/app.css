@@ -688,6 +688,23 @@ html.theme-init * {
     }
   }
 
+  /* Mascot animations and ambient glow ----------------------------- */
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+  .glow-mascot {
+    filter: drop-shadow(0 10px 24px rgba(22, 139, 255, 0.28));
+  }
+
   /* Aurora background (now neon smog) ---------------------------------- */
   .aurora {
     position: absolute;

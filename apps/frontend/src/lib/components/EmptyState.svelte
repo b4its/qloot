@@ -7,6 +7,7 @@
    * (`onAction`): filters and retries need the latter.
    */
   import Icon from "$lib/components/Icon.svelte";
+  import Mascot, { type MascotExpression } from "$lib/components/Mascot.svelte";
 
   export let icon = "inbox";
   export let title = "Belum ada data";
@@ -18,16 +19,31 @@
   export let actionIcon = "rotate";
   /** "empty" | "error" */
   export let tone: "empty" | "error" = "empty";
+  /** Optional Mascot expression. If true or string, renders Mascot Qlo */
+  export let mascot: MascotExpression | boolean = true;
+
+  $: mascotExpr =
+    typeof mascot === "string"
+      ? mascot
+      : tone === "error"
+        ? ("confused" as MascotExpression)
+        : ("curious" as MascotExpression);
 </script>
 
-<div class="card mt-4 grid place-items-center py-12 text-center" role="status">
-  <Icon
-    name={tone === "error" ? "triangle-exclamation" : icon}
-    size="26px"
-    class={tone === "error" ? "text-tertiary" : "muted"}
-  />
-  <p class="mt-3 font-semibold">{title}</p>
-  {#if description}<p class="mt-1 text-sm muted">{description}</p>{/if}
+<div class="card mt-4 grid place-items-center py-10 text-center" role="status">
+  {#if mascot}
+    <div class="mb-3">
+      <Mascot expression={mascotExpr} size="lg" glow float interactive alt="Qlo" />
+    </div>
+  {:else}
+    <Icon
+      name={tone === "error" ? "triangle-exclamation" : icon}
+      size="26px"
+      class={tone === "error" ? "text-tertiary" : "muted"}
+    />
+  {/if}
+  <p class="mt-2 font-semibold text-ink">{title}</p>
+  {#if description}<p class="mt-1 max-w-md text-sm muted">{description}</p>{/if}
   {#if actionLabel}
     {#if onAction}
       <button class="btn-primary mt-4" on:click={onAction}>

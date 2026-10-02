@@ -5,6 +5,7 @@
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
 
   // The landing page has its own chrome, independent from the app shell
   // (no ticker / app sub-nav). It is a one-page experience: every entry in
@@ -39,11 +40,8 @@
   <!-- ================= LANDING NAV ================= -->
   <header class="sticky top-0 z-40 border-b glass">
     <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-      <a href="/" class="flex items-center gap-2.5">
-        <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
-          <Icon name="graduation-cap" size="16px" />
-        </span>
-        <span class="font-display text-lg font-bold uppercase tracking-tight">QLoot</span>
+      <a href="/" class="flex items-center gap-2.5" aria-label="Beranda QLoot">
+        <BrandLogo variant="full" height="h-7" />
       </a>
 
       <!-- in-page anchor nav -->
@@ -133,12 +131,9 @@
   <footer class="cyber-rule mt-12 border-t border-white/5 bg-[#05060A] text-white">
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
       <div class="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
-        <div class="flex items-center gap-2.5">
-          <span class="brand-mark grid h-8 w-8 place-items-center rounded-sm">
-            <Icon name="graduation-cap" size="15px" />
-          </span>
-          <span class="font-display text-base font-bold uppercase tracking-tight">QLoot</span>
-        </div>
+        <a href="/" class="flex items-center gap-2.5" aria-label="Beranda QLoot">
+          <BrandLogo variant="full" height="h-7" />
+        </a>
         <nav
           class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-white/70 sm:text-sm"
           aria-label="Navigasi footer"

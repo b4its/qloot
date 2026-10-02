@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import Mascot from "$lib/components/Mascot.svelte";
   import { onMount, tick } from "svelte";
   import { API_BASE, API_PREFIX, api, ApiError } from "$lib/api/client";
   import type { AssistantConversation, AssistantReply, AssistantQuota } from "$lib/types";
@@ -312,13 +313,16 @@
 <svelte:head><title>Asisten Qlo | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <p class="mono-label">Panduan Karier · Asisten</p>
-      <h1 class="mt-2 font-display text-3xl font-bold">Asisten Qlo</h1>
-      <p class="mt-1 text-sm muted">
-        Asisten bimbingan belajar & karier untuk pertanyaan jurusan, kampus, dan prospek karier.
-      </p>
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <Mascot expression={busy ? "thinking" : "cool"} size="lg" glow float alt="Asisten Qlo" />
+      <div>
+        <p class="mono-label">Panduan Karier · Asisten</p>
+        <h1 class="mt-1 font-display text-3xl font-bold">Asisten Qlo</h1>
+        <p class="mt-1 text-sm muted">
+          Asisten bimbingan belajar & karier untuk pertanyaan jurusan, kampus, dan prospek karier.
+        </p>
+      </div>
     </div>
     <div class="flex flex-col items-end gap-2">
       <div class="flex items-center gap-2">
@@ -425,13 +429,15 @@
     >
       {#each messages as m, i (i)}
         <div class="flex items-start gap-3" class:flex-row-reverse={m.role === "user"}>
-          <div class="tile-neutral h-7 w-7">
-            <Icon
-              name={m.role === "bot" ? "robot" : "user"}
-              size="13px"
-              class={m.role === "bot" ? "text-primary" : ""}
-            />
-          </div>
+          {#if m.role === "bot"}
+            <div class="flex-none">
+              <Mascot expression={!m.text && busy ? "thinking" : "cool"} size="xs" alt="Qlo" />
+            </div>
+          {:else}
+            <div class="tile-neutral h-7 w-7 flex-none">
+              <Icon name="user" size="13px" />
+            </div>
+          {/if}
           <div class="flex max-w-[80%] flex-col items-start gap-1">
             <div
               class="rounded-sm px-4 py-2 text-sm"

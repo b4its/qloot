@@ -5,6 +5,8 @@
   import { ApiError } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
   import PasswordInput from "$lib/components/PasswordInput.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
+  import Mascot from "$lib/components/Mascot.svelte";
 
   let email = "";
   let password = "";
@@ -59,9 +61,10 @@
   <div class="relative z-10 w-full max-w-md">
     <div class="grad-border">
       <div class="card !p-7">
-        <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
-          <Icon name="right-to-bracket" size="18px" />
-        </span>
+        <div class="mb-4 flex items-center justify-between">
+          <BrandLogo variant="full" height="h-7" />
+          <Mascot expression="wink" size="sm" alt="Qlo" />
+        </div>
         <h1 class="mt-4 font-display text-2xl font-bold">Selamat datang kembali</h1>
         <p class="mt-1 text-sm muted">Masuk untuk melanjutkan perjalanan belajarmu.</p>
 

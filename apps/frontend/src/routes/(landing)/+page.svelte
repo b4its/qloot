@@ -4,6 +4,8 @@
   import StatCounter from "$lib/components/StatCounter.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
+  import Mascot from "$lib/components/Mascot.svelte";
   import { auth } from "$lib/stores/auth";
   import { classTracks, features, mentors, testimonials } from "$lib/data/content";
 
@@ -71,51 +73,62 @@
       </div>
     </div>
 
-    <!-- floating "class card" -->
-    <div class="relative hidden lg:block">
-      <div class="tilt">
-        <div class="grad-border glow-cyan">
-          <div class="card holo !p-5">
-            <div class="flex items-center justify-between">
-              <span class="badge badge-mint"
-                ><Icon name="chalkboard-user" size="10px" /> Kelas 1A · IPA</span
-              >
-              <span class="mono-label">3 PELAJARAN</span>
-            </div>
-            <h3 class="mt-3 font-display text-xl font-bold">Pelajaran Kelas 1A</h3>
-            <p class="text-sm muted">Matematika, Kimia, dan Fisika dalam satu kelas.</p>
-            <ul class="mt-4 space-y-2 text-sm">
-              {#each classTracks[0].subjects as s}
-                <li class="flex items-center gap-2 rounded-sm border px-3 py-2">
-                  <Icon name="book-open-reader" size="12px" class="text-primary" />
-                  {s}
-                </li>
-              {/each}
-            </ul>
-            <div class="mt-4 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span
-                  class="brand-mark-cool grid h-8 w-8 place-items-center rounded-sm text-xs font-semibold"
-                  >BS</span
-                >
-                <div class="leading-tight">
-                  <p class="text-xs font-medium">Budi Santoso</p>
-                  <p class="text-[11px] muted">Guru Matematika</p>
-                </div>
-              </div>
-              <a href="/courses" class="btn-primary min-h-[44px] !px-4 text-xs">Lihat</a>
-            </div>
+    <!-- Hero visual: Mascot Qlo + Holographic Class Card -->
+    <div class="relative flex items-center justify-center lg:justify-end">
+      <!-- Ambient aura background -->
+      <div
+        class="absolute -inset-4 -z-10 rounded-full bg-gradient-to-tr from-primary/20 via-cyan-400/10 to-yellow-400/10 blur-3xl opacity-75"
+        aria-hidden="true"
+      ></div>
+
+      <!-- Mascot Qlo full body -->
+      <div class="relative z-10 flex flex-col items-center">
+        <Mascot
+          mode="pose"
+          pose="front"
+          size="hero"
+          float
+          glow
+          interactive
+          speech="Hai! Aku Qlo, asisten belajarmu di Night City!"
+          speechPosition="top"
+          alt="Mascot Qlo QLoot"
+          class="drop-shadow-2xl"
+        />
+
+        <!-- Floating holographic identity badge -->
+        <div
+          class="card neon-corners !py-2 !px-4 mt-3 flex items-center gap-3 bg-surface/90 shadow-xl backdrop-blur-md"
+        >
+          <span class="grid h-8 w-8 place-items-center rounded bg-primary/20 text-primary">
+            <Icon name="wand-magic-sparkles" size="14px" />
+          </span>
+          <div class="leading-tight text-left">
+            <p class="text-xs font-bold text-ink">Qlo · Asisten & Maskot QLoot</p>
+            <p class="text-[10px] muted">Misi Kelas · Panduan Karier · Hadiah On-Chain</p>
           </div>
         </div>
       </div>
 
-      <div class="absolute -bottom-6 -left-6 hidden xl:block">
-        <div class="card neon-corners !p-3">
-          <WalletChip
-            address="0x7a2f3b91c4d8e05f6a2b9c1b8e4d7f0a3c6b9d21"
-            label="Siswa"
-            size={34}
-          />
+      <!-- Floating class card overlapping smoothly on large displays -->
+      <div class="absolute -left-12 top-6 hidden xl:block w-72 z-20">
+        <div class="tilt">
+          <div class="grad-border glow-cyan shadow-xl">
+            <div class="card holo scan-sweep !p-4 bg-surface/90 backdrop-blur-md">
+              <div class="flex items-center justify-between">
+                <span class="badge badge-mint text-[10px]"
+                  ><Icon name="chalkboard-user" size="9px" /> Kelas 1A · IPA</span
+                >
+                <span class="mono-label text-[10px]">AKTIF</span>
+              </div>
+              <h3 class="mt-2 font-display text-sm font-bold">Pelajaran Kelas 1A</h3>
+              <p class="text-[11px] muted">Matematika & Fisika interaktif.</p>
+              <div class="mt-3 flex items-center justify-between border-t pt-2">
+                <span class="text-[11px] font-semibold text-highlight">+50 OPT Hadiah</span>
+                <a href="/courses" class="btn-primary !px-2.5 !py-1 text-[11px]">Buka</a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

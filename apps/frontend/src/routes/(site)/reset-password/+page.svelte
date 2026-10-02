@@ -5,6 +5,7 @@
   import { api, ApiError } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
   import PasswordInput from "$lib/components/PasswordInput.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
 
   let token = "";
   let password = "";
@@ -52,9 +53,9 @@
   <div class="relative z-10 w-full max-w-md">
     <div class="grad-border">
       <div class="card !p-7">
-        <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
-          <Icon name="lock" size="18px" />
-        </span>
+        <div class="mb-4">
+          <BrandLogo variant="full" height="h-7" />
+        </div>
         <h1 class="mt-4 font-display text-2xl font-bold">Kata sandi baru</h1>
 
         {#if error}

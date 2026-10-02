@@ -6,6 +6,7 @@
   import { bpToPercent } from "$lib/utils/format";
   import { statusLabel } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import Mascot from "$lib/components/Mascot.svelte";
   import { onRealtime } from "$lib/stores/realtime";
 
   let exam: Exam | null = null;
@@ -134,12 +135,23 @@
     </a>
     <div class="card mt-3">
       <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p class="mono-label">Hasil Ujian</p>
-          <h1 class="mt-1 font-display text-3xl font-bold">{exam?.title ?? "Hasil"}</h1>
-          <p class="muted text-sm mt-0.5">
-            Percobaan #{attempt.attempt_number} · Status: {statusLabel(attempt.status)}
-          </p>
+        <div class="flex items-center gap-4">
+          <Mascot
+            expression={attempt.passed ? "proud" : "determined"}
+            size="lg"
+            glow
+            float
+            speech={attempt.passed ? "Luar biasa! Kamu lulus!" : "Tetap semangat! Coba lagi ya!"}
+            speechPosition="top"
+            alt="Qlo"
+          />
+          <div>
+            <p class="mono-label">Hasil Ujian</p>
+            <h1 class="mt-1 font-display text-3xl font-bold">{exam?.title ?? "Hasil"}</h1>
+            <p class="muted text-sm mt-0.5">
+              Percobaan #{attempt.attempt_number} · Status: {statusLabel(attempt.status)}
+            </p>
+          </div>
         </div>
         <div class="text-right">
           <div class="font-display text-4xl font-bold text-primary">

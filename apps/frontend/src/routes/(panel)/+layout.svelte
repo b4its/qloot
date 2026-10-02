@@ -13,6 +13,7 @@
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
   import { adminNav, teacherNav } from "$lib/data/role-nav";
 
   let sidebarOpen = false;
@@ -60,10 +61,8 @@
   <a class="skip-link" href="#panel-content">Lewati ke konten utama</a>
   <!-- ============ SIDEBAR (desktop) ============ -->
   <aside class="panel-sidebar hidden border-r lg:flex lg:flex-col">
-    <a href="/" class="flex items-center gap-2.5 px-5 py-4">
-      <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
-        <Icon name="graduation-cap" size="16px" />
-      </span>
+    <a href="/" class="flex items-center gap-2.5 px-5 py-4" aria-label="Beranda QLoot">
+      <BrandLogo variant="symbol" height="h-8" />
       <span class="flex flex-col leading-tight">
         <span class="font-display text-base font-bold uppercase tracking-tight">QLoot</span>
         <span class="mono-label flex items-center gap-1"

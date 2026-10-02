@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, ApiError } from "$lib/api/client";
   import Icon from "$lib/components/Icon.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
 
   interface ForgotResponse {
     message: string;
@@ -47,9 +48,9 @@
   <div class="relative z-10 w-full max-w-md">
     <div class="grad-border">
       <div class="card !p-7">
-        <span class="brand-mark grid h-11 w-11 place-items-center rounded-sm">
-          <Icon name="key" size="18px" />
-        </span>
+        <div class="mb-4">
+          <BrandLogo variant="full" height="h-7" />
+        </div>
         <h1 class="mt-4 font-display text-2xl font-bold">Atur ulang kata sandi</h1>
         {#if error}
           <p class="alert-error mt-4" role="alert" aria-live="assertive">{error}</p>
