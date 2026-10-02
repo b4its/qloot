@@ -64,12 +64,21 @@
   ];
 
   function render(text: string): string {
-    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const linked = escaped.replace(
+    let s = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    s = s.replace(/^### (.*$)/gim, '<h3 class="font-bold text-sm mt-2 mb-1">$1</h3>');
+    s = s.replace(/^## (.*$)/gim, '<h2 class="font-bold text-base mt-2 mb-1">$1</h2>');
+    s = s.replace(/^# (.*$)/gim, '<h1 class="font-bold text-lg mt-2 mb-1">$1</h1>');
+    s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(
+      /`([^`]+)`/g,
+      '<code class="rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-xs font-mono">$1</code>',
+    );
+    s = s.replace(/^[*-] (.*$)/gim, '<span class="inline-block mr-1.5 text-primary">•</span>$1');
+    s = s.replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
       '<a href="$2" class="text-primary underline hover:opacity-80">$1</a>',
     );
-    return linked.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+    return s.replace(/\n/g, "<br>");
   }
 
   async function loadHistory() {
