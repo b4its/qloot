@@ -27,6 +27,7 @@
   import StatCounter from "$lib/components/StatCounter.svelte";
   import OptChip from "$lib/components/OptChip.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
+  import { onRealtime } from "$lib/stores/realtime";
 
   let acad: AcademicDashboard | null = null;
   let personality: Personality | null = null;
@@ -403,16 +404,15 @@
   $: totalActivity = Object.values(activityCounts).reduce((a, b) => a + b, 0);
   const intensity = ["bg-ink/5", "bg-secondary/30", "bg-secondary/55", "bg-secondary/80"];
 
-  onMount(() => {
-    (async () => {
-      const safe = async <T,>(request: Promise<T>, fallback: T, label: string): Promise<T> => {
-        try {
-          return await request;
-        } catch {
-          unavailableSections = [...unavailableSections, label];
-          return fallback;
-        }
-      };
+  async function loadDashboard() {
+    const safe = async <T,>(request: Promise<T>, fallback: T, label: string): Promise<T> => {
+      try {
+        return await request;
+      } catch {
+        unavailableSections = [...unavailableSections, label];
+        return fallback;
+      }
+    };
 
       try {
         const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] =
@@ -471,6 +471,13 @@
     })().catch((e) => {
       error = e instanceof ApiError ? e.message : "";
       loading = false;
+    }
+  }
+
+  onMount(() => {
+    void loadDashboard();
+    return onRealtime(["wallet.updated", "notification", "withdrawal.updated"], () => {
+      void loadDashboard();
     });
   });
 

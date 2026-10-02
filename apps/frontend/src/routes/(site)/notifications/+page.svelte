@@ -4,6 +4,7 @@
   import { api, ApiError } from "$lib/api/client";
   import type { Notification, NotificationPage } from "$lib/types";
   import { notifications } from "$lib/stores/notifications";
+  import { onRealtime } from "$lib/stores/realtime";
   import { relativeTime } from "$lib/utils/format";
   import { notificationLink } from "$lib/utils/notification-link";
   import Icon from "$lib/components/Icon.svelte";
@@ -283,6 +284,10 @@
   onMount(() => {
     void load();
     void loadPreferences();
+
+    return onRealtime(["notification"], () => {
+      void load();
+    });
   });
 </script>
 

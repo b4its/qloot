@@ -1,13 +1,16 @@
 import { writable } from "svelte/store";
 import { api, API_BASE } from "$lib/api/client";
+import { dispatchRealtimeMessage } from "./realtime";
 
 const POLL_MS = 60_000;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
+const PING_INTERVAL_MS = 25_000;
 
 function createNotificationStore() {
   const { subscribe, set } = writable<number>(0);
   let timer: ReturnType<typeof setInterval> | null = null;
+  let pingTimer: ReturnType<typeof setInterval> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let socket: WebSocket | null = null;
   let reconnectAttempt = 0;
@@ -18,6 +21,10 @@ function createNotificationStore() {
     if (timer) {
       clearInterval(timer);
       timer = null;
+    }
+    if (pingTimer) {
+      clearInterval(pingTimer);
+      pingTimer = null;
     }
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
@@ -48,6 +55,12 @@ function createNotificationStore() {
       const ws = new WebSocket(`${wsBase}/api/v1/ws/notifications`);
       ws.onopen = () => {
         reconnectAttempt = 0;
+        if (pingTimer) clearInterval(pingTimer);
+        pingTimer = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, PING_INTERVAL_MS);
       };
       ws.onmessage = (event) => {
         try {
@@ -58,11 +71,16 @@ function createNotificationStore() {
             // notifications arrive in a burst).
             void store.refresh();
           }
+          dispatchRealtimeMessage(msg);
         } catch {
           /* ignore malformed frames */
         }
       };
       ws.onclose = () => {
+        if (pingTimer) {
+          clearInterval(pingTimer);
+          pingTimer = null;
+        }
         if (socket === ws) socket = null;
         scheduleReconnect();
       };

@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import { onRealtime } from "$lib/stores/realtime";
 
   let sessions: SessionInfo[] = [];
   let profile: GamificationProfile | null = null;
@@ -257,7 +258,12 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onRealtime(["wallet.updated", "notification:badge", "notification:level"], () => {
+      void load();
+    });
+  });
 </script>
 
 <svelte:head><title>Profil | QLoot</title></svelte:head>

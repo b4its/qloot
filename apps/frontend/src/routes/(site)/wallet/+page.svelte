@@ -21,6 +21,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import { opt } from "$lib/stores/opt";
+  import { onRealtime } from "$lib/stores/realtime";
   import { connectWalletAddress, hasInjectedWallet } from "$lib/utils/metamask";
 
   const PAGE = 10;
@@ -441,8 +442,13 @@
 
   onMount(() => {
     metamaskAvailable = hasInjectedWallet();
-    load();
-    loadWithdrawals();
+    void load();
+    void loadWithdrawals();
+
+    return onRealtime(["wallet.updated", "withdrawal.updated", "notification:reward"], () => {
+      void load();
+      void loadWithdrawals();
+    });
   });
 </script>
 

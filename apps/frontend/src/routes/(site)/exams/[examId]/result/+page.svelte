@@ -6,6 +6,7 @@
   import { bpToPercent } from "$lib/utils/format";
   import { statusLabel } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import { onRealtime } from "$lib/stores/realtime";
 
   let exam: Exam | null = null;
   let attempt: Attempt | null = null;
@@ -102,7 +103,12 @@
     (x) => scoreFilter === "all" || x.bucket === scoreFilter,
   );
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onRealtime(["notification:reward", "notification"], () => {
+      void load();
+    });
+  });
 </script>
 
 <svelte:head><title>Hasil Ujian | QLoot</title></svelte:head>

@@ -12,6 +12,7 @@
   import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { reveal } from "$lib/actions/reveal";
   import { opt } from "$lib/stores/opt";
+  import { onRealtime } from "$lib/stores/realtime";
 
   interface TaskCompletion {
     id: string;
@@ -143,7 +144,12 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onRealtime(["wallet.updated", "notification:reward", "notification:task"], () => {
+      void load();
+    });
+  });
 </script>
 
 <svelte:head><title>Tugas & Misi | QLoot</title></svelte:head>

@@ -9,6 +9,7 @@
   import SearchInput from "$lib/components/SearchInput.svelte";
   import MetricStrip from "$lib/components/MetricStrip.svelte";
   import { reveal } from "$lib/actions/reveal";
+  import { onRealtime } from "$lib/stores/realtime";
 
   let catalog: Badge[] = [];
   let earned: UserBadge[] = [];
@@ -79,7 +80,12 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onRealtime(["notification:badge", "notification:level"], () => {
+      void load();
+    });
+  });
 
   $: earnedByCode = new Map(earned.map((e) => [e.badge.code, e]));
   $: progressByCode = new Map(progress.map((p) => [p.badge.code, p]));

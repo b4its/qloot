@@ -27,6 +27,14 @@ function createOptStore() {
     reset() {
       set({ available: 0, pending: 0, loaded: false });
     },
+    setBalance(available: number, pending?: number) {
+      update((s) => ({
+        ...s,
+        available,
+        pending: pending !== undefined ? pending : s.pending,
+        loaded: true,
+      }));
+    },
   };
 }
 

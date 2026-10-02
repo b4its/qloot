@@ -13,6 +13,7 @@
   import FilterChips from "$lib/components/FilterChips.svelte";
   import SearchInput from "$lib/components/SearchInput.svelte";
   import MetricStrip from "$lib/components/MetricStrip.svelte";
+  import { onRealtime } from "$lib/stores/realtime";
 
   const PAGE_SIZE = 12;
   let quests: Quest[] = [];
@@ -172,7 +173,12 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void load();
+    return onRealtime(["notification:quest", "notification:reward"], () => {
+      void load();
+    });
+  });
 </script>
 
 <svelte:head><title>Quest & Hadiah | QLoot</title></svelte:head>
