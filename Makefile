@@ -58,6 +58,7 @@ help: ## Show this help
 .PHONY: setup
 setup: ## First-time setup: copy .env, install deps, compile contracts
 	@[ -f .env ] || (cp .env.example .env && echo "$(YELLOW)Created .env from .env.example — review it!$(RESET)")
+	@./scripts/qloot-ai-gateway.sh || true
 	$(MAKE) install
 	$(MAKE) blockchain-install
 
@@ -96,12 +97,14 @@ health: ## Hit health endpoints
 # ----------------------------------------------------------------------------
 .PHONY: up
 up: ## Start the core stack (detached)
+	@./scripts/qloot-ai-gateway.sh || true
 	$(COMPOSE_DEV) up -d --remove-orphans
 	@echo ">> backend:  http://localhost:8000/docs"
 	@echo ">> frontend: http://localhost:$(FRONTEND_PORT)"
 
 .PHONY: up-all
 up-all: ## Start core stack + local anvil chain
+	@./scripts/qloot-ai-gateway.sh || true
 	$(COMPOSE_DEV) --profile local-chain up -d --remove-orphans
 
 .PHONY: down
