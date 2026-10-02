@@ -601,6 +601,15 @@ async def _mark_confirmed(session: AsyncSession, tx: BlockchainTransaction) -> N
         wd = await session.get(WithdrawalRequest, uuid.UUID(args["withdrawal_id"]))
         if wd is not None:
             wd.status = "completed"
+            from app.services.social_service import NotificationService
+
+            await NotificationService(session).notify(
+                user_id=wd.user_id,
+                kind="withdrawal",
+                title="Penarikan selesai",
+                body=f"Penarikan {wd.amount} OPT berhasil dikirim ke blockchain.",
+                data={"withdrawal_id": str(wd.id), "status": "completed", "amount": wd.amount},
+            )
     if tx.method == "anchorOnQtc" and args.get("certificate_id"):
         from app.models.certificate import Certificate
 

@@ -154,7 +154,46 @@ class RewardEngine:
         account.cached_pending = max(0, account.cached_pending - amount)
         await self._apply_negative_policy(account, "credit")
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user.id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="credit",
+            reference_type=reference_type,
+            description=description,
+        )
         return entry
+
+    async def _publish_wallet_update(
+        self,
+        *,
+        user_id: uuid.UUID,
+        asset: str,
+        balance: int,
+        amount: int,
+        entry_type: str,
+        reference_type: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        try:
+            from app.services.realtime import event_bus, user_channel
+
+            await event_bus.publish(
+                user_channel(str(user_id)),
+                {
+                    "type": "wallet.updated",
+                    "user_id": str(user_id),
+                    "asset": asset.upper(),
+                    "balance": balance,
+                    "amount": amount,
+                    "entry_type": entry_type,
+                    "reference_type": reference_type,
+                    "description": description,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - publish is best-effort
+            log.warning("wallet_update_publish_failed", user_id=str(user_id), error=str(exc))
 
     async def allocate_quest_reward(
         self,
@@ -357,6 +396,15 @@ class RewardEngine:
                     )
                 )
             ).scalar_one_or_none()
+        await self._publish_wallet_update(
+            user_id=user.id,
+            asset="OPT",
+            balance=new_balance,
+            amount=magnitude,
+            entry_type=entry_type,
+            reference_type="admin_adjustment",
+            description=f"Admin adjustment: {reason}"[:255],
+        )
         return entry
 
     async def allocate_event_reward(
@@ -449,6 +497,15 @@ class RewardEngine:
         self.session.add(entry)
         account.cached_balance = new_balance
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user.id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="debit",
+            reference_type="withdrawal",
+            description=f"Withdrawal to {destination}",
+        )
         return entry
 
     async def debit_for_transfer(
@@ -490,6 +547,15 @@ class RewardEngine:
         self.session.add(entry)
         account.cached_balance = new_balance
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user.id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="debit",
+            reference_type="transfer_out",
+            description=description or "Internal transfer",
+        )
         return entry
 
     async def debit_withdrawal_fee(
@@ -525,6 +591,15 @@ class RewardEngine:
         self.session.add(entry)
         account.cached_balance = new_balance
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="debit",
+            reference_type="withdrawal_fee",
+            description="Withdrawal fee",
+        )
         return entry
 
     async def refund_withdrawal_fee(
@@ -560,6 +635,15 @@ class RewardEngine:
         self.session.add(entry)
         account.cached_balance = new_balance
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="credit",
+            reference_type="withdrawal_fee_refund",
+            description="Withdrawal fee refund",
+        )
         return entry
 
     async def balance(self, user_id: uuid.UUID) -> int:
@@ -620,6 +704,14 @@ class RewardEngine:
         row = await self._locked_asset_row(user_id, asset)
         row.cached_balance += amount
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset=asset.upper(),
+            balance=row.cached_balance,
+            amount=amount,
+            entry_type="credit",
+            reference_type="asset_credit",
+        )
         return row.cached_balance
 
     async def debit_asset(self, *, user_id: uuid.UUID, asset: str, amount: int) -> int:
@@ -640,6 +732,14 @@ class RewardEngine:
             raise ConflictError(f"Insufficient {asset.upper()} balance")
         row.cached_balance -= amount
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset=asset.upper(),
+            balance=row.cached_balance,
+            amount=amount,
+            entry_type="debit",
+            reference_type="asset_debit",
+        )
         return row.cached_balance
 
     async def reconcile(self, user_id: uuid.UUID) -> tuple[int, int]:
@@ -746,6 +846,16 @@ class RewardEngine:
                 break
         if drifted:
             await self.session.flush()
+            for d in drifted:
+                await self._publish_wallet_update(
+                    user_id=uuid.UUID(d["user_id"]),
+                    asset="OPT",
+                    balance=d["expected"],
+                    amount=abs(d["expected"] - d["cached"]),
+                    entry_type="reconcile",
+                    reference_type="reconcile",
+                    description="Balance reconciled",
+                )
         # Attach a user email-ish label for the admin view (id only, no PII leak).
         for row in drifted:
             user = await self.session.get(User, uuid.UUID(row["user_id"]))
@@ -794,6 +904,15 @@ class RewardEngine:
         account.cached_balance = new_balance
         await self._apply_negative_policy(account, "reward_refund")
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="debit",
+            reference_type="reward_refund",
+            description="Reversal for failed on-chain reward",
+        )
         return entry
 
     async def _apply_negative_policy(self, account: WalletAccount, reason: str) -> None:
@@ -852,6 +971,15 @@ class RewardEngine:
         self.session.add(entry)
         account.cached_balance = new_balance
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="credit",
+            reference_type="withdrawal_refund",
+            description="Reversal for failed on-chain withdrawal",
+        )
         return entry
 
     async def recredit_reward_retry(
@@ -891,6 +1019,15 @@ class RewardEngine:
         self.session.add(entry)
         account.cached_balance = new_balance
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset="OPT",
+            balance=new_balance,
+            amount=amount,
+            entry_type="credit",
+            reference_type="reward_retry",
+            description="Re-credit for retried on-chain reward",
+        )
         return entry
 
     async def refund_swap(
@@ -940,12 +1077,29 @@ class RewardEngine:
             )
             account.cached_balance = new_balance
             await self.session.flush()
+            await self._publish_wallet_update(
+                user_id=user_id,
+                asset="OPT",
+                balance=new_balance,
+                amount=opt_cost,
+                entry_type="credit",
+                reference_type="swap_refund",
+                description=f"Reversal for failed swap to {asset}",
+            )
         # Claw back the credited target asset (best-effort: clamp at 0). Only
         # reached on the first (idempotent) refund for this swap_key.
         if asset and asset_amount > 0:
             row = await self._locked_asset_row(user_id, asset)
             row.cached_balance = max(0, row.cached_balance - asset_amount)
             await self.session.flush()
+            await self._publish_wallet_update(
+                user_id=user_id,
+                asset=asset.upper(),
+                balance=row.cached_balance,
+                amount=asset_amount,
+                entry_type="debit",
+                reference_type="swap_refund",
+            )
 
     async def refund_ai_request(
         self, *, user_id: uuid.UUID, requests: int, asset: str = "ORT"
@@ -960,3 +1114,11 @@ class RewardEngine:
         row = await self._locked_asset_row(user_id, asset)
         row.cached_balance += requests
         await self.session.flush()
+        await self._publish_wallet_update(
+            user_id=user_id,
+            asset=asset.upper(),
+            balance=row.cached_balance,
+            amount=requests,
+            entry_type="credit",
+            reference_type="ai_refund",
+        )

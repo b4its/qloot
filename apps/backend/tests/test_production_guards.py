@@ -18,6 +18,9 @@ def _prod(**over) -> dict:
         "session_secret": "a-strong-unique-secret-value",
         "database_url": "postgresql+asyncpg://qloot:realpass@db:5432/qloot",
         "blockchain_dry_run": True,
+        "opt_contract_address": "",
+        "treasury_address": "",
+        "blockchain_private_key": "",
     }
     base.update(over)
     return base

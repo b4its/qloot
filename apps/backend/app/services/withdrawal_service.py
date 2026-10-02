@@ -152,6 +152,15 @@ class WithdrawalService:
             )
         )
         await self.session.flush()
+        from app.services.social_service import NotificationService
+
+        await NotificationService(self.session).notify(
+            user_id=wd.user_id,
+            kind="withdrawal",
+            title="Penarikan disetujui",
+            body=f"Penarikan {wd.amount} OPT Anda disetujui dan sedang diproses ke blockchain.",
+            data={"withdrawal_id": str(wd.id), "status": "approved", "amount": wd.amount},
+        )
         log.info("withdrawal_approved", withdrawal_id=str(wd.id), admin=str(admin.id))
         return wd
 
@@ -176,6 +185,15 @@ class WithdrawalService:
             data={"reason": reason},
         )
         await self._refund(wd)
+        from app.services.social_service import NotificationService
+
+        await NotificationService(self.session).notify(
+            user_id=wd.user_id,
+            kind="withdrawal",
+            title="Penarikan ditolak",
+            body=f"Penarikan {wd.amount} OPT Anda ditolak" + (f": {reason}" if reason else "."),
+            data={"withdrawal_id": str(wd.id), "status": "rejected", "amount": wd.amount},
+        )
         log.info("withdrawal_rejected", withdrawal_id=str(wd.id), admin=str(admin.id))
         return wd
 
