@@ -1,7 +1,7 @@
 /**
  * Static demo content for the public marketing pages (Bahasa Indonesia).
  *
- * QLoot is a class-based e-learning platform — there are no paid courses.
+ * QLoot is a class-based e-learning platform: there are no paid courses.
  * Content here describes the platform, not a storefront.
  */
 
@@ -39,7 +39,7 @@ export const classTracks: ClassTrack[] = [
     code: "1A",
     type: "IPA",
     label: "Kelas 1 · IPA",
-    subjects: ["Matematika", "Bahasa Indonesia", "Fisika"],
+    subjects: ["Matematika", "Kimia", "Fisika"],
     students: 32,
     icon: "flask-vial",
     accent: "linear-gradient(135deg,#168BFF,#00E5FF)",
@@ -97,7 +97,7 @@ export const features: Feature[] = [
   {
     icon: "gem",
     title: "Hadiah OPT",
-    desc: "Setiap pencapaian tercatat sebagai OryphemToken (OPT) — reward digital yang dapat dilacak.",
+    desc: "Setiap pencapaian tercatat sebagai OryphemToken (OPT) , reward digital yang dapat dilacak.",
   },
   {
     icon: "certificate",
