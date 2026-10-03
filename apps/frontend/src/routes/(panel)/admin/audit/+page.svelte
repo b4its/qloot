@@ -102,7 +102,7 @@
   ];
 </script>
 
-<svelte:head><title>Log Audit — QLoot</title></svelte:head>
+<svelte:head><title>Log Audit | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -190,7 +190,7 @@
               <td class="font-mono text-xs">
                 {l.actor_id ? `${l.actor_id.slice(0, 8)}…` : "system"}
               </td>
-              <td class="font-mono text-xs muted">{l.request_id?.slice(0, 8) ?? "—"}</td>
+              <td class="font-mono text-xs muted">{l.request_id?.slice(0, 8) ?? "-"}</td>
               <td class="text-xs muted">
                 {#if l.data}
                   <button
@@ -206,7 +206,7 @@
                     {/if}
                   </button>
                 {:else}
-                  —
+                  -
                 {/if}
               </td>
             </tr>

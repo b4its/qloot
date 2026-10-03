@@ -20,12 +20,12 @@
     {
       icon: "scale-balanced",
       t: "Syarat Penggunaan",
-      d: "Konten kursus dilindungi hak cipta. Penggunaan pribadi diperbolehkan; redistribusi komersial tidak.",
+      d: "Konten pelajaran dilindungi hak cipta. Penggunaan pribadi diperbolehkan; redistribusi komersial tidak.",
     },
   ];
 </script>
 
-<svelte:head><title>Legal & Privasi — QLoot</title></svelte:head>
+<svelte:head><title>Legal & Privasi | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-16 sm:px-6">
   <p class="mono-label">Legal</p>

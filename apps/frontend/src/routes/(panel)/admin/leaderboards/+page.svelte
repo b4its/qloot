@@ -102,7 +102,7 @@
     try {
       const qs = id ? `scope=${scope}&scope_id=${id}` : `scope=${scope}`;
       const res = await api.post<{ materialized: number }>(`/rankings/leaderboards/refresh?${qs}`);
-      message = `Papan ${scope} diperbarui — ${res.materialized} entri.`;
+      message = `Papan ${scope} diperbarui: ${res.materialized} entri.`;
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memperbarui papan peringkat";
@@ -131,13 +131,13 @@
   });
 </script>
 
-<svelte:head><title>Papan Peringkat — QLoot</title></svelte:head>
+<svelte:head><title>Papan Peringkat | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
     eyebrow="Admin · Papan Peringkat"
     title="Papan Peringkat Termaterialisasi"
-    subtitle="Snapshot peringkat global, ruang, dan quest — bertahan meski nilai diedit belakangan."
+    subtitle="Snapshot peringkat global, ruang, dan quest (bertahan meski nilai diedit belakangan)."
     backHref="/admin"
     backLabel="Admin"
   />
@@ -257,7 +257,7 @@
                   class:badge-amber={s.scope === "quest"}>{s.scope}</span
                 >
               </td>
-              <td class="font-mono text-xs">{s.scope_id?.slice(0, 8) ?? "—"}</td>
+              <td class="font-mono text-xs">{s.scope_id?.slice(0, 8) ?? "-"}</td>
               <td>{s.period}</td>
               <td class="text-xs muted">{formatDate(s.updated_at)}</td>
               <td class="text-right">

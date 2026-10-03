@@ -166,7 +166,7 @@
   let deletingGrade: GradeRow | null = null;
 
   // Real activity heatmap: bucket actual events (lesson completions, exam
-  // submissions, badge awards) into days. No fabricated data — an account with
+  // submissions, badge awards) into days. No fabricated data: an account with
   // no events simply shows an empty grid.
   const weeks = 18;
   const dayMs = 24 * 60 * 60 * 1000;
@@ -287,7 +287,7 @@
     return Math.min(100, Math.max(0, Math.round((p.current / p.target) * 100)));
   }
 
-  // The badges closest to unlocking (locked, with the least remaining) — the
+  // The badges closest to unlocking (locked, with the least remaining): the
   // most motivating next goals to surface on the home screen.
   $: nearestBadges = badgeProgress
     .filter((p) => !p.unlocked && p.target > 0)
@@ -320,7 +320,7 @@
   $: onboardingDone = onboardingComplete(onboarding);
 </script>
 
-<svelte:head><title>Dashboard — QLoot</title></svelte:head>
+<svelte:head><title>Dashboard | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
   <p class="mono-label">Semester Genap 2025/2026</p>
@@ -468,14 +468,14 @@
     <!-- top stats -->
     <div class="mt-6 grid gap-4 sm:grid-cols-3">
       <div class="card flex items-center gap-4">
-        <ProgressRing value={acad?.average ?? 0} size={92} stroke={9} label="Rata-rata" />
+        <ProgressRing value={acad?.average ?? 0} size={92} stroke={9} label="Rata-rata skor" />
         <div>
-          <p class="mono-label">Performa</p>
+          <p class="mono-label">Rata-rata Skor</p>
           <p class="text-sm muted">
-            Terkuat: <span class="text-ink">{acad?.strong_subject ?? "—"}</span>
+            Terkuat: <span class="text-ink">{acad?.strong_subject ?? "-"}</span>
           </p>
           <p class="text-sm muted">
-            Perhatian: <span class="text-ink">{acad?.weak_subject ?? "—"}</span>
+            Perhatian: <span class="text-ink">{acad?.weak_subject ?? "-"}</span>
           </p>
         </div>
       </div>
@@ -489,7 +489,7 @@
       <div class="card">
         <p class="mono-label">Badge diraih</p>
         <p class="mt-2 font-display text-3xl font-bold"><StatCounter value={badges.length} /></p>
-        <p class="text-xs muted">dari {badgeCatalog.length || "—"} tersedia</p>
+        <p class="text-xs muted">dari {badgeCatalog.length || "-"} tersedia</p>
       </div>
     </div>
 
@@ -585,7 +585,7 @@
         </div>
       </div>
       <p class="mt-1 text-xs muted">
-        Masukkan nilai rapor — dipakai untuk dashboard, tren, dan rekomendasi jurusan.
+        Masukkan nilai rapor: dipakai untuk dashboard, tren, dan rekomendasi jurusan.
       </p>
       <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
         <select class="input" bind:value={gradeSubject} aria-label="Mata pelajaran">
@@ -597,7 +597,7 @@
           min="0"
           max="100"
           bind:value={gradeValue}
-          aria-label="Nilai (0–100)"
+          aria-label="Nilai (0-100)"
         />
         <input
           class="input"
@@ -684,7 +684,7 @@
                 <Icon name="lightbulb" size="12px" class="mt-0.5 text-primary flex-none" />
                 <span>
                   <span class="font-medium">{ins.title}</span>
-                  <span class="muted"> — {ins.detail}</span>
+                  <span class="muted">: {ins.detail}</span>
                 </span>
               </li>
             {/each}
@@ -863,8 +863,8 @@
         {:else}
           <div class="card mt-3 grid place-items-center py-10 text-center">
             <Icon name="certificate" size="26px" class="muted" />
-            <p class="mt-2 text-sm muted">Selesaikan kursus untuk meraih sertifikat pertamamu.</p>
-            <a href="/courses" class="btn-secondary mt-3">Jelajahi kursus</a>
+            <p class="mt-2 text-sm muted">Selesaikan pelajaran untuk meraih sertifikat pertamamu.</p>
+            <a href="/courses" class="btn-secondary mt-3">Jelajahi pelajaran</a>
           </div>
         {/if}
       </div>

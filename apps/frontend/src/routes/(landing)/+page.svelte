@@ -19,14 +19,12 @@
 </script>
 
 <svelte:head>
-  <title>QLoot — E-Learning Kelas dengan AI & Reward On-Chain</title>
+  <title>QLoot | E-Learning Kelas dengan AI & Reward On-Chain</title>
 </svelte:head>
 
 <!-- ================= HERO ================= -->
 <section class="relative overflow-hidden">
   <div class="aurora"><span class="aurora-blob-3"></span></div>
-  <div class="dotgrid absolute inset-0 z-0 opacity-40"></div>
-  <div class="cyber-floor"></div>
 
   <div
     class="relative z-10 mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24"
@@ -43,7 +41,7 @@
       </h1>
       <p class="mt-5 max-w-xl text-ink2">
         Guru membuat pelajaran dan menargetkannya ke kelas tertentu. Siswa langsung melihat
-        pelajaran, materi, ujian, dan quest untuk kelasnya — lengkap dengan reward OryphemToken.
+        pelajaran, materi, ujian, dan quest untuk kelasnya, lengkap dengan reward OryphemToken.
       </p>
       <div class="mt-7 flex flex-wrap items-center gap-3">
         {#if user}
@@ -77,7 +75,7 @@
     <div class="relative hidden lg:block">
       <div class="tilt">
         <div class="grad-border glow-cyan">
-          <div class="card holo scan-sweep !p-5">
+          <div class="card holo !p-5">
             <div class="flex items-center justify-between">
               <span class="badge badge-mint"
                 ><Icon name="chalkboard-user" size="10px" /> Kelas 1A · IPA</span
@@ -85,7 +83,7 @@
               <span class="mono-label">3 PELAJARAN</span>
             </div>
             <h3 class="mt-3 font-display text-xl font-bold">Pelajaran Kelas 1A</h3>
-            <p class="text-sm muted">Matematika, Bahasa Indonesia, dan Fisika dalam satu kelas.</p>
+            <p class="text-sm muted">Matematika, Kimia, dan Fisika dalam satu kelas.</p>
             <ul class="mt-4 space-y-2 text-sm">
               {#each classTracks[0].subjects as s}
                 <li class="flex items-center gap-2 rounded-sm border px-3 py-2">
@@ -105,7 +103,7 @@
                   <p class="text-[11px] muted">Guru Matematika</p>
                 </div>
               </div>
-              <a href="/courses" class="btn-primary !px-4 !py-2 text-xs">Lihat</a>
+              <a href="/courses" class="btn-primary min-h-[44px] !px-4 text-xs">Lihat</a>
             </div>
           </div>
         </div>
@@ -192,18 +190,20 @@
     </div>
     <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {#each classTracks as t, i}
-        <div use:reveal={{ delay: i * 60 }} class="grad-border lift">
-          <span class="holo block p-5">
-            <span
-              class="brand-mark grid h-11 w-11 place-items-center rounded-sm glow-yellow"
-              style={`background-image:${t.accent}`}
-            >
-              <Icon name={t.icon} size="18px" />
-            </span>
-            <span class="mt-4 block font-display text-lg font-bold">{t.label}</span>
-            <span class="mt-2 flex flex-wrap gap-1.5">
-              {#each t.subjects as s}<span class="btn-pill !py-0.5 !text-[11px]">{s}</span>{/each}
-            </span>
+        <div use:reveal={{ delay: i * 60 }} class="grad-border lift h-full flex flex-col">
+          <span class="holo flex h-full flex-col justify-between p-5">
+            <div>
+              <span
+                class="brand-mark grid h-11 w-11 place-items-center rounded-sm glow-yellow"
+                style={`background-image:${t.accent}`}
+              >
+                <Icon name={t.icon} size="18px" />
+              </span>
+              <span class="mt-4 block font-display text-lg font-bold">{t.label}</span>
+              <span class="mt-2 flex flex-wrap gap-1.5">
+                {#each t.subjects as s}<span class="btn-pill !py-0.5 !text-[11px]">{s}</span>{/each}
+              </span>
+            </div>
             <span class="mono-label mt-4 flex items-center gap-2">
               <Icon name="users" size="10px" />
               {t.students} siswa

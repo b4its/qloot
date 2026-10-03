@@ -14,7 +14,7 @@
   let exams: Exam[] = [];
   let form = { title: "", exam_id: "", top_n_winners: 3 };
   // Reward amounts keyed by rank (1-based). Kept in sync with the winner count
-  // so every winner has a rule — otherwise a late-ranked winner gets no reward.
+  // so every winner has a rule: otherwise a late-ranked winner gets no reward.
   let ranks: number[] = [100, 60, 40];
   let busy = false;
   let error = "";
@@ -94,7 +94,7 @@
   }
 </script>
 
-<svelte:head><title>Quest Baru — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Quest Baru | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <PageHeader

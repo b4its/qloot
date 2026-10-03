@@ -82,7 +82,7 @@
   });
 </script>
 
-<svelte:head><title>Ledger — QLoot</title></svelte:head>
+<svelte:head><title>Ledger | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -169,7 +169,7 @@
   {/if}
 
   {#if drift.length}
-    <div class="card mt-6">
+    <div class="card mt-6 overflow-x-auto">
       <p class="mono-label mb-2">Drift terakhir diperbaiki ({drift.length})</p>
       <table class="w-full text-sm">
         <caption class="sr-only">Akun dengan selisih saldo</caption>

@@ -2,7 +2,7 @@
   import Icon from "$lib/components/Icon.svelte";
 </script>
 
-<svelte:head><title>Untuk Bisnis — QLoot</title></svelte:head>
+<svelte:head><title>Untuk Bisnis | QLoot</title></svelte:head>
 
 <section class="relative overflow-hidden border-b">
   <div class="aurora"></div>

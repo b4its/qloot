@@ -17,7 +17,7 @@
     },
     {
       q: "Apakah saya harus membayar?",
-      a: "Tidak ada kursus berbayar. QLoot adalah platform kelas — akun pelajar dibuat gratis, dan akun pengajar dibuat oleh admin sekolah.",
+      a: "Tidak ada pelajaran berbayar. QLoot adalah platform kelas: akun pelajar dibuat gratis, dan akun pengajar dibuat oleh admin sekolah.",
     },
     {
       q: "Apakah ada komunitas?",
@@ -25,7 +25,7 @@
     },
   ];
   // Track the open question by its text, not its index into the (filtered)
-  // list — searching re-filters and shifts indices, which would otherwise
+  // list: searching re-filters and shifts indices, which would otherwise
   // appear to toggle the wrong question.
   let open: string | null = faqs[0]?.q ?? null;
   let query = "";
@@ -37,7 +37,7 @@
   });
 </script>
 
-<svelte:head><title>FAQ — QLoot</title></svelte:head>
+<svelte:head><title>FAQ | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-3xl px-4 py-16 sm:px-6">
   <p class="mono-label">Pertanyaan Umum</p>

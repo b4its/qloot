@@ -1,12 +1,12 @@
 <script lang="ts" generics="T extends string = string">
   /**
    * Shared segmented filter control (UIX-04). Replaces the ~28 hand-rolled
-   * `rounded-sm border p-1` button groups scattered across the app — one
+   * `rounded-sm border p-1` button groups scattered across the app: one
    * consistent look, one consistent accessibility contract.
    *
    * Semantics: rendered as a toolbar of toggle buttons (`aria-pressed`) so
    * screen readers announce the active filter while staying a plain button
-   * group — matching the behaviour callers and tests already rely on.
+   * group: matching the behaviour callers and tests already rely on.
    * `onchange` fires after `value` updates so callers can reset pagination.
    */
   export let options: readonly (readonly [T, string])[];

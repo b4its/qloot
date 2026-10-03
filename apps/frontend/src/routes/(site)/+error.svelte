@@ -18,7 +18,7 @@
   $: icon = status === 404 ? "compass" : status === 403 ? "lock" : "triangle-exclamation";
 </script>
 
-<svelte:head><title>{status} — QLoot</title></svelte:head>
+<svelte:head><title>{status} | QLoot</title></svelte:head>
 
 <div class="relative grid min-h-[70vh] place-items-center overflow-hidden px-4">
   <div class="aurora"></div>
@@ -31,7 +31,7 @@
     <p class="mt-2 muted">{detail}</p>
     <div class="mt-6 flex flex-wrap justify-center gap-3">
       <a href="/" class="btn-primary"><Icon name="house" size="12px" /> Ke beranda</a>
-      <a href="/courses" class="btn-secondary">Jelajahi kursus</a>
+      <a href="/courses" class="btn-secondary">Jelajahi pelajaran</a>
     </div>
   </div>
 </div>

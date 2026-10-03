@@ -4,7 +4,7 @@
    * used across list pages so empty states stop diverging.
    *
    * The action may be either a link (`actionHref`) or an in-page callback
-   * (`onAction`) — filters and retries need the latter.
+   * (`onAction`): filters and retries need the latter.
    */
   import Icon from "$lib/components/Icon.svelte";
 

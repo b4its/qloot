@@ -133,7 +133,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Pengguna — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Pengguna | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <PageHeader

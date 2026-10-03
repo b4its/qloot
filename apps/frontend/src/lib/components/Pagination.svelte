@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Reusable pager. Two modes:
-   *  - total mode: pass `total`; renders "X–Y of N" with a page counter.
+   *  - total mode: pass `total`; renders "X-Y of N" with a page counter.
    *  - cursor mode: pass `hasMore` (list endpoints that return just an array);
    *    renders Prev/Next and reports the page number.
    *
@@ -36,7 +36,7 @@
   >
     <p class="muted">
       {#if total !== undefined}
-        {rangeStart}–{rangeEnd} dari {total} {label}
+        {rangeStart}-{rangeEnd} dari {total} {label}
       {:else}
         {label} · halaman {page}
       {/if}

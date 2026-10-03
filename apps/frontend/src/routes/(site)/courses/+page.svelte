@@ -138,7 +138,7 @@
   }
 </script>
 
-<svelte:head><title>Pelajaran — QLoot</title></svelte:head>
+<svelte:head><title>Pelajaran | QLoot</title></svelte:head>
 
 <div class="dotgrid relative">
   <div class="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -149,7 +149,7 @@
         <p class="mt-2 max-w-2xl muted">
           {#if user}
             Pelajaran yang dapat kamu akses{#if user.class_code}
-              — kelas
+              : kelas
               <span class="font-semibold text-ink"
                 >{user.class_code}{user.class_type ? ` · ${user.class_type}` : ""}</span
               >{/if}.
@@ -267,7 +267,7 @@
           <option value="recent">Terbaru</option>
           <option value="progress">Progres tertinggi</option>
           <option value="lessons">Materi terbanyak</option>
-          <option value="title">Judul (A–Z)</option>
+          <option value="title">Judul (A-Z)</option>
         </select>
       </div>
 

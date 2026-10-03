@@ -99,7 +99,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>{exam?.title ?? "Ujian"} — QLoot</title></svelte:head>
+<svelte:head><title>{exam?.title ?? "Ujian"} | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
@@ -178,7 +178,7 @@
             class:text-highlight={bestPassed === false}
             data-role="best-score"
           >
-            {bestScoreBp !== null ? bpToPercent(bestScoreBp) : "—"}
+            {bestScoreBp !== null ? bpToPercent(bestScoreBp) : "-"}
           </p>
         </div>
         <div class="card p-4">
@@ -194,7 +194,7 @@
         <div class="card p-4">
           <p class="mono-label text-[10px]">Status</p>
           <p class="mt-1 font-display text-2xl font-bold">
-            {passedAny ? "Lulus" : pastAttempts.length ? "Belum lulus" : "—"}
+            {passedAny ? "Lulus" : pastAttempts.length ? "Belum lulus" : "-"}
           </p>
         </div>
       </div>

@@ -56,7 +56,7 @@
     : [];
 </script>
 
-<svelte:head><title>Verifikasi Kredensial — QLoot</title></svelte:head>
+<svelte:head><title>Verifikasi Kredensial | QLoot</title></svelte:head>
 
 <div class="relative grid min-h-[80vh] place-items-center overflow-hidden px-4 py-12">
   <div class="aurora"></div>
@@ -91,19 +91,19 @@
         <div class="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2">
           <div>
             <p class="mono-label">Penerima</p>
-            <p class="text-sm">{result.recipient_name ?? "—"}</p>
+            <p class="text-sm">{result.recipient_name ?? "-"}</p>
           </div>
           <div>
             <p class="mono-label">Pelajaran</p>
-            <p class="text-sm">{result.course_title ?? "—"}</p>
+            <p class="text-sm">{result.course_title ?? "-"}</p>
           </div>
           <div>
             <p class="mono-label">Diterbitkan oleh</p>
-            <p class="text-sm">{result.issued_by ?? "—"}</p>
+            <p class="text-sm">{result.issued_by ?? "-"}</p>
           </div>
           <div>
             <p class="mono-label">Tanggal</p>
-            <p class="text-sm">{result.issued_at ? formatDate(result.issued_at) : "—"}</p>
+            <p class="text-sm">{result.issued_at ? formatDate(result.issued_at) : "-"}</p>
           </div>
         </div>
 

@@ -530,7 +530,7 @@
           detail:
             pendingDrafts === 0
               ? rejectedDrafts > 0
-                ? `${rejectedDrafts} draf ditolak — hapus atau perbaiki`
+                ? `${rejectedDrafts} draf ditolak: hapus atau perbaiki`
                 : "Semua soal ditinjau"
               : `${pendingDrafts} draf menunggu disetujui`,
         },
@@ -548,7 +548,7 @@
   $: readyToPublish = readiness.length > 0 && readiness.every((c) => c.ok);
 </script>
 
-<svelte:head><title>Kelola Ujian — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Kelola Ujian | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
   <PageHeader

@@ -25,7 +25,7 @@
   let deletingBusy = false;
 
   const CATEGORY_LABEL: Record<string, string> = {
-    course: "Kursus",
+    course: "Pelajaran",
     extracurricular: "Ekstrakurikuler",
     material: "Materi",
   };
@@ -156,13 +156,13 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Sumber Daya — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Sumber Daya | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6">
   <PageHeader
     eyebrow="Panel Guru · Sumber Daya"
     title="Perpustakaan Sumber Daya"
-    subtitle="Kelola katalog kursus, ekstrakurikuler, dan materi belajar."
+    subtitle="Kelola katalog pelajaran, ekstrakurikuler, dan materi belajar."
     backHref="/teacher"
     backLabel="Panel guru"
   />
@@ -177,7 +177,7 @@
         <p class="mt-1 font-display text-3xl font-bold" data-role="total-count">{items.length}</p>
       </div>
       <div class="card p-4">
-        <p class="mono-label text-[10px]">Kursus</p>
+        <p class="mono-label text-[10px]">Pelajaran</p>
         <p class="mt-1 font-display text-3xl font-bold">{catCounts["course"] ?? 0}</p>
       </div>
       <div class="card p-4">
@@ -194,7 +194,7 @@
   <!-- Filter + search -->
   <div class="mt-4 flex flex-wrap items-center gap-2">
     <div class="flex flex-wrap gap-1 text-xs">
-      {#each [["", "Semua"], ["course", "Kursus"], ["extracurricular", "Ekstrakurikuler"], ["material", "Materi"]] as [val, label]}
+      {#each [["", "Semua"], ["course", "Pelajaran"], ["extracurricular", "Ekstrakurikuler"], ["material", "Materi"]] as [val, label]}
         <button
           type="button"
           class="btn-pill !py-1 text-xs"
@@ -230,7 +230,7 @@
     <div class="mt-3 grid gap-2 sm:grid-cols-2">
       <input class="input" placeholder="Kode (unik)" bind:value={form.code} />
       <select class="input" bind:value={form.category}>
-        <option value="course">Kursus</option>
+        <option value="course">Pelajaran</option>
         <option value="extracurricular">Ekstrakurikuler</option>
         <option value="material">Materi</option>
       </select>

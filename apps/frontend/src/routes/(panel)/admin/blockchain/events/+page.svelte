@@ -92,7 +92,7 @@
   });
 </script>
 
-<svelte:head><title>Event Blockchain — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Event Blockchain | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -120,7 +120,7 @@
       </div>
       <div class="card p-4">
         <p class="mono-label text-[10px]">Blok terbaru</p>
-        <p class="mt-1 font-display text-3xl font-bold">{latestBlock ?? "—"}</p>
+        <p class="mt-1 font-display text-3xl font-bold">{latestBlock ?? "-"}</p>
       </div>
     </div>
   {/if}

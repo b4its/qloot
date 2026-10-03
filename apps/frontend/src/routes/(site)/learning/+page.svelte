@@ -21,7 +21,7 @@
   let query = "";
   let statusFilter: "all" | "new" | "started" | "done" = "all";
   let sortBy: "recent" | "progress" | "title" = "recent";
-  // Guard so the auth-triggered reload runs at most once per resolved user —
+  // Guard so the auth-triggered reload runs at most once per resolved user -
   // otherwise a user with zero courses re-triggers load() forever (load() sets
   // loading=false while courses stays empty).
   let loadedForUser = false;
@@ -72,7 +72,7 @@
     ["done", "Selesai"],
   ] as const;
 
-  // The course most recently progressed but not finished — the natural resume.
+  // The course most recently progressed but not finished: the natural resume.
   $: resumeCourse =
     (void progress,
     courses
@@ -129,7 +129,7 @@
   }
 </script>
 
-<svelte:head><title>Pembelajaran — QLoot</title></svelte:head>
+<svelte:head><title>Pembelajaran | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -219,7 +219,7 @@
       >
         <option value="recent">Terbaru</option>
         <option value="progress">Progres tertinggi</option>
-        <option value="title">Judul (A–Z)</option>
+        <option value="title">Judul (A-Z)</option>
       </select>
     </div>
 

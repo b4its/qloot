@@ -3,7 +3,7 @@
   import StatCounter from "$lib/components/StatCounter.svelte";
 </script>
 
-<svelte:head><title>Tentang — QLoot</title></svelte:head>
+<svelte:head><title>Tentang | QLoot</title></svelte:head>
 
 <section class="relative overflow-hidden border-b">
   <div class="aurora"></div>
@@ -11,7 +11,7 @@
     <p class="mono-label">Tentang</p>
     <h1 class="mt-2 font-display text-4xl font-bold">Belajar seharusnya terasa seperti kemajuan</h1>
     <p class="mt-3 muted">
-      QLoot dibangun untuk membuat pembelajaran terstruktur, terukur, dan menyenangkan — dengan
+      QLoot dibangun untuk membuat pembelajaran terstruktur, terukur, dan menyenangkan, dengan
       teknologi sebagai alat, bukan tujuan.
     </p>
   </div>

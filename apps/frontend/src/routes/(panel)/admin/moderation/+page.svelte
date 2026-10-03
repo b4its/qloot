@@ -108,7 +108,7 @@
   });
 </script>
 
-<svelte:head><title>Moderasi Komunitas — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Moderasi Komunitas | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader

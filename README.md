@@ -1,544 +1,363 @@
 # QLoot
 
-**QLoot** is a gamified, class-based e-learning platform with **AI-assisted exams**,
-**competitive real-time rooms**, **quests & rankings**, and **blockchain rewards**
-through the **OryphemToken (OPT)** ERC-1155 multi-token (OPT · QTC · ORT).
+> Platform e-learning berbasis kelas bergamifikasi dengan ujian berbantuan AI, ruang kompetisi real-time, quest dan peringkat, serta sistem reward Web3 melalui OryphemToken (OPT) ERC-1155.
 
-It is a ground-up reimplementation inspired by the domain of
-[SayGenFix](https://github.com/mhaatha/saygenfix) (a Go/AI essay-exam app), rebuilt as
-a **FastAPI + SvelteKit** monorepo with proper transactions, object-level RBAC,
-background workers, and Web3 rewards.
+QLoot memadukan pengalaman belajar modern ala sekolah digital dengan simulasi aset Web3 dan kecerdasan buatan. Dibangun sebagai monorepo berbasis **FastAPI + SvelteKit** dengan transaksi database ACID, kontrol akses berbasis peran (RBAC) pada level objek, outbox transaksional, dan background worker yang handal.
 
-> The whole platform runs as a **deterministic simulation** offline: the AI provider
-> defaults to a mock, the chain client defaults to `dry_run`, and the career-guidance
-> module is fully simulated — no external services or API keys are required to run,
-> demo, or test the system.
->
-> Optionally it can talk to a **real OpenAI-compatible AI gateway** (`AI_PROVIDER=openai`,
-> e.g. a local DeepSeek endpoint) and to a **real EVM chain** (Sepolia), while staying
-> simulation-first: rewards are always written to the double-entry ledger, and the
-> blockchain worker only submits on-chain when `BLOCKCHAIN_DRY_RUN=false`.
+> [!NOTE]
+> Seluruh platform dirancang dengan prinsip **deterministic simulation**: provider AI secara default menggunakan mock cerdas, client blockchain berjalan dalam mode `dry_run`, dan modul panduan karier disimulasikan penuh. Platform dapat langsung dijalankan, didemokan, dan diuji secara offline tanpa ketergantungan API key eksternal.
 
 ---
 
-## Table of contents
+## Daftar Isi
 
-- [Ringkasan sistem](#ringkasan-sistem)
-- [Fitur](#fitur)
-- [Tech stack](#tech-stack)
-- [Arsitektur](#arsitektur)
-- [Instalasi](#instalasi)
-- [Cara penggunaan](#cara-penggunaan)
-- [Seed data](#seed-data)
+- [Tentang QLoot](#tentang-qloot)
+- [Fitur Utama](#fitur-utama)
+- [Tech Stack](#tech-stack)
+- [Arsitektur Sistem](#arsitektur-sistem)
+- [Struktur Repositori](#struktur-repositori)
+- [Mulai Cepat](#mulai-cepat)
+- [Daftar Rute dan Layanan](#daftar-rute-dan-layanan)
+- [Alur Penggunaan dan Akun Demo](#alur-penggunaan-dan-akun-demo)
+- [Konfigurasi Environment](#konfigurasi-environment)
+- [Blockchain dan OryphemToken (OPT)](#blockchain-dan-oryphemtoken-opt)
+- [Integrasi AI Gateway](#integrasi-ai-gateway)
 - [Pengujian](#pengujian)
-- [Blockchain & OryphemToken (OPT)](#blockchain--oryphemtoken-opt)
-- [Struktur repositori](#struktur-repositori)
+- [Pemecahan Masalah](#pemecahan-masalah)
 - [Keamanan](#keamanan)
+- [Lisensi](#lisensi)
 
 ---
 
-## Ringkasan sistem
+## Tentang QLoot
 
-QLoot memodelkan sebuah sekolah digital:
+QLoot memodelkan ekosistem pembelajaran sekolah digital yang terstruktur:
 
-- **Guru (teacher)** membuat *pelajaran* (subject) yang ditargetkan ke sebuah **kelas**
-  (mis. `1A · IPA`), mengunggah **materi PDF**, membuat **ujian**, **quest**, **ruang**,
-  dan **tugas**.
-- **Siswa (student)** terdaftar pada satu kelas dan otomatis melihat pelajaran untuk
-  kelasnya. Mereka mengerjakan ujian, mengumpulkan jawaban, dan mengikuti quest untuk
-  memperoleh **OryphemToken (OPT)**.
-- **Admin** mengelola pengguna, hadiah, audit log, dan kontrol blockchain.
+- **Guru (Teacher)** membuat pelajaran yang ditargetkan untuk kelas tertentu (misal: `Kelas 1 · IPA`), mengunggah materi pelajaran (PDF), menyusun ujian (pilihan ganda maupun esai), merancang quest dan ruang kompetisi, serta memberikan tugas.
+- **Siswa (Student)** terdaftar pada kelas tertentu dan otomatis mendapatkan kurikulum serta pelajaran yang relevan dengan kelasnya. Siswa belajar materi, mengikuti ujian berbatas waktu, menyelesaikan quest dan tugas, serta mengumpulkan token **OPT** sebagai apresiasi belajar.
+- **Admin** mengawasi operasional platform, memantau rekonsiliasi buku besar (ledger), mengelola pengguna dan moderasi komunitas, serta mengontrol parameter blockchain.
 
-Setiap aktivitas bernilai (menyelesaikan quest, tugas, ujian sempurna, dsb.) menghasilkan
-**reward OPT** yang dicatat pada **ledger double-entry**, diterbitkan sebagai event
-*outbox* transaksional, lalu diproses oleh **blockchain worker** dan dikonfirmasi oleh
-**indexer**.
+Setiap pencapaian belajar dicatat ke dalam **buku besar double-entry (kustodial)** yang transaksional. Event reward diterbitkan lewat tabel outbox, diproses oleh background worker, dan disinkronkan ke smart contract ERC-1155.
 
 ---
 
-## Fitur
+## Fitur Utama
 
-- **Pembelajaran berbasis kelas** — pelajaran per kelas, materi, progres, dan PDF upload.
-  Katalog **pelajaran** dan direktori **mata pelajaran** kini sadar-progres: pencarian,
-  filter kelas/mapel, urutan, strip metrik, dan bar kemajuan per-pelajaran (badge
-  **Tuntas** bila seluruh materi selesai). Halaman **detail pelajaran** menampilkan
-  progres per-materi (selesai/belum), penunjuk "lanjutkan di sini", dan CTA
-  Mulai/Lanjutkan/Tinjau; `/me/learning-progress` mendukung filter `course_id`. Halaman
-  **baca materi** menampilkan bar progres kursus, pemilih materi (dropdown), navigasi
-  sebelumnya/berikutnya, dan tandai-selesai.
-- **AI (mock / Gemini / OpenAI-compatible)** — pembuatan soal dari PDF, penilaian esai,
-  ringkasan materi, dan tanya-jawab berbasis materi; struktur output tervalidasi, retry,
-  dan provider mock deterministik untuk pengembangan offline. Asisten belajar/karier
-  bernama **“Asisten Qlo”** dengan persona dari `ASSISTANT_NAME`.
-- **Ujian** — timer otoritatif di server, autosave, submit idempoten, umpan-balik AI,
-  skor kemiripan. Guru dapat membuat soal **pilihan ganda** (multiple choice) maupun esai;
-  **pilihan ganda dinilai otomatis & instan** (tanpa AI) saat dikumpulkan — cocok untuk kuis
-  bergamifikasi, dengan badge **Quiz Master** bila semua jawaban PG benar. Halaman ujian
-  siswa adalah **hub** yang menampilkan status ketersediaan (terbuka/akan datang/ditutup),
-  tenggat, pencarian, filter, urutan, dan progres percobaan (skor terbaik, percobaan
-  terpakai) per ujian. **Detail ujian** menampilkan skor terbaik & status lulus, badge
-  komposisi soal, baris percobaan lulus/gagal, dan banner "lanjutkan pengerjaan" bila ada
-  attempt berjalan; `/attempts` mendukung filter `exam_id`. **Tinjauan hasil** siswa punya
-  filter per-soal (benar/sebagian/salah/kosong) dengan hitungan untuk fokus ke soal yang
-  salah atau kosong. **Editor ujian** guru punya pencarian soal + filter tipe (PG/Esai)
-  dengan metrik; **papan peringkat global** punya strip metrik + pencarian nama; halaman
-  **profil** menampilkan jumlah sesi aktif + IP/waktu + konfirmasi pencabutan sesi.
-- **Gamifikasi** — ruang (presence/leaderboard live via WebSocket), quest dengan pemilihan
-  pemenang *fastest-valid* deterministik, tugas harian/mingguan, peringkat global/ruang/
-  quest, notifikasi, dan badge (off-chain). **Inbox notifikasi** punya pencarian, filter
-  jenis/status dibaca dengan hitungan per-jenis, aksi massal (tandai dibaca / bersihkan
-  yang sudah dibaca), penghapusan per-item, dan *deep-link* ke konteks (quest, ruang,
-  ujian, dsb.). **Halaman badge** menampilkan progres menuju syarat setiap badge terkunci
-  (mis. 3/5 ruang) dengan pencarian, filter rarity/status, dan urutan. **XP & level
-  (simulasi deterministik)**: XP dihitung dari aktivitas nyata (skor ujian terbaik, kemenangan
-  quest, tugas, badge) — tidak pernah disimpan sehingga tak bisa drift — lalu dipetakan ke
-  level dengan progres menuju level berikutnya di halaman peringkat **dan profil**.
-- **Panduan karier (simulasi)** — dashboard akademik (nilai, tren, radar minat, insight AI),
-  tes kepribadian Big Five, rekomendasi jurusan AI dengan persetujuan guru BK
-  (human-in-the-loop), roadmap milestone, ruang konsultasi BK, perpustakaan sumber, dan
-  asisten AI berbasis aturan (fallback KB saat provider tidak tersedia). Modul karier
-  kian maksimal: tes kepribadian dengan gerbang progres + ciri dominan, roadmap dengan
-  metrik progres & bar tugas, ruang konsultasi dengan metrik/filter status + konfirmasi
-  batal, perpustakaan dengan filter biaya/penyedia, dan asisten dengan pencarian riwayat,
-  salin jawaban, serta indikator mengetik saat streaming.
-- **Reward Web3** — treasury **wallet bersama** (custodial), **ledger double-entry** dengan
-  saldo terfokus per-pengguna, idempotent reward keys, outbox → blockchain worker → indexer,
-  tautan explorer, dan penarikan (withdrawal) ke wallet pribadi. Halaman dompet menampilkan
-  buku besar yang mudah dibaca (label tipe/keterangan) dan daftar hadiah dengan label jenis
-  + waktu relatif.
-- **CRUD admin & pengajar** — guru membuat/mengubah/menghapus pelajaran, materi, ujian,
-  soal, quest yang mereka miliki; admin mengelola peran pengguna serta mengaktifkan/
-  menonaktifkan akun. Penghapusan dilindungi (menolak `409` bila sudah ada data anak,
-  mis. ujian dengan attempt atau quest yang sudah difinalisasi). **Semua form edit
-  menjangkau seluruh field yang didukung backend** — pelajaran (sampul, publikasi),
-  materi (video, publikasi), ujian (instruksi, jendela buka/tutup), quest (deskripsi,
-  jendela), sumber daya (penyedia, gratis, tag), dan ruang (nama, kapasitas, publikasi
-  inline). Panel guru (pelajaran,
-  materi, ujian, quest, peringkat) konsisten: strip metrik, pencarian, filter status,
-  drag-and-drop unggah PDF dengan metrik kualitas ekstraksi, dan konfirmasi untuk
-  tindakan ireversibel (mis. finalisasi quest). Draft soal AI di halaman materi punya
-  metrik status + filter tinjauan; manajer sumber daya punya metrik kategori + filter +
-  pencarian debounced + konfirmasi hapus. **Panel admin** kini juga sadar-operasi:
-  beranda menampilkan metrik + peringatan kesehatan (hadiah gagal, saldo negatif) dengan
-  pintasan ke modul terkait; halaman pengguna/hadiah/penarikan/moderasi/audit memiliki
-  pencarian (sebagian server-side), filter status, strip metrik, dan konfirmasi untuk
-  tindakan destruktif; **komposer siaran notifikasi** punya pratinjau langsung, hitungan
-  penerima, pemilih penerima (cari pengguna), dan konfirmasi kirim. Halaman **hasil ujian** guru punya pencarian peserta + filter
-  lulus/gagal/terindikasi; **konsultasi BK** guru punya metrik + tab status + pencarian
-  siswa. Feed **komunitas** mendukung pencarian bebas (`q`) atas isi pos & nama penulis;
-  **dompet** menampilkan riwayat penarikan berlabel status + filter + total. **Admin**
-  juga: rekonsiliasi ledger dengan banner kesehatan + metrik utang + pencarian +
-  konfirmasi; transaksi & **event blockchain** dengan metrik, pencarian, filter status
-  (dan filter nama event via `name=`), serta arg event yang bisa diperluas; **hub
-  blockchain** dengan metrik alokasi + konfirmasi kontrol jeda/lanjut; **papan peringkat
-  termaterialisasi** dengan metrik snapshot, filter cakupan, pencarian, dan konfirmasi
-  materialisasi ulang; serta halaman **konfigurasi runtime** yang dikelompokkan per-seksi
-  dengan banner lingkungan/pengaman. Form pembuatan (**pengguna**, **pelajaran**, **quest**)
-  diberi validasi inline, meter kekuatan kata sandi, kolom yang menyesuaikan peran, dan
-  pratinjau langsung; kolom hadiah quest otomatis mengikuti jumlah pemenang. Form ujian
-  baru memakai nilai kelulusan dalam persen (memetakan ke basis points) + preset durasi +
-  pratinjau; halaman detail quest menampilkan aturan hadiah + metadata, menyimpan hanya
-  saat berubah, dan mengonfirmasi penerbitan.
-- **Paginasi konsisten** — semua endpoint daftar dibatasi (`limit ≤ 200`) dan mendukung
-  `offset`; komponen `Pagination.svelte` dipakai ulang di seluruh halaman berdata banyak.
-- **Keamanan** — hashing Argon2id, sesi ter-hash dengan expiry/revocation, RBAC
-  object-level, cookie CSRF-safe, CORS ketat, rate limiting, redaksi secret di log.
-- **Sertifikat & komunitas (simulasi)** — sertifikat kredensial dengan ID unik dan
-  halaman verifikasi publik (banner kepercayaan + checklist per-item + status on-chain +
-  salin hash/tautan); feed komunitas dengan posting, like, dan komentar.
+- **Pembelajaran Berbasis Kelas**: Pelajaran tertarget per-kelas dan jurusan (IPA/IPS). Dilengkapi pelacakan kemajuan belajar per-materi, penanda kelulusan, dan penerbitan sertifikat digital otomatis saat menyelesaikan seluruh modul.
+- **Ujian dan Evaluasi Berbantuan AI**: Ujian berbatas waktu otoritatif dari server dengan fitur autosave dan pengumpulan idempoten. Soal pilihan ganda dinilai secara instan, sedangkan esai dievaluasi oleh asisten AI dengan umpan balik terstruktur dan skor kemiripan.
+- **Gamifikasi dan Ruang Kompetisi**: Ruang kompetisi live dengan kehadiran dan papan peringkat real-time berbasis WebSocket. Quest kompetitif deterministik (*fastest-valid winner*), tugas berkala, sistem lencana (badge), serta perhitungan XP dan level transparan.
+- **Panduan Karier Digital**: Asesmen kepribadian Big Five, rekomendasi jurusan AI dengan verifikasi guru BK (*human-in-the-loop*), peta jalan (*roadmap*) pencapaian, ruang konsultasi BK, dan asisten belajar interaktif **Asisten Qlo**.
+- **Reward Web3 dan Dompet Kustodial**: Saldo terfokus per-pengguna dengan pencatatan buku besar (*double-entry ledger*). Dukungan penarikan (*withdrawal*) ke dompet Web3 pribadi (seperti MetaMask), penukaran aset via router OryphemProxy (ORX), dan audit rekonsiliasi saldo.
+- **Panel Khusus Guru dan Admin**: Antarmuka terpisah dengan perlindungan peran (*role guard*). Panel Guru untuk manajemen materi, bank soal, hasil ujian, dan evaluasi siswa. Panel Admin untuk audit sistem, rekonsiliasi buku besar, siaran notifikasi, dan kontrol operasional blockchain.
 
 ---
 
-## Tech stack
+## Tech Stack
 
-| Lapisan | Teknologi |
-|---|---|
-| **Backend** | Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2 (async) + asyncpg, Alembic, Redis, structlog |
-| **AI** | Provider abstraksi: `mock` (deterministik, default), `gemini` (Google REST), atau `openai` (endpoint OpenAI-compatible apa pun, mis. gateway DeepSeek lokal) |
-| **Web3** | web3.py, eth-account; kontrak Solidity ERC-1155 upgradeable (UUPS) via Hardhat + OpenZeppelin |
-| **Worker** | Proses terpisah: `ai` (grading/generation), `blockchain`, `indexer` (pola `SELECT … FOR UPDATE SKIP LOCKED`) |
-| **Frontend** | SvelteKit 2 + Svelte 5, TypeScript, Vite 5, Tailwind CSS 3, `adapter-node` |
-| **Data** | PostgreSQL 16, Redis 7, MinIO (object storage) / local storage |
-| **Tooling** | pytest, ruff, mypy, Vitest, Playwright, Hardhat, Docker Compose, Makefile |
+| Lapisan | Teknologi | Keterangan |
+|---|---|---|
+| **Backend API** | Python 3.11+, FastAPI 0.115+, Pydantic v2 | Arsitektur async, validasi skema ketat |
+| **Database & ORM** | PostgreSQL 16, SQLAlchemy 2 (async), asyncpg, Alembic | Transaksi ACID, isolasi multi-tenant |
+| **Cache & Pub/Sub** | Redis 7 | Antrean pesan outbox, WebSocket presence, rate limiting |
+| **Penyimpanan Berkas** | MinIO / Local Object Storage | Unggah materi pelajaran dan aset PDF |
+| **Frontend Web** | SvelteKit 2, Svelte 5, TypeScript, Vite 5, Tailwind CSS 3 | Mode SSR + SPA, desain responsif, tema gelap/terang |
+| **Kontrak Blockchain** | Solidity 0.8+, Hardhat, OpenZeppelin Contracts (UUPS) | Standar multi-token ERC-1155 upgradeable |
+| **Web3 Client** | Web3.py, eth-account, Ethers.js | Transaksi on-chain, penandatanganan payload aman |
+| **Worker & Antrean** | Background workers independen (`ai`, `blockchain`, `indexer`) | Pola `SELECT ... FOR UPDATE SKIP LOCKED` |
+| **Tooling & Uji** | pytest, pytest-asyncio, Vitest, Playwright, Docker Compose | Pengujian unit, integrasi, kontrak, dan end-to-end |
 
 ---
 
-## Arsitektur
+## Arsitektur Sistem
 
-```
-Browser → SvelteKit → FastAPI ─┬─ PostgreSQL
-                               ├─ Redis (queue, pub/sub, rate limit)
-                               ├─ MinIO / local storage (materials)
-                               └─ Workers: ai, blockchain, indexer
-                                        └─ ERC-1155 OryphemToken (OPT · QTC · ORT)
-                                           ├─ local: Anvil (chain 31337, dry-run)
-                                           └─ Sepolia: kontrak OPT/QTC/ORT + ORX (chain 11155111)
+QLoot memisahkan tanggung jawab antara antarmuka pengguna, server aplikasi, antrean terdistribusi, dan lapisan kontrak terdesentralisasi:
+
+```mermaid
+flowchart TD
+    Client["Browser / Siswa & Pengajar"] -->|HTTP / WebSocket| FE["Frontend (SvelteKit :3001)"]
+    FE -->|REST API & Auth Cookie| BE["Backend API (FastAPI :8000)"]
+    
+    subgraph DataLayer ["Lapisan Penyimpanan & Antrean"]
+        BE --> PG[("PostgreSQL 16\n(Buku Besar, Akun, Relasi)")]
+        BE --> RD[("Redis 7\n(Pub/Sub, Cache, Rate Limit)")]
+        BE --> MO[("MinIO\n(Penyimpanan Berkas PDF)")]
+    end
+
+    subgraph WorkersLayer ["Background Workers"]
+        W_AI["AI Worker\n(Evaluasi Soal & Jawaban)"]
+        W_BC["Blockchain Worker\n(Pengiriman Outbox Transaksional)"]
+        W_IX["Indexer Worker\n(Sinkronisasi Status Blok)"]
+    end
+
+    PG -.->|Polling Outbox Event| W_BC
+    PG -.->|Antrean Tugas AI| W_AI
+    
+    subgraph Web3Layer ["Jaringan Kontrak ERC-1155"]
+        W_BC -->|Mint / Transfer| Contracts["Smart Contracts\n(OPT · QTC · ORT · ORX)"]
+        W_IX -->|Verifikasi Konfirmasi Blok| Contracts
+    end
 ```
 
-Backend berlapis: Router (`app/api/v1`) → Service (`app/services`) → Repository
-(`app/repositories`) / Model (`app/models`) → Postgres. Lihat
-[`docs/architecture.md`](docs/architecture.md) untuk gambaran lengkap.
+Aliran data dari pencapaian belajar menuju saldo:
+1. Siswa menyelesaikan tugas atau ujian dengan hasil valid.
+2. `RewardEngine` menyimpan reward ke tabel `reward_allocations`, memperbarui saldo di `wallet_ledger_entries`, dan membuat catatan di `transaction_outbox` dalam **satu transaksi database**.
+3. Background worker membaca event outbox yang belum diproses dan mengirimkan batch transaksi ke node blockchain.
+4. Indexer memantau konfirmasi blok pada jaringan dan memperbarui status transaksi menjadi terkonfirmasi (*confirmed*).
 
 ---
 
-## Instalasi
+## Struktur Repositori
+
+```
+qloot/
+├── apps/
+│   ├── backend/           # Layanan API FastAPI, model database, worker, dan migrasi Alembic
+│   │   ├── app/           # Sumber kode backend (api, core, models, services, ai, db)
+│   │   ├── migrations/    # Berkas migrasi database Alembic
+│   │   └── tests/         # Rangkaian pengujian unit dan integrasi pytest
+│   └── frontend/          # Aplikasi web SvelteKit, komponen antarmuka, dan rute
+│       ├── src/           # Komponen Svelte 5, pustaka helper, store otentikasi
+│       └── tests/         # Pengujian Vitest dan Playwright
+├── blockchain/            # Proyek Hardhat, smart contracts Solidity ERC-1155, dan skrip deploy
+│   ├── contracts/         # Kode kontrak (OryphemToken, QlootChain, OryphemIntelligence, ORX)
+│   ├── scripts/           # Skrip deployment dan interaksi jaringan
+│   └── test/              # Rangkaian pengujian kontrak Solidity
+├── docs/                  # Dokumentasi teknis mendalam (arsitektur, api, blockchain, runbook, security)
+├── infrastructure/        # Konfigurasi proxy, monitoring Prometheus/Grafana, dan template server
+├── scripts/               # Utilitas pengembang (pemeriksaan environment, skrip skenario e2e)
+├── compose.yaml           # Konfigurasi Docker Compose lingkungan pengembangan
+├── Makefile               # Perintah automasi pengembang dan operasional (make help)
+├── LICENSE                # Lisensi perangkat lunak MIT
+└── README.md              # Pintu masuk dokumentasi proyek
+```
+
+---
+
+## Mulai Cepat
 
 ### Prasyarat
 
-- **Docker** + Docker Compose v2
-- **Node.js 20+** dan **npm**
-- **Python 3.11+**
-- (Opsional) **Foundry/Anvil** untuk chain lokal — sudah tersedia lewat image Docker
+- **Docker** dan Docker Compose v2 (direkomendasikan)
+- **Node.js 20+** dan **npm** (opsional bila menjalankan tanpa Docker)
+- **Python 3.11+** (opsional bila menjalankan tanpa Docker)
 
-### Langkah cepat
+### Menjalankan dengan Docker Compose
+
+Jalur tercepat untuk menjalankan seluruh ekosistem:
 
 ```bash
-git clone <repo-url> qloot && cd qloot
+# 1. Salin konfigurasi environment default
+cp .env.example .env
 
-# 1. Konfigurasi environment
-cp .env.example .env            # lalu isi/ubah secret (SESSION_SECRET, dsb.)
-
-# 2. Install dependency (backend venv, frontend node_modules, contract deps)
+# 2. Persiapkan dependensi awal
 make setup
 
-# 3. Jalankan stack inti (postgres, redis, minio, backend, workers, frontend)
+# 3. Jalankan container layanan (postgres, redis, minio, backend, workers, frontend)
 make up
 
-# 4. Terapkan migrasi database
+# 4. Terapkan skema migrasi database
 make db-migrate
 
-# 5. Isi data demo + data bulk (>= 200 baris/tabel, 5 guru, 50 siswa)
+# 5. Isi data demonstrasi dan pengujian massal
 make db-seed
 ```
 
-Setelah selesai, buka:
+Setelah perintah selesai, seluruh sistem siap digunakan pada peramban web.
 
-| Layanan | URL |
-|---|---|
-| Frontend | http://localhost:3000 |
-| API docs (Swagger) | http://localhost:8000/docs |
-| MinIO console | http://localhost:9001 |
+---
 
-> **Catatan.** `make db-migrate` dijalankan di dalam container (target `migrate`).
-> Health check: `make health`. Lihat semua perintah dengan `make help`.
+## Daftar Rute dan Layanan
 
-### Menjalankan tanpa Docker (mode dev)
+Berikut adalah tautan layanan dan modul aplikasi utama pada lingkungan lokal:
+
+### Layanan Inti
+
+| Layanan | URL | Keterangan |
+|---|---|---|
+| **Frontend Web** | [http://localhost:3001](http://localhost:3001) | Antarmuka pengguna utama (port `3001` sesuai `.env`) |
+| **API Docs (Swagger UI)** | [http://localhost:8000/docs](http://localhost:8000/docs) | Eksplorasi dan pengujian interaktif endpoint backend |
+| **API Docs (ReDoc)** | [http://localhost:8000/redoc](http://localhost:8000/redoc) | Dokumentasi spesifikasi OpenAPI terstruktur |
+| **MinIO Storage Console** | [http://localhost:9001](http://localhost:9001) | Manajemen bucket dan berkas penyimpanan objek |
+
+### Rute Penting Aplikasi
+
+| Modul | URL Langsung | Deskripsi |
+|---|---|---|
+| **Beranda** | [http://localhost:3001](http://localhost:3001) | Halaman muka publik dan ringkasan fitur |
+| **Dashboard Siswa** | [http://localhost:3001/dashboard](http://localhost:3001/dashboard) | Ringkasan progres, rapor akademik, dan target aktif |
+| **Pelajaran Saya** | [http://localhost:3001/learning](http://localhost:3001/learning) | Daftar pelajaran aktif siswa sesuai kelas terdaftar |
+| **Katalog Pelajaran** | [http://localhost:3001/courses](http://localhost:3001/courses) | Direktori kurikulum dan materi terbuka |
+| **Dompet Web3** | [http://localhost:3001/wallet](http://localhost:3001/wallet) | Saldo token kustodial (OPT, QTC, ORT), buku besar, dan penarikan |
+| **Ujian** | [http://localhost:3001/exams](http://localhost:3001/exams) | Ruang ujian berbasis waktu dengan koreksi otomatis |
+| **Ruang Live** | [http://localhost:3001/rooms](http://localhost:3001/rooms) | Ruang belajar interaktif berbasis WebSocket |
+| **Quest Belajar** | [http://localhost:3001/quests](http://localhost:3001/quests) | Misi tantangan berhadiah token OPT |
+| **Tugas Siswa** | [http://localhost:3001/tasks](http://localhost:3001/tasks) | Daftar tugas harian dan mingguan siswa |
+| **Papan Peringkat** | [http://localhost:3001/ranking](http://localhost:3001/ranking) | Peringkat global dan kelas berdasarkan aktivitas nyata |
+| **Lencana Prestasi** | [http://localhost:3001/badges](http://localhost:3001/badges) | Koleksi badge dan syarat pencapaian |
+| **Panduan Karier** | [http://localhost:3001/career](http://localhost:3001/career) | Tes minat Big Five, konsultasi BK, dan roadmap masa depan |
+| **Asisten Qlo** | [http://localhost:3001/assistant](http://localhost:3001/assistant) | Asisten AI untuk konsultasi materi dan bimbingan belajar |
+| **Panel Guru** | [http://localhost:3001/teacher](http://localhost:3001/teacher) | Kelola materi pelajaran, bank soal, dan analitik nilai siswa |
+| **Panel Admin** | [http://localhost:3001/admin](http://localhost:3001/admin) | Kelola akun pengguna, rekonsiliasi buku besar, dan audit |
+
+---
+
+## Alur Penggunaan dan Akun Demo
+
+### Akun Bawaan (Hasil `make db-seed`)
+
+| Peran Akun | Alamat Email | Kata Sandi | Deskripsi Hak Akses |
+|---|---|---|---|
+| **Administrator** | `admin@qloot.example` | `AdminPass123!` | Akses penuh sistem, manajemen pengguna, buku besar, audit |
+| **Guru (IPA)** | `teacher@qloot.example` | `TeacherPass123!` | Pengampu kelas 1A, pembuatan materi, ujian, quest |
+| **Guru (IPS)** | `teacher2@qloot.example` | `TeacherPass123!` | Pengampu kelas lanjutan, tinjauan evaluasi esai |
+| **Siswa Teladan** | `student1@qloot.example` | `StudentPass123!` | Terdaftar di Kelas 1A (IPA), memiliki riwayat belajar dan saldo OPT |
+| **Siswa Reguler** | `student2@qloot.example` | `StudentPass123!` | Terdaftar di Kelas 1B (IPS), contoh interaksi kelas alternatif |
+
+Data bulk seed tambahan juga menyediakan 5 guru dan 50 siswa lainnya yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, dan `3B`.
+
+### Alur Singkat Peran
+
+- **Sebagai Guru**:
+  1. Masuk menggunakan akun guru dan pilih tombol **Panel** di pojok kanan atas menuju `/teacher`.
+  2. Buka menu **Pelajaran** untuk membuat silabus baru atau mengunggah berkas materi (PDF).
+  3. Manfaatkan fitur **Buat Soal AI** untuk mengekstrak draf pertanyaan esai dan pilihan ganda dari PDF.
+  4. Publikasikan ujian atau buat quest kompetisi dengan alokasi hadiah token OPT.
+  5. Tinjau jawaban ujian siswa dan lihat laporan skor rata-rata kelas.
+- **Sebagai Siswa**:
+  1. Masuk menggunakan akun siswa untuk langsung diarahkan ke **Dashboard**.
+  2. Masuk ke **Pelajaran Saya** untuk mempelajari topik dan menandai materi yang telah selesai.
+  3. Kerjakan **Ujian** aktif sebelum tenggat waktu berakhir; nilai pilihan ganda muncul secara langsung.
+  4. Buka **Dompet** lewat chip saldo OPT di navigasi atas untuk melihat saldo, memverifikasi kesesuaian buku besar, menukar token menjadi kredit AI (ORT), atau mengajukan penarikan ke alamat dompet pribadi.
+- **Sebagai Admin**:
+  1. Akses **Panel Admin** (`/admin`) untuk mengelola status akun pengguna dan hak akses peran.
+  2. Periksa konsistensi buku besar melalui menu rekonsiliasi untuk memastikan tidak ada selisih saldo cache dengan catatan transaksi double-entry.
+  3. Pantau antrean event outbox dan status transaksi blockchain.
+
+---
+
+## Konfigurasi Environment
+
+Konfigurasi dibaca secara terpusat melalui file `.env`. Variabel utama meliputi:
+
+| Variabel | Nilai Bawaan | Deskripsi |
+|---|---|---|
+| `FRONTEND_PORT` | `3001` | Port HTTP yang diekspos oleh container web frontend |
+| `BACKEND_PORT` | `8000` | Port HTTP layanan API FastAPI backend |
+| `DATABASE_URL` | `postgresql+asyncpg://...` | String koneksi database PostgreSQL utama |
+| `REDIS_URL` | `redis://...` | String koneksi Redis untuk antrean dan caching |
+| `SESSION_SECRET` | *(string rahasia)* | Kunci enkripsi cookie sesi dan token otentikasi (wajib dirotasi di produksi) |
+| `BLOCKCHAIN_DRY_RUN` | `true` | `true` untuk simulasi lokal aman, `false` untuk transaksi riil ke jaringan |
+| `AI_PROVIDER` | `mock` | Pilihan provider AI: `mock` (lokal deterministik), `openai`, atau `gemini` |
+| `ASSISTANT_NAME` | `Qlo` | Nama persona asisten virtual yang mendampingi siswa |
+
+Untuk daftar lengkap parameter lanjutan, periksa berkas [`.env.example`](.env.example) dan panduan arsitektur di [`docs/architecture.md`](docs/architecture.md).
+
+---
+
+## Blockchain dan OryphemToken (OPT)
+
+Ekosistem aset digital QLoot menggunakan empat smart contract ERC-1155 upgradeable berbasis standar UUPS (Universal Upgradeable Proxy Standard):
+
+| Simbol | Nama Kontrak | Standar | Peran Fungsional | Batas Suplai |
+|---|---|---|---|---|
+| **OPT** | `OryphemToken` | ERC-1155 | Token utilitas dasar yang diperoleh dari prestasi belajar | Tanpa batas |
+| **QTC** | `QlootChain` | ERC-1155 | Token sertifikat digital dan enkripsi rekam jejak akademik | Cap 1e15 |
+| **ORT** | `OryphemIntelligence` | ERC-1155 | Token kredit komputasi untuk bertanya kepada Asisten AI (1 request = 1 ORT) | Tanpa batas |
+| **ORX** | `OryphemProxy` | Router | Router pengatur nilai tukar: 1 ORT = 50 OPT, 1 QTC = 1000 OPT | Non-token |
+
+### Model Saldo Terfokus (Custodial Double-Entry)
+
+Semua aset on-chain tersimpan pada treasury bersama (*custodial pool*). Kepemilikan aktual tiap pengguna dilacak secara presisi per-akun di database menggunakan prinsip akuntansi double-entry. Pada antarmuka siswa di `/wallet`, pengguna hanya melihat saldo terfokus milik akunnya dan alamat penarikan pribadinya, tanpa mengekspos alamat platform.
+
+### Perintah Manajemen Kontrak
+
+Semua instruksi blockchain dijalankan melalui Makefile:
 
 ```bash
-# Backend (butuh Postgres + Redis yang bisa diakses)
-make dev-backend                # uvicorn --reload di :8000
+# Kompilasi dan pengujian smart contract
+make blockchain-build
+make blockchain-test
 
-# Worker AI
-make dev-worker
+# Menjalankan rantai lokal Anvil
+make blockchain-up
+make blockchain-deploy NETWORK=localhost
 
-# Frontend
-make dev-frontend               # vite dev di :3000
+# Pemeriksaan status kontrak dan saldo aset
+make blockchain-status NETWORK=localhost
+make blockchain-show-all NETWORK=localhost
+make blockchain-balance NETWORK=localhost ASSET=OPT ADDRESS=0x...
 ```
 
 ---
 
-## Cara penggunaan
+## Integrasi AI Gateway
 
-### Akun demo
-
-Diperoleh dari `make db-seed`:
-
-| Peran | Email | Password |
-|---|---|---|
-| Admin | `admin@qloot.example` | `AdminPass123!` |
-| Guru | `teacher@qloot.example` | `TeacherPass123!` |
-| Guru | `teacher2@qloot.example` | `TeacherPass123!` |
-| Siswa | `student1@qloot.example` | `StudentPass123!` |
-| Siswa | `student2@qloot.example` | `StudentPass123!` |
-
-Bulk seed menambah hingga **5 guru** dan **50 siswa** (`teacher3…`, `student06…`, dst.)
-yang tersebar di kelas `1A`, `1B`, `2A`, `2D`, `3A`, `3B`.
-
-### Tiga area terpisah
-
-Aplikasi dibagi menjadi **tiga area dengan tata letak (chrome) yang terpisah**, tidak saling
-mencampur navigasi:
-
-| Area | Rute | Tata letak |
-|---|---|---|
-| **Landing** | `/` | `+layout` khusus landing (nav anchor satu halaman) |
-| **Aplikasi (siswa/publik)** | `/dashboard`, `/courses`, … | nav marketing + ticker + footer |
-| **Panel peran** | `/teacher/*`, `/admin/*` | sidebar + topbar panel (tanpa nav marketing/ticker) |
-
-Area **Panel** punya grup rute sendiri (`(panel)`) dengan *guard* peran: guru hanya bisa masuk
-`/teacher`, admin `/admin` (admin juga boleh melihat panel guru). Tombol **Panel** di header
-aplikasi mengarahkan guru/admin ke panel; dari panel ada tautan **Kembali ke aplikasi**.
-
-### Alur singkat
-
-**Sebagai guru:**
-
-1. Masuk, lalu buka **Panel Guru** (tombol **Panel** di header, atau `/teacher`).
-2. **Pelajaran** — buat pelajaran, tentukan kelas & tipe kelas (IPA/IPS); sunting/hapus
-   materi (lesson) langsung dari daftar.
-3. **Materi** — unggah PDF lalu *Buat soal* dengan AI; tinjau draf soal, hapus materi yang
-   tidak dipakai.
-4. **Ujian** — susun ujian, kelola soal **esai maupun pilihan ganda** (tambah/sunting/hapus),
-   publikasikan, atau hapus ujian yang belum dikerjakan.
-5. **Quest** — atur hadiah per peringkat, publikasikan, lalu finalisasi pemenang; hapus
-   quest yang belum difinalisasi.
-6. **Tugas** — buat tugas harian/mingguan, atur hadiah OPT dan jadwal (mulai/berakhir),
-   aktif/nonaktifkan, sunting, atau hapus (ditinjau saat belum ada yang menyelesaikan);
-   tersedia pencarian, filter jenis/status, dan metrik ringkas.
-7. **Jawaban** — lihat jawaban siswa (esai & pilihan ganda), feedback, dan analitik (berpaginasi).
-
-**Sebagai siswa:**
-
-1. Masuk dan buka **Dashboard** — isi nilai rapor langsung dari panel **Nilai akademik**.
-2. **Pelajaran Saya** — ikuti pelajaran kelasmu dan selesaikan materi (materi terakhir
-   yang selesai akan menerbitkan **sertifikat** otomatis).
-3. **Ujian** — kerjakan ujian (timer server, autosave); lihat hasil & feedback AI.
-4. **Ruang** — bergabung ke ruang live (leaderboard & event real-time via WebSocket).
-5. **Quest / Tugas** — selesaikan untuk memperoleh OPT.
-6. **Peringkat / Badge / Sertifikat** — pantau posisi dan pencapaian; sertifikat dapat
-   diverifikasi publik lewat `/verify/<credential_id>`.
-7. **Komunitas** — diskusi, like, dan komentar antar pelajar.
-8. **Karier** — tes Big Five, rekomendasi jurusan & roadmap, konsultasi BK, asisten AI.
-9. **Wallet** — lihat saldo terfokusmu, ledger, reward, kirim OPT internal, dan buat penarikan ke
-   wallet pribadi. **Ganti wallet** sendiri kapan saja (tempel alamat atau hubungkan MetaMask);
-   setiap akun otomatis memakai wallet default platform (dibaca dari `.env`, tidak ditampilkan
-   ke pengguna lain) sampai diubah.
-
-**Sebagai admin:** kelola peran pengguna dan aktifkan/nonaktifkan akun (`/admin/users`),
-tinjau hadiah (`/admin/rewards`), pantau blockchain (`/admin/blockchain`), dan audit log
-(`/admin/audit`) — semuanya berpaginasi.
-
-> **Lupa kata sandi?** Halaman `forgot-password` mengembalikan *reset token* di mode
-> non-produksi (simulasi email), lalu gunakan halaman `reset-password` untuk menetapkan
-> kata sandi baru.
-
-### Akses API
-
-Autentikasi berbasis cookie sesi (dari `/auth/login`) atau header
-`Authorization: Bearer <token>`. Semua endpoint berada di prefix `/api/v1`.
+Secara bawaan, platform menggunakan provider `mock` yang bekerja offline secara cepat dan deterministik. Untuk menghubungkan ke gateway model bahasa besar (seperti endpoint lokal DeepSeek atau OpenAI compatible):
 
 ```bash
-# Login dan simpan cookie sesi
-curl -s -c cookies.txt -X POST http://localhost:8000/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"student1@qloot.example","password":"StudentPass123!"}'
-
-# Contoh: baca saldo wallet
-curl -s -b cookies.txt http://localhost:8000/api/v1/wallet
+AI_PROVIDER=openai
+AI_BASE_URL=http://host.docker.internal:20128/v1
+AI_API_KEY=your-api-key
+AI_GENERATION_MODEL=deepseek-chat
+AI_SCORING_MODEL=deepseek-chat
 ```
 
----
-
-## Seed data
-
-`make db-seed` menjalankan seeder idempoten yang mengisi platform dengan data simulasi:
-
-- **Akun** — 1 admin, **5 guru**, **50 siswa** yang tersebar di 6 kelas
-  (`1A`, `1B`, `2A`, `2D`, `3A`, `3B`).
-- **≥ 200 baris di setiap tabel** — pelajaran, lesson, materi, ujian, soal &
-  opsi, attempt & jawaban, hasil penilaian, sertifikat, ruang & event,
-  quest & pemenang, tugas & penyelesaian, reward & ledger, notifikasi,
-  badge, papan peringkat, roadmap, konsultasi, resource, audit log, tabel
-  blockchain, dsb. (Tabel yang memang dibatasi jumlahnya — `users`,
-  `user_roles`, `wallet_accounts` — mengikuti spesifikasi akun, dan `roles`
-  tetap berisi 3 peran keamanan.)
-- **Materi PDF** — teks diekstrak dari **PDF edukasi asli dari internet**
-  (catatan kuliah Stanford CS224n); bila jaringan tidak tersedia, seeder membuat PDF lokal
-  sebagai fallback sehingga proses seeding selalu berhasil.
-- **Aktivitas** — ujian yang sudah dinilai, quest yang difinalisasi beserta reward OPT,
-  sertifikat, badge, notifikasi, dan data panduan karier.
-
-Seeder aman dijalankan berulang kali (idempotent — id deterministik, guard unique
-key). Untuk hanya menambah padding bulk:
+Jalankan perintah pengujian konektivitas AI dari dalam container backend:
 
 ```bash
-make db-seed-bulk
+make ai-check
 ```
 
 ---
 
 ## Pengujian
 
+Rangkaian pengujian lengkap tersedia untuk memverifikasi keandalan kode sebelum deployment:
+
 ```bash
-make test-unit         # backend pytest (butuh PostgreSQL)
-make test-integration  # backend, penanda "integration"
-make test-contracts    # Hardhat (kontrak ERC-1155)
-make test-frontend     # Vitest
-make test-e2e          # Playwright (butuh stack hidup)
-make ci                # lint + typecheck + backend tests + contract tests
+# Pengujian unit backend (pytest)
+make test-unit
+
+# Pengujian integrasi backend
+make test-integration
+
+# Pengujian kontrak Solidity (Hardhat)
+make test-contracts
+
+# Pengujian unit antarmuka frontend (Vitest)
+make test-frontend
+
+# Pengujian end-to-end (Playwright)
+make test-e2e
+
+# Jalankan seluruh pipeline pemeriksaan kualitas (lint, typecheck, dan pengujian)
+make ci
 ```
 
 ---
 
-## Blockchain & aset digital (OPT · QTC · ORT + ORX)
+## Pemecahan Masalah
 
-QLoot memiliki **4 kontrak terpisah** (masing-masing punya alamat sendiri), semuanya
-ERC-1155 upgradeable (UUPS) via OpenZeppelin:
-
-| Kode | Kontrak | Standar | Peran | Suplai |
-|---|---|---|---|---|
-| **OPT** | `OryphemToken` | ERC-1155 | Mata uang dasar (diperoleh di sistem QLoot) | **Tanpa batas** |
-| **QTC** | `QlootChain` | ERC-1155 | Aset premium: menyimpan sertifikat ke jaringan, enkripsi pesan (didekripsi dengan kunci khusus), dll | **1e15** |
-| **ORT** | `OryphemIntelligence` | ERC-1155 | Aset murni untuk bertanya ke QLO (AI). 1 request = 1 ORT | Tanpa batas |
-| **ORX** | `OryphemProxy` | router (non-token) | Mengatur jaringan/kurs antara OPT ↔ QTC/ORT | — |
-
-**OryphemProxy (ORX)** adalah *router* yang mengatur seluruh jaringan antar aset:
-**1 ORT = 50 OPT** dan **1 QTC = 1000 OPT** (`proxyRates`, `swapOptFor`). ORX di-*grant*
-`ROUTER_ROLE` di tiap aset sehingga bisa membakar OPT pengguna dan mencetak aset tujuan.
-Hanya **hash opaque** yang di-emit on-chain — tidak pernah email, nama, jawaban, atau skor.
-
-### Model wallet bersama (custodial) + saldo terfokus
-Semua reward on-chain dicetak ke **satu wallet bersama** (treasury), sementara
-**kepemilikan tiap pengguna dilacak per-akun** pada **ledger double-entry**
-(`wallet_accounts.cached_balance`). Jadi saldo “milik dirinya sendiri” tetap jelas dan bisa
-ditarik ke wallet pribadi, meski token fisik berada di satu wallet. Halaman **/wallet**
-hanya menampilkan saldo terfokus milikmu dan **alamat wallet pribadimu sendiri** — alamat
-wallet bersama/platform tidak pernah ditampilkan ke pengguna (hanya operator/admin, dan
-alamatnya disimpan di `.env`, tidak di kode).
-
-### Deployment Sepolia (live, terverifikasi)
-
-Alamat kontrak, treasury, dan hash transaksi deploy **tidak** ditulis di repo ini. Semua nilai
-runtime dibaca dari `.env` (`OPT_CONTRACT_ADDRESS`, `QTC_CONTRACT_ADDRESS`,
-`ORT_CONTRACT_ADDRESS`, `ORX_CONTRACT_ADDRESS`, `TREASURY_ADDRESS`; alias `OPC_CONTRACT_ADDRESS`
-= OPT), sedangkan artefak deployment berada di `blockchain/deployments/*.json` dan
-`blockchain/.openzeppelin/` yang **tidak di-track git** (lihat `.gitignore`). Setelah deploy,
-jalankan `make blockchain-status` untuk melihat semua alamat; jangan pernah commit nilainya.
-
-### Konfigurasi
-`BLOCKCHAIN_DRY_RUN=true` (default) tetap **simulasi** — worker mengembalikan hash palsu
-deterministik tanpa menyentuh jaringan. Untuk live, isi `.env` (lihat `.env.example`):
-
-```bash
-CHAIN_ID=11155111
-BLOCKCHAIN_NETWORK=sepolia
-SEPOLIA_RPC_URL=<rpc-url>                 # JANGAN commit
-BLOCKCHAIN_PRIVATE_KEY=<deployer-key>     # JANGAN commit
-ETHERSCAN_API_KEY=<key>                   # JANGAN commit
-TREASURY_ADDRESS=<treasury-address>
-DEFAULT_WALLET_ADDRESS=<default-personal-wallet>
-OPT_CONTRACT_ADDRESS=<opt-proxy>
-# ... QTC_CONTRACT_ADDRESS / ORT_CONTRACT_ADDRESS / ORX_CONTRACT_ADDRESS
-BLOCKCHAIN_DRY_RUN=true                    # ubah ke false untuk submit on-chain
-```
-
-### Perintah
-
-Semua target menjalankan Hardhat di **host**. Untuk jaringan lokal, Makefile otomatis
-memakai `LOCALHOST_RPC_URL=http://127.0.0.1:8545` (override dengan `RPC=http://host:port`).
-Target yang butuh parameter akan **berhenti dengan pesan usage** jika variabel belum diisi
-(tidak lagi berupa stack trace).
-
-```bash
-# --- Siklus lokal (Anvil, chain 31337) ---
-make blockchain-up                       # jalankan Anvil di :8545 (docker)
-make blockchain-down                     # hentikan + hapus Anvil & network
-make blockchain-reset                    # hapus manifest lokal + state Anvil (mulai bersih)
-make blockchain-redeploy                 # reset lalu deploy ulang ke lokal
-make blockchain-build                    # kompilasi kontrak
-make blockchain-test                     # 47 uji kontrak
-make blockchain-deploy NETWORK=localhost # deploy OPT + QTC + ORT + ORX ke Anvil
-
-# --- Inspeksi (lokal atau sepolia) ---
-make blockchain-status NETWORK=localhost        # keempat kontrak: address, supply, kurs
-make blockchain-show-all NETWORK=localhost      # ringkas lengkap (supply, kurs, roles)
-make blockchain-supply NETWORK=localhost ASSET=QTC
-make blockchain-balance NETWORK=localhost ASSET=ORT ADDRESS=0xf39F…
-make blockchain-events NETWORK=localhost ASSET=ORX   # LOOKBACK_BLOCKS=5000
-
-# --- Operasi aset (contoh lokal; tambahkan CONFIRM_SEPOLIA=yes untuk sepolia) ---
-make blockchain-mint NETWORK=localhost ASSET=OPT TO=0xf39F… AMOUNT=100000
-make blockchain-transfer NETWORK=localhost ASSET=OPT TO=0x7099… AMOUNT=250  # [FROM=0x..]
-make blockchain-swap NETWORK=localhost ASSET=ORT AMOUNT=10   # ORX: beli 10 ORT (500 OPT)
-make blockchain-swap NETWORK=localhost ASSET=QTC AMOUNT=2    # ORX: beli 2 QTC (2000 OPT)
-make blockchain-ai-request NETWORK=localhost REQUESTS=1      # ORX: 1 request = 1 ORT
-make blockchain-reward NETWORK=localhost ASSET=OPT TO=0x7099… AMOUNT=100 KEY=1 REASON=quest
-make blockchain-pause NETWORK=localhost ASSET=OPT    # pause satu aset
-make blockchain-unpause NETWORK=localhost ASSET=OPT
-make blockchain-grant-role NETWORK=localhost ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0x3C44…
-make blockchain-revoke-role NETWORK=localhost ASSET=OPT ROLE=MINTER_ROLE ADDRESS=0x3C44…
-make blockchain-upgrade NETWORK=localhost ASSET=ALL  # upgrade OPT/QTC/ORT/ORX
-
-# --- Sepolia (dijaga: butuh CONFIRM_SEPOLIA=yes) ---
-make blockchain-deploy NETWORK=sepolia CONFIRM_SEPOLIA=yes
-# deploy.js otomatis memverifikasi keempat implementation + proxy (AUTO_VERIFY=false untuk skip)
-make blockchain-verify NETWORK=sepolia CONFIRM_SEPOLIA=yes   # verifikasi ulang bila perlu
-make blockchain-publish NETWORK=sepolia
-make blockchain-mint NETWORK=sepolia CONFIRM_SEPOLIA=yes ASSET=OPT TO=0x… AMOUNT=100
-```
-
-> `ASSET` = `OPT` (default) | `QTC` | `ORT`, atau `ORX`/`ALL` untuk upgrade.
-
-> **Troubleshooting.**
-> - `Error response from daemon: … network … not found` saat `make blockchain-up` → container
->   Anvil lama menunjuk jaringan Docker yang sudah dihapus. Sudah ditangani otomatis
->   (`blockchain-up` menghapus container basi lebih dulu). Perbaikan manual:
->   `make blockchain-down` (atau `docker rm -f qloot-anvil-1`) lalu `make blockchain-up`.
-> - `Error: TO (address) is required` → Anda menjalankan target yang butuh parameter tanpa
->   mengisinya. Gunakan contoh usage yang tercetak, mis.
->   `make blockchain-transfer NETWORK=localhost ASSET=OPT TO=0x… AMOUNT=10`.
-> - `make blockchain-verify` di jaringan lokal akan berhenti dengan pesan bahwa verifikasi
->   Etherscan hanya berlaku untuk jaringan publik (itu normal, bukan error).
-
-> **Reset vs down.** `blockchain-down` menghentikan Anvil dan menghapus network-nya
-> (`down --remove-orphans`) sehingga `docker network` yang tertinggal tidak lagi
-> menyebabkan error `network … not found` saat `blockchain-up` berikutnya.
-> `blockchain-reset` menambahkan penghapusan state dan `deployments/<net>.json`
-> (manifest lama menunjuk alamat kontrak yang tidak ada lagi di chain baru).
-
-> Verifikasi memakai **Etherscan API v2** (satu API key universal). `verify.js`
-> memverifikasi *implementation* lalu meng-*link* proxy UUPS ke implementation-nya.
-> Karena `deploy.js` kini memanggil verifikasi otomatis, `blockchain-verify` hanya
-> diperlukan bila verifikasi pertama gagal (mis. event `Upgraded` belum terindeks).
-
-> **Keamanan produksi.** Deployer saat ini memegang `DEFAULT_ADMIN`/`MINTER`/`REWARDER`.
-> Sebelum produksi, pindahkan role admin ke multisig dan berikan `MINTER`/`REWARDER` ke
-> signer backend terdedikasi (lihat reminder di output `deploy.js`).
-
-
----
-
-## AI gateway (opsional)
-
-Default `AI_PROVIDER=mock` berjalan offline. Untuk memakai model nyata lewat endpoint
-OpenAI-compatible (mis. gateway DeepSeek lokal pada `:20128`):
-
-```bash
-AI_PROVIDER=openai
-AI_BASE_URL=http://host.docker.internal:20128/v1
-AI_API_KEY=<key>
-AI_GENERATION_MODEL=hk/deepseek-4.1-flash
-AI_SCORING_MODEL=hk/deepseek-4.1-flash
-
-make ai-gateway-allow   # izinkan container menjangkau gateway di host (butuh container privileged)
-make ai-check           # verifikasi gateway terjangkau dari container backend
-```
-
----
-
-## Struktur repositori
-
-```
-apps/backend       FastAPI + SQLAlchemy async + Alembic + workers
-apps/frontend      SvelteKit + TypeScript + Tailwind
-blockchain         Hardhat + OpenZeppelin ERC-1155 (OryphemToken)
-                   contracts/ · scripts/ · deployments/sepolia.*.json · .openzeppelin/
-infrastructure     proxy (Traefik/Nginx), monitoring (Prometheus/Grafana/Loki)
-docs               architecture, api, blockchain, security, runbook
-scripts            helper (check-env, e2e-scenario, blockchain-summary, qloot-ai-gateway)
-compose.yaml       development stack
-compose.production.yaml  production overlay
-Makefile           developer & ops entrypoint (jalankan `make help`)
-```
+| Gejala Masalah | Kemungkinan Penyebab | Tindakan Solusi |
+|---|---|---|
+| Container frontend tidak dapat diakses di port 3000 | Port 3000 telah digunakan proses lain di host | QLoot dikonfigurasi pada port `3001`. Buka [http://localhost:3001](http://localhost:3001) atau sesuaikan `FRONTEND_PORT` di `.env`. |
+| Gagal menjalankan `make blockchain-up` | Container Anvil lama tertinggal di Docker network | Jalankan `make blockchain-down` lalu ulangi `make blockchain-up`. |
+| Error koneksi database saat migrasi | Container PostgreSQL belum siap menerima koneksi | Pastikan status container sehat dengan `make health`, lalu ulangi `make db-migrate`. |
+| Verifikasi saldo di dompet menampilkan selisih | Ada transaksi outbox yang belum selesai direkonsiliasi | Jalankan rekonsiliasi admin di `/admin` atau periksa status worker dengan `docker compose logs workers`. |
 
 ---
 
 ## Keamanan
 
-> **Jangan pernah commit secret.** Semua kredensial dibaca dari environment. Lihat
-> [`docs/security.md`](docs/security.md). Jika private key, RPC URL, atau API key pernah
-> ter-commit, anggap sudah bocor dan segera rotasi.
+- **Zero Secret in Codebase**: Tidak ada kata sandi, kunci privat, atau token sensitif yang di-commit ke dalam repositori. Semua rahasia runtime dibaca melalui environment variable.
+- **Enkripsi Kredensial**: Hashing kata sandi menggunakan algoritma Argon2id modern. Sesi pengguna disimpan dalam bentuk token hash dengan masa kedaluwarsa ketat.
+- **Perlindungan Akses**: Perlindungan otorisasi berbasis peran (RBAC) pada level objek untuk mencegah IDOR (Insecure Direct Object Reference).
+- **Pengamanan Jaringan**: Cookie sesi beratribut HTTP-only dan SameSite, perlindungan CORS terarah, dan sanitasi berkas unggahan PDF.
+
+Untuk detail prosedur pelaporan celah dan mitigasi, rujuk panduan teknis pada [`docs/security.md`](docs/security.md).
+
+---
 
 ## Lisensi
 
-MIT
+Perangkat lunak ini didistribusikan di bawah ketentuan lisensi terbuka **MIT License**. Lihat berkas [LICENSE](LICENSE) untuk informasi hak cipta dan izin lengkap.

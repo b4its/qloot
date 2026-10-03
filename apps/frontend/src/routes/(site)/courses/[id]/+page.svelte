@@ -90,7 +90,7 @@
   }
 </script>
 
-<svelte:head><title>{course ? course.title : "Pelajaran"} — QLoot</title></svelte:head>
+<svelte:head><title>{course ? course.title : "Pelajaran"} | QLoot</title></svelte:head>
 
 {#if loading}
   <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
