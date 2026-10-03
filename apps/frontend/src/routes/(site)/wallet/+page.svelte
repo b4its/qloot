@@ -326,6 +326,10 @@
     quest: "Hadiah quest",
     task: "Hadiah tugas",
     exam: "Hadiah ujian",
+    course: "Hadiah pelajaran",
+    lesson: "Hadiah materi",
+    milestone: "Pencapaian karier",
+    level_up: "Hadiah level up",
     reward: "Hadiah",
     swap: "Penukaran aset",
     transfer: "Transfer",
@@ -445,6 +449,13 @@
 <svelte:head><title>Dompet | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+  <nav class="mb-4 flex items-center gap-2 text-xs muted" aria-label="Navigasi rekam jejak">
+    <a href="/dashboard" class="transition-colors hover:text-primary">Dashboard</a>
+    <span>/</span>
+    <a href="/learning" class="transition-colors hover:text-primary">Pelajaran</a>
+    <span>/</span>
+    <span class="text-ink font-medium">Dompet</span>
+  </nav>
   <p class="mono-label">Web3</p>
   <h1 class="mt-2 font-display text-4xl font-bold">Dompet</h1>
   <p class="mt-1 muted">

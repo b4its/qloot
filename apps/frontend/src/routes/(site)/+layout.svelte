@@ -38,7 +38,11 @@
   $: isExamAttempt = /^\/exams\/[^/]+\/attempt\/?$/.test(path);
   // The (site) group is the public + student area only. The /admin and /teacher
   // panels live in the separate (panel) group with their own shell.
-  $: isAppArea = appNav.some((n) => path.startsWith(n.href)) || path.startsWith("/profile");
+  $: isAppArea =
+    appNav.some((n) => path.startsWith(n.href)) ||
+    path.startsWith("/profile") ||
+    path.startsWith("/wallet") ||
+    path.startsWith("/notifications");
   $: showMarketingChrome = !isExamAttempt && !isAppArea;
 
   const mobilePrimaryNav = [appNav[0], appNav[1], appNav[3], appNav[5]];
