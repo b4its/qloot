@@ -68,3 +68,6 @@ apps/backend/.storage/
 plan/
 /plan
 plan
+
+# Tooling
+.codegraph/
