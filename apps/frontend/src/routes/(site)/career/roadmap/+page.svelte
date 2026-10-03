@@ -20,7 +20,7 @@
   let newTasks = "";
 
   // Only a counselor (teacher/admin) may approve the human-in-the-loop review;
-  // a student can create, submit, and view — never approve their own plan.
+  // a student can create, submit, and view: never approve their own plan.
   $: isCounselor = hasRole($auth.user, "teacher") || hasRole($auth.user, "admin");
 
   function tasksOf(m: Milestone): MilestoneTask[] {
@@ -72,7 +72,7 @@
     busy = true;
     try {
       await api.post("/career/recommendations/approve");
-      message = "Disetujui — peta jalanmu kini aktif.";
+      message = "Disetujui. Peta jalanmu kini aktif.";
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal menyetujui";
@@ -194,7 +194,7 @@
   }
 </script>
 
-<svelte:head><title>Analisis AI & Peta Jalan — QLoot</title></svelte:head>
+<svelte:head><title>Analisis AI & Peta Jalan | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">

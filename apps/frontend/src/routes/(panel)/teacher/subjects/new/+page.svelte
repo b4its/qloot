@@ -40,7 +40,7 @@
   $: titleValid = form.title.trim().length >= 2;
   $: classValid = form.class_code.trim().length >= 1;
   $: canSubmit = titleValid && classValid && !busy;
-  $: classLabel = `${form.class_code.trim() || "—"}${form.class_type ? ` · ${form.class_type}` : ""}`;
+  $: classLabel = `${form.class_code.trim() || "-"}${form.class_type ? ` · ${form.class_type}` : ""}`;
 
   async function create() {
     error = "";
@@ -73,7 +73,7 @@
   }
 </script>
 
-<svelte:head><title>Pelajaran Baru — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Pelajaran Baru | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -172,7 +172,7 @@
       </p>
       <p class="mt-3 flex items-start gap-1.5 text-xs muted">
         <Icon name="circle-info" size="11px" class="mt-0.5 flex-none" />
-        Siswa di kelas <span class="font-medium text-ink">{form.class_code.trim() || "—"}</span> akan
+        Siswa di kelas <span class="font-medium text-ink">{form.class_code.trim() || "-"}</span> akan
         otomatis melihat pelajaran ini.
       </p>
     </aside>

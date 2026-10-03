@@ -127,7 +127,7 @@
     if (!active) return;
     copyError = "";
     if (!navigator.clipboard?.writeText) {
-      copyError = "Papan klip tidak tersedia — salin tautan secara manual.";
+      copyError = "Papan klip tidak tersedia: salin tautan secara manual.";
       return;
     }
     try {
@@ -154,7 +154,7 @@
     const edition = `#${String(active.edition_number).padStart(4, "0")} / ${active.edition_total}`;
     const html = `<!doctype html>
 <html lang="id"><head><meta charset="utf-8" />
-<title>Sertifikat ${escape(active.course_title)} — QLoot</title>
+<title>Sertifikat ${escape(active.course_title)} | QLoot</title>
 <style>
   @page { size: A4 landscape; margin: 0; }
   * { box-sizing: border-box; }
@@ -228,7 +228,7 @@
         copied = true;
         setTimeout(() => (copied = false), 1500);
       } else {
-        copyError = "Papan klip tidak tersedia — salin tautan secara manual.";
+        copyError = "Papan klip tidak tersedia: salin tautan secara manual.";
       }
     } catch {
       /* user cancelled the share sheet */
@@ -247,7 +247,7 @@
   });
 </script>
 
-<svelte:head><title>Sertifikat Digital — QLoot</title></svelte:head>
+<svelte:head><title>Sertifikat Digital | QLoot</title></svelte:head>
 
 <section class="relative overflow-hidden border-b">
   <div class="aurora"></div>
@@ -401,7 +401,7 @@
                 <Icon name="spinner" spin size="11px" /> Menunggu konfirmasi chain…
               </p>
             {:else if active.anchor_status === "failed"}
-              <p class="text-xs text-tertiary">Anchor gagal — QTC dikembalikan.</p>
+              <p class="text-xs text-tertiary">Anchor gagal: QTC dikembalikan.</p>
               <button class="btn-secondary w-full" on:click={anchorActive} disabled={anchoring}>
                 <Icon name="rotate" size="12px" />
                 {anchoring ? "Meng-anchor…" : "Coba anchor lagi (1 QTC)"}

@@ -45,7 +45,7 @@
   }
 </script>
 
-<svelte:head><title>Atur Ulang Sandi — QLoot</title></svelte:head>
+<svelte:head><title>Atur Ulang Sandi | QLoot</title></svelte:head>
 
 <div class="relative grid min-h-[80vh] place-items-center overflow-hidden px-4 py-12">
   <div class="aurora"></div>

@@ -59,7 +59,7 @@
     multiple_choice: "PG",
     essay: "Esai",
     mixed: "Campuran",
-    empty: "—",
+    empty: "-",
   };
 
   function selectFilter(f: Filter) {
@@ -129,7 +129,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Ujian — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Ujian | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader

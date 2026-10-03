@@ -133,7 +133,7 @@
   });
 </script>
 
-<svelte:head><title>Peringkat — QLoot</title></svelte:head>
+<svelte:head><title>Peringkat | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -173,7 +173,7 @@
           <div>
             <p class="mono-label">Peringkatmu</p>
             <p class="font-display text-2xl font-bold">
-              #{me.rank ?? "—"} ·
+              #{me.rank ?? "-"} ·
               <span class="text-primary">{(me.total_score_bp / 100).toFixed(0)}%</span>
             </p>
           </div>
@@ -240,7 +240,7 @@
           role: "top-score",
         },
         { label: "Rata-rata halaman", value: `${pageAvgScore.toFixed(1)}%` },
-        { label: "Peringkatmu", value: `#${me?.rank ?? "—"}`, tone: "text-primary" },
+        { label: "Peringkatmu", value: `#${me?.rank ?? "-"}`, tone: "text-primary" },
       ]}
     />
 

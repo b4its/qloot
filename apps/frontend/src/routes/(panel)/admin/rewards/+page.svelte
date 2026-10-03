@@ -142,7 +142,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Hadiah — QLoot</title></svelte:head>
+<svelte:head><title>Hadiah | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -283,7 +283,7 @@
                 >
               </td>
               <td class="max-w-[240px] truncate text-xs muted" title={r.error_message ?? ""}>
-                {r.error_message ?? "—"}
+                {r.error_message ?? "-"}
               </td>
               <td class="text-right">
                 {#if r.status === "failed"}<button

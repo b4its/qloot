@@ -46,7 +46,7 @@
   }
 
   function humanTtl(seconds: number): string {
-    if (!seconds) return "—";
+    if (!seconds) return "-";
     const hours = Math.floor(seconds / 3600);
     if (hours >= 24) return `${Math.round(hours / 24)} hari (${formatNumber(seconds)} dtk)`;
     if (hours >= 1) return `${hours} jam (${formatNumber(seconds)} dtk)`;
@@ -79,7 +79,7 @@
     : 0;
 </script>
 
-<svelte:head><title>Konfigurasi — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Konfigurasi | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -116,8 +116,8 @@
         </p>
         <p class="text-xs muted">
           {isProduction
-            ? "Mode produksi — konfigurasi diamankan."
-            : "Mode non-produksi — beberapa pengaman mungkin nonaktif."}
+            ? "Mode produksi: konfigurasi diamankan."
+            : "Mode non-produksi: beberapa pengaman mungkin nonaktif."}
           · {hardeners}/3 pengaman inti aktif
         </p>
       </div>

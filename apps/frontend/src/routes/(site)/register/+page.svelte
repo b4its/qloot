@@ -57,7 +57,7 @@
   }
 </script>
 
-<svelte:head><title>Daftar — QLoot</title></svelte:head>
+<svelte:head><title>Daftar | QLoot</title></svelte:head>
 
 <div class="relative grid min-h-[80vh] place-items-center overflow-hidden px-4 py-12">
   <div class="aurora"></div>
@@ -127,7 +127,7 @@
           </div>
           <p class="muted text-xs">
             <Icon name="circle-info" size="10px" /> Kamu akan melihat pelajaran untuk kelas {class_code ||
-              "—"}. Akun guru dibuat oleh admin.
+              "-"}. Akun guru dibuat oleh admin.
           </p>
           <button class="btn-primary w-full" type="submit" disabled={!canSubmit}>
             {#if loading}<Icon name="spinner" spin size="13px" />{:else}<Icon

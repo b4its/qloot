@@ -147,7 +147,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Konsultasi BK — QLoot</title></svelte:head>
+<svelte:head><title>Konsultasi BK | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6">
   <PageHeader

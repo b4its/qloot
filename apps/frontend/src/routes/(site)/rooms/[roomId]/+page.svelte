@@ -142,7 +142,7 @@
         if (msg.type === "pong") return;
         if (msg.type === "resync") {
           // The bus dropped one or more frames for this socket (backpressure
-          // — see docs/architecture.md); reload rather than trust a gap.
+          //: see docs/architecture.md); reload rather than trust a gap.
           load();
           return;
         }
@@ -246,7 +246,7 @@
   });
 </script>
 
-<svelte:head><title>{room?.name ?? "Ruang"} — QLoot</title></svelte:head>
+<svelte:head><title>{room?.name ?? "Ruang"} | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   {#if loading}
@@ -442,6 +442,7 @@
               type="email"
               bind:value={inviteEmail}
               placeholder="nama.siswa@contoh.com"
+              aria-label="Email Peserta"
             />
           </label>
           <label class="flex flex-col text-xs">
@@ -450,6 +451,7 @@
               class="input text-xs"
               bind:value={inviteNote}
               placeholder="mis. Kelompok Sains Kelas XII"
+              aria-label="Catatan Undangan"
             />
           </label>
         </div>

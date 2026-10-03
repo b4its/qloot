@@ -302,7 +302,7 @@
         showTelemetryNotice = false;
       }
     } catch {
-      /* sessionStorage unavailable — keep the default (show) */
+      /* sessionStorage unavailable: keep the default (show) */
     }
     window.addEventListener("beforeunload", warnBeforeUnload);
     document.addEventListener("visibilitychange", onVisibility);
@@ -320,7 +320,7 @@
   });
 </script>
 
-<svelte:head><title>Pengerjaan — QLoot</title></svelte:head>
+<svelte:head><title>Pengerjaan | QLoot</title></svelte:head>
 
 <div class="mx-auto min-h-screen max-w-6xl px-4 py-4 sm:px-6 sm:py-6">
   {#if loading}

@@ -58,7 +58,7 @@
   let draft = "";
   let posting = false;
   let activeTopic = "";
-  // COMM-05: feed ranking — newest (default), hot (decayed engagement), top.
+  // COMM-05: feed ranking: newest (default), hot (decayed engagement), top.
   let sort: "new" | "hot" | "top" = "new";
   // COMM: free-text search over post body / author name.
   let query = "";
@@ -129,7 +129,7 @@
       ]);
       if (user) {
         // If this fails we must not present every author as "Ikuti" (which would
-        // be wrong for already-followed authors) — mark the list as unavailable.
+        // be wrong for already-followed authors): mark the list as unavailable.
         try {
           followingIds = await api.get<string[]>("/me/following");
           followingLoaded = true;
@@ -489,7 +489,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Komunitas — QLoot</title></svelte:head>
+<svelte:head><title>Komunitas | QLoot</title></svelte:head>
 
 <section class="relative overflow-hidden border-b">
   <div class="aurora"></div>
@@ -692,7 +692,7 @@
                     ? followingIds.includes(f.author_id)
                       ? "Mengikuti"
                       : "Ikuti"
-                    : "Ikuti —"}
+                    : "Ikuti"}
                 </button>
               {/if}
             </div>

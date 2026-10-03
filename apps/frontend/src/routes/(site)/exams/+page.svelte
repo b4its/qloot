@@ -168,7 +168,7 @@
     { label: "Selesai", value: completedCount },
     {
       label: "Rata-rata skor terbaik",
-      value: avgBest != null ? `${avgBest}%` : "—",
+      value: avgBest != null ? `${avgBest}%` : "-",
       tone: "text-highlight",
     },
   ];
@@ -191,7 +191,7 @@
         ? "Esai"
         : category === "mixed"
           ? "Campuran"
-          : "—";
+          : "-";
   }
 
   async function load() {
@@ -214,7 +214,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Ujian — QLoot</title></svelte:head>
+<svelte:head><title>Ujian | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -323,7 +323,7 @@
         <option value="recent">Terbaru</option>
         <option value="deadline">Tenggat terdekat</option>
         <option value="duration">Durasi terlama</option>
-        <option value="title">Judul (A–Z)</option>
+        <option value="title">Judul (A-Z)</option>
       </select>
     </div>
 

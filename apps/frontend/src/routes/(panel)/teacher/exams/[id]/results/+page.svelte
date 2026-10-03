@@ -78,14 +78,14 @@
   }
 
   function correctnessLabel(v: boolean | null | undefined): string {
-    return v === true ? "Benar" : v === false ? "Salah" : "—";
+    return v === true ? "Benar" : v === false ? "Salah" : "-";
   }
 
   // --- regrade + per-answer override ---
   let busy = "";
   let message = "";
   // Per-answer draft overrides keyed by `${attemptId}:${questionId}`. Reassigned
-  // (never mutated in place) so the template — which references it directly —
+  // (never mutated in place) so the template: which references it directly -
   // re-seeds the inputs from freshly loaded server scores.
   let overrides: Record<string, { score: number; feedback: string }> = {};
   function seedDraft(ans: ReviewAnswer) {
@@ -142,7 +142,7 @@
   }
   let plagiarism: PlagiarismFinding[] = [];
   let plagiarismChecked = false;
-  // A failed plagiarism check must never read as "no findings" — that is a
+  // A failed plagiarism check must never read as "no findings": that is a
   // silent false negative on an integrity signal.
   let plagiarismError = "";
 
@@ -191,7 +191,7 @@
   onMount(loadAnalytics);
 </script>
 
-<svelte:head><title>Hasil Ujian — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Hasil Ujian | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -235,36 +235,38 @@
             <div
               class="w-full rounded-t bg-primary/60"
               style={`height: ${analytics.attempts ? (count / analytics.attempts) * 80 : 0}px`}
-              title={`${i * 10}–${i * 10 + 10}%: ${count}`}
+              title={`${i * 10}-${i * 10 + 10}%: ${count}`}
             ></div>
             <span class="text-[10px] muted">{i * 10}</span>
           </div>
         {/each}
       </div>
       {#if analytics.questions.length}
-        <table class="mt-4 w-full text-xs">
-          <caption class="sr-only">Analisis butir soal</caption>
-          <thead class="text-left muted">
-            <tr
-              ><th class="py-1" scope="col">Soal</th><th class="text-right" scope="col"
-                >Kesukaran</th
-              ><th class="text-right" scope="col">Daya beda</th></tr
-            >
-          </thead>
-          <tbody>
-            {#each analytics.questions as q}
-              <tr class="border-t">
-                <td class="max-w-[280px] truncate py-1" title={q.prompt}>{q.prompt}</td>
-                <td class="text-right font-mono">
-                  {q.difficulty_bp !== null ? bpToPercent(q.difficulty_bp) : "—"}
-                </td>
-                <td class="text-right font-mono">
-                  {q.discrimination !== null ? q.discrimination.toFixed(2) : "—"}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-xs">
+            <caption class="sr-only">Analisis butir soal</caption>
+            <thead class="text-left muted">
+              <tr
+                ><th class="py-1" scope="col">Soal</th><th class="text-right" scope="col"
+                  >Kesukaran</th
+                ><th class="text-right" scope="col">Daya beda</th></tr
+              >
+            </thead>
+            <tbody>
+              {#each analytics.questions as q}
+                <tr class="border-t">
+                  <td class="max-w-[280px] truncate py-1" title={q.prompt}>{q.prompt}</td>
+                  <td class="text-right font-mono">
+                    {q.difficulty_bp !== null ? bpToPercent(q.difficulty_bp) : "-"}
+                  </td>
+                  <td class="text-right font-mono">
+                    {q.discrimination !== null ? q.discrimination.toFixed(2) : "-"}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
       {/if}
     </div>
   {/if}
@@ -382,7 +384,7 @@
                   {statusLabel(a.status)}
                 </span>
                 <span class="font-mono text-sm">
-                  {a.score_bp !== null && a.score_bp !== undefined ? bpToPercent(a.score_bp) : "—"}
+                  {a.score_bp !== null && a.score_bp !== undefined ? bpToPercent(a.score_bp) : "-"}
                 </span>
                 {#if a.is_flagged}
                   <span class="badge badge-magenta" title={a.flag_reason ?? ""}>

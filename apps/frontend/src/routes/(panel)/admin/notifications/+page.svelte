@@ -128,7 +128,7 @@
   }
 </script>
 
-<svelte:head><title>Siaran Notifikasi — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Siaran Notifikasi | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -285,7 +285,7 @@
       <div class="pt-2 flex items-center justify-between gap-2 border-t">
         <span class="mono-label text-[10px]">
           {recipientCount === null
-            ? "Penerima aktif: —"
+            ? "Penerima aktif: -"
             : `Perkiraan penerima: ${formatNumber(recipientCount)}`}
         </span>
         <button type="submit" class="btn-primary" disabled={!canSubmit}>

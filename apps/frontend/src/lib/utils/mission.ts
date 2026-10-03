@@ -196,7 +196,7 @@ function settlementMissions(rewards: Reward[]): Mission[] {
       description:
         reward.status === "pending"
           ? "Menunggu konfirmasi on-chain"
-          : "Gagal — sedang ditinjau admin",
+          : "Gagal (sedang ditinjau admin)",
       href: "/wallet",
       priority: reward.status === "failed" ? 30 : 60,
       dueAt: null,
@@ -221,7 +221,7 @@ export function buildMissions(input: MissionInput): Mission[] {
       id: `resume-${active.attempt.id}`,
       kind: "resume",
       title: active.exam.title,
-      description: "Ujian sedang dikerjakan — lanjutkan sekarang",
+      description: "Ujian sedang dikerjakan: lanjutkan sekarang",
       href: `/exams/${active.exam.id}/attempt`,
       priority: 0,
       dueAt: active.attempt.expires_at ?? null,

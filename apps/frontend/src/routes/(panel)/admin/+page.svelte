@@ -43,7 +43,7 @@
   let recentAudit: AuditRow[] = [];
   let loading = true;
   // Which endpoint groups failed to load. An ops dashboard must never present a
-  // failed fetch as "0 pending / balanced" — that reads as "all healthy".
+  // failed fetch as "0 pending / balanced": that reads as "all healthy".
   let unavailable: string[] = [];
 
   onMount(async () => {
@@ -106,7 +106,7 @@
 
   // Attach a live status to the relevant nav entries (best-effort by href).
   // When the underlying fetch failed, the card must not claim a healthy
-  // state — report it as unavailable instead.
+  // state: report it as unavailable instead.
   function statusFor(href: string): {
     status: string | null;
     tone: AdminLink["tone"];
@@ -158,7 +158,7 @@
   });
 </script>
 
-<svelte:head><title>Admin — QLoot</title></svelte:head>
+<svelte:head><title>Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -188,7 +188,7 @@
         <Icon name="triangle-exclamation" class="mt-0.5 flex-none" size="14px" />
         <p class="text-sm">
           Sebagian data operasional gagal dimuat ({unavailable.join(", ")}). Angka di bawah bisa
-          belum lengkap — jangan anggap sistem sehat hanya dari tampilan ini.
+          belum lengkap: jangan anggap sistem sehat hanya dari tampilan ini.
         </p>
       </div>
     {/if}

@@ -125,7 +125,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Ruang Konseling (BK) — QLoot</title></svelte:head>
+<svelte:head><title>Ruang Konseling (BK) | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -324,7 +324,7 @@
           <span class="muted mb-1">Pembimbing</span>
           <select class="input" bind:value={form.counselor_user_id}>
             {#each counselors as c}
-              <option value={c.user_id ?? ""}>{c.name} — {c.role}</option>
+              <option value={c.user_id ?? ""}>{c.name} ({c.role})</option>
             {/each}
           </select>
         </label>

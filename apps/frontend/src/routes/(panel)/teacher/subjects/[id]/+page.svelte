@@ -236,7 +236,7 @@
   $: canSaveCourse = courseForm.title.trim().length >= 2 && courseDirty && busy !== "course";
 </script>
 
-<svelte:head><title>Kelola Pelajaran — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Kelola Pelajaran | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -357,7 +357,7 @@
         <label class="block">
           <span class="mono-label">Tipe kelas</span>
           <select class="input mt-1" bind:value={courseForm.class_type}>
-            <option value="">—</option>
+            <option value="">-</option>
             {#each classTypes as t}<option value={t}>{t}</option>{/each}
           </select>
         </label>

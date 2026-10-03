@@ -39,7 +39,7 @@
   async function copyMessage(text: string, index: number) {
     copyError = "";
     if (!navigator.clipboard?.writeText) {
-      copyError = "Papan klip tidak tersedia — salin pesan secara manual.";
+      copyError = "Papan klip tidak tersedia: salin pesan secara manual.";
       return;
     }
     try {
@@ -216,7 +216,7 @@
   });
 </script>
 
-<svelte:head><title>Asisten Qlo — QLoot</title></svelte:head>
+<svelte:head><title>Asisten Qlo | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
