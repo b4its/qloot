@@ -164,7 +164,7 @@ jobs:
           pip-audit -r pyproject.toml --strict || pip-audit
       # --- Solidity static analysis (blocking on high) ---------------------
       - name: Solidity static analysis (Slither)
-        uses: crytic/slither-action@v0.4.0
+        uses: crytic/slither-action@v0.4.2
         with:
           target: blockchain/
           fail-on: high
