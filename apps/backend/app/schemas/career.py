@@ -223,3 +223,9 @@ class AssistantConversationOut(ORMModel):
 
 class AssistantConversationDetailOut(AssistantConversationOut):
     messages: list[AssistantMessageOut] = Field(default_factory=list)
+
+
+class AssistantQuotaOut(BaseModel):
+    ort_balance: int = 0
+    free_requests_remaining: int = 0
+    can_chat: bool = True

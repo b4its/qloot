@@ -16,6 +16,7 @@ from app.schemas.career import (
     AssistantConversationDetailOut,
     AssistantConversationOut,
     AssistantMessageOut,
+    AssistantQuotaOut,
     ChatIn,
     ChatOut,
     ConsultationIn,
@@ -472,6 +473,21 @@ async def assistant_stream(payload: ChatIn, user: CurrentUser, db: DbSession):
         _events(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/assistant/quota", response_model=AssistantQuotaOut)
+async def get_assistant_quota(user: CurrentUser, db: DbSession):
+    """Current AI credit balance and free-tier allowance."""
+    from app.services.ai_usage_service import AiUsageService
+
+    usage = AiUsageService(db)
+    free_remaining = await usage.free_requests_remaining(user.id)
+    ort_balance = await RewardEngine(db).asset_balance(user.id, "ORT")
+    return AssistantQuotaOut(
+        ort_balance=ort_balance,
+        free_requests_remaining=free_remaining,
+        can_chat=(free_remaining > 0) or (ort_balance > 0),
     )
 
 

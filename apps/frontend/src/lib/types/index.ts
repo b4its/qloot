@@ -735,3 +735,9 @@ export interface AssistantConversation {
   updated_at: string;
   messages?: AssistantMessage[];
 }
+
+export interface AssistantQuota {
+  ort_balance: number;
+  free_requests_remaining: number;
+  can_chat: boolean;
+}
