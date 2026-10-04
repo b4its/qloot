@@ -19,7 +19,9 @@
 
   const appGlobalNav = [
     { href: "/courses", label: "Katalog Pelajaran" },
+    { href: "/paths", label: "Mata Pelajaran" },
     { href: "/community", label: "Komunitas" },
+    { href: "/certificates", label: "Sertifikat" },
   ];
 
   const appNav = [
@@ -47,7 +49,8 @@
     appNav.some((n) => path.startsWith(n.href)) ||
     path.startsWith("/profile") ||
     path.startsWith("/wallet") ||
-    path.startsWith("/notifications");
+    path.startsWith("/notifications") ||
+    (Boolean(user) && (path.startsWith("/courses") || path.startsWith("/community")));
   $: showMarketingChrome = !isExamAttempt && !isAppArea;
 
   const mobilePrimaryNav = [appNav[0], appNav[1], appNav[3], appNav[5]];
@@ -110,7 +113,7 @@
             {#each primaryNav as item}
               <a
                 href={item.href}
-                class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
+                class="hud flex-shrink-0 rounded-sm px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-primary/10 hover:text-primary lg:px-3.5"
                 class:text-primary={path.startsWith(item.href)}
                 aria-current={isNavActive(item.href) ? "page" : undefined}
               >
@@ -123,7 +126,7 @@
             {#each appGlobalNav as item}
               <a
                 href={item.href}
-                class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
+                class="hud flex-shrink-0 rounded-sm px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-primary/10 hover:text-primary lg:px-3.5"
                 class:text-primary={path.startsWith(item.href)}
                 aria-current={isNavActive(item.href) ? "page" : undefined}
               >

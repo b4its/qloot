@@ -822,6 +822,7 @@ html.theme-init * {
     font-family: "JetBrains Mono", ui-monospace, monospace;
     text-transform: uppercase;
     letter-spacing: 0.14em;
+    white-space: nowrap;
   }
   .hud::before {
     content: "[ ";
