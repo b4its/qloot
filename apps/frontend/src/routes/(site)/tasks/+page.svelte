@@ -146,7 +146,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Tugas & Misi — QLoot</title></svelte:head>
+<svelte:head><title>Tugas & Misi | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <!-- Header -->
@@ -245,7 +245,7 @@
                 {#if t.honor_system}
                   <span
                     class="badge badge-amber text-[10px]"
-                    title="Berbasis kejujuran — verifikasi mandiri"
+                    title="Berbasis kejujuran (verifikasi mandiri"
                   >
                     Mandiri
                   </span>

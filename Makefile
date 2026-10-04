@@ -13,6 +13,9 @@ BACKEND_SVC ?= backend
 FRONTEND_SVC ?= frontend
 DB_SVC ?= postgres
 REDIS_SVC ?= redis
+FRONTEND_PORT ?= $(shell grep -E '^FRONTEND_PORT=' .env 2>/dev/null | cut -d= -f2 || echo 3000)
+
+PYTHON ?= $(shell which python3.12 2>/dev/null || which python3.11 2>/dev/null || which python3)
 
 NETWORK ?= localhost
 CONFIRM_SEPOLIA ?= no
@@ -64,7 +67,7 @@ check-env: ## Verify required env vars are set
 
 .PHONY: install
 install: ## Install backend + frontend dependencies
-	@echo ">> backend deps"; (cd apps/backend && python3 -m venv .venv && .venv/bin/pip install -q -U pip && .venv/bin/pip install -q -e ".[dev]")
+	@echo ">> backend deps (using $(PYTHON))"; (cd apps/backend && rm -rf .venv && $(PYTHON) -m venv .venv && .venv/bin/pip install -q -U pip && .venv/bin/pip install -q -e ".[dev]")
 	@echo ">> frontend deps"; (cd apps/frontend && npm install --no-fund --no-audit)
 
 .PHONY: build
@@ -86,7 +89,7 @@ status: ## Show container status
 health: ## Hit health endpoints
 	@curl -fsS http://localhost:8000/api/v1/health/live && echo " <- backend live"
 	@curl -fsS http://localhost:8000/api/v1/health/ready && echo " <- backend ready"
-	@curl -fsSI http://localhost:3000 >/dev/null && echo "frontend up"
+	@curl -fsSI http://localhost:$(FRONTEND_PORT) >/dev/null && echo "frontend up"
 
 # ----------------------------------------------------------------------------
 # Containers
@@ -95,7 +98,7 @@ health: ## Hit health endpoints
 up: ## Start the core stack (detached)
 	$(COMPOSE_DEV) up -d --remove-orphans
 	@echo ">> backend:  http://localhost:8000/docs"
-	@echo ">> frontend: http://localhost:3000"
+	@echo ">> frontend: http://localhost:$(FRONTEND_PORT)"
 
 .PHONY: up-all
 up-all: ## Start core stack + local anvil chain

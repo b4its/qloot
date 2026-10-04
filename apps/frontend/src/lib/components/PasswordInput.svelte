@@ -25,6 +25,7 @@
     {disabled}
     {placeholder}
     {autocomplete}
+    aria-label={$$restProps["aria-label"] || placeholder || "Kata sandi"}
     class="input pr-11 {$$restProps.class || ''}"
     {type}
     bind:value

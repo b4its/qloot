@@ -107,7 +107,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Tes Big Five — QLoot</title></svelte:head>
+<svelte:head><title>Tes Big Five | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -155,7 +155,7 @@
       </div>
 
       <div class="mt-1 flex items-center justify-between text-xs muted">
-        <span>skala 1 – 5</span>
+        <span>skala 1 - 5</span>
         {#if !allAnswered}
           <span>{statements.length - answered} pertanyaan tersisa</span>
         {:else}

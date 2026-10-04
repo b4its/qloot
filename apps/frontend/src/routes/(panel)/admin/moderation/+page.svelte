@@ -108,7 +108,7 @@
   });
 </script>
 
-<svelte:head><title>Moderasi Komunitas — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Moderasi Komunitas | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -265,7 +265,7 @@
     confirmLabel={`Ya, ${confirming.action === "delete" ? "Hapus" : "Sembunyikan"}`}
     confirmRole="confirm-moderate"
     busy={busy === confirming.report.id}
-    onConfirm={() => moderate(confirming!.report, confirming!.action)}
+    onConfirm={() => confirming && moderate(confirming.report, confirming.action)}
     close={() => (confirming = null)}
   />
 {/if}

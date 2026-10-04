@@ -150,7 +150,7 @@
   });
 </script>
 
-<svelte:head><title>Transaksi Blockchain — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Transaksi Blockchain | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -252,12 +252,12 @@
                 >
                 <td
                   class="px-5 py-3 max-w-[280px] truncate text-xs muted"
-                  title={f.error_message ?? ""}>{f.error_message ?? "—"}</td
+                  title={f.error_message ?? ""}>{f.error_message ?? "-"}</td
                 >
                 <td class="px-5 py-3 font-mono text-xs">
                   {#if f.allocation_id}alokasi {(f.allocation_id ?? "").slice(0, 8)}…
                   {:else if f.withdrawal_id}penarikan {(f.withdrawal_id ?? "").slice(0, 8)}…
-                  {:else}—{/if}
+                  {:else}-{/if}
                 </td>
               </tr>
             {/each}
@@ -347,19 +347,19 @@
           <dl class="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             <div class="flex justify-between border-b py-1">
               <dt class="muted">Gas limit</dt>
-              <dd>{detail.gas_limit ?? "—"}</dd>
+              <dd>{detail.gas_limit ?? "-"}</dd>
             </div>
             <div class="flex justify-between border-b py-1">
               <dt class="muted">Gas terpakai</dt>
-              <dd>{detail.gas_used ?? "—"}</dd>
+              <dd>{detail.gas_used ?? "-"}</dd>
             </div>
             <div class="flex justify-between border-b py-1">
               <dt class="muted">Harga gas efektif</dt>
-              <dd>{detail.effective_gas_price ?? "—"}</dd>
+              <dd>{detail.effective_gas_price ?? "-"}</dd>
             </div>
             <div class="flex justify-between border-b py-1">
               <dt class="muted">Hash argumen</dt>
-              <dd class="font-mono text-xs">{detail.arguments_hash?.slice(0, 18) ?? "—"}…</dd>
+              <dd class="font-mono text-xs">{detail.arguments_hash?.slice(0, 18) ?? "-"}…</dd>
             </div>
           </dl>
           {#if detail.error_message}

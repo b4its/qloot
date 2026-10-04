@@ -58,7 +58,7 @@
     confirmingFinalize = null;
     try {
       const res = await api.post<{ allocations_created: number }>(`/quests/${q.id}/finalize`);
-      message = `Difinalisasi — ${res.allocations_created} hadiah dialokasikan`;
+      message = `Difinalisasi: ${res.allocations_created} hadiah dialokasikan`;
       winners[q.id] = await api.get<Winner[]>(`/quests/${q.id}/winners`);
       await load();
     } catch (e) {
@@ -146,7 +146,7 @@
   };
 </script>
 
-<svelte:head><title>Quest — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Quest | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader

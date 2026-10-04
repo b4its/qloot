@@ -166,7 +166,7 @@
   let deletingGrade: GradeRow | null = null;
 
   // Real activity heatmap: bucket actual events (lesson completions, exam
-  // submissions, badge awards) into days. No fabricated data — an account with
+  // submissions, badge awards) into days. No fabricated data: an account with
   // no events simply shows an empty grid.
   const weeks = 18;
   const dayMs = 24 * 60 * 60 * 1000;
@@ -219,67 +219,75 @@
   $: totalActivity = Object.values(activityCounts).reduce((a, b) => a + b, 0);
   const intensity = ["bg-ink/5", "bg-secondary/30", "bg-secondary/55", "bg-secondary/80"];
 
-  onMount(async () => {
-    const safe = async <T,>(request: Promise<T>, fallback: T, label: string): Promise<T> => {
-      try {
-        return await request;
-      } catch {
-        unavailableSections = [...unavailableSections, label];
-        return fallback;
-      }
-    };
+  onMount(() => {
+    (async () => {
+      const safe = async <T,>(request: Promise<T>, fallback: T, label: string): Promise<T> => {
+        try {
+          return await request;
+        } catch {
+          unavailableSections = [...unavailableSections, label];
+          return fallback;
+        }
+      };
 
-    try {
-      const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] = await Promise.all(
-        [
-          safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
-          // A failed personality fetch must not look like "never taken the test",
-          // so route it through the shared unavailable-sections tracker.
-          safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
-          safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
-          safe(
-            api.get<{ available: number; token_id: number } | null>("/wallet"),
-            null,
-            "saldo OPT",
-          ),
-          safe(api.get<Course[]>("/courses"), [], "pelajaran"),
-          safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
-          safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
-          safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
-          safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
-          safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
-          safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
-          safe(api.get<NotificationPage | null>("/notifications/page?limit=1"), null, "notifikasi"),
-          safe(api.get<Exam[]>("/exams"), [], "daftar ujian"),
-          safe(api.get<Quest[]>("/quests"), [], "quest"),
-          safe(api.get<Task[]>("/tasks"), [], "tugas"),
-          safe(api.get<{ task_id: string }[]>("/tasks/me/completions"), [], "status tugas"),
-          safe(api.get<Reward[]>("/wallet/rewards?limit=20"), [], "hadiah"),
-        ],
-      );
-      acad = a;
-      personality = p;
-      badges = b;
-      wallet = w;
-      subjects = s;
-      grades = g;
-      badgeCatalog = bc;
-      gamification = gam;
-      activityCounts = buildActivity(prog, atts, b);
-      learningProgress = prog;
-      badgeProgress = bp;
-      unread = np?.unread ?? 0;
-      exams = ex;
-      attempts = atts;
-      quests = qu;
-      tasks = tk;
-      taskCompletions = tc;
-      rewards = rw;
-    } catch (e) {
+      try {
+        const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] =
+          await Promise.all([
+            safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
+            // A failed personality fetch must not look like "never taken the test",
+            // so route it through the shared unavailable-sections tracker.
+            safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
+            safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
+            safe(
+              api.get<{ available: number; token_id: number } | null>("/wallet"),
+              null,
+              "saldo OPT",
+            ),
+            safe(api.get<Course[]>("/courses"), [], "pelajaran"),
+            safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
+            safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
+            safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
+            safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
+            safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
+            safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
+            safe(
+              api.get<NotificationPage | null>("/notifications/page?limit=1"),
+              null,
+              "notifikasi",
+            ),
+            safe(api.get<Exam[]>("/exams"), [], "daftar ujian"),
+            safe(api.get<Quest[]>("/quests"), [], "quest"),
+            safe(api.get<Task[]>("/tasks"), [], "tugas"),
+            safe(api.get<{ task_id: string }[]>("/tasks/me/completions"), [], "status tugas"),
+            safe(api.get<Reward[]>("/wallet/rewards?limit=20"), [], "hadiah"),
+          ]);
+        acad = a;
+        personality = p;
+        badges = b;
+        wallet = w;
+        subjects = s;
+        grades = g;
+        badgeCatalog = bc;
+        gamification = gam;
+        activityCounts = buildActivity(prog, atts, b);
+        learningProgress = prog;
+        badgeProgress = bp;
+        unread = np?.unread ?? 0;
+        exams = ex;
+        attempts = atts;
+        quests = qu;
+        tasks = tk;
+        taskCompletions = tc;
+        rewards = rw;
+      } catch (e) {
+        error = e instanceof ApiError ? e.message : "";
+      } finally {
+        loading = false;
+      }
+    })().catch((e) => {
       error = e instanceof ApiError ? e.message : "";
-    } finally {
       loading = false;
-    }
+    });
   });
 
   function pct(p: BadgeProgress): number {
@@ -287,7 +295,7 @@
     return Math.min(100, Math.max(0, Math.round((p.current / p.target) * 100)));
   }
 
-  // The badges closest to unlocking (locked, with the least remaining) — the
+  // The badges closest to unlocking (locked, with the least remaining): the
   // most motivating next goals to surface on the home screen.
   $: nearestBadges = badgeProgress
     .filter((p) => !p.unlocked && p.target > 0)
@@ -320,7 +328,7 @@
   $: onboardingDone = onboardingComplete(onboarding);
 </script>
 
-<svelte:head><title>Dashboard — QLoot</title></svelte:head>
+<svelte:head><title>Dashboard | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
   <p class="mono-label">Semester Genap 2025/2026</p>
@@ -468,14 +476,14 @@
     <!-- top stats -->
     <div class="mt-6 grid gap-4 sm:grid-cols-3">
       <div class="card flex items-center gap-4">
-        <ProgressRing value={acad?.average ?? 0} size={92} stroke={9} label="Rata-rata" />
+        <ProgressRing value={acad?.average ?? 0} size={92} stroke={9} label="Rata-rata skor" />
         <div>
-          <p class="mono-label">Performa</p>
+          <p class="mono-label">Rata-rata Skor</p>
           <p class="text-sm muted">
-            Terkuat: <span class="text-ink">{acad?.strong_subject ?? "—"}</span>
+            Terkuat: <span class="text-ink">{acad?.strong_subject ?? "-"}</span>
           </p>
           <p class="text-sm muted">
-            Perhatian: <span class="text-ink">{acad?.weak_subject ?? "—"}</span>
+            Perhatian: <span class="text-ink">{acad?.weak_subject ?? "-"}</span>
           </p>
         </div>
       </div>
@@ -489,7 +497,7 @@
       <div class="card">
         <p class="mono-label">Badge diraih</p>
         <p class="mt-2 font-display text-3xl font-bold"><StatCounter value={badges.length} /></p>
-        <p class="text-xs muted">dari {badgeCatalog.length || "—"} tersedia</p>
+        <p class="text-xs muted">dari {badgeCatalog.length || "-"} tersedia</p>
       </div>
     </div>
 
@@ -585,7 +593,7 @@
         </div>
       </div>
       <p class="mt-1 text-xs muted">
-        Masukkan nilai rapor — dipakai untuk dashboard, tren, dan rekomendasi jurusan.
+        Masukkan nilai rapor: dipakai untuk dashboard, tren, dan rekomendasi jurusan.
       </p>
       <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
         <select class="input" bind:value={gradeSubject} aria-label="Mata pelajaran">
@@ -597,7 +605,7 @@
           min="0"
           max="100"
           bind:value={gradeValue}
-          aria-label="Nilai (0–100)"
+          aria-label="Nilai (0-100)"
         />
         <input
           class="input"
@@ -684,7 +692,7 @@
                 <Icon name="lightbulb" size="12px" class="mt-0.5 text-primary flex-none" />
                 <span>
                   <span class="font-medium">{ins.title}</span>
-                  <span class="muted"> — {ins.detail}</span>
+                  <span class="muted">: {ins.detail}</span>
                 </span>
               </li>
             {/each}
@@ -863,8 +871,10 @@
         {:else}
           <div class="card mt-3 grid place-items-center py-10 text-center">
             <Icon name="certificate" size="26px" class="muted" />
-            <p class="mt-2 text-sm muted">Selesaikan kursus untuk meraih sertifikat pertamamu.</p>
-            <a href="/courses" class="btn-secondary mt-3">Jelajahi kursus</a>
+            <p class="mt-2 text-sm muted">
+              Selesaikan pelajaran untuk meraih sertifikat pertamamu.
+            </p>
+            <a href="/courses" class="btn-secondary mt-3">Jelajahi pelajaran</a>
           </div>
         {/if}
       </div>

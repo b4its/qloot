@@ -45,7 +45,7 @@
   $: pagedItems = paginate(filtered, currentPage, PAGE_SIZE);
 
   const tabs = [
-    { key: "course", label: "Kursus", icon: "graduation-cap" },
+    { key: "course", label: "Pelajaran", icon: "graduation-cap" },
     { key: "extracurricular", label: "Ekstrakurikuler", icon: "bolt" },
     { key: "material", label: "Materi", icon: "file-lines" },
   ];
@@ -98,18 +98,22 @@
     await load();
   }
 
-  onMount(async () => {
-    try {
-      const recs = await api.get<Recommendation[]>("/career/recommendations");
-      if (recs.length) topMajor = recs[0].major;
-    } catch {
-      /* recommendations are optional */
-    }
-    await load();
+  onMount(() => {
+    (async () => {
+      try {
+        const recs = await api.get<Recommendation[]>("/career/recommendations");
+        if (recs.length) topMajor = recs[0].major;
+      } catch {
+        /* recommendations are optional */
+      }
+      await load();
+    })().catch((err) => {
+      console.error("Gagal memuat perpustakaan sumber daya:", err);
+    });
   });
 </script>
 
-<svelte:head><title>Perpustakaan Sumber Daya — QLoot</title></svelte:head>
+<svelte:head><title>Perpustakaan Sumber Daya | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -117,7 +121,7 @@
       <p class="mono-label">Panduan Karier · Sumber Daya</p>
       <h1 class="mt-2 font-display text-3xl font-bold">Perpustakaan Sumber Daya</h1>
       <p class="mt-1 text-sm muted">
-        Kursus, ekstrakurikuler, dan materi belajar (katalog simulasi).
+        Pelajaran, ekstrakurikuler, dan materi belajar (katalog simulasi).
       </p>
     </div>
     <a href="/career" class="btn-ghost">← Beranda karier</a>
@@ -225,7 +229,7 @@
       on:change={() => (currentPage = 1)}
       aria-label="Urutkan"
     >
-      <option value="title">Judul (A–Z)</option>
+      <option value="title">Judul (A-Z)</option>
       <option value="provider">Penyedia</option>
     </select>
   </div>

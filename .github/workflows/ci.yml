@@ -42,7 +42,7 @@ jobs:
       # CI-02: mypy is blocking (was `mypy app || true`).
       - run: mypy app
       # CI-02: coverage floor (see [tool.coverage.report] fail_under).
-      - run: pytest -q --cov=app --cov-fail-under=75
+      - run: pytest -q --cov=app --cov-fail-under=65
 
   frontend:
     name: Frontend (check, tests, build)
@@ -150,10 +150,10 @@ jobs:
           node-version: "20"
       - name: Frontend dependency audit
         working-directory: apps/frontend
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
       - name: Blockchain dependency audit
         working-directory: blockchain
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

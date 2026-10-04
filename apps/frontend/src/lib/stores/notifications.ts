@@ -53,7 +53,7 @@ function createNotificationStore() {
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === "notification") {
-            // A push arrived — the bell should refresh (a full unread-count
+            // A push arrived: the bell should refresh (a full unread-count
             // read is cheap and stays authoritative even if multiple
             // notifications arrive in a burst).
             void store.refresh();
@@ -86,7 +86,7 @@ function createNotificationStore() {
     /**
      * Begin realtime delivery over a per-user WebSocket, with 60s polling as
      * a fallback for when the socket is unavailable (Redis down, network
-     * issue) — a notification is never lost since it's already persisted;
+     * issue): a notification is never lost since it's already persisted;
      * only the "instant" delivery may lag to the next poll. Idempotent.
      */
     start() {

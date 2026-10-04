@@ -115,7 +115,7 @@
   });
 </script>
 
-<svelte:head><title>Penarikan — QLoot</title></svelte:head>
+<svelte:head><title>Penarikan | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -279,7 +279,7 @@
     onReason={(v) => (rejectReason = v)}
     reasonPlaceholder="mis. alamat tidak valid"
     busy={busy === rejecting.id}
-    onConfirm={() => reject(rejecting!.id, rejectReason)}
+    onConfirm={() => rejecting && reject(rejecting.id, rejectReason)}
     close={() => (rejecting = null)}
   />
 {/if}

@@ -110,7 +110,7 @@
           {#if m.extraction_status === "empty"}
             <p class="alert-error mt-2 text-xs" role="alert">
               <Icon name="triangle-exclamation" size="11px" /> PDF ini tampaknya hasil pindai tanpa teks
-              — ringkasan/tanya-jawab mungkin tidak akurat.
+              , ringkasan/tanya-jawab mungkin tidak akurat.
             </p>
           {/if}
 
@@ -149,6 +149,7 @@
                 <input
                   class="input"
                   placeholder="Tanyakan sesuatu tentang materi ini…"
+                  aria-label="Tanyakan sesuatu tentang materi ini"
                   bind:value={questionDrafts[m.id]}
                   on:keydown={(e) => e.key === "Enter" && ask(m.id)}
                 />

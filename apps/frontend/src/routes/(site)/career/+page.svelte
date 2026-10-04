@@ -16,30 +16,35 @@
   // presenting an outage as "everything not started yet".
   let unavailable: string[] = [];
 
-  onMount(async () => {
-    const failures: string[] = [];
-    const safe = async <T,>(p: Promise<T>, fallback: T, label: string): Promise<T> => {
-      try {
-        return await p;
-      } catch {
-        failures.push(label);
-        return fallback;
-      }
-    };
-    const [g, p, r, m, c] = await Promise.all([
-      safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
-      safe(api.get<Personality | null>("/career/personality"), null, "kepribadian"),
-      safe(api.get<Recommendation[]>("/career/recommendations"), [], "rekomendasi"),
-      safe(api.get<Milestone[]>("/career/roadmap"), [], "peta jalan"),
-      safe(api.get<Consultation[]>("/career/consultations"), [], "konsultasi"),
-    ]);
-    grades = g;
-    personality = p;
-    recommendations = r;
-    milestones = m;
-    consultations = c;
-    unavailable = failures;
-    loading = false;
+  onMount(() => {
+    (async () => {
+      const failures: string[] = [];
+      const safe = async <T,>(p: Promise<T>, fallback: T, label: string): Promise<T> => {
+        try {
+          return await p;
+        } catch {
+          failures.push(label);
+          return fallback;
+        }
+      };
+      const [g, p, r, m, c] = await Promise.all([
+        safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
+        safe(api.get<Personality | null>("/career/personality"), null, "kepribadian"),
+        safe(api.get<Recommendation[]>("/career/recommendations"), [], "rekomendasi"),
+        safe(api.get<Milestone[]>("/career/roadmap"), [], "peta jalan"),
+        safe(api.get<Consultation[]>("/career/consultations"), [], "konsultasi"),
+      ]);
+      grades = g;
+      personality = p;
+      recommendations = r;
+      milestones = m;
+      consultations = c;
+      unavailable = failures;
+      loading = false;
+    })().catch((err) => {
+      console.error("Gagal memuat hub karir:", err);
+      loading = false;
+    });
   });
 
   // --- derived status --------------------------------------------------------
@@ -115,7 +120,7 @@
     {
       href: "/career/library",
       label: "Perpustakaan Sumber Daya",
-      desc: "Kursus, ekstrakurikuler, dan materi belajar",
+      desc: "Pelajaran, ekstrakurikuler, dan materi belajar",
       icon: "book-open",
       status: null,
       statusTone: "neutral" as Tone,
@@ -149,7 +154,7 @@
   };
 </script>
 
-<svelte:head><title>Panduan Karier — QLoot</title></svelte:head>
+<svelte:head><title>Panduan Karier | QLoot</title></svelte:head>
 
 <section class="relative overflow-hidden border-b">
   <div class="aurora"></div>
@@ -157,7 +162,7 @@
     <p class="mono-label">Panduan Karier</p>
     <h1 class="mt-2 font-display text-4xl font-bold">Rencanakan masa depanmu dengan data</h1>
     <p class="mt-2 max-w-2xl muted">
-      Wawasan akademik, profil kepribadian, rekomendasi jurusan, dan roadmap bertahap — semuanya
+      Wawasan akademik, profil kepribadian, rekomendasi jurusan, dan roadmap bertahap: semuanya
       dalam satu tempat.
     </p>
 
@@ -189,7 +194,7 @@
         <div class="card p-4">
           <p class="mono-label text-[10px]">Kepribadian</p>
           <p class="mt-1 font-display text-2xl font-bold" class:text-mint={!!personality}>
-            {personality ? "Siap" : "—"}
+            {personality ? "Siap" : "-"}
           </p>
         </div>
         <div class="card p-4">

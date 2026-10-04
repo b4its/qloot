@@ -17,6 +17,13 @@
     { href: "/about", label: "Tentang" },
   ];
 
+  const appGlobalNav = [
+    { href: "/courses", label: "Katalog Pelajaran" },
+    { href: "/paths", label: "Mata Pelajaran" },
+    { href: "/community", label: "Komunitas" },
+    { href: "/certificates", label: "Sertifikat" },
+  ];
+
   const appNav = [
     { href: "/dashboard", label: "Dashboard", icon: "gauge-high" },
     { href: "/learning", label: "Pelajaran Saya", icon: "book-open-reader" },
@@ -38,7 +45,12 @@
   $: isExamAttempt = /^\/exams\/[^/]+\/attempt\/?$/.test(path);
   // The (site) group is the public + student area only. The /admin and /teacher
   // panels live in the separate (panel) group with their own shell.
-  $: isAppArea = appNav.some((n) => path.startsWith(n.href)) || path.startsWith("/profile");
+  $: isAppArea =
+    Boolean(user) ||
+    appNav.some((n) => path.startsWith(n.href)) ||
+    path.startsWith("/profile") ||
+    path.startsWith("/wallet") ||
+    path.startsWith("/notifications");
   $: showMarketingChrome = !isExamAttempt && !isAppArea;
 
   const mobilePrimaryNav = [appNav[0], appNav[1], appNav[3], appNav[5]];
@@ -95,13 +107,26 @@
           <span class="font-display text-lg font-bold uppercase tracking-tight">QLoot</span>
         </a>
 
-        <!-- primary marketing nav -->
+        <!-- primary desktop nav -->
         {#if !isAppArea}
           <nav class="hidden items-center gap-1 md:flex" aria-label="Navigasi utama">
             {#each primaryNav as item}
               <a
                 href={item.href}
-                class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
+                class="hud flex-shrink-0 rounded-sm px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-primary/10 hover:text-primary lg:px-3.5"
+                class:text-primary={path.startsWith(item.href)}
+                aria-current={isNavActive(item.href) ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            {/each}
+          </nav>
+        {:else}
+          <nav class="hidden items-center gap-1 md:flex" aria-label="Navigasi global aplikasi">
+            {#each appGlobalNav as item}
+              <a
+                href={item.href}
+                class="hud flex-shrink-0 rounded-sm px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-primary/10 hover:text-primary lg:px-3.5"
                 class:text-primary={path.startsWith(item.href)}
                 aria-current={isNavActive(item.href) ? "page" : undefined}
               >
@@ -122,7 +147,7 @@
           <ThemeToggle />
 
           {#if user}
-            <!-- OPT balance — visible for both students and teachers -->
+            <!-- OPT balance: visible for both students and teachers -->
             <OptChip compact={false} />
             {#if user.class_code}
               <span class="badge badge-indigo hidden sm:inline-flex" title="Kelas kamu">

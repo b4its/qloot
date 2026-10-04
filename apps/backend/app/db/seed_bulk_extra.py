@@ -566,13 +566,72 @@ async def seed_progress_boards(session: AsyncSession, students, teachers) -> Non
 
 
 # ---------------------------------------------------------------------------
+# Blockchain events (idempotent per transaction hash)
+# ---------------------------------------------------------------------------
+async def seed_blockchain_events(session: AsyncSession) -> int:
+    """Seed one confirmation event per confirmed transaction hash.
+
+    ``blockchain_events`` is unique on ``(transaction_hash, log_index)`` and the
+    dry-run indexer writes rows to the same table while the stack is running.
+    A row-count guard therefore cannot make this safe: any pre-existing event
+    for a hash aborts the whole seed with ``uq_blockchain_events_tx_log``.
+    ``ON CONFLICT DO NOTHING`` on that constraint makes the insert idempotent
+    and race-free. Returns the number of rows actually inserted.
+    """
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    from app.models.wallet import BlockchainEvent, BlockchainTransaction
+
+    txs = (
+        (
+            await session.execute(
+                select(BlockchainTransaction)
+                .where(BlockchainTransaction.transaction_hash.is_not(None))
+                .order_by(BlockchainTransaction.transaction_hash)
+                .limit(TARGET)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not txs:
+        return 0
+
+    now = datetime.now(UTC)
+    rows = [
+        {
+            # Stable per transaction (not per loop position) so re-runs agree.
+            "id": det_uuid("bevent", tx.transaction_hash or ""),
+            "contract_address": _addr("contract"),
+            "event_name": f"{tx.method}Confirmed",
+            "transaction_hash": tx.transaction_hash,
+            "log_index": 0,
+            "block_number": tx.block_number or i,
+            "args": {"method": tx.method},
+            "processed": True,
+            "created_at": now - timedelta(hours=i),
+        }
+        for i, tx in enumerate(txs)
+    ]
+    stmt = (
+        pg_insert(BlockchainEvent)
+        .values(rows)
+        .on_conflict_do_nothing(constraint="uq_blockchain_events_tx_log")
+        .returning(BlockchainEvent.id)
+    )
+    inserted = len((await session.execute(stmt)).all())
+    await session.flush()
+    log.info("bulk_blockchain_events_ready", inserted=inserted, candidates=len(rows))
+    return inserted
+
+
+# ---------------------------------------------------------------------------
 # Audit logs, room events/invites, blockchain + wallet infra
 # ---------------------------------------------------------------------------
 async def seed_ops_tables(session: AsyncSession, students, teachers) -> None:
     from app.models.identity import AuditLog
     from app.models.room import Room, RoomEvent, RoomInvitation
     from app.models.wallet import (
-        BlockchainEvent,
         BlockchainTransaction,
         ContractDeployment,
         TransactionOutbox,
@@ -669,25 +728,7 @@ async def seed_ops_tables(session: AsyncSession, students, teachers) -> None:
             )
         await session.flush()
 
-    if await _count(session, BlockchainEvent) < TARGET:
-        txs = await _pick(session, BlockchainTransaction, 300)
-        for i, tx in enumerate(txs[:TARGET]):
-            if not tx.transaction_hash:
-                continue
-            session.add(
-                BlockchainEvent(
-                    id=det_uuid("bevent", str(i)),
-                    contract_address=_addr("contract"),
-                    event_name=f"{tx.method}Confirmed",
-                    transaction_hash=tx.transaction_hash,
-                    log_index=0,
-                    block_number=tx.block_number or i,
-                    args={"method": tx.method},
-                    processed=True,
-                    created_at=datetime.now(UTC) - timedelta(hours=i),
-                )
-            )
-        await session.flush()
+    await seed_blockchain_events(session)
 
     if await _count(session, ContractDeployment) < TARGET:
         # The four QLoot contracts (each its own UUPS proxy).

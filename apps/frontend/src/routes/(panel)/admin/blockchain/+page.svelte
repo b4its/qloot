@@ -124,7 +124,7 @@
   };
 </script>
 
-<svelte:head><title>Blockchain — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Blockchain | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -267,8 +267,8 @@
                   <td class="py-2 font-semibold font-sans">{d.name}</td>
                   <td class="py-2">{d.network} ({d.chain_id})</td>
                   <td class="py-2 break-all">{d.address}</td>
-                  <td class="py-2 break-all">{d.treasury ?? "—"}</td>
-                  <td class="py-2 break-all">{d.tx_hash ?? "—"}</td>
+                  <td class="py-2 break-all">{d.treasury ?? "-"}</td>
+                  <td class="py-2 break-all">{d.tx_hash ?? "-"}</td>
                 </tr>
               {/each}
             </tbody>
@@ -341,7 +341,7 @@
                     </span>
                   </td>
                   <td class="py-2">{a.user_id.slice(0, 8)}…</td>
-                  <td class="py-2">{a.tx_id ? `${a.tx_id.slice(0, 8)}…` : "—"}</td>
+                  <td class="py-2">{a.tx_id ? `${a.tx_id.slice(0, 8)}…` : "-"}</td>
                 </tr>
               {/each}
             </tbody>
@@ -375,7 +375,7 @@
     confirmLabel={confirming.action === "pause" ? "Ya, Jeda" : "Ya, Lanjutkan"}
     confirmRole="confirm-control"
     busy={busy !== ""}
-    onConfirm={() => control(confirming!.action)}
+    onConfirm={() => confirming && control(confirming.action)}
     close={() => (confirming = null)}
   />
 {/if}

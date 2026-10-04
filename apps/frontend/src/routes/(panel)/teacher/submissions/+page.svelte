@@ -154,7 +154,7 @@
   });
 </script>
 
-<svelte:head><title>Pengumpulan — QLoot Guru</title></svelte:head>
+<svelte:head><title>Pengumpulan | QLoot Guru</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">
@@ -350,7 +350,7 @@
                     <span class="italic">tidak dijawab</span>
                   {/if}
                 {:else}
-                  {r.answer_text ?? "—"}
+                  {r.answer_text ?? "-"}
                 {/if}
               </td>
               <td class="py-3 px-4">
@@ -379,11 +379,11 @@
                     {bpToPercent(r.score_bp)}
                   </span>
                 {:else}
-                  <span class="muted">—</span>
+                  <span class="muted">-</span>
                 {/if}
               </td>
               <td class="py-3 px-4 max-w-[200px] truncate text-xs muted" title={r.feedback ?? ""}>
-                {r.feedback ?? "—"}
+                {r.feedback ?? "-"}
               </td>
               <td class="py-3 px-4 text-center">
                 <button
@@ -457,7 +457,7 @@
               <span class="font-mono text-mint font-bold">{inspectingRow.correct_answer}.</span>
               {inspectingRow.correct_display ?? ""}
             {:else}
-              <span class="muted">—</span>
+              <span class="muted">-</span>
             {/if}
           </p>
         </div>

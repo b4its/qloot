@@ -159,7 +159,7 @@
   ];
 </script>
 
-<svelte:head><title>Badge — QLoot</title></svelte:head>
+<svelte:head><title>Badge | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">

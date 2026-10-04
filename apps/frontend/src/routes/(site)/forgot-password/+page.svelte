@@ -20,7 +20,7 @@
   async function submit(e: Event) {
     e.preventDefault();
     error = "";
-    // Never hit the network with an empty/invalid email — show why instead.
+    // Never hit the network with an empty/invalid email: show why instead.
     if (!emailValid) {
       error = "Masukkan alamat email yang valid.";
       return;
@@ -40,7 +40,7 @@
   }
 </script>
 
-<svelte:head><title>Lupa Sandi — QLoot</title></svelte:head>
+<svelte:head><title>Lupa Sandi | QLoot</title></svelte:head>
 
 <div class="relative grid min-h-[80vh] place-items-center overflow-hidden px-4 py-12">
   <div class="aurora"></div>
@@ -63,7 +63,7 @@
               <p class="mono-label text-amber-400">Mode pengembangan</p>
               <p class="mt-1 text-xs muted">
                 Tidak ada email sungguhan yang dikirim pada mode ini. Token di bawah hanya untuk
-                pengujian — jangan bagikan ke siapa pun.
+                pengujian: jangan bagikan ke siapa pun.
               </p>
               <div class="mono mt-2 break-all rounded-sm border px-3 py-2 text-xs">
                 {resetToken}

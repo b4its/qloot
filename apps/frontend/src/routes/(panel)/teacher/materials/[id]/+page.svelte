@@ -102,7 +102,7 @@
         count,
         language: "id",
       });
-      message = `Membuat ${generated.length} draf soal — tinjau sebelum dipublikasikan.`;
+      message = `Membuat ${generated.length} draf soal: tinjau sebelum dipublikasikan.`;
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal membuat soal";
     } finally {
@@ -134,7 +134,7 @@
         job = j;
         if (j.status === "done") {
           busy = "";
-          message = "Soal selesai dibuat — muat ulang draf untuk meninjau.";
+          message = "Soal selesai dibuat: muat ulang draf untuk meninjau.";
           await loadDrafts();
         } else if (j.status === "failed") {
           busy = "";
@@ -293,7 +293,7 @@
   onDestroy(stopPolling);
 </script>
 
-<svelte:head><title>Kelola Materi — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Kelola Materi | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -309,7 +309,7 @@
   {#if material?.extraction_status === "empty"}
     <p class="alert-error mt-4" role="alert">
       <Icon name="triangle-exclamation" size="12px" /> PDF ini tidak memuat teks yang bisa dibaca (kemungkinan
-      hasil pindai). Pembuatan soal otomatis akan gagal — unggah PDF berbasis teks.
+      hasil pindai). Pembuatan soal otomatis akan gagal: unggah PDF berbasis teks.
     </p>
   {:else if material?.extraction_status === "ocr"}
     <p class="card mt-4 text-sm">

@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   Design tokens — blue-first cyberpunk learning command center
+   Design tokens - blue-first cyberpunk learning command center
    ========================================================================== */
 :root {
   /* Day-cycle theme (cool, high-contrast chrome) */
@@ -18,12 +18,12 @@
   --line: 184 205 227; /* #B8CDE3 */
 
   --accent: 0 102 214; /* electric blue, readable on light */
-  --neon-blue: 22 139 255; /* #168BFF — action/progress */
-  --neon-yellow: 252 238 10; /* #FCEE0A — OPT/reward/hazard */
-  --neon-cyan: 0 229 255; /* #00E5FF — AI/data/Web3 */
-  --neon-magenta: 255 46 136; /* #FF2E88 — hot magenta */
-  --neon-orange: 255 107 44; /* #FF6B2C — hazard orange */
-  --neon-red: 255 0 60; /* #FF003C — critical red */
+  --neon-blue: 22 139 255; /* #168BFF - action/progress */
+  --neon-yellow: 200 155 0; /* #C89B00 - high contrast reward for day cycle */
+  --neon-cyan: 0 229 255; /* #00E5FF - AI/data/Web3 */
+  --neon-magenta: 255 46 136; /* #FF2E88 - hot magenta */
+  --neon-orange: 255 107 44; /* #FF6B2C - hazard orange */
+  --neon-red: 255 0 60; /* #FF003C - critical red */
   --aurora-1: 22 139 255; /* electric blue */
   --aurora-2: 0 229 255; /* data cyan */
   --aurora-3: 255 46 136; /* hot magenta */
@@ -39,7 +39,7 @@
 }
 
 html.dark {
-  /* Night-cycle theme — designed, not inverted */
+  /* Night-cycle theme - designed, not inverted */
   --bg: 4 8 18; /* #040812 */
   --surface: 8 20 38; /* #081426 */
   --elevated: 13 32 56; /* #0D2038 */
@@ -242,6 +242,8 @@ html.theme-init * {
       16px 100%,
       0 calc(100% - 16px)
     );
+    display: flex;
+    flex-direction: column;
   }
   .grad-border > * {
     border-radius: 7px;
@@ -254,6 +256,9 @@ html.theme-init * {
       16px 100%,
       0 calc(100% - 16px)
     );
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
   }
 
   /* Buttons ------------------------------------------------------------- */
@@ -270,6 +275,11 @@ html.theme-init * {
       10px 100%,
       0 calc(100% - 10px)
     );
+  }
+  @media (pointer: coarse), (max-width: 640px) {
+    .btn {
+      min-height: 44px;
+    }
   }
   .btn:disabled {
     @apply cursor-not-allowed opacity-50;
@@ -338,7 +348,7 @@ html.theme-init * {
     box-shadow: 0 0 16px -6px rgb(var(--accent) / 0.9);
   }
   .btn-pill {
-    @apply inline-flex items-center gap-2 rounded-sm border px-3 py-1 text-xs font-medium uppercase;
+    @apply inline-flex items-center gap-2 rounded-sm border px-3 py-1 text-xs font-medium uppercase whitespace-nowrap;
     border-color: rgb(var(--line));
     letter-spacing: 0.06em;
   }
@@ -423,10 +433,15 @@ html.theme-init * {
   html.dark .badge-mint {
     color: #6ff5ff;
   }
+  /* Gold/Reward badges (formerly aliased as badge-indigo) */
+  .badge-gold,
+  .badge-yellow,
   .badge-indigo {
-    background-color: rgba(252, 238, 10, 0.16);
-    color: #8a7a00;
+    background-color: rgba(200, 155, 0, 0.16);
+    color: #736400;
   }
+  html.dark .badge-gold,
+  html.dark .badge-yellow,
   html.dark .badge-indigo {
     color: #fcee0a;
   }
@@ -486,10 +501,10 @@ html.theme-init * {
     @apply alert;
     background-color: rgb(var(--accent) / 0.1);
     border-color: rgb(var(--accent) / 0.35);
-    color: #8a7a00;
+    color: #005aa3;
   }
   html.dark .alert-info {
-    color: #fcee0a;
+    color: #6ff5ff;
   }
   /* Warning tone sits between info and error: used for recoverable notices
      (e.g. "5 minutes left", partially-unavailable dashboard sections) that must
@@ -807,6 +822,7 @@ html.theme-init * {
     font-family: "JetBrains Mono", ui-monospace, monospace;
     text-transform: uppercase;
     letter-spacing: 0.14em;
+    white-space: nowrap;
   }
   .hud::before {
     content: "[ ";
@@ -846,7 +862,7 @@ html.theme-init * {
       0 calc(100% - 14px)
     );
   }
-  /* Glitch text — apply to a heading; shifts on hover. */
+  /* Glitch text - apply to a heading; shifts on hover. */
   .glitch {
     position: relative;
   }
@@ -867,7 +883,7 @@ html.theme-init * {
   }
 
   /* ==================================================================== */
-  /* Futuristic 2077 chrome — perspective grids, holograms, neon frames   */
+  /* Futuristic 2077 chrome - perspective grids, holograms, neon frames   */
   /* ==================================================================== */
 
   /* Perspective neon floor: an animated receding grid, used in the hero. */
@@ -907,7 +923,7 @@ html.theme-init * {
     );
   }
 
-  /* Holographic panel — a slab with a faint sheen + inner scan. */
+  /* Holographic panel - a slab with a faint sheen + inner scan. */
   .holo {
     position: relative;
     overflow: hidden;
@@ -933,7 +949,7 @@ html.theme-init * {
     animation: sheen 1.8s ease-in-out infinite;
   }
 
-  /* Neon corner brackets — four L-shaped corners drawn with gradients. */
+  /* Neon corner brackets - four L-shaped corners drawn with gradients. */
   .neon-corners {
     position: relative;
   }
@@ -1055,7 +1071,7 @@ html.theme-init * {
     animation: blink 1.3s steps(1) infinite;
   }
 
-  /* Tone helpers (for class: directives — avoids "/opacity" in directives) */
+  /* Tone helpers (for class: directives - avoids "/opacity" in directives) */
   .tone-primary {
     background-color: rgb(var(--accent) / 0.18);
   }

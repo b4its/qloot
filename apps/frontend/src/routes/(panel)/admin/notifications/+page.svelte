@@ -27,14 +27,19 @@
   // Recipient count for the "all users" mode.
   let activeUsers: number | null = null;
   let activeUsersError = false;
-  onMount(async () => {
-    try {
-      const res = await apiGetPaged<User[]>("/admin/users?is_active=true&limit=1");
-      activeUsers = res.total ?? res.data.length;
-    } catch {
+  onMount(() => {
+    (async () => {
+      try {
+        const res = await apiGetPaged<User[]>("/admin/users?is_active=true&limit=1");
+        activeUsers = res.total ?? res.data.length;
+      } catch {
+        activeUsers = null;
+        activeUsersError = true;
+      }
+    })().catch(() => {
       activeUsers = null;
       activeUsersError = true;
-    }
+    });
   });
 
   // --- recipient picker ------------------------------------------------------
@@ -128,7 +133,7 @@
   }
 </script>
 
-<svelte:head><title>Siaran Notifikasi — Admin — QLoot</title></svelte:head>
+<svelte:head><title>Siaran Notifikasi | Admin | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -285,7 +290,7 @@
       <div class="pt-2 flex items-center justify-between gap-2 border-t">
         <span class="mono-label text-[10px]">
           {recipientCount === null
-            ? "Penerima aktif: —"
+            ? "Penerima aktif: -"
             : `Perkiraan penerima: ${formatNumber(recipientCount)}`}
         </span>
         <button type="submit" class="btn-primary" disabled={!canSubmit}>

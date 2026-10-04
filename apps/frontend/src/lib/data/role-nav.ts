@@ -70,7 +70,7 @@ export const teacherNav: RoleNavItem[] = [
     href: "/teacher/resources",
     label: "Sumber Daya",
     icon: "book-open",
-    desc: "Kelola katalog kursus, ekstrakurikuler, dan materi",
+    desc: "Kelola katalog pelajaran, ekstrakurikuler, dan materi",
   },
 ];
 

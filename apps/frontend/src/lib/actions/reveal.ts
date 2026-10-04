@@ -1,5 +1,13 @@
+export interface RevealOptions {
+  delay?: number;
+}
+
+export interface RevealActionReturn {
+  destroy?: () => void;
+}
+
 /** Svelte action: fade/slide element in when it enters the viewport. */
-export function reveal(node: HTMLElement, options: { delay?: number } = {}) {
+export function reveal(node: HTMLElement, options: RevealOptions = {}): RevealActionReturn {
   // Respect the user's motion preference: show immediately, never animate.
   if (
     typeof window !== "undefined" &&

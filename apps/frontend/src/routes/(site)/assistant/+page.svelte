@@ -39,7 +39,7 @@
   async function copyMessage(text: string, index: number) {
     copyError = "";
     if (!navigator.clipboard?.writeText) {
-      copyError = "Papan klip tidak tersedia — salin pesan secara manual.";
+      copyError = "Papan klip tidak tersedia: salin pesan secara manual.";
       return;
     }
     try {
@@ -191,7 +191,17 @@
         await loadHistory();
       } catch (e) {
         messages = messages.slice(0, -1);
-        error = e instanceof ApiError ? e.message : "Asisten tidak tersedia";
+        const rawMsg = e instanceof ApiError ? e.message : "";
+        if (
+          rawMsg.includes("AI_PROVIDER") ||
+          rawMsg.includes("API_KEY") ||
+          rawMsg.includes("502")
+        ) {
+          error =
+            "Asisten sedang dalam pemeliharaan atau mode offline. Silakan coba lagi sebentar lagi.";
+        } else {
+          error = rawMsg || "Asisten tidak tersedia saat ini. Silakan coba lagi.";
+        }
       }
     } finally {
       busy = false;
@@ -216,7 +226,7 @@
   });
 </script>
 
-<svelte:head><title>Asisten Qlo — QLoot</title></svelte:head>
+<svelte:head><title>Asisten Qlo | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-end justify-between gap-4">

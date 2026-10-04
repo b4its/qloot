@@ -119,7 +119,7 @@
   }
 </script>
 
-<svelte:head><title>{lesson?.title ?? "Materi"} — QLoot</title></svelte:head>
+<svelte:head><title>{lesson?.title ?? "Materi"} | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
@@ -137,7 +137,7 @@
         href={`/learning/${lesson.course_id}`}
         class="text-sm text-primary flex items-center gap-1.5 transition-colors hover:underline"
       >
-        <span>←</span> Kembali ke {course?.title ?? "Silabus Kursus"}
+        <span>←</span> Kembali ke {course?.title ?? "Silabus Pelajaran"}
       </a>
       {#if courseLessons.length > 0 && currentIndex >= 0}
         <div class="flex items-center gap-2">
@@ -168,7 +168,7 @@
           aria-valuenow={completedCount}
           aria-valuemin={0}
           aria-valuemax={courseLessons.length}
-          aria-label="Progres kursus"
+          aria-label="Progres pelajaran"
         >
           <div
             class="h-full rounded-full transition-all {coursePct === 100
@@ -234,7 +234,7 @@
           <p class="text-xs muted mt-0.5">
             {saved
               ? "Materi ini sudah ditandai selesai. Anda bisa melanjutkan ke materi berikutnya."
-              : "Tandai selesai setelah Anda memahami isi materi ini untuk mencatat progres kursus."}
+              : "Tandai selesai setelah Anda memahami isi materi ini untuk mencatat progres pelajaran."}
           </p>
         </div>
 
@@ -300,7 +300,7 @@
             href={`/learning/${lesson.course_id}`}
             class="btn-secondary text-xs flex items-center gap-1.5"
           >
-            Selesai Kursus (Kembali ke Silabus) <span>→</span>
+            Selesai Pelajaran (Kembali ke Silabus) <span>→</span>
           </a>
         {/if}
       </div>

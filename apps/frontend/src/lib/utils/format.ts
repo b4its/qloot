@@ -131,10 +131,10 @@ interface ExamComposition {
 
 /**
  * Classify an exam by its question mix:
- *   - `multiple_choice` — only multiple-choice questions
- *   - `essay`           — only essay questions
- *   - `mixed`           — both kinds present
- *   - `empty`           — no questions yet
+ *   - `multiple_choice`: only multiple-choice questions
+ *   - `essay`          : only essay questions
+ *   - `mixed`          : both kinds present
+ *   - `empty`          : no questions yet
  *
  * The counts come from the API (`mc_count` / `essay_count`). When they are
  * absent (e.g. a freshly created exam detail that predates the counts) we fall

@@ -133,7 +133,7 @@
       form.closes_at !== toLocalInput(quest.closes_at));
 </script>
 
-<svelte:head><title>Kelola Quest — Panel Guru — QLoot</title></svelte:head>
+<svelte:head><title>Kelola Quest | Panel Guru | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <PageHeader
@@ -267,15 +267,15 @@
           <dl class="mt-2 space-y-1 text-xs">
             <div class="flex justify-between">
               <dt class="muted">Dibuka</dt>
-              <dd>{quest.opens_at ? formatDate(quest.opens_at) : "—"}</dd>
+              <dd>{quest.opens_at ? formatDate(quest.opens_at) : "-"}</dd>
             </div>
             <div class="flex justify-between">
               <dt class="muted">Ditutup</dt>
-              <dd>{quest.closes_at ? formatDate(quest.closes_at) : "—"}</dd>
+              <dd>{quest.closes_at ? formatDate(quest.closes_at) : "-"}</dd>
             </div>
             <div class="flex justify-between">
               <dt class="muted">Difinalisasi</dt>
-              <dd>{quest.finalized_at ? formatDate(quest.finalized_at) : "—"}</dd>
+              <dd>{quest.finalized_at ? formatDate(quest.finalized_at) : "-"}</dd>
             </div>
             <div class="flex justify-between">
               <dt class="muted">Versi hadiah</dt>

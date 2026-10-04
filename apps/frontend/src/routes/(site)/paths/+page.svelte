@@ -54,7 +54,7 @@
   });
 </script>
 
-<svelte:head><title>Mata Pelajaran — QLoot</title></svelte:head>
+<svelte:head><title>Mata Pelajaran | QLoot</title></svelte:head>
 
 <div class="dotgrid relative">
   <div class="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6">

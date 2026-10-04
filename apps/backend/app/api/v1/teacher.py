@@ -331,7 +331,7 @@ async def analytics(user: TeacherUser, db: DbSession):
             for sid, name, best, needed in best_rows
             if int(best or 0) < int(needed or 0)
         ),
-        key=lambda r: r["best_score_bp"],
+        key=lambda r: int(str(r["best_score_bp"])),
     )
 
     return {

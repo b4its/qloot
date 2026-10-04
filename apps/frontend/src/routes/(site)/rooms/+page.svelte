@@ -22,7 +22,7 @@
   let createBusy = false;
   let currentPage = 1;
   let newRoom = { name: "", max_participants: 100, is_public: true };
-  // Inline editing of an existing room (PATCH /rooms/{id}) — teachers only.
+  // Inline editing of an existing room (PATCH /rooms/{id}): teachers only.
   let editingRoom: string | null = null;
   let editRoomDraft = { name: "", max_participants: 100, is_public: true };
   let editBusy = false;
@@ -204,7 +204,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Ruang Kompetisi — QLoot</title></svelte:head>
+<svelte:head><title>Ruang Kompetisi | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
   <!-- Header -->

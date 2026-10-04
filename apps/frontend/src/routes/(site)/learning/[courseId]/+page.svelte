@@ -107,15 +107,15 @@
   });
   $: metrics = [
     { label: "Total Materi", value: lessons.length },
-    { label: "Materi Selesai", value: completedCount ?? "—", tone: "text-mint" },
+    { label: "Materi Selesai", value: completedCount ?? "-", tone: "text-mint" },
     {
       label: "Tersisa",
-      value: completedCount == null ? "—" : Math.max(0, lessons.length - completedCount),
+      value: completedCount == null ? "-" : Math.max(0, lessons.length - completedCount),
       tone: "text-primary",
     },
     {
       label: "Kelulusan",
-      value: courseProgress ? `${courseProgress.percent}%` : "—",
+      value: courseProgress ? `${courseProgress.percent}%` : "-",
       tone: courseProgress?.percent === 100 ? "text-mint" : undefined,
     },
   ];
@@ -123,7 +123,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>{course?.title ?? "Pelajaran"} — QLoot</title></svelte:head>
+<svelte:head><title>{course?.title ?? "Pelajaran"} | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
@@ -146,7 +146,7 @@
     </a>
     <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p class="mono-label">Silabus Kursus</p>
+        <p class="mono-label">Silabus Pelajaran</p>
         <h1 class="mt-1 font-display text-3xl font-bold">{course.title}</h1>
       </div>
       {#if courseProgress && courseProgress.percent === 100}
@@ -206,7 +206,7 @@
             <div class="flex items-center gap-2">
               <Icon name="check" size="16px" />
               <span class="font-medium"
-                >Selamat! Anda telah menyelesaikan seluruh materi kursus ini.</span
+                >Selamat! Anda telah menyelesaikan seluruh materi pelajaran ini.</span
               >
             </div>
             <a href="/certificates" class="btn-primary !py-1 text-xs"> Lihat Sertifikat </a>

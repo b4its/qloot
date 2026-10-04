@@ -77,7 +77,7 @@
   // --- per-question result classification ------------------------------------
   type Bucket = "correct" | "partial" | "wrong" | "unanswered" | "pending";
   // An answered essay that the AI has not scored yet (score_bp === null) is
-  // "pending", not "wrong" — otherwise ungraded work is mislabeled as incorrect.
+  // "pending", not "wrong": otherwise ungraded work is mislabeled as incorrect.
   function bucketOf(a: Answer): Bucket {
     const answered = !!(a.answer_text && a.answer_text.trim());
     if (!answered) return "unanswered";
@@ -105,7 +105,7 @@
   onMount(load);
 </script>
 
-<svelte:head><title>Hasil Ujian — QLoot</title></svelte:head>
+<svelte:head><title>Hasil Ujian | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   {#if loading}
@@ -167,7 +167,7 @@
         <div class="rounded-lg bg-surface-elevated/40 p-2.5">
           <span class="muted block">Batas Kelulusan</span>
           <span class="font-bold text-sm"
-            >{exam?.passing_score_bp ? bpToPercent(exam.passing_score_bp) : "—"}</span
+            >{exam?.passing_score_bp ? bpToPercent(exam.passing_score_bp) : "-"}</span
           >
         </div>
         <div class="rounded-lg bg-surface-elevated/40 p-2.5">

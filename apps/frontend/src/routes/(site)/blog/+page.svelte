@@ -18,7 +18,7 @@
       icon: "route",
       body: [
         "Mulai dari tujuan akhir, lalu pecah menjadi tonggak bulanan. Target yang jelas lebih mudah dicapai daripada rencana besar tanpa arah.",
-        "Sisihkan waktu belajar pendek namun konsisten setiap hari — 30 menit konsisten mengalahkan 5 jam sekali sepekan.",
+        "Sisihkan waktu belajar pendek namun konsisten setiap hari: 30 menit konsisten mengalahkan 5 jam sekali sepekan.",
         "Tinjau kemajuan tiap pekan dan sesuaikan. Gunakan halaman Jalur Belajar dan Peringkat untuk memantau progres.",
       ],
     },
@@ -30,7 +30,7 @@
       body: [
         "Kesalahan terbesar adalah mulai dari visual, bukan dari masalah yang diselesaikan.",
         "Sertakan proses: riset, iterasi, dan alasan di balik keputusan desain.",
-        "Batasi jumlah karya — 3 studi kasus kuat lebih baik daripada 15 karya tanpa konteks.",
+        "Batasi jumlah karya: 3 studi kasus kuat lebih baik daripada 15 karya tanpa konteks.",
       ],
     },
     {
@@ -41,7 +41,7 @@
       body: [
         "AI pada dasarnya mencari pola dari data. Tidak perlu kalkulus untuk memahami alurnya.",
         "Mulai dari konsep: input, model, keluaran, dan evaluasi. Lalu naikkan kompleksitas secara bertahap.",
-        "Latihan terbaik adalah mengerjakan soal dan menerima umpan balik — seperti penilaian esai berbasis AI di QLoot.",
+        "Latihan terbaik adalah mengerjakan soal dan menerima umpan balik: seperti penilaian esai berbasis AI di QLoot.",
       ],
     },
     {
@@ -58,7 +58,7 @@
   ];
 
   // Track the expanded article by its stable title, not by its index into the
-  // (filtered) list — filtering/searching shifts indices and would otherwise
+  // (filtered) list: filtering/searching shifts indices and would otherwise
   // expand the wrong article.
   let open: string | null = null;
   function toggle(title: string) {
@@ -85,7 +85,7 @@
   }
 </script>
 
-<svelte:head><title>Blog — QLoot</title></svelte:head>
+<svelte:head><title>Blog | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
   <p class="mono-label">Blog</p>
