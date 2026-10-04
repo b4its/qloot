@@ -20,7 +20,7 @@
   } from "$lib/types";
   import { buildMissions, primaryMission } from "$lib/utils/mission";
   import { onboardingSteps, onboardingComplete } from "$lib/utils/mission";
-  import { auth } from "$lib/stores/auth";
+  import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import ProgressRing from "$lib/components/ProgressRing.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -70,6 +70,53 @@
   let gradeBusy = false;
   let gradeMsg = "";
 
+  $: canManageGrades = hasRole($auth.user, "teacher");
+
+  $: averageGradeScore = grades.length
+    ? Math.round(grades.reduce((sum, g) => sum + g.grade, 0) / grades.length)
+    : 0;
+
+  $: bestSubject = grades.length
+    ? [...grades].sort((a, b) => b.grade - a.grade)[0]
+    : null;
+
+  function gradeTier(score: number) {
+    if (score >= 85) {
+      return {
+        tier: "Predikat A",
+        badgeClass: "badge badge-mint",
+        colorClass: "text-emerald-400",
+        barClass: "bg-emerald-400",
+        statusText: "Sangat Baik (Tuntas)",
+      };
+    }
+    if (score >= 75) {
+      return {
+        tier: "Predikat B",
+        badgeClass: "badge badge-indigo",
+        colorClass: "text-cyan-400",
+        barClass: "bg-cyan-400",
+        statusText: "Baik (Memenuhi KKM)",
+      };
+    }
+    if (score >= 60) {
+      return {
+        tier: "Predikat C",
+        badgeClass: "badge badge-amber",
+        colorClass: "text-amber-400",
+        barClass: "bg-amber-400",
+        statusText: "Cukup",
+      };
+    }
+    return {
+      tier: "Predikat D",
+      badgeClass: "badge badge-magenta",
+      colorClass: "text-rose-400",
+      barClass: "bg-rose-400",
+      statusText: "Perlu Bimbingan",
+    };
+  }
+
   async function reloadAcademic() {
     // Re-fetch after a grade write. If the refresh fails the write still
     // succeeded, so note it rather than silently showing stale academic data.
@@ -81,6 +128,10 @@
   }
 
   async function addGrade() {
+    if (!canManageGrades) {
+      gradeMsg = "Hanya guru dan admin yang diizinkan menginput nilai.";
+      return;
+    }
     gradeMsg = "";
     const value = Number(gradeValue);
     if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -105,7 +156,7 @@
   }
 
   async function editGrade(g: GradeRow) {
-    if (!g.id) return;
+    if (!canManageGrades || !g.id) return;
     // Inline editing replaces the old native prompt(): the row turns into an
     // input that saves on confirm, keeping the interaction themed and a11y-safe.
     editingGradeId = g.id;
@@ -116,7 +167,7 @@
   let gradeEditValue = 0;
 
   async function saveGradeEdit(g: GradeRow) {
-    if (!g.id || editingGradeId !== g.id) return;
+    if (!canManageGrades || !g.id || editingGradeId !== g.id) return;
     const value = Number(gradeEditValue);
     if (!Number.isFinite(value) || value < 0 || value > 100) {
       gradeMsg = "Nilai harus antara 0 dan 100.";
@@ -142,13 +193,13 @@
   }
 
   async function deleteGrade(g: GradeRow) {
-    if (!g.id) return;
+    if (!canManageGrades || !g.id) return;
     deletingGrade = g;
   }
 
   async function confirmDeleteGrade() {
     const g = deletingGrade;
-    if (!g?.id) return;
+    if (!canManageGrades || !g?.id) return;
     deletingGrade = null;
     gradeMsg = "";
     gradeBusy = true;
@@ -574,10 +625,30 @@
     {/if}
 
     <!-- grades editor -->
-    <div class="card mt-4">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display font-bold">Nilai akademik</h2>
-        <div class="flex items-center gap-3">
+    <div class="card mt-4 overflow-hidden border border-slate-700/60 bg-slate-900/60 p-4 sm:p-5">
+      <!-- Header section -->
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon name="book-open" size="16px" />
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-display font-bold text-base sm:text-lg text-slate-100">Rapor & Nilai Akademik</h2>
+              <span class="badge badge-mint gap-1 text-2xs py-0.5 px-2">
+                <Icon name="check" size="9px" /> Terverifikasi
+              </span>
+            </div>
+            <p class="mt-0.5 text-xs muted">
+              {#if canManageGrades}
+                Kelola nilai capaian rapor siswa untuk dashboard analitik dan panduan SNBP/SNBT.
+              {:else}
+                Nilai capaian rapor resmi yang terdaftar dan diverifikasi oleh guru untuk analisis rekomendasi jurusan.
+              {/if}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2.5 self-end sm:self-auto">
           {#if grades.length}
             <a
               href={`${API_BASE}/api/v1/career/grades/export.csv`}
@@ -587,99 +658,196 @@
               <Icon name="download" size="11px" /> Ekspor CSV
             </a>
           {/if}
-          <a href="/career/roadmap" class="text-xs text-primary"
-            >Analisis jurusan <Icon name="arrow-right" size="10px" /></a
-          >
+          <a href="/career/roadmap" class="btn-ghost !py-1 text-xs text-primary hover:text-primary-focus">
+            Analisis jurusan <Icon name="arrow-right" size="10px" />
+          </a>
         </div>
       </div>
-      <p class="mt-1 text-xs muted">
-        Masukkan nilai rapor: dipakai untuk dashboard, tren, dan rekomendasi jurusan.
-      </p>
-      <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
-        <select class="input" bind:value={gradeSubject} aria-label="Mata pelajaran">
-          {#each SUBJECTS as s}<option value={s}>{s}</option>{/each}
-        </select>
-        <input
-          class="input"
-          type="number"
-          min="0"
-          max="100"
-          bind:value={gradeValue}
-          aria-label="Nilai (0-100)"
-        />
-        <input
-          class="input"
-          placeholder="2025/2026-genap"
-          bind:value={gradeTerm}
-          aria-label="Semester"
-        />
-        <button class="btn-primary" on:click={addGrade} disabled={gradeBusy}>
-          {#if gradeBusy}<Icon name="spinner" spin size="12px" />{:else}<Icon
-              name="plus"
-              size="12px"
-            />{/if}
-          Simpan
-        </button>
-      </div>
+
+      <!-- Ringkasan Nilai Cepat (Jika ada nilai) -->
+      {#if grades.length}
+        <div class="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400">Rata-rata Nilai</span>
+            <div class="mt-1 flex items-baseline gap-2">
+              <span class="font-display text-2xl font-black text-slate-100">{averageGradeScore}</span>
+              <span class="text-xs text-slate-400">/ 100</span>
+              <span class={`ml-auto ${gradeTier(averageGradeScore).badgeClass} text-2xs`}>
+                {gradeTier(averageGradeScore).tier}
+              </span>
+            </div>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400">Mapel Unggulan</span>
+            <div class="mt-1 flex items-baseline justify-between">
+              <span class="truncate font-display text-sm font-bold text-emerald-400">
+                {bestSubject?.subject ?? "-"}
+              </span>
+              {#if bestSubject}
+                <span class="font-mono text-sm font-extrabold text-slate-200">{bestSubject.grade}</span>
+              {/if}
+            </div>
+          </div>
+          <div class="col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:col-span-1">
+            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400">Total Mata Pelajaran</span>
+            <div class="mt-1 flex items-baseline justify-between">
+              <span class="font-display text-2xl font-black text-slate-100">{grades.length}</span>
+              <span class="badge badge-neutral text-2xs">Semester Aktif</span>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Form Input Nilai Khusus Guru & Admin -->
+      {#if canManageGrades}
+        <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3.5">
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-primary">
+            <Icon name="plus" size="11px" /> Input Nilai Akademik Siswa (Guru & Admin)
+          </div>
+          <div class="mt-2.5 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
+            <select class="input" bind:value={gradeSubject} aria-label="Mata pelajaran">
+              {#each SUBJECTS as s}<option value={s}>{s}</option>{/each}
+            </select>
+            <input
+              class="input"
+              type="number"
+              min="0"
+              max="100"
+              bind:value={gradeValue}
+              aria-label="Nilai (0-100)"
+            />
+            <input
+              class="input"
+              placeholder="2025/2026-genap"
+              bind:value={gradeTerm}
+              aria-label="Semester"
+            />
+            <button class="btn-primary" on:click={addGrade} disabled={gradeBusy}>
+              {#if gradeBusy}<Icon name="spinner" spin size="12px" />{:else}<Icon
+                  name="plus"
+                  size="12px"
+                />{/if}
+              Simpan
+            </button>
+          </div>
+        </div>
+      {/if}
+
       {#if gradeMsg}
         <p class="mt-2 text-xs muted" role="status" aria-live="polite">{gradeMsg}</p>
       {/if}
+
+      <!-- Daftar Kartu Nilai Rapor Modern -->
       {#if grades.length}
-        <div class="mt-3 flex flex-wrap gap-1.5">
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {#each grades as g}
-            {#if g.id && editingGradeId === g.id}
-              <span class="badge badge-indigo gap-1.5 py-1">
-                {g.subject}
-                <input
-                  class="input !w-16 !px-1.5 !py-0.5 text-xs"
-                  type="number"
-                  min="0"
-                  max="100"
-                  bind:value={gradeEditValue}
-                  aria-label={`Nilai baru ${g.subject}`}
-                />
-                <button
-                  class="hover:text-primary"
-                  on:click={() => saveGradeEdit(g)}
-                  disabled={gradeBusy}
-                  aria-label={`Simpan nilai ${g.subject}`}
-                >
-                  <Icon name={gradeBusy ? "spinner" : "check"} spin={gradeBusy} size="10px" />
-                </button>
-                <button
-                  class="hover:text-tertiary"
-                  on:click={cancelGradeEdit}
-                  disabled={gradeBusy}
-                  aria-label={`Batal ubah nilai ${g.subject}`}
-                >
-                  <Icon name="xmark" size="10px" />
-                </button>
-              </span>
-            {:else}
-              <span class="badge badge-neutral">
-                {g.subject} · {g.grade}
-                <span class="muted">({g.term})</span>
-                {#if g.id}
-                  <button
-                    class="ml-1 hover:text-primary"
-                    on:click={() => editGrade(g)}
-                    disabled={gradeBusy}
-                    aria-label={`Ubah nilai ${g.subject}`}
-                  >
-                    <Icon name="pen" size="9px" />
-                  </button>
-                  <button
-                    class="ml-1 hover:text-tertiary"
-                    on:click={() => deleteGrade(g)}
-                    disabled={gradeBusy}
-                    aria-label={`Hapus nilai ${g.subject}`}
-                  >
-                    <Icon name="xmark" size="9px" />
-                  </button>
+            {@const tier = gradeTier(g.grade)}
+            <div class="group relative flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 transition-all hover:border-slate-700 hover:bg-slate-950/80">
+              {#if g.id && editingGradeId === g.id && canManageGrades}
+                <!-- Mode Edit Inline Khusus Guru / Admin -->
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center justify-between">
+                    <span class="font-display text-sm font-bold text-slate-100">{g.subject}</span>
+                    <span class="badge badge-neutral text-2xs">{g.term}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input
+                      class="input !w-20 !px-2 !py-1 text-sm font-bold"
+                      type="number"
+                      min="0"
+                      max="100"
+                      bind:value={gradeEditValue}
+                      aria-label={`Nilai baru ${g.subject}`}
+                    />
+                    <button
+                      class="btn-primary !px-2.5 !py-1 text-xs"
+                      on:click={() => saveGradeEdit(g)}
+                      disabled={gradeBusy}
+                      aria-label={`Simpan nilai ${g.subject}`}
+                    >
+                      <Icon name={gradeBusy ? "spinner" : "check"} spin={gradeBusy} size="11px" />
+                    </button>
+                    <button
+                      class="btn-ghost !px-2.5 !py-1 text-xs"
+                      on:click={cancelGradeEdit}
+                      disabled={gradeBusy}
+                      aria-label={`Batal ubah nilai ${g.subject}`}
+                    >
+                      <Icon name="xmark" size="11px" />
+                    </button>
+                  </div>
+                </div>
+              {:else}
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 class="font-display text-sm font-bold text-slate-100">{g.subject}</h3>
+                      <span class="text-2xs text-slate-400 font-mono">{g.term}</span>
+                    </div>
+                    <span class={`${tier.badgeClass} text-2xs font-bold py-0.5 px-2`}>
+                      {tier.tier}
+                    </span>
+                  </div>
+
+                  <div class="mt-3 flex items-baseline justify-between">
+                    <div class="flex items-baseline gap-1">
+                      <span class={`font-display text-2xl font-black ${tier.colorClass}`}>
+                        {g.grade}
+                      </span>
+                      <span class="text-xs text-slate-400">/ 100</span>
+                    </div>
+                    <span class="text-2xs text-slate-400 font-medium">
+                      {tier.statusText}
+                    </span>
+                  </div>
+
+                  <!-- Visual Progress Bar -->
+                  <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+                    <div
+                      class={`h-full rounded-full transition-all duration-500 ${tier.barClass}`}
+                      style={`width: ${Math.min(100, Math.max(0, g.grade))}%`}
+                    ></div>
+                  </div>
+                </div>
+
+                <!-- Kontrol Guru/Admin: Ubah & Hapus -->
+                {#if canManageGrades && g.id}
+                  <div class="mt-3.5 flex items-center justify-end gap-1.5 border-t border-slate-800/80 pt-2.5">
+                    <button
+                      class="btn-ghost !px-2 !py-1 text-2xs text-slate-400 hover:text-primary"
+                      on:click={() => editGrade(g)}
+                      disabled={gradeBusy}
+                      aria-label={`Ubah nilai ${g.subject}`}
+                    >
+                      <Icon name="pen" size="10px" /> Ubah
+                    </button>
+                    <button
+                      class="btn-ghost !px-2 !py-1 text-2xs text-slate-400 hover:text-rose-400"
+                      on:click={() => deleteGrade(g)}
+                      disabled={gradeBusy}
+                      aria-label={`Hapus nilai ${g.subject}`}
+                    >
+                      <Icon name="xmark" size="10px" /> Hapus
+                    </button>
+                  </div>
                 {/if}
-              </span>
-            {/if}
+              {/if}
+            </div>
           {/each}
+        </div>
+      {:else}
+        <div class="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/30 p-8 text-center">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50 text-slate-400">
+            <Icon name="book-open" size="24px" />
+          </div>
+          <h3 class="mt-3 font-display text-sm font-bold text-slate-200">Belum Ada Nilai Rapor</h3>
+          <p class="mx-auto mt-1 max-w-md text-xs text-slate-400">
+            {#if canManageGrades}
+              Gunakan formulir di atas untuk menginput nilai akademik siswa pertama kali.
+            {:else}
+              Nilai akademik akan diinput dan diverifikasi oleh guru mata pelajaran atau wali kelas Anda.
+            {/if}
+          </p>
         </div>
       {/if}
 
