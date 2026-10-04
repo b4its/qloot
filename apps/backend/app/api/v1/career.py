@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
-from app.core.errors import ForbiddenError, NotFoundError
+from app.core.errors import ForbiddenError
 from app.core.logging import get_logger
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit

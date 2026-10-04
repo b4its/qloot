@@ -76,9 +76,7 @@
     ? Math.round(grades.reduce((sum, g) => sum + g.grade, 0) / grades.length)
     : 0;
 
-  $: bestSubject = grades.length
-    ? [...grades].sort((a, b) => b.grade - a.grade)[0]
-    : null;
+  $: bestSubject = grades.length ? [...grades].sort((a, b) => b.grade - a.grade)[0] : null;
 
   function gradeTier(score: number) {
     if (score >= 85) {
@@ -629,12 +627,16 @@
       <!-- Header section -->
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-2.5">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <div
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"
+          >
             <Icon name="book-open" size="16px" />
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h2 class="font-display font-bold text-base sm:text-lg text-slate-100">Rapor & Nilai Akademik</h2>
+              <h2 class="font-display font-bold text-base sm:text-lg text-slate-100">
+                Rapor & Nilai Akademik
+              </h2>
               <span class="badge badge-mint gap-1 text-2xs py-0.5 px-2">
                 <Icon name="check" size="9px" /> Terverifikasi
               </span>
@@ -643,7 +645,8 @@
               {#if canManageGrades}
                 Kelola nilai capaian rapor siswa untuk dashboard analitik dan panduan SNBP/SNBT.
               {:else}
-                Nilai capaian rapor resmi yang terdaftar dan diverifikasi oleh guru untuk analisis rekomendasi jurusan.
+                Nilai capaian rapor resmi yang terdaftar dan diverifikasi oleh guru untuk analisis
+                rekomendasi jurusan.
               {/if}
             </p>
           </div>
@@ -658,7 +661,10 @@
               <Icon name="download" size="11px" /> Ekspor CSV
             </a>
           {/if}
-          <a href="/career/roadmap" class="btn-ghost !py-1 text-xs text-primary hover:text-primary-focus">
+          <a
+            href="/career/roadmap"
+            class="btn-ghost !py-1 text-xs text-primary hover:text-primary-focus"
+          >
             Analisis jurusan <Icon name="arrow-right" size="10px" />
           </a>
         </div>
@@ -668,9 +674,13 @@
       {#if grades.length}
         <div class="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400">Rata-rata Nilai</span>
+            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400"
+              >Rata-rata Nilai</span
+            >
             <div class="mt-1 flex items-baseline gap-2">
-              <span class="font-display text-2xl font-black text-slate-100">{averageGradeScore}</span>
+              <span class="font-display text-2xl font-black text-slate-100"
+                >{averageGradeScore}</span
+              >
               <span class="text-xs text-slate-400">/ 100</span>
               <span class={`ml-auto ${gradeTier(averageGradeScore).badgeClass} text-2xs`}>
                 {gradeTier(averageGradeScore).tier}
@@ -678,18 +688,26 @@
             </div>
           </div>
           <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400">Mapel Unggulan</span>
+            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400"
+              >Mapel Unggulan</span
+            >
             <div class="mt-1 flex items-baseline justify-between">
               <span class="truncate font-display text-sm font-bold text-emerald-400">
                 {bestSubject?.subject ?? "-"}
               </span>
               {#if bestSubject}
-                <span class="font-mono text-sm font-extrabold text-slate-200">{bestSubject.grade}</span>
+                <span class="font-mono text-sm font-extrabold text-slate-200"
+                  >{bestSubject.grade}</span
+                >
               {/if}
             </div>
           </div>
-          <div class="col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:col-span-1">
-            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400">Total Mata Pelajaran</span>
+          <div
+            class="col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:col-span-1"
+          >
+            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400"
+              >Total Mata Pelajaran</span
+            >
             <div class="mt-1 flex items-baseline justify-between">
               <span class="font-display text-2xl font-black text-slate-100">{grades.length}</span>
               <span class="badge badge-neutral text-2xs">Semester Aktif</span>
@@ -742,7 +760,9 @@
         <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {#each grades as g}
             {@const tier = gradeTier(g.grade)}
-            <div class="group relative flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 transition-all hover:border-slate-700 hover:bg-slate-950/80">
+            <div
+              class="group relative flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 transition-all hover:border-slate-700 hover:bg-slate-950/80"
+            >
               {#if g.id && editingGradeId === g.id && canManageGrades}
                 <!-- Mode Edit Inline Khusus Guru / Admin -->
                 <div class="flex flex-col gap-2">
@@ -812,7 +832,9 @@
 
                 <!-- Kontrol Guru/Admin: Ubah & Hapus -->
                 {#if canManageGrades && g.id}
-                  <div class="mt-3.5 flex items-center justify-end gap-1.5 border-t border-slate-800/80 pt-2.5">
+                  <div
+                    class="mt-3.5 flex items-center justify-end gap-1.5 border-t border-slate-800/80 pt-2.5"
+                  >
                     <button
                       class="btn-ghost !px-2 !py-1 text-2xs text-slate-400 hover:text-primary"
                       on:click={() => editGrade(g)}
@@ -836,8 +858,12 @@
           {/each}
         </div>
       {:else}
-        <div class="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/30 p-8 text-center">
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50 text-slate-400">
+        <div
+          class="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/30 p-8 text-center"
+        >
+          <div
+            class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50 text-slate-400"
+          >
             <Icon name="book-open" size="24px" />
           </div>
           <h3 class="mt-3 font-display text-sm font-bold text-slate-200">Belum Ada Nilai Rapor</h3>
@@ -845,7 +871,8 @@
             {#if canManageGrades}
               Gunakan formulir di atas untuk menginput nilai akademik siswa pertama kali.
             {:else}
-              Nilai akademik akan diinput dan diverifikasi oleh guru mata pelajaran atau wali kelas Anda.
+              Nilai akademik akan diinput dan diverifikasi oleh guru mata pelajaran atau wali kelas
+              Anda.
             {/if}
           </p>
         </div>
