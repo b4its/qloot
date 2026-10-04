@@ -9,10 +9,14 @@ vi.mock("../src/lib/api/client", () => ({
   API_BASE: "http://localhost:8000",
   API_PREFIX: "/api/v1",
   ApiError: class ApiError extends Error {
-    status = 0;
-    constructor(message: string, status = 0) {
+    status: number;
+    code: string;
+    detail: unknown;
+    constructor(status: number, code: string, message: string, detail?: unknown) {
       super(message);
       this.status = status;
+      this.code = code;
+      this.detail = detail;
     }
   },
   api: {
@@ -109,8 +113,8 @@ describe("assistant AI credits and chat locking", () => {
     });
 
     // Mock fetch to simulate 402 Payment Required on stream
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockResolvedValue({
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 402,
       body: null,
@@ -138,7 +142,7 @@ describe("assistant AI credits and chat locking", () => {
       expect(input.disabled).toBe(true);
       expect(sendBtn as HTMLButtonElement).toBeDisabled();
     } finally {
-      global.fetch = originalFetch;
+      globalThis.fetch = originalFetch;
     }
   });
 
@@ -157,12 +161,16 @@ describe("assistant AI credits and chat locking", () => {
     });
 
     // Mock fetch to fail stream, triggering JSON fallback
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockRejectedValue(new Error("Network failed"));
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("Network failed"));
 
     // JSON fallback throws 402 ApiError
     mockPost.mockRejectedValue(
-      new ApiError("Kredit AI (ORT) habis. Tukar OPT menjadi ORT di halaman dompet untuk melanjutkan.", 402),
+      new ApiError(
+        402,
+        "payment_required",
+        "Kredit AI (ORT) habis. Tukar OPT menjadi ORT di halaman dompet untuk melanjutkan.",
+      ),
     );
 
     try {
@@ -187,7 +195,7 @@ describe("assistant AI credits and chat locking", () => {
       expect(input.disabled).toBe(true);
       expect(sendBtn as HTMLButtonElement).toBeDisabled();
     } finally {
-      global.fetch = originalFetch;
+      globalThis.fetch = originalFetch;
     }
   });
 
