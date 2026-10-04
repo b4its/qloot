@@ -83,17 +83,13 @@
       return {
         tier: "Predikat A",
         badgeClass: "badge badge-mint",
-        colorClass: "text-emerald-400",
-        barClass: "bg-emerald-400",
         statusText: "Sangat Baik (Tuntas)",
       };
     }
     if (score >= 75) {
       return {
         tier: "Predikat B",
-        badgeClass: "badge badge-indigo",
-        colorClass: "text-cyan-400",
-        barClass: "bg-cyan-400",
+        badgeClass: "badge badge-primary",
         statusText: "Baik (Memenuhi KKM)",
       };
     }
@@ -101,16 +97,12 @@
       return {
         tier: "Predikat C",
         badgeClass: "badge badge-amber",
-        colorClass: "text-amber-400",
-        barClass: "bg-amber-400",
         statusText: "Cukup",
       };
     }
     return {
       tier: "Predikat D",
       badgeClass: "badge badge-magenta",
-      colorClass: "text-rose-400",
-      barClass: "bg-rose-400",
       statusText: "Perlu Bimbingan",
     };
   }
@@ -623,20 +615,16 @@
     {/if}
 
     <!-- grades editor -->
-    <div class="card mt-4 overflow-hidden border border-slate-700/60 bg-slate-900/60 p-4 sm:p-5">
+    <div class="card mt-4">
       <!-- Header section -->
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-2.5">
-          <div
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"
-          >
-            <Icon name="book-open" size="16px" />
-          </div>
+          <span class="tile-neutral h-9 w-9">
+            <Icon name="book-open" size="15px" class="text-primary" />
+          </span>
           <div>
             <div class="flex items-center gap-2">
-              <h2 class="font-display font-bold text-base sm:text-lg text-slate-100">
-                Rapor & Nilai Akademik
-              </h2>
+              <h2 class="font-display font-bold">Rapor & Nilai Akademik</h2>
               <span class="badge badge-mint gap-1 text-2xs py-0.5 px-2">
                 <Icon name="check" size="9px" /> Terverifikasi
               </span>
@@ -672,44 +660,32 @@
 
       <!-- Ringkasan Nilai Cepat (Jika ada nilai) -->
       {#if grades.length}
-        <div class="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400"
-              >Rata-rata Nilai</span
-            >
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div class="card !p-3.5">
+            <p class="mono-label">Rata-rata Nilai</p>
             <div class="mt-1 flex items-baseline gap-2">
-              <span class="font-display text-2xl font-black text-slate-100"
-                >{averageGradeScore}</span
-              >
-              <span class="text-xs text-slate-400">/ 100</span>
+              <span class="font-display text-2xl font-bold">{averageGradeScore}</span>
+              <span class="text-xs muted">/ 100</span>
               <span class={`ml-auto ${gradeTier(averageGradeScore).badgeClass} text-2xs`}>
                 {gradeTier(averageGradeScore).tier}
               </span>
             </div>
           </div>
-          <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400"
-              >Mapel Unggulan</span
-            >
+          <div class="card !p-3.5">
+            <p class="mono-label">Mapel Unggulan</p>
             <div class="mt-1 flex items-baseline justify-between">
-              <span class="truncate font-display text-sm font-bold text-emerald-400">
+              <span class="truncate font-display text-sm font-bold text-mint">
                 {bestSubject?.subject ?? "-"}
               </span>
               {#if bestSubject}
-                <span class="font-mono text-sm font-extrabold text-slate-200"
-                  >{bestSubject.grade}</span
-                >
+                <span class="mono text-sm font-bold">{bestSubject.grade}</span>
               {/if}
             </div>
           </div>
-          <div
-            class="col-span-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:col-span-1"
-          >
-            <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400"
-              >Total Mata Pelajaran</span
-            >
+          <div class="card col-span-2 !p-3.5 sm:col-span-1">
+            <p class="mono-label">Total Mata Pelajaran</p>
             <div class="mt-1 flex items-baseline justify-between">
-              <span class="font-display text-2xl font-black text-slate-100">{grades.length}</span>
+              <span class="font-display text-2xl font-bold">{grades.length}</span>
               <span class="badge badge-neutral text-2xs">Semester Aktif</span>
             </div>
           </div>
@@ -718,7 +694,7 @@
 
       <!-- Form Input Nilai Khusus Guru & Admin -->
       {#if canManageGrades}
-        <div class="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3.5">
+        <div class="card mt-4 !p-3.5 !border-primary/30">
           <div class="flex items-center gap-1.5 text-xs font-semibold text-primary">
             <Icon name="plus" size="11px" /> Input Nilai Akademik Siswa (Guru & Admin)
           </div>
@@ -761,13 +737,13 @@
           {#each grades as g}
             {@const tier = gradeTier(g.grade)}
             <div
-              class="group relative flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-950/40 p-3.5 transition-all hover:border-slate-700 hover:bg-slate-950/80"
+              class="card flex flex-col justify-between !p-3.5 hover:border-primary/50 transition-all"
             >
               {#if g.id && editingGradeId === g.id && canManageGrades}
                 <!-- Mode Edit Inline Khusus Guru / Admin -->
                 <div class="flex flex-col gap-2">
                   <div class="flex items-center justify-between">
-                    <span class="font-display text-sm font-bold text-slate-100">{g.subject}</span>
+                    <span class="font-display text-sm font-bold">{g.subject}</span>
                     <span class="badge badge-neutral text-2xs">{g.term}</span>
                   </div>
                   <div class="flex items-center gap-2">
@@ -801,8 +777,8 @@
                 <div>
                   <div class="flex items-start justify-between gap-2">
                     <div>
-                      <h3 class="font-display text-sm font-bold text-slate-100">{g.subject}</h3>
-                      <span class="text-2xs text-slate-400 font-mono">{g.term}</span>
+                      <h3 class="font-display text-sm font-bold">{g.subject}</h3>
+                      <span class="mono text-2xs muted">{g.term}</span>
                     </div>
                     <span class={`${tier.badgeClass} text-2xs font-bold py-0.5 px-2`}>
                       {tier.tier}
@@ -811,32 +787,34 @@
 
                   <div class="mt-3 flex items-baseline justify-between">
                     <div class="flex items-baseline gap-1">
-                      <span class={`font-display text-2xl font-black ${tier.colorClass}`}>
+                      <span class="font-display text-2xl font-bold">
                         {g.grade}
                       </span>
-                      <span class="text-xs text-slate-400">/ 100</span>
+                      <span class="text-xs muted">/ 100</span>
                     </div>
-                    <span class="text-2xs text-slate-400 font-medium">
+                    <span class="text-2xs muted font-medium">
                       {tier.statusText}
                     </span>
                   </div>
 
-                  <!-- Visual Progress Bar -->
-                  <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
-                    <div
-                      class={`h-full rounded-full transition-all duration-500 ${tier.barClass}`}
-                      style={`width: ${Math.min(100, Math.max(0, g.grade))}%`}
-                    ></div>
+                  <!-- Visual Progress Bar QLoot -->
+                  <div
+                    class="track mt-2 h-1.5"
+                    role="progressbar"
+                    aria-label={`Nilai ${g.subject}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={g.grade}
+                  >
+                    <span style={`width: ${Math.min(100, Math.max(0, g.grade))}%`}></span>
                   </div>
                 </div>
 
                 <!-- Kontrol Guru/Admin: Ubah & Hapus -->
                 {#if canManageGrades && g.id}
-                  <div
-                    class="mt-3.5 flex items-center justify-end gap-1.5 border-t border-slate-800/80 pt-2.5"
-                  >
+                  <div class="mt-3.5 flex items-center justify-end gap-1.5 border-t pt-2.5">
                     <button
-                      class="btn-ghost !px-2 !py-1 text-2xs text-slate-400 hover:text-primary"
+                      class="btn-ghost !px-2 !py-1 text-2xs text-primary"
                       on:click={() => editGrade(g)}
                       disabled={gradeBusy}
                       aria-label={`Ubah nilai ${g.subject}`}
@@ -844,7 +822,7 @@
                       <Icon name="pen" size="10px" /> Ubah
                     </button>
                     <button
-                      class="btn-ghost !px-2 !py-1 text-2xs text-slate-400 hover:text-rose-400"
+                      class="btn-ghost !px-2 !py-1 text-2xs text-magenta hover:underline"
                       on:click={() => deleteGrade(g)}
                       disabled={gradeBusy}
                       aria-label={`Hapus nilai ${g.subject}`}
@@ -858,16 +836,10 @@
           {/each}
         </div>
       {:else}
-        <div
-          class="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/30 p-8 text-center"
-        >
-          <div
-            class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50 text-slate-400"
-          >
-            <Icon name="book-open" size="24px" />
-          </div>
-          <h3 class="mt-3 font-display text-sm font-bold text-slate-200">Belum Ada Nilai Rapor</h3>
-          <p class="mx-auto mt-1 max-w-md text-xs text-slate-400">
+        <div class="card mt-4 grid place-items-center py-10 text-center">
+          <Icon name="book-open" size="26px" class="muted" />
+          <h3 class="mt-2 font-display text-sm font-bold">Belum Ada Nilai Rapor</h3>
+          <p class="mx-auto mt-1 max-w-md text-xs muted">
             {#if canManageGrades}
               Gunakan formulir di atas untuk menginput nilai akademik siswa pertama kali.
             {:else}
