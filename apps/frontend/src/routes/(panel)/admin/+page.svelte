@@ -46,30 +46,35 @@
   // failed fetch as "0 pending / balanced": that reads as "all healthy".
   let unavailable: string[] = [];
 
-  onMount(async () => {
-    const failures: string[] = [];
-    const safe = async <T,>(p: Promise<T>, fallback: T, label: string): Promise<T> => {
-      try {
-        return await p;
-      } catch {
-        failures.push(label);
-        return fallback;
-      }
-    };
-    const [u, w, r, n, a] = await Promise.all([
-      safe(api.get<User[]>("/admin/users?limit=200"), [], "pengguna"),
-      safe(api.get<AdminWithdrawal[]>("/admin/withdrawals?limit=200"), [], "penarikan"),
-      safe(api.get<Reward[]>("/admin/rewards?limit=200"), [], "hadiah"),
-      safe(api.get<NegativeBalance[]>("/admin/ledger/negative?limit=200"), [], "buku besar"),
-      safe(api.get<AuditRow[]>("/admin/audit-logs?limit=6"), [], "log audit"),
-    ]);
-    users = u;
-    withdrawals = w;
-    rewards = r;
-    negative = n;
-    recentAudit = a;
-    unavailable = failures;
-    loading = false;
+  onMount(() => {
+    (async () => {
+      const failures: string[] = [];
+      const safe = async <T,>(p: Promise<T>, fallback: T, label: string): Promise<T> => {
+        try {
+          return await p;
+        } catch {
+          failures.push(label);
+          return fallback;
+        }
+      };
+      const [u, w, r, n, a] = await Promise.all([
+        safe(api.get<User[]>("/admin/users?limit=200"), [], "pengguna"),
+        safe(api.get<AdminWithdrawal[]>("/admin/withdrawals?limit=200"), [], "penarikan"),
+        safe(api.get<Reward[]>("/admin/rewards?limit=200"), [], "hadiah"),
+        safe(api.get<NegativeBalance[]>("/admin/ledger/negative?limit=200"), [], "buku besar"),
+        safe(api.get<AuditRow[]>("/admin/audit-logs?limit=6"), [], "log audit"),
+      ]);
+      users = u;
+      withdrawals = w;
+      rewards = r;
+      negative = n;
+      recentAudit = a;
+      unavailable = failures;
+      loading = false;
+    })().catch((err) => {
+      console.error("Gagal memuat dashboard admin:", err);
+      loading = false;
+    });
   });
 
   // --- derived operational signals -------------------------------------------

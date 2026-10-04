@@ -98,14 +98,18 @@
     await load();
   }
 
-  onMount(async () => {
-    try {
-      const recs = await api.get<Recommendation[]>("/career/recommendations");
-      if (recs.length) topMajor = recs[0].major;
-    } catch {
-      /* recommendations are optional */
-    }
-    await load();
+  onMount(() => {
+    (async () => {
+      try {
+        const recs = await api.get<Recommendation[]>("/career/recommendations");
+        if (recs.length) topMajor = recs[0].major;
+      } catch {
+        /* recommendations are optional */
+      }
+      await load();
+    })().catch((err) => {
+      console.error("Gagal memuat perpustakaan sumber daya:", err);
+    });
   });
 </script>
 

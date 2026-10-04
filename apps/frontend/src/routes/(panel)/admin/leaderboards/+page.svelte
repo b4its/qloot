@@ -315,7 +315,7 @@
     confirmLabel="Ya, Perbarui"
     confirmRole="confirm-refresh"
     busy={refreshing !== ""}
-    onConfirm={() => refresh(confirmingRefresh!.scope, confirmingRefresh!.id)}
+    onConfirm={() => confirmingRefresh && refresh(confirmingRefresh.scope, confirmingRefresh.id)}
     close={() => (confirmingRefresh = null)}
   />
 {/if}

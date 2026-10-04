@@ -324,7 +324,7 @@
     confirmLabel="Ya, Batalkan"
     confirmRole="confirm-cancel-reward"
     busy={busy === confirmingCancel.id}
-    onConfirm={() => cancel(confirmingCancel!.id)}
+    onConfirm={() => confirmingCancel && cancel(confirmingCancel.id)}
     close={() => (confirmingCancel = null)}
   />
 {/if}

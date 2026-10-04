@@ -27,14 +27,19 @@
   // Recipient count for the "all users" mode.
   let activeUsers: number | null = null;
   let activeUsersError = false;
-  onMount(async () => {
-    try {
-      const res = await apiGetPaged<User[]>("/admin/users?is_active=true&limit=1");
-      activeUsers = res.total ?? res.data.length;
-    } catch {
+  onMount(() => {
+    (async () => {
+      try {
+        const res = await apiGetPaged<User[]>("/admin/users?is_active=true&limit=1");
+        activeUsers = res.total ?? res.data.length;
+      } catch {
+        activeUsers = null;
+        activeUsersError = true;
+      }
+    })().catch(() => {
       activeUsers = null;
       activeUsersError = true;
-    }
+    });
   });
 
   // --- recipient picker ------------------------------------------------------

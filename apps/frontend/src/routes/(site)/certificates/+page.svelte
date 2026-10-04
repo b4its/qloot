@@ -235,15 +235,20 @@
     }
   }
 
-  onMount(async () => {
-    try {
-      certs = await api.get<Certificate[]>("/certificates?limit=200");
-      active = certs[0] ?? null;
-    } catch (e) {
+  onMount(() => {
+    (async () => {
+      try {
+        certs = await api.get<Certificate[]>("/certificates?limit=200");
+        active = certs[0] ?? null;
+      } catch (e) {
+        error = e instanceof ApiError ? e.message : "Gagal memuat sertifikat";
+      } finally {
+        loading = false;
+      }
+    })().catch((e) => {
       error = e instanceof ApiError ? e.message : "Gagal memuat sertifikat";
-    } finally {
       loading = false;
-    }
+    });
   });
 </script>
 

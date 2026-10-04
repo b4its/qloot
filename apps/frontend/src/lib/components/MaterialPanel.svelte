@@ -149,6 +149,7 @@
                 <input
                   class="input"
                   placeholder="Tanyakan sesuatu tentang materi ini…"
+                  aria-label="Tanyakan sesuatu tentang materi ini"
                   bind:value={questionDrafts[m.id]}
                   on:keydown={(e) => e.key === "Enter" && ask(m.id)}
                 />

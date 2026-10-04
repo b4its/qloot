@@ -265,7 +265,7 @@
     confirmLabel={`Ya, ${confirming.action === "delete" ? "Hapus" : "Sembunyikan"}`}
     confirmRole="confirm-moderate"
     busy={busy === confirming.report.id}
-    onConfirm={() => moderate(confirming!.report, confirming!.action)}
+    onConfirm={() => confirming && moderate(confirming.report, confirming.action)}
     close={() => (confirming = null)}
   />
 {/if}

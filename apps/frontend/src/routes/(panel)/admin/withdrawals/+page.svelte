@@ -279,7 +279,7 @@
     onReason={(v) => (rejectReason = v)}
     reasonPlaceholder="mis. alamat tidak valid"
     busy={busy === rejecting.id}
-    onConfirm={() => reject(rejecting!.id, rejectReason)}
+    onConfirm={() => rejecting && reject(rejecting.id, rejectReason)}
     close={() => (rejecting = null)}
   />
 {/if}

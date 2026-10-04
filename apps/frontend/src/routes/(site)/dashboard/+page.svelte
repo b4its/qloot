@@ -219,8 +219,9 @@
   $: totalActivity = Object.values(activityCounts).reduce((a, b) => a + b, 0);
   const intensity = ["bg-ink/5", "bg-secondary/30", "bg-secondary/55", "bg-secondary/80"];
 
-  onMount(async () => {
-    const safe = async <T,>(request: Promise<T>, fallback: T, label: string): Promise<T> => {
+  onMount(() => {
+    (async () => {
+      const safe = async <T,>(request: Promise<T>, fallback: T, label: string): Promise<T> => {
       try {
         return await request;
       } catch {
@@ -280,7 +281,11 @@
     } finally {
       loading = false;
     }
+  })().catch((e) => {
+    error = e instanceof ApiError ? e.message : "";
+    loading = false;
   });
+});
 
   function pct(p: BadgeProgress): number {
     if (p.target <= 0) return 0;

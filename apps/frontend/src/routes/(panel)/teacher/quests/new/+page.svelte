@@ -20,12 +20,16 @@
   let error = "";
   let message = "";
 
-  onMount(async () => {
-    try {
-      exams = await api.get<Exam[]>("/exams?limit=200");
-    } catch (e) {
+  onMount(() => {
+    (async () => {
+      try {
+        exams = await api.get<Exam[]>("/exams?limit=200");
+      } catch (e) {
+        error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
+      }
+    })().catch((e) => {
       error = e instanceof ApiError ? e.message : "Gagal memuat ujian";
-    }
+    });
   });
 
   const DEFAULT_RANKS = [100, 60, 40, 20, 10];

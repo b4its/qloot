@@ -50,7 +50,7 @@
       stroke-linecap="round"
       stroke-dasharray={c}
       stroke-dashoffset={offset}
-      style="transition: stroke-dashoffset .8s cubic-bezier(0.22,1,0.36,1)"
+      class="ring-progress-circle"
     />
   </svg>
   <div
@@ -71,3 +71,15 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .ring-progress-circle {
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ring-progress-circle {
+      transition: none;
+    }
+  }
+</style>
+

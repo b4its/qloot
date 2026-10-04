@@ -375,7 +375,7 @@
     confirmLabel={confirming.action === "pause" ? "Ya, Jeda" : "Ya, Lanjutkan"}
     confirmRole="confirm-control"
     busy={busy !== ""}
-    onConfirm={() => control(confirming!.action)}
+    onConfirm={() => confirming && control(confirming.action)}
     close={() => (confirming = null)}
   />
 {/if}
