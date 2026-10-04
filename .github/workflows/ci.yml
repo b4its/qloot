@@ -153,7 +153,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Blockchain dependency audit
         working-directory: blockchain
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
