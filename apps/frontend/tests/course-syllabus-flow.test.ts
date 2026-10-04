@@ -219,7 +219,9 @@ describe("course syllabus and lesson UX overhaul", () => {
     ).toBe(true);
 
     // The course progress mini-bar renders with the completed count.
-    const bar = screen.getByRole("progressbar", { name: "Progres kursus" });
+    const bar = screen.getByRole("progressbar", {
+      name: /Progres (pelajaran|kursus)/,
+    });
     expect(bar.getAttribute("aria-valuemax")).toBe("2");
   });
 

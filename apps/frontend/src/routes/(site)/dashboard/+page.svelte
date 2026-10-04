@@ -863,7 +863,9 @@
         {:else}
           <div class="card mt-3 grid place-items-center py-10 text-center">
             <Icon name="certificate" size="26px" class="muted" />
-            <p class="mt-2 text-sm muted">Selesaikan pelajaran untuk meraih sertifikat pertamamu.</p>
+            <p class="mt-2 text-sm muted">
+              Selesaikan pelajaran untuk meraih sertifikat pertamamu.
+            </p>
             <a href="/courses" class="btn-secondary mt-3">Jelajahi pelajaran</a>
           </div>
         {/if}

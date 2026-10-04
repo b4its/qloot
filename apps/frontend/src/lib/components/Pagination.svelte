@@ -36,7 +36,7 @@
   >
     <p class="muted">
       {#if total !== undefined}
-        {rangeStart}-{rangeEnd} dari {total} {label}
+        {rangeStart}–{rangeEnd} dari {total} {label}
       {:else}
         {label} · halaman {page}
       {/if}

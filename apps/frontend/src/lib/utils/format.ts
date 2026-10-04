@@ -10,12 +10,12 @@ export function paginate<T>(items: T[], page: number, pageSize: number): T[] {
 }
 
 export function bpToPercent(bp: number | null | undefined, digits = 1): string {
-  if (bp === null || bp === undefined) return "-";
+  if (bp === null || bp === undefined) return "—";
   return `${(bp / 100).toFixed(digits)}%`;
 }
 
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "-";
+  if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString("id-ID", {
       day: "2-digit",
@@ -30,7 +30,7 @@ export function formatDate(iso: string | null | undefined): string {
 }
 
 export function relativeTime(iso: string | null | undefined): string {
-  if (!iso) return "-";
+  if (!iso) return "—";
   const then = new Date(iso).getTime();
   const diff = Date.now() - then;
   const sec = Math.round(diff / 1000);
@@ -47,7 +47,7 @@ export function relativeTime(iso: string | null | undefined): string {
 }
 
 export function shortHash(hash: string | null | undefined, size = 6): string {
-  if (!hash) return "-";
+  if (!hash) return "—";
   return `${hash.slice(0, size)}…${hash.slice(-4)}`;
 }
 
@@ -109,7 +109,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 /** Map an internal English status to its Indonesian display label. */
 export function statusLabel(status: string | null | undefined): string {
-  if (!status) return "-";
+  if (!status) return "—";
   return STATUS_LABELS[status.toLowerCase()] ?? status;
 }
 

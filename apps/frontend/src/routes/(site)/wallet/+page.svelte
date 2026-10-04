@@ -531,11 +531,13 @@
           <p class="mono-label text-[10px]">Penarikan (withdrawal)</p>
           <ol class="mt-1 space-y-1 text-xs muted">
             <li>
-              <strong class="text-ink">Diminta</strong>: pengajuan dibuat, saldo OPT langsung ditahan.
+              <strong class="text-ink">Diminta</strong>: pengajuan dibuat, saldo OPT langsung
+              ditahan.
             </li>
             <li><strong class="text-ink">Disetujui</strong>: admin meninjau dan menyetujui.</li>
             <li>
-              <strong class="text-ink">Dikirim</strong>: transfer on-chain ke alamat dompet pribadimu.
+              <strong class="text-ink">Dikirim</strong>: transfer on-chain ke alamat dompet
+              pribadimu.
             </li>
             <li>
               <strong class="text-ink">Terkonfirmasi</strong>: transaksi diterima jaringan; dana ada
@@ -547,16 +549,19 @@
           <p class="mono-label text-[10px]">Hadiah (reward)</p>
           <ol class="mt-1 space-y-1 text-xs muted">
             <li>
-              <strong class="text-ink">Menunggu</strong>: hadiah tercatat di buku besar, menunggu rantai.
+              <strong class="text-ink">Menunggu</strong>: hadiah tercatat di buku besar, menunggu
+              rantai.
             </li>
             <li>
               <strong class="text-ink">Terkonfirmasi</strong>: transaksi berhasil; saldo risiko nol.
             </li>
+            <!-- prettier-ignore -->
             <li>
               <strong class="text-ink">Gagal</strong>: transaksi ditolak; saldo dikembalikan otomatis.
             </li>
             <li>
-              <strong class="text-ink">Dibatalkan</strong>: hadiah ditarik kembali (mis. koreksi nilai).
+              <strong class="text-ink">Dibatalkan</strong>: hadiah ditarik kembali (mis. koreksi
+              nilai).
             </li>
           </ol>
         </div>
@@ -708,9 +713,9 @@
         <span class="mono-label">Alamat yang dipakai untuk penarikan</span>
       </div>
       <p class="mt-1 text-xs muted">
-        Ini wallet pribadimu: semua penarikan akan dikirim ke alamat ini. Tempel alamatnya
-        langsung, atau hubungkan lewat MetaMask. Semua akun memakai alamat default platform sampai
-        kamu menggantinya.
+        Ini wallet pribadimu: semua penarikan akan dikirim ke alamat ini. Tempel alamatnya langsung,
+        atau hubungkan lewat MetaMask. Semua akun memakai alamat default platform sampai kamu
+        menggantinya.
       </p>
 
       <div class="mt-3 flex flex-wrap items-end gap-2">

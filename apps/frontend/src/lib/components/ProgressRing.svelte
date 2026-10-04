@@ -53,12 +53,16 @@
       style="transition: stroke-dashoffset .8s cubic-bezier(0.22,1,0.36,1)"
     />
   </svg>
-  <div class="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none">
-    <span class={`font-display font-bold leading-none ${size < 100 ? 'text-xl' : 'text-2xl'}`}>
+  <div
+    class="absolute inset-0 flex flex-col items-center justify-center p-2 text-center pointer-events-none"
+  >
+    <span class={`font-display font-bold leading-none ${size < 100 ? "text-xl" : "text-2xl"}`}>
       {Math.round(value)}%
     </span>
     {#if showLabel && label}
-      <span class="mono text-[9px] font-medium uppercase tracking-tight muted mt-1 max-w-[80%] truncate">
+      <span
+        class="mono text-[9px] font-medium uppercase tracking-tight muted mt-1 max-w-[80%] truncate"
+      >
         {label}
       </span>
     {/if}

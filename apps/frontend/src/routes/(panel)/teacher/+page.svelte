@@ -156,7 +156,7 @@
             <p class="mono-label text-[10px]">Perlu pendampingan</p>
             <p class="mt-1 text-xs muted">
               Siswa dengan skor terbaik di bawah ambang kelulusan. Bersifat mendukung, bukan hukuman
-             : pertimbangkan materi tambahan atau konsultasi.
+              : pertimbangkan materi tambahan atau konsultasi.
             </p>
             {#if (analytics.at_risk?.length ?? 0) > 0}
               <ul class="mt-3 divide-y text-sm">
