@@ -1572,14 +1572,6 @@ class CareerService:
 
         if settings.ai_provider == "mock":
             return None
-        # If API key is missing, do not raise an unhandled exception that breaks the UI;
-        # directly degrade to the intelligent rule-based and fuzzy-matching engine.
-        if settings.ai_provider == "openai" and not settings.ai_api_key:
-            log.info("assistant_ai_skipped_missing_key", provider="openai")
-            return None
-        if settings.ai_provider == "gemini" and not settings.gemini_api_key:
-            log.info("assistant_ai_skipped_missing_key", provider="gemini")
-            return None
 
         context = await self._ai_context(user, history)
         try:
@@ -1587,7 +1579,7 @@ class CareerService:
             result = await provider.answer(
                 QAContext(text=context, question=question, language="id")
             )
-        except Exception as exc:  # provider/network/schema failure → KB fallback
+        except Exception as exc:  # provider/network/schema/key failure → KB fallback
             log.warning("assistant_ai_failed", error=str(exc))
             return None
         answer = (result.answer or "").strip()
@@ -1616,24 +1608,18 @@ class CareerService:
 
         chunks: list[str] = []
         if settings.ai_provider != "mock":
-            if (settings.ai_provider == "openai" and not settings.ai_api_key) or (
-                settings.ai_provider == "gemini" and not settings.gemini_api_key
-            ):
-                log.info("assistant_stream_skipped_missing_key", provider=settings.ai_provider)
+            try:
+                provider = get_ai_provider()
+                context = await self._ai_context(user, history)
+                async for chunk in provider.answer_stream(
+                    QAContext(text=context, question=question, language="id")
+                ):
+                    chunks.append(chunk)
+                    yield chunk
+            except Exception as exc:  # noqa: BLE001 - fall back mid-stream or missing key
+                log.warning("assistant_stream_failed", error=str(exc))
+                self.last_stream_failed = True
                 chunks = []
-            else:
-                try:
-                    provider = get_ai_provider()
-                    context = await self._ai_context(user, history)
-                    async for chunk in provider.answer_stream(
-                        QAContext(text=context, question=question, language="id")
-                    ):
-                        chunks.append(chunk)
-                        yield chunk
-                except Exception as exc:  # noqa: BLE001 - fall back mid-stream
-                    log.warning("assistant_stream_failed", error=str(exc))
-                    self.last_stream_failed = True
-                    chunks = []
         if not chunks:
             # KB fallback (mock provider, missing key, or AI failure): stream the KB answer
             # in word-sized chunks so the client renders it progressively too.

@@ -479,12 +479,6 @@ class MaterialService:
         # Retrieve a broad, representative window (query = filename + opening)
         # via RAG, so a long document is summarised from relevant chunks.
         grounded = await self._grounded_text(material, (material.filename or "ringkasan"))
-        if (settings.ai_provider == "openai" and not settings.ai_api_key) or (
-            settings.ai_provider == "gemini" and not settings.gemini_api_key
-        ):
-            return await MockProvider().summarize(
-                SummaryContext(text=grounded, language=language, max_words=max_words)
-            )
         try:
             provider = get_ai_provider()
             return await provider.summarize(
@@ -502,12 +496,6 @@ class MaterialService:
         await self._authorize_view(material, user)
         grounded = await self._grounded_text(material, question)
 
-        if (settings.ai_provider == "openai" and not settings.ai_api_key) or (
-            settings.ai_provider == "gemini" and not settings.gemini_api_key
-        ):
-            return await MockProvider().answer(
-                QAContext(text=grounded, question=question, language=language)
-            )
         try:
             provider = get_ai_provider()
             return await provider.answer(
