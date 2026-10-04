@@ -104,7 +104,7 @@ jobs:
         run: npm run test:e2e
       - name: Upload Playwright traces on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: apps/frontend/test-results/
