@@ -17,6 +17,11 @@
     { href: "/about", label: "Tentang" },
   ];
 
+  const appGlobalNav = [
+    { href: "/courses", label: "Katalog Pelajaran" },
+    { href: "/community", label: "Komunitas" },
+  ];
+
   const appNav = [
     { href: "/dashboard", label: "Dashboard", icon: "gauge-high" },
     { href: "/learning", label: "Pelajaran Saya", icon: "book-open-reader" },
@@ -99,10 +104,23 @@
           <span class="font-display text-lg font-bold uppercase tracking-tight">QLoot</span>
         </a>
 
-        <!-- primary marketing nav -->
+        <!-- primary desktop nav -->
         {#if !isAppArea}
           <nav class="hidden items-center gap-1 md:flex" aria-label="Navigasi utama">
             {#each primaryNav as item}
+              <a
+                href={item.href}
+                class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
+                class:text-primary={path.startsWith(item.href)}
+                aria-current={isNavActive(item.href) ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            {/each}
+          </nav>
+        {:else}
+          <nav class="hidden items-center gap-1 md:flex" aria-label="Navigasi global aplikasi">
+            {#each appGlobalNav as item}
               <a
                 href={item.href}
                 class="hud rounded-sm px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-primary/10 hover:text-primary"
