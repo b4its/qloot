@@ -189,3 +189,107 @@ async def test_seed_career_covers_every_consultation_status(session):
         (await session.execute(select(CareerRecommendation.status))).scalars().all()
     )
     assert {"draft", "in_review", "approved"} <= rec_statuses
+
+
+async def _chain_txs(session, n: int):
+    """Confirmed transactions whose hashes sort first, so the seeder (which
+    orders by hash and caps at TARGET) always picks them up even though the
+    test DB is shared across the suite."""
+    from app.models.wallet import BlockchainTransaction
+
+    txs = []
+    for i in range(n):
+        tx_hash = "0x" + "0" * 8 + uuid.uuid4().hex + uuid.uuid4().hex[:24]
+        tx = BlockchainTransaction(
+            idempotency_key=f"seed-evt-{uuid.uuid4().hex}",
+            network="localhost",
+            chain_id=31337,
+            from_address="0x" + uuid.uuid4().hex[:40],
+            method="rewardUser",
+            transaction_hash=tx_hash,
+            block_number=i + 1,
+            status="confirmed",
+        )
+        session.add(tx)
+        txs.append(tx)
+    await session.flush()
+    return txs
+
+
+async def test_seed_blockchain_events_tolerates_preexisting_event(session):
+    """Regression: the indexer writes blockchain_events while the stack is up.
+    A seed that only guarded on the table row count crashed with
+    uq_blockchain_events_tx_log when an event already existed for a tx hash."""
+    from app.db.seed_bulk_extra import seed_blockchain_events
+    from app.models.wallet import BlockchainEvent
+
+    txs = await _chain_txs(session, 3)
+    hashes = [t.transaction_hash for t in txs]
+
+    # Pre-existing event (e.g. written by the running indexer) for one hash.
+    preexisting_id = uuid.uuid4()
+    session.add(
+        BlockchainEvent(
+            id=preexisting_id,
+            contract_address="0x" + "a" * 40,
+            event_name="indexerWritten",
+            transaction_hash=hashes[0],
+            log_index=0,
+            block_number=999,
+            args={"source": "indexer"},
+            processed=False,
+        )
+    )
+    await session.flush()
+
+    await seed_blockchain_events(session)  # must not raise
+
+    events = (
+        (
+            await session.execute(
+                select(BlockchainEvent).where(BlockchainEvent.transaction_hash.in_(hashes))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert {e.transaction_hash for e in events} == set(hashes)
+    assert len(events) == len(hashes)  # exactly one event per hash
+    kept = next(e for e in events if e.transaction_hash == hashes[0])
+    # The pre-existing row is left untouched (DO NOTHING, not overwritten).
+    assert kept.id == preexisting_id
+    assert kept.event_name == "indexerWritten"
+    assert kept.processed is False
+
+
+async def test_seed_blockchain_events_is_idempotent(session):
+    from app.db.seed_bulk_extra import seed_blockchain_events
+    from app.models.wallet import BlockchainEvent
+
+    txs = await _chain_txs(session, 3)
+    hashes = [t.transaction_hash for t in txs]
+
+    await seed_blockchain_events(session)
+    first = (
+        (
+            await session.execute(
+                select(BlockchainEvent).where(BlockchainEvent.transaction_hash.in_(hashes))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(first) == len(hashes)
+
+    # Second pass: nothing new inserted, nothing raised, same identities.
+    assert await seed_blockchain_events(session) == 0
+    second = (
+        (
+            await session.execute(
+                select(BlockchainEvent).where(BlockchainEvent.transaction_hash.in_(hashes))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert {e.id for e in second} == {e.id for e in first}
