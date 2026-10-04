@@ -114,6 +114,8 @@ class ExamService:
         ).all()
         counts: dict[uuid.UUID, tuple[int, int, int]] = {}
         for exam_id, qtype, n in rows:
+            if exam_id is None:
+                continue
             total, auto, essay = counts.get(exam_id, (0, 0, 0))
             if qtype == "essay":
                 essay += int(n)
