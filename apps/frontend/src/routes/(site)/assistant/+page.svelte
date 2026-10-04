@@ -191,7 +191,17 @@
         await loadHistory();
       } catch (e) {
         messages = messages.slice(0, -1);
-        error = e instanceof ApiError ? e.message : "Asisten tidak tersedia";
+        const rawMsg = e instanceof ApiError ? e.message : "";
+        if (
+          rawMsg.includes("AI_PROVIDER") ||
+          rawMsg.includes("API_KEY") ||
+          rawMsg.includes("502")
+        ) {
+          error =
+            "Asisten sedang dalam pemeliharaan atau mode offline. Silakan coba lagi sebentar lagi.";
+        } else {
+          error = rawMsg || "Asisten tidak tersedia saat ini. Silakan coba lagi.";
+        }
       }
     } finally {
       busy = false;

@@ -1572,9 +1572,18 @@ class CareerService:
 
         if settings.ai_provider == "mock":
             return None
-        provider = get_ai_provider()
+        # If API key is missing, do not raise an unhandled exception that breaks the UI;
+        # directly degrade to the intelligent rule-based and fuzzy-matching engine.
+        if settings.ai_provider == "openai" and not settings.ai_api_key:
+            log.info("assistant_ai_skipped_missing_key", provider="openai")
+            return None
+        if settings.ai_provider == "gemini" and not settings.gemini_api_key:
+            log.info("assistant_ai_skipped_missing_key", provider="gemini")
+            return None
+
         context = await self._ai_context(user, history)
         try:
+            provider = get_ai_provider()
             result = await provider.answer(
                 QAContext(text=context, question=question, language="id")
             )
@@ -1607,20 +1616,26 @@ class CareerService:
 
         chunks: list[str] = []
         if settings.ai_provider != "mock":
-            provider = get_ai_provider()
-            context = await self._ai_context(user, history)
-            try:
-                async for chunk in provider.answer_stream(
-                    QAContext(text=context, question=question, language="id")
-                ):
-                    chunks.append(chunk)
-                    yield chunk
-            except Exception as exc:  # noqa: BLE001 - fall back mid-stream
-                log.warning("assistant_stream_failed", error=str(exc))
-                self.last_stream_failed = True
+            if (settings.ai_provider == "openai" and not settings.ai_api_key) or (
+                settings.ai_provider == "gemini" and not settings.gemini_api_key
+            ):
+                log.info("assistant_stream_skipped_missing_key", provider=settings.ai_provider)
                 chunks = []
+            else:
+                try:
+                    provider = get_ai_provider()
+                    context = await self._ai_context(user, history)
+                    async for chunk in provider.answer_stream(
+                        QAContext(text=context, question=question, language="id")
+                    ):
+                        chunks.append(chunk)
+                        yield chunk
+                except Exception as exc:  # noqa: BLE001 - fall back mid-stream
+                    log.warning("assistant_stream_failed", error=str(exc))
+                    self.last_stream_failed = True
+                    chunks = []
         if not chunks:
-            # KB fallback (mock provider, or AI failure): stream the KB answer
+            # KB fallback (mock provider, missing key, or AI failure): stream the KB answer
             # in word-sized chunks so the client renders it progressively too.
             reply = await self._kb_assistant_reply(user, question)
             answer = reply["answer"]
@@ -1643,95 +1658,59 @@ class CareerService:
         await self.session.flush()
 
     async def _kb_assistant_reply(self, user: User, question: str) -> dict:
-        """Rule-based fallback: score every KB entry and return the best match.
+        """Rule-based and fuzzy-matching fallback: score knowledge rules and return the best match.
 
-        Matching is word-boundary based (so "protes" does not match "tes") and
-        scored by how many distinct keywords hit, rather than first-match-wins.
-        The personalisation branch reads the user's own data.
+        Matching is fuzzy-tolerant, supports keyword variations, and personalises
+        with the student's own data when present.
         """
+        from app.ai.rule_matcher import RuleBasedMatcher
         from app.core.config import settings
 
         q = (question or "").lower()
         words = set(re.findall(r"\w+", q))
 
-        kb: list[tuple[tuple[str, ...], str]] = [
-            (
-                ("siapa", "qlo", "qloot", "pembuat", "nama"),
-                (
-                    f"Saya **{settings.assistant_name}** — asisten bimbingan belajar & "
-                    "karier untuk membantu menjelajahi jurusan, kampus, jalur masuk "
-                    "(SNBP/SNBT) dan prospek karir."
-                ),
-            ),
-            (
-                ("snbp", "snmptn", "prestasi", "rapor"),
-                (
-                    "**SNBP** adalah jalur masuk PTN tanpa tes, berdasarkan nilai rapor, "
-                    "prestasi, dan portofolio. Sekolah mengisi PDSS dan siswa harus eligible."
-                ),
-            ),
-            (
-                ("snbt", "sbmptn", "utbk", "tes"),
-                (
-                    "**SNBT** berdasarkan hasil UTBK (TPS, literasi, penalaran matematika). "
-                    "Siapkan 4-6 bulan, latihan soal harian, dan try out rutin."
-                ),
-            ),
-            (
-                ("informatika", "komputer", "programmer", "software"),
-                (
-                    "**Ilmu Komputer** memiliki prospek luas: Software Engineer, Data "
-                    "Scientist, AI Engineer. Kampus: ITB, UI, BINUS, ITS."
-                ),
-            ),
-            (
-                ("universitas", "kampus", "ptn"),
-                (
-                    "Kampus teknik terbaik: ITB, ITS, UI, UGM. Untuk vokasi: Politeknik Negeri. "
-                    "Pilih sesuai jurusan target dan biaya."
-                ),
-            ),
-            (
-                ("elektro",),
-                (
-                    "**Teknik Elektro** mempelajari listrik, elektronika dan elektromagnetika. "
-                    "Prospek: engineer energi, IoT specialist. Butuh matematika & fisika kuat."
-                ),
-            ),
-            (
-                ("kimia",),
-                (
-                    "**Kimia** mencakup stoikiometri, larutan, dan reaksi. "
-                    "Latihan soal bertahap dan gunakan Resource Library QLoot untuk memperkuat."
-                ),
-            ),
-            (
-                ("kedokteran", "dokter", "medis"),
-                (
-                    "**Kedokteran** menuntut Biologi & Kimia kuat serta kehati-hatian tinggi. "
-                    "Kampus: UI, UGM, Unair. Siapkan SNBT dan try out intensif."
-                ),
-            ),
-            (
-                ("psikologi",),
-                (
-                    "**Psikologi** menonjol untuk yang ramah dan terbuka: Psikolog klinis, HR, "
-                    "Researcher. Kampus: UI, UGM, Unpad."
-                ),
-            ),
-        ]
+        # 1. Personalised branch: user profile self-reference with data
+        self_ref = {"aku", "saya", "nilai", "kemampuan", "kepribadian", "diriku"} & words
+        if self_ref:
+            profile = await self.student_profile_context(user)
+            if profile:
+                return {
+                    "answer": (
+                        f"Berikut ringkasan profilmu: {profile} "
+                        "Buka **Jalur Karier → Analisis** untuk detail dan saran jurusan."
+                    ),
+                    "confidence_bp": 8500,
+                }
 
-        # Score by distinct keyword hits (word-boundary), tie-break by KB order.
-        best_answer: str | None = None
-        best_hits = 0
-        for keys, answer in kb:
-            hits = sum(1 for k in keys if k in words)
-            if hits > best_hits:
-                best_hits, best_answer = hits, answer
-        if best_answer is not None:
-            return {"answer": best_answer, "confidence_bp": min(9500, 7000 + best_hits * 800)}
+        # 2. Recommendations query (personal vs general)
+        if {"jurusan", "rekomendasi", "karier", "karir", "major"} & words and (
+            {"aku", "saya", "pribadi", "untukku", "diriku"} & words or "untukku" in q
+        ):
+            recs = await self.list_recommendations(user.id)
+            if recs:
+                top = ", ".join(f"{r.major} ({r.fit_score}%)" for r in recs[:3])
+                return {
+                    "answer": (
+                        f"Berdasarkan nilai & kepribadianmu, jurusan teratas: {top}. "
+                        "Lihat detail di menu **Jalur Karier → Analisis**."
+                    ),
+                    "confidence_bp": 9000,
+                }
+            return {
+                "answer": (
+                    "Kamu belum punya analisis. Isi nilai rapor dan tes kepribadian, lalu buka "
+                    "**Jalur Karier → Analisis** untuk rekomendasi personal."
+                ),
+                "confidence_bp": 7500,
+            }
 
-        # Personalised branch: use the student's own recommendations if present.
+        # 3. Rule-Based & Fuzzy Matching Knowledge Engine
+        matcher = RuleBasedMatcher(assistant_name=settings.assistant_name)
+        matched = matcher.match(question)
+        if matched is not None:
+            return matched
+
+        # 4. If asking about recommendations in general (and not matched by specific rules above)
         if {"jurusan", "rekomendasi", "karier", "karir", "major"} & words:
             recs = await self.list_recommendations(user.id)
             if recs:
@@ -1751,25 +1730,5 @@ class CareerService:
                 "confidence_bp": 7500,
             }
 
-        # CARE-02: personalise the answer with the student's own data when the
-        # question is about *them* and such data exists. With no data (or no
-        # self-reference), the generic response below is unchanged.
-        self_ref = {"aku", "saya", "nilai", "kemampuan", "kepribadian", "diriku"} & words
-        if self_ref:
-            profile = await self.student_profile_context(user)
-            if profile:
-                return {
-                    "answer": (
-                        f"Berikut ringkasan profilmu: {profile} "
-                        "Buka **Jalur Karier → Analisis** untuk detail dan saran jurusan."
-                    ),
-                    "confidence_bp": 8500,
-                }
-
-        return {
-            "answer": (
-                "Saya bisa membantu seputar: rekomendasi jurusan, SNBP vs SNBT, "
-                "prospek karir, dan kampus terbaik. Coba tanyakan salah satunya."
-            ),
-            "confidence_bp": 5000,
-        }
+        # 5. Friendly fallback guide
+        return matcher.fallback_guide()

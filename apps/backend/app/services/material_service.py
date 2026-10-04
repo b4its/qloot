@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.provider import (
     GenerationContext,
+    MockProvider,
     QAContext,
     SummaryContext,
     cosine_similarity,
@@ -84,7 +85,6 @@ def ocr_pdf(data: bytes) -> str:
     except Exception as exc:  # noqa: BLE001 - OCR is best-effort
         log.warning("ocr_failed", error=str(exc))
         return ""
-
 
 
 class MaterialService:
@@ -215,7 +215,6 @@ class MaterialService:
     async def _grounded_text(self, material: LearningMaterial, query: str) -> str:
         chunks = await self._retrieve_chunks(material, query)
         return "\n\n".join(c for c in chunks if c)[: settings.material_rag_max_chars]
-
 
     async def get(self, material_id: uuid.UUID) -> LearningMaterial:
         m = await self.session.get(LearningMaterial, material_id)
@@ -411,9 +410,7 @@ class MaterialService:
                 job.finished_at = datetime.now(UTC)
                 from app.services.ai_usage_service import AiUsageService
 
-                await AiUsageService(self.session).refund_job(
-                    user_id=job.owner_id, job_id=job.id
-                )
+                await AiUsageService(self.session).refund_job(user_id=job.owner_id, job_id=job.id)
                 metrics.incr("grading_failures_total", reason="generation_error")
             else:
                 from datetime import timedelta
@@ -479,23 +476,48 @@ class MaterialService:
         """AI summary of a material's text (owner, admin, or enrolled student)."""
         material = await self.get(material_id)
         await self._authorize_view(material, user)
-        provider = get_ai_provider()
         # Retrieve a broad, representative window (query = filename + opening)
         # via RAG, so a long document is summarised from relevant chunks.
         grounded = await self._grounded_text(material, (material.filename or "ringkasan"))
-        return await provider.summarize(
-            SummaryContext(text=grounded, language=language, max_words=max_words)
-        )
+        if (settings.ai_provider == "openai" and not settings.ai_api_key) or (
+            settings.ai_provider == "gemini" and not settings.gemini_api_key
+        ):
+            return await MockProvider().summarize(
+                SummaryContext(text=grounded, language=language, max_words=max_words)
+            )
+        try:
+            provider = get_ai_provider()
+            return await provider.summarize(
+                SummaryContext(text=grounded, language=language, max_words=max_words)
+            )
+        except Exception as exc:
+            log.warning("material_summarize_fallback", error=str(exc))
+            return await MockProvider().summarize(
+                SummaryContext(text=grounded, language=language, max_words=max_words)
+            )
 
     async def ask(self, material_id: uuid.UUID, user: User, *, question: str, language: str = "id"):
         """AI Q&A grounded on a material's text (owner, admin, or enrolled student)."""
         material = await self.get(material_id)
         await self._authorize_view(material, user)
-        provider = get_ai_provider()
         grounded = await self._grounded_text(material, question)
-        return await provider.answer(
-            QAContext(text=grounded, question=question, language=language)
-        )
+
+        if (settings.ai_provider == "openai" and not settings.ai_api_key) or (
+            settings.ai_provider == "gemini" and not settings.gemini_api_key
+        ):
+            return await MockProvider().answer(
+                QAContext(text=grounded, question=question, language=language)
+            )
+        try:
+            provider = get_ai_provider()
+            return await provider.answer(
+                QAContext(text=grounded, question=question, language=language)
+            )
+        except Exception as exc:
+            log.warning("material_ask_fallback", error=str(exc))
+            return await MockProvider().answer(
+                QAContext(text=grounded, question=question, language=language)
+            )
 
     def _authorize(self, material: LearningMaterial, user: User) -> None:
         if user.has_role("admin"):
