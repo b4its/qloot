@@ -222,70 +222,73 @@
   onMount(() => {
     (async () => {
       const safe = async <T,>(request: Promise<T>, fallback: T, label: string): Promise<T> => {
-      try {
-        return await request;
-      } catch {
-        unavailableSections = [...unavailableSections, label];
-        return fallback;
-      }
-    };
+        try {
+          return await request;
+        } catch {
+          unavailableSections = [...unavailableSections, label];
+          return fallback;
+        }
+      };
 
-    try {
-      const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] = await Promise.all(
-        [
-          safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
-          // A failed personality fetch must not look like "never taken the test",
-          // so route it through the shared unavailable-sections tracker.
-          safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
-          safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
-          safe(
-            api.get<{ available: number; token_id: number } | null>("/wallet"),
-            null,
-            "saldo OPT",
-          ),
-          safe(api.get<Course[]>("/courses"), [], "pelajaran"),
-          safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
-          safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
-          safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
-          safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
-          safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
-          safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
-          safe(api.get<NotificationPage | null>("/notifications/page?limit=1"), null, "notifikasi"),
-          safe(api.get<Exam[]>("/exams"), [], "daftar ujian"),
-          safe(api.get<Quest[]>("/quests"), [], "quest"),
-          safe(api.get<Task[]>("/tasks"), [], "tugas"),
-          safe(api.get<{ task_id: string }[]>("/tasks/me/completions"), [], "status tugas"),
-          safe(api.get<Reward[]>("/wallet/rewards?limit=20"), [], "hadiah"),
-        ],
-      );
-      acad = a;
-      personality = p;
-      badges = b;
-      wallet = w;
-      subjects = s;
-      grades = g;
-      badgeCatalog = bc;
-      gamification = gam;
-      activityCounts = buildActivity(prog, atts, b);
-      learningProgress = prog;
-      badgeProgress = bp;
-      unread = np?.unread ?? 0;
-      exams = ex;
-      attempts = atts;
-      quests = qu;
-      tasks = tk;
-      taskCompletions = tc;
-      rewards = rw;
-    } catch (e) {
+      try {
+        const [a, p, b, w, s, g, bc, prog, atts, gam, bp, np, ex, qu, tk, tc, rw] =
+          await Promise.all([
+            safe(api.get<AcademicDashboard | null>("/career/dashboard"), null, "performa akademik"),
+            // A failed personality fetch must not look like "never taken the test",
+            // so route it through the shared unavailable-sections tracker.
+            safe(api.get<Personality | null>("/career/personality"), null, "profil kepribadian"),
+            safe(api.get<UserBadge[]>("/me/badges"), [], "badge"),
+            safe(
+              api.get<{ available: number; token_id: number } | null>("/wallet"),
+              null,
+              "saldo OPT",
+            ),
+            safe(api.get<Course[]>("/courses"), [], "pelajaran"),
+            safe(api.get<GradeRow[]>("/career/grades"), [], "nilai"),
+            safe(api.get<Badge[]>("/badges"), [], "katalog badge"),
+            safe(api.get<Progress[]>("/me/learning-progress"), [], "progres belajar"),
+            safe(api.get<Attempt[]>("/attempts"), [], "riwayat ujian"),
+            safe(api.get<GamificationProfile | null>("/gamification/me"), null, "gamifikasi"),
+            safe(api.get<BadgeProgress[]>("/badges/progress"), [], "progres badge"),
+            safe(
+              api.get<NotificationPage | null>("/notifications/page?limit=1"),
+              null,
+              "notifikasi",
+            ),
+            safe(api.get<Exam[]>("/exams"), [], "daftar ujian"),
+            safe(api.get<Quest[]>("/quests"), [], "quest"),
+            safe(api.get<Task[]>("/tasks"), [], "tugas"),
+            safe(api.get<{ task_id: string }[]>("/tasks/me/completions"), [], "status tugas"),
+            safe(api.get<Reward[]>("/wallet/rewards?limit=20"), [], "hadiah"),
+          ]);
+        acad = a;
+        personality = p;
+        badges = b;
+        wallet = w;
+        subjects = s;
+        grades = g;
+        badgeCatalog = bc;
+        gamification = gam;
+        activityCounts = buildActivity(prog, atts, b);
+        learningProgress = prog;
+        badgeProgress = bp;
+        unread = np?.unread ?? 0;
+        exams = ex;
+        attempts = atts;
+        quests = qu;
+        tasks = tk;
+        taskCompletions = tc;
+        rewards = rw;
+      } catch (e) {
+        error = e instanceof ApiError ? e.message : "";
+      } finally {
+        loading = false;
+      }
+    })().catch((e) => {
       error = e instanceof ApiError ? e.message : "";
-    } finally {
       loading = false;
-    }
-  })().catch((e) => {
-    error = e instanceof ApiError ? e.message : "";
-    loading = false;
+    });
   });
-});
 
   function pct(p: BadgeProgress): number {
     if (p.target <= 0) return 0;
