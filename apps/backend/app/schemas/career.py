@@ -12,6 +12,7 @@ from app.schemas.common import ORMModel
 
 
 class GradeIn(BaseModel):
+    user_id: uuid.UUID | None = None
     subject: str = Field(min_length=1, max_length=64)
     grade: int = Field(ge=0, le=100)
     term: str = Field(default="2025/2026-genap", max_length=32)

@@ -367,13 +367,13 @@ class CareerService:
         await self.session.flush()
         return existing
 
-    async def delete_grade(self, user_id: uuid.UUID, grade_id: uuid.UUID) -> None:
-        """Remove one of the caller's academic grades."""
+    async def delete_grade(self, operator: User, grade_id: uuid.UUID) -> None:
+        """Remove an academic grade (teacher or admin only)."""
+        if not (operator.has_role("admin") or operator.has_role("teacher")):
+            raise ForbiddenError("Hanya guru dan admin yang diizinkan menghapus nilai akademik")
         grade = (
             await self.session.execute(
-                select(AcademicGrade).where(
-                    AcademicGrade.id == grade_id, AcademicGrade.user_id == user_id
-                )
+                select(AcademicGrade).where(AcademicGrade.id == grade_id)
             )
         ).scalar_one_or_none()
         if grade is None:
@@ -383,19 +383,19 @@ class CareerService:
 
     async def update_grade(
         self,
-        user_id: uuid.UUID,
+        operator: User,
         grade_id: uuid.UUID,
         *,
         grade: int,
         subject: str | None = None,
         term: str | None = None,
     ) -> AcademicGrade:
-        """Edit one of the caller's grades (UIX-05)."""
+        """Edit an academic grade (teacher or admin only)."""
+        if not (operator.has_role("admin") or operator.has_role("teacher")):
+            raise ForbiddenError("Hanya guru dan admin yang diizinkan mengubah nilai akademik")
         row = (
             await self.session.execute(
-                select(AcademicGrade).where(
-                    AcademicGrade.id == grade_id, AcademicGrade.user_id == user_id
-                )
+                select(AcademicGrade).where(AcademicGrade.id == grade_id)
             )
         ).scalar_one_or_none()
         if row is None:
