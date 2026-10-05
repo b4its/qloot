@@ -44,7 +44,7 @@
   export { className as class };
 
   $: isCat = character === "qlu" || character === "cat";
-  $: defaultAlt = isCat ? "Mascot Qlu" : "Mascot Qlo";
+  $: defaultAlt = "Mascot Qlo";
   $: effectiveAlt = alt || defaultAlt;
 
   $: src = isCat

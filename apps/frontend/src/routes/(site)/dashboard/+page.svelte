@@ -550,7 +550,7 @@
             <Icon name="book-open-reader" size="12px" /> Lanjutkan Pelajaran
           </a>
           <a href="/assistant" class="btn-ghost !py-1.5 !px-3.5 text-xs">
-            <Icon name="comment-dots" size="12px" /> Tanya Asisten Qlu
+            <Icon name="comment-dots" size="12px" /> Tanya Asisten Qlo
           </a>
         </div>
       </div>

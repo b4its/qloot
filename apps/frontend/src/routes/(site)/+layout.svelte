@@ -35,7 +35,7 @@
     { href: "/ranking", label: "Peringkat", icon: "ranking-star" },
     { href: "/badges", label: "Badge", icon: "medal" },
     { href: "/career", label: "Karier", icon: "compass" },
-    { href: "/assistant", label: "Asisten Qlu", icon: "robot" },
+    { href: "/assistant", label: "Asisten Qlo", icon: "robot" },
   ];
 
   let mobileOpen = false;

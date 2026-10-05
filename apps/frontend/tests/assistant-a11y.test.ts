@@ -32,7 +32,7 @@ describe("assistant chat accessibility (UIX-02)", () => {
   it("labels the message input", () => {
     render(AssistantPage);
     // The input has an associated <label>.
-    expect(screen.getByLabelText(/pertanyaan untuk asisten qlu/i)).toBeTruthy();
+    expect(screen.getByLabelText(/pertanyaan untuk asisten qlo/i)).toBeTruthy();
   });
 
   it("uses Indonesian copy and no English UI labels", () => {
@@ -50,6 +50,6 @@ describe("assistant chat accessibility (UIX-02)", () => {
 
   it("renders the greeting on mount", async () => {
     render(AssistantPage);
-    await waitFor(() => expect(document.body.textContent).toContain("Asisten Qlu"));
+    await waitFor(() => expect(document.body.textContent).toContain("Asisten Qlo"));
   });
 });
