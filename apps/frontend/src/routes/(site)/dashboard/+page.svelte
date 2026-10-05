@@ -107,6 +107,108 @@
     };
   }
 
+  // Profil minat & pemetaan bakat akademik
+  const INTEREST_METADATA: Record<
+    string,
+    {
+      icon: string;
+      color: string;
+      bgClass: string;
+      borderHoverClass: string;
+      subjects: string;
+      desc: string;
+    }
+  > = {
+    Sains: {
+      icon: "flask",
+      color: "text-mint",
+      bgClass: "bg-mint/15 text-mint border-mint/30",
+      borderHoverClass: "hover:border-mint/50",
+      subjects: "Fisika · Kimia · Biologi",
+      desc: "Penalaran analitis, sains alam & eksplorasi ilmiah",
+    },
+    Teknik: {
+      icon: "microchip",
+      color: "text-primary",
+      bgClass: "bg-primary/15 text-primary border-primary/30",
+      borderHoverClass: "hover:border-primary/50",
+      subjects: "Matematika · Fisika",
+      desc: "Rekayasa teknologi, logika komputasi & sistem",
+    },
+    Bahasa: {
+      icon: "language",
+      color: "text-indigo-600 dark:text-indigo-400",
+      bgClass: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
+      borderHoverClass: "hover:border-indigo-500/50",
+      subjects: "B. Inggris · B. Indonesia",
+      desc: "Komunikasi global, literasi bahasa & sintaksis",
+    },
+    Sosial: {
+      icon: "users",
+      color: "text-amber-600 dark:text-amber-400",
+      bgClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+      borderHoverClass: "hover:border-amber-500/50",
+      subjects: "Sosiologi · Sejarah · Geografi",
+      desc: "Dinamika kemasyarakatan, sejarah & geososial",
+    },
+    Bisnis: {
+      icon: "chart-line",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+      borderHoverClass: "hover:border-emerald-500/50",
+      subjects: "Ekonomi · Matematika",
+      desc: "Manajemen finansial, kalkulasi pasar & ekonomi",
+    },
+    Seni: {
+      icon: "palette",
+      color: "text-magenta",
+      bgClass: "bg-magenta/15 text-magenta border-magenta/30",
+      borderHoverClass: "hover:border-magenta/50",
+      subjects: "Seni Budaya · Prakarya",
+      desc: "Kreativitas estetika, rancang visual & kreasi",
+    },
+  };
+
+  function interestTier(val: number) {
+    if (val >= 85) {
+      return {
+        level: "Sangat Tinggi",
+        badgeClass: "badge badge-mint",
+        barClass: "!bg-mint",
+        accent: "text-mint font-bold",
+      };
+    }
+    if (val >= 75) {
+      return {
+        level: "Tinggi",
+        badgeClass: "badge badge-primary",
+        barClass: "!bg-primary",
+        accent: "text-primary font-bold",
+      };
+    }
+    if (val >= 60) {
+      return {
+        level: "Cukup",
+        badgeClass: "badge badge-amber",
+        barClass: "!bg-amber",
+        accent: "text-amber font-bold",
+      };
+    }
+    return {
+      level: "Dasar",
+      badgeClass: "badge badge-neutral",
+      barClass: "!bg-neutral-500",
+      accent: "muted font-medium",
+    };
+  }
+
+  // Profil minat diurutkan dari skor tertinggi ke terendah
+  $: sortedRadar = acad?.radar
+    ? [...acad.radar].sort((a, b) => b.value - a.value || a.dimension.localeCompare(b.dimension))
+    : [];
+
+  $: topInterest = sortedRadar.length ? sortedRadar[0] : null;
+
   async function reloadAcademic() {
     // Re-fetch after a grade write. If the refresh fails the write still
     // succeeded, so note it rather than silently showing stale academic data.
@@ -867,29 +969,129 @@
         </div>
       {/if}
 
-      {#if acad?.radar?.length}
-        <div class="mt-4 border-t pt-3">
-          <p class="mono-label">Profil minat</p>
-          <div class="mt-2 space-y-2">
-            {#each acad.radar as dim}
-              <div>
-                <div class="flex items-center justify-between text-xs">
-                  <span>{dim.dimension}</span>
-                  <span class="mono muted">{dim.value}</span>
-                </div>
-                <div
-                  class="mt-1 h-1.5 w-full overflow-hidden rounded-sm bg-ink/10"
-                  role="progressbar"
-                  aria-label={`Nilai minat ${dim.dimension}`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.max(0, Math.min(100, dim.value))}
-                >
+      {#if sortedRadar.length}
+        <div class="mt-6 border-t pt-5" data-role="interest-profile">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="tile-neutral h-8 w-8 !rounded-md">
+                  <Icon name="compass" size="14px" class="text-primary" />
+                </span>
+                <h3 class="font-display text-base font-bold tracking-tight sm:text-lg">
+                  Profil Minat & Bakat
+                </h3>
+                <span class="badge badge-neutral text-2xs !py-0.5 !px-2"> Terurut Tertinggi </span>
+              </div>
+              <p class="mt-1 text-xs muted">
+                Dihitung dari capaian nilai mata pelajaran pendukung untuk pemetaan rekomendasi
+                rumpun studi & karir.
+              </p>
+            </div>
+            {#if topInterest}
+              <div
+                class="flex items-center gap-2 self-start rounded-md border border-mint/40 bg-mint/10 px-3 py-1.5 sm:self-auto"
+              >
+                <Icon name="star" size="12px" class="text-mint" />
+                <span class="text-xs muted">Minat Terkuat:</span>
+                <span class="font-display text-xs font-bold uppercase tracking-wide text-mint">
+                  {topInterest.dimension} ({topInterest.value})
+                </span>
+              </div>
+            {/if}
+          </div>
+
+          <div class="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            {#each sortedRadar as dim, idx}
+              {@const meta = INTEREST_METADATA[dim.dimension] || {
+                icon: "compass",
+                color: "text-primary",
+                bgClass: "bg-primary/15 text-primary border-primary/30",
+                borderHoverClass: "hover:border-primary/50",
+                subjects: "Mata Pelajaran Terkait",
+                desc: "Dimensi peminatan akademik",
+              }}
+              {@const tier = interestTier(dim.value)}
+              <div
+                class="card flex flex-col justify-between !p-4 transition-all duration-200 {meta.borderHoverClass} {idx ===
+                0
+                  ? 'ring-1 ring-mint/40 bg-mint/[0.04]'
+                  : ''}"
+                data-dimension={dim.dimension}
+              >
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-2.5">
+                      <span
+                        class="grid h-10 w-10 place-items-center rounded-md border {meta.bgClass}"
+                      >
+                        <Icon name={meta.icon} size="17px" />
+                      </span>
+                      <div>
+                        <div class="flex items-center gap-2">
+                          <h4 class="font-display text-base font-bold tracking-tight">
+                            {dim.dimension}
+                          </h4>
+                          {#if idx === 0}
+                            <span
+                              class="badge badge-mint !text-[10px] !py-0.5 !px-1.5 font-bold uppercase tracking-wider"
+                            >
+                              Top 1
+                            </span>
+                          {:else if idx === 1}
+                            <span
+                              class="badge badge-primary !text-[10px] !py-0.5 !px-1.5 font-bold"
+                            >
+                              #2
+                            </span>
+                          {:else if idx === 2}
+                            <span
+                              class="badge badge-neutral !text-[10px] !py-0.5 !px-1.5 font-bold"
+                            >
+                              #3
+                            </span>
+                          {/if}
+                        </div>
+                        <p class="mono mt-0.5 text-2xs font-medium muted">
+                          {meta.subjects}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span class="{tier.badgeClass} text-2xs font-semibold !py-0.5 !px-2">
+                      {tier.level}
+                    </span>
+                  </div>
+
+                  <div class="mt-4 flex items-baseline justify-between">
+                    <div class="flex items-baseline gap-1.5">
+                      <span class="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+                        {dim.value}
+                      </span>
+                      <span class="mono text-xs font-semibold muted">/ 100</span>
+                    </div>
+                    <span class="mono text-xs {tier.accent}">
+                      {dim.value}% Potensi
+                    </span>
+                  </div>
+
                   <div
-                    class="h-full rounded-sm bg-primary"
-                    style={`width:${Math.max(0, Math.min(100, dim.value))}%`}
-                  ></div>
+                    class="track mt-2.5 h-2"
+                    role="progressbar"
+                    aria-label={`Nilai minat ${dim.dimension}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.max(0, Math.min(100, dim.value))}
+                  >
+                    <span
+                      class="transition-all duration-500 {tier.barClass}"
+                      style={`width:${Math.max(0, Math.min(100, dim.value))}%`}
+                    ></span>
+                  </div>
                 </div>
+
+                <p class="mt-3 border-t pt-2.5 text-xs leading-relaxed muted">
+                  {meta.desc}
+                </p>
               </div>
             {/each}
           </div>
