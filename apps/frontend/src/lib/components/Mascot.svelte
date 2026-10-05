@@ -103,7 +103,10 @@
   <!-- Optional Speech Bubble -->
   {#if speech}
     <div
-      class="speech-bubble absolute z-20 pointer-events-none whitespace-nowrap rounded-lg border border-primary/30 bg-surface/95 px-3 py-1.5 text-xs font-semibold text-ink shadow-lg backdrop-blur-md dark:border-primary/40 dark:bg-elevated/95 {speechClass} {speechPosition === 'top' || speechPosition === 'bottom' ? 'left-1/2 -translate-x-1/2' : 'top-1/2 -translate-y-1/2'}"
+      class="speech-bubble absolute z-20 pointer-events-none whitespace-nowrap rounded-lg border border-primary/30 bg-surface/95 px-3 py-1.5 text-xs font-semibold text-ink shadow-lg backdrop-blur-md dark:border-primary/40 dark:bg-elevated/95 {speechClass} {speechPosition ===
+        'top' || speechPosition === 'bottom'
+        ? 'left-1/2 -translate-x-1/2'
+        : 'top-1/2 -translate-y-1/2'}"
       class:bottom-full={speechPosition === "top"}
       class:mb-2={speechPosition === "top"}
       class:left-full={speechPosition === "right"}

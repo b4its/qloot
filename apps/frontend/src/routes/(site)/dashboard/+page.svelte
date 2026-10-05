@@ -519,7 +519,10 @@
   <!-- Welcome Banner with Mascot Qlo -->
   <div class="card neon-corners relative !p-6 sm:!p-8">
     <!-- Ambient backglow contained cleanly without clipping floating children -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
+    <div
+      class="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
+      aria-hidden="true"
+    >
       <div
         class="absolute -right-12 -top-12 -z-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
       ></div>

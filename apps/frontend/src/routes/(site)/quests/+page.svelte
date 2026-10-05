@@ -286,9 +286,13 @@
               <div class="rounded-sm border surface p-3 space-y-2">
                 <div class="flex items-center justify-between text-xs">
                   <span class="mono-label text-[10px] text-primary">Struktur Hadiah Token</span>
-                  <span class="font-mono text-[11px] text-highlight font-bold flex items-center gap-1">
+                  <span
+                    class="font-mono text-[11px] text-highlight font-bold flex items-center gap-1"
+                  >
                     <CoinIcon size="13px" />
-                    <span>Total {q.rules.reduce((acc, r) => acc + (r.reward_amount || 0), 0)} OPT</span>
+                    <span
+                      >Total {q.rules.reduce((acc, r) => acc + (r.reward_amount || 0), 0)} OPT</span
+                    >
                   </span>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">

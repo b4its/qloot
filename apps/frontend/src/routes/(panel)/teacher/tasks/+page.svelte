@@ -319,8 +319,13 @@
         <div class="mt-1 font-display text-xl font-bold text-highlight">{scheduledCount}</div>
       </div>
       <div class="card p-3">
-        <span class="mono-label text-[10px] flex items-center gap-1"><CoinIcon size="11px" /> Total Pool OPT</span>
-        <div class="mt-1 font-display text-xl font-bold text-highlight flex items-center gap-1.5"><CoinIcon size="18px" /> {totalPool} OPT</div>
+        <span class="mono-label text-[10px] flex items-center gap-1"
+          ><CoinIcon size="11px" /> Total Pool OPT</span
+        >
+        <div class="mt-1 font-display text-xl font-bold text-highlight flex items-center gap-1.5">
+          <CoinIcon size="18px" />
+          {totalPool} OPT
+        </div>
       </div>
     </div>
   {/if}

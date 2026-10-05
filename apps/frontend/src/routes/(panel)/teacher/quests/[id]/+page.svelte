@@ -243,7 +243,9 @@
         <div class="card">
           <div class="flex items-center justify-between">
             <p class="mono-label">Hadiah per peringkat</p>
-            <span class="mono-label text-[10px] flex items-center gap-1"><CoinIcon size="11px" /> {formatNumber(totalPool)} OPT</span>
+            <span class="mono-label text-[10px] flex items-center gap-1"
+              ><CoinIcon size="11px" /> {formatNumber(totalPool)} OPT</span
+            >
           </div>
           {#if rules.length === 0}
             <p class="mt-2 text-xs muted">Belum ada aturan hadiah.</p>
@@ -252,7 +254,9 @@
               {#each rules as r (r.rank)}
                 <li class="flex items-center justify-between border-b py-1 last:border-0">
                   <span class="badge badge-amber">#{r.rank}</span>
-                  <span class="font-mono flex items-center gap-1"><CoinIcon size="12px" /> {formatNumber(r.reward_amount)} OPT</span>
+                  <span class="font-mono flex items-center gap-1"
+                    ><CoinIcon size="12px" /> {formatNumber(r.reward_amount)} OPT</span
+                  >
                 </li>
               {/each}
             </ul>
