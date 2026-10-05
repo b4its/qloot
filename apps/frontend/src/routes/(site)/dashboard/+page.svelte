@@ -517,11 +517,13 @@
 
 <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
   <!-- Welcome Banner with Mascot Qlo -->
-  <div class="card neon-corners relative overflow-hidden !p-6 sm:!p-8">
-    <div
-      class="absolute -right-12 -top-12 -z-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
-      aria-hidden="true"
-    ></div>
+  <div class="card neon-corners relative !p-6 sm:!p-8">
+    <!-- Ambient backglow contained cleanly without clipping floating children -->
+    <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden="true">
+      <div
+        class="absolute -right-12 -top-12 -z-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
+      ></div>
+    </div>
     <div
       class="relative z-10 flex flex-col-reverse items-start justify-between gap-6 sm:flex-row sm:items-center"
     >
@@ -550,17 +552,33 @@
         </div>
       </div>
       <div class="flex-none self-center sm:self-auto">
-        <Mascot
-          expression="cool"
-          size="xl"
-          glow
-          float
-          interactive
-          speech="Siap selesaikan misi hari ini?"
-          speechPosition="top"
-          alt="Mascot Qlo"
-          class="drop-shadow-lg"
-        />
+        <!-- Desktop: speech bubble to the left; Mobile: speech bubble below mascot -->
+        <div class="hidden sm:block">
+          <Mascot
+            expression="cool"
+            size="xl"
+            glow
+            float
+            interactive
+            speech="Siap selesaikan misi hari ini?"
+            speechPosition="left"
+            alt="Mascot Qlo"
+            class="drop-shadow-lg"
+          />
+        </div>
+        <div class="block sm:hidden">
+          <Mascot
+            expression="cool"
+            size="xl"
+            glow
+            float
+            interactive
+            speech="Siap selesaikan misi hari ini?"
+            speechPosition="bottom"
+            alt="Mascot Qlo"
+            class="drop-shadow-lg"
+          />
+        </div>
       </div>
     </div>
   </div>
