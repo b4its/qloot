@@ -24,7 +24,23 @@ import { auth } from "../src/lib/stores/auth";
 const mockAcademic = {
   term: "2025/2026-genap",
   grades: [],
-  insights: [],
+  insights: [
+    {
+      kind: "consistency",
+      title: "Fisika konsisten kuat",
+      detail: "Nilai Fisika tertinggi (92). Pertahankan.",
+    },
+    {
+      kind: "attention",
+      title: "Kimia perlu perhatian",
+      detail: "Nilai Kimia terendah (64). Fokus penguatan.",
+    },
+    {
+      kind: "potential",
+      title: "Proyeksi rumpun studi",
+      detail: "Kekuatan pada Fisika mengarah ke rumpun teknik & sains.",
+    },
+  ],
   radar: [
     { dimension: "Seni", value: 50 },
     { dimension: "Teknik", value: 88 },
@@ -36,7 +52,7 @@ const mockAcademic = {
   trend: [],
 };
 
-describe("dashboard interest profile (profil minat) sorting & aesthetic cards", () => {
+describe("dashboard interest profile (profil minat) & academic insights aesthetic cards", () => {
   beforeEach(() => {
     cleanup();
     get.mockReset();
@@ -63,6 +79,8 @@ describe("dashboard interest profile (profil minat) sorting & aesthetic cards", 
     expect(dashboardSrc).toContain("interestTier");
     expect(dashboardSrc).toContain('data-role="interest-profile"');
     expect(dashboardSrc).toContain("Profil Minat & Bakat");
+    expect(dashboardSrc).toContain("insightMeta");
+    expect(dashboardSrc).toContain('data-role="academic-insights"');
   });
 
   it("renders interest profile sorted by highest score first and displays Top 1 badge", async () => {
@@ -100,5 +118,26 @@ describe("dashboard interest profile (profil minat) sorting & aesthetic cards", 
     // Check large score formatting
     const scoreElements = screen.getAllByText("88");
     expect(scoreElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders academic insights in modern aesthetic card grid", async () => {
+    render(DashboardPage);
+
+    await waitFor(() => {
+      expect(screen.getByText("Wawasan & Evaluasi Akademik")).toBeTruthy();
+    });
+
+    expect(screen.getByText("Fisika konsisten kuat")).toBeTruthy();
+    expect(screen.getByText("Kimia perlu perhatian")).toBeTruthy();
+    expect(screen.getByText("Proyeksi rumpun studi")).toBeTruthy();
+
+    expect(screen.getByText("Kekuatan Unggulan")).toBeTruthy();
+    expect(screen.getByText("Area Penguatan")).toBeTruthy();
+    expect(screen.getByText("Proyeksi Akademik & Karir")).toBeTruthy();
+
+    const insightCards = document.querySelectorAll(
+      '[data-role="academic-insights"] [data-insight]',
+    );
+    expect(insightCards.length).toBe(3);
   });
 });

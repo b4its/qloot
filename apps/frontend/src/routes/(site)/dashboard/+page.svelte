@@ -209,6 +209,47 @@
 
   $: topInterest = sortedRadar.length ? sortedRadar[0] : null;
 
+  // Metadata & visual styling wawasan akademik
+  function insightMeta(ins: { kind?: string; title: string; detail: string }) {
+    const kind = ins.kind || "";
+    const lowerTitle = ins.title.toLowerCase();
+
+    if (kind === "consistency" || lowerTitle.includes("kuat")) {
+      return {
+        category: "Kekuatan Unggulan",
+        badge: "Konsisten Kuat",
+        badgeClass: "badge badge-mint",
+        icon: "award",
+        bgClass: "bg-mint/15 text-mint border-mint/30",
+        borderHoverClass: "hover:border-mint/50",
+        cardRing: "ring-1 ring-mint/30 bg-mint/[0.02]",
+        guide: "Pertahankan performa dan jadikan fondasi pilihan jurusan",
+      };
+    }
+    if (kind === "attention" || lowerTitle.includes("perhatian")) {
+      return {
+        category: "Area Penguatan",
+        badge: "Perlu Fokus",
+        badgeClass: "badge badge-amber",
+        icon: "arrow-trend-up",
+        bgClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+        borderHoverClass: "hover:border-amber-500/50",
+        cardRing: "",
+        guide: "Fokus latihan materi dasar dan pengayaan konsep",
+      };
+    }
+    return {
+      category: "Proyeksi Akademik & Karir",
+      badge: "Peluang Rumpun",
+      badgeClass: "badge badge-primary",
+      icon: "compass",
+      bgClass: "bg-primary/15 text-primary border-primary/30",
+      borderHoverClass: "hover:border-primary/50",
+      cardRing: "",
+      guide: "Eksplorasi modul kurikulum dan simulasi program studi",
+    };
+  }
+
   async function reloadAcademic() {
     // Re-fetch after a grade write. If the refresh fails the write still
     // succeeded, so note it rather than silently showing stale academic data.
@@ -953,19 +994,62 @@
       {/if}
 
       {#if acad?.insights?.length}
-        <div class="mt-4 border-t pt-3">
-          <p class="mono-label">Wawasan akademik</p>
-          <ul class="mt-2 space-y-2 text-sm">
-            {#each acad.insights as ins}
-              <li class="flex items-start gap-2">
-                <Icon name="lightbulb" size="12px" class="mt-0.5 text-primary flex-none" />
-                <span>
-                  <span class="font-medium">{ins.title}</span>
-                  <span class="muted">: {ins.detail}</span>
+        <div class="mt-6 border-t pt-5" data-role="academic-insights">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="tile-neutral h-8 w-8 !rounded-md">
+                  <Icon name="lightbulb" size="14px" class="text-primary" />
                 </span>
-              </li>
+                <h3 class="font-display text-base font-bold tracking-tight sm:text-lg">
+                  Wawasan & Evaluasi Akademik
+                </h3>
+                <span class="badge badge-neutral text-2xs !py-0.5 !px-2"> Evaluasi Cerdas </span>
+              </div>
+              <p class="mt-1 text-xs muted">
+                Poin analitik otomatis berdasarkan capaian nilai rapor terkini untuk strategi
+                akselerasi belajar.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            {#each acad.insights as ins}
+              {@const meta = insightMeta(ins)}
+              <div
+                class="card flex flex-col justify-between !p-4 transition-all duration-200 {meta.borderHoverClass} {meta.cardRing}"
+                data-insight={ins.kind || "general"}
+              >
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <span
+                      class="grid h-10 w-10 place-items-center rounded-md border {meta.bgClass}"
+                    >
+                      <Icon name={meta.icon} size="17px" />
+                    </span>
+                    <span class="{meta.badgeClass} text-2xs font-semibold !py-0.5 !px-2">
+                      {meta.badge}
+                    </span>
+                  </div>
+
+                  <p class="mono mt-3 text-2xs font-semibold uppercase tracking-wider text-primary">
+                    {meta.category}
+                  </p>
+                  <h4 class="mt-0.5 font-display text-base font-bold tracking-tight sm:text-lg">
+                    {ins.title}
+                  </h4>
+                  <p class="mt-1.5 text-xs leading-relaxed muted sm:text-sm">
+                    {ins.detail}
+                  </p>
+                </div>
+
+                <div class="mt-4 flex items-center gap-1.5 border-t pt-2.5 text-2xs muted">
+                  <Icon name="circle-check" size="11px" class="flex-none text-mint" />
+                  <span class="truncate">{meta.guide}</span>
+                </div>
+              </div>
             {/each}
-          </ul>
+          </div>
         </div>
       {/if}
 
