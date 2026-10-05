@@ -784,20 +784,20 @@ async def seed_certificates_timeline(session: AsyncSession) -> None:
             .all()
         )
         for s in students:
-            for li, l in enumerate(demo_lessons):
+            for li, lesson in enumerate(demo_lessons):
                 exists = (
                     await session.execute(
                         select(LessonProgress).where(
-                            LessonProgress.user_id == s.id, LessonProgress.lesson_id == l.id
+                            LessonProgress.user_id == s.id, LessonProgress.lesson_id == lesson.id
                         )
                     )
                 ).scalar_one_or_none()
                 done_time = datetime(2025, 3, 10 + li, 14, 0, tzinfo=UTC)
                 if exists is None:
                     p = LessonProgress(
-                        id=det_uuid("lprog", str(s.id), str(l.id)),
+                        id=det_uuid("lprog", str(s.id), str(lesson.id)),
                         user_id=s.id,
-                        lesson_id=l.id,
+                        lesson_id=lesson.id,
                         course_id=demo_course.id,
                         progress_percent=100,
                         completed=True,

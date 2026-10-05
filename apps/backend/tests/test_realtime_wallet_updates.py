@@ -43,9 +43,11 @@ async def test_ws_receives_wallet_update_on_task_completion(client):
     # 2. Register student and connect WS
     token, student = await _register_and_token(client, "rt_student@ex.com", "student")
 
-    with _ws_client() as tc:
-        with tc.websocket_connect(f"/api/v1/ws/notifications?token={token}") as ws:
-            # Complete the task via HTTP
+    with (
+        _ws_client() as tc,
+        tc.websocket_connect(f"/api/v1/ws/notifications?token={token}") as ws,
+    ):
+        # Complete the task via HTTP
             res = await client.post(f"/api/v1/tasks/{task_id}/complete")
             assert res.status_code == 200, res.text
 
@@ -71,28 +73,30 @@ async def test_ws_receives_wallet_update_on_asset_credit_and_debit(client, sessi
     token, student = await _register_and_token(client, "ws_asset_user@ex.com", "student")
     user_id = student["id"]
 
-    with _ws_client() as tc:
-        with tc.websocket_connect(f"/api/v1/ws/notifications?token={token}") as ws:
-            engine = RewardEngine(session)
-            await engine.credit_asset(user_id=user_id, asset="ORT", amount=15)
-            await session.commit()
+    with (
+        _ws_client() as tc,
+        tc.websocket_connect(f"/api/v1/ws/notifications?token={token}") as ws,
+    ):
+        engine = RewardEngine(session)
+        await engine.credit_asset(user_id=user_id, asset="ORT", amount=15)
+        await session.commit()
 
-            frame1 = ws.receive_json()
-            assert frame1["type"] == "wallet.updated"
-            assert frame1["asset"] == "ORT"
-            assert frame1["balance"] == 15
-            assert frame1["amount"] == 15
-            assert frame1["entry_type"] == "credit"
+        frame1 = ws.receive_json()
+        assert frame1["type"] == "wallet.updated"
+        assert frame1["asset"] == "ORT"
+        assert frame1["balance"] == 15
+        assert frame1["amount"] == 15
+        assert frame1["entry_type"] == "credit"
 
-            await engine.debit_asset(user_id=user_id, asset="ORT", amount=5)
-            await session.commit()
+        await engine.debit_asset(user_id=user_id, asset="ORT", amount=5)
+        await session.commit()
 
-            frame2 = ws.receive_json()
-            assert frame2["type"] == "wallet.updated"
-            assert frame2["asset"] == "ORT"
-            assert frame2["balance"] == 10
-            assert frame2["amount"] == 5
-            assert frame2["entry_type"] == "debit"
+        frame2 = ws.receive_json()
+        assert frame2["type"] == "wallet.updated"
+        assert frame2["asset"] == "ORT"
+        assert frame2["balance"] == 10
+        assert frame2["amount"] == 5
+        assert frame2["entry_type"] == "debit"
 
 
 async def test_ws_receives_wallet_update_on_internal_transfer(client):
@@ -125,12 +129,12 @@ async def test_ws_receives_wallet_update_on_internal_transfer(client):
     assert login_a.status_code == 200, login_a.text
     token_a = client.cookies.get("qloot_session")
 
-    with _ws_client() as tc:
-        with (
-            tc.websocket_connect(f"/api/v1/ws/notifications?token={token_a}") as ws_a,
-            tc.websocket_connect(f"/api/v1/ws/notifications?token={token_b}") as ws_b,
-        ):
-            # Transfer 40 OPT from A to B
+    with (
+        _ws_client() as tc,
+        tc.websocket_connect(f"/api/v1/ws/notifications?token={token_a}") as ws_a,
+        tc.websocket_connect(f"/api/v1/ws/notifications?token={token_b}") as ws_b,
+    ):
+        # Transfer 40 OPT from A to B
             t_res = await client.post(
                 "/api/v1/wallet/transfers",
                 json={"to_user_id": str(user_b["id"]), "amount": 40, "note": "Realtime gift"},

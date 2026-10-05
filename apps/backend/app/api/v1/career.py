@@ -460,7 +460,12 @@ async def assistant_stream(payload: ChatIn, user: CurrentUser, db: DbSession):
                 conv_id = str(last) if last else None
                 ort_bal = await RewardEngine(session).asset_balance(user.id, "ORT")
                 free_rem = await usage.free_requests_remaining(user.id)
-                yield f"event: done\ndata: {_json.dumps({'conversation_id': conv_id, 'ort_balance': ort_bal, 'free_requests_remaining': free_rem})}\n\n"
+                done_payload = {
+                    "conversation_id": conv_id,
+                    "ort_balance": ort_bal,
+                    "free_requests_remaining": free_rem,
+                }
+                yield f"event: done\ndata: {_json.dumps(done_payload)}\n\n"
         except Exception as exc:  # noqa: BLE001 - surface, do not hang the stream
             await usage.refund_job(user_id=user.id, job_id=ref)
             # Log the detail server-side; return a generic message so provider
