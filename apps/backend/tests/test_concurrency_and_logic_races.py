@@ -13,7 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.core.config import settings
@@ -117,43 +117,57 @@ async def test_withdrawal_concurrent_approve_vs_cancel_prevents_double_spend(eng
                 await sb.rollback()
                 return "conflict_cancel"
 
-    results = await asyncio.gather(do_approve(), do_cancel())
+    try:
+        results = await asyncio.gather(do_approve(), do_cancel())
 
-    # Exactly one succeeded, exactly one was rejected with ConflictError
-    assert set(results) in (
-        {"approved", "conflict_cancel"},
-        {"cancelled", "conflict_approve"},
-    ), f"Unexpected race outcome: {results}"
+        # Exactly one succeeded, exactly one was rejected with ConflictError
+        assert set(results) in (
+            {"approved", "conflict_cancel"},
+            {"cancelled", "conflict_approve"},
+        ), f"Unexpected race outcome: {results}"
 
-    # Verify database state consistency (no double spend!)
-    from app.services.keys import tx_idempotency_key
-    expected_outbox_key = tx_idempotency_key("withdrawal", str(wd_id))
+        # Verify database state consistency (no double spend!)
+        from app.services.keys import tx_idempotency_key
+        expected_outbox_key = tx_idempotency_key("withdrawal", str(wd_id))
 
-    async with sm() as s:
-        outbox_rows = (
+        async with sm() as s:
+            outbox_rows = (
+                await s.execute(
+                    select(TransactionOutbox).where(
+                        TransactionOutbox.topic == "withdrawal",
+                        TransactionOutbox.idempotency_key == expected_outbox_key,
+                    )
+                )
+            ).scalars().all()
+
+            refund_rows = (
+                await s.execute(
+                    select(WalletLedgerEntry).where(
+                        WalletLedgerEntry.reference_type == "withdrawal_refund",
+                        WalletLedgerEntry.reference_id == str(wd_id),
+                    )
+                )
+            ).scalars().all()
+
+            if "approved" in results:
+                assert len(outbox_rows) == 1, "Approved withdrawal must have outbox row"
+                assert len(refund_rows) == 0, "Approved withdrawal must NOT have refund row (no double spend!)"
+            else:
+                assert len(outbox_rows) == 0, "Cancelled withdrawal must NOT have outbox row"
+                assert len(refund_rows) == 1, "Cancelled withdrawal must have refund row"
+    finally:
+        # Clean up outbox row so subsequent test suites (e.g. test_withdrawals.py)
+        # that assert un-scoped count `where(topic == 'withdrawal') == 0` do not fail.
+        from app.services.keys import tx_idempotency_key
+        cleanup_outbox_key = tx_idempotency_key("withdrawal", str(wd_id))
+        async with sm() as s:
             await s.execute(
-                select(TransactionOutbox).where(
+                delete(TransactionOutbox).where(
                     TransactionOutbox.topic == "withdrawal",
-                    TransactionOutbox.idempotency_key == expected_outbox_key,
+                    TransactionOutbox.idempotency_key == cleanup_outbox_key,
                 )
             )
-        ).scalars().all()
-
-        refund_rows = (
-            await s.execute(
-                select(WalletLedgerEntry).where(
-                    WalletLedgerEntry.reference_type == "withdrawal_refund",
-                    WalletLedgerEntry.reference_id == str(wd_id),
-                )
-            )
-        ).scalars().all()
-
-        if "approved" in results:
-            assert len(outbox_rows) == 1, "Approved withdrawal must have outbox row"
-            assert len(refund_rows) == 0, "Approved withdrawal must NOT have refund row (no double spend!)"
-        else:
-            assert len(outbox_rows) == 0, "Cancelled withdrawal must NOT have outbox row"
-            assert len(refund_rows) == 1, "Cancelled withdrawal must have refund row"
+            await s.commit()
 
 
 async def test_ai_free_tier_concurrent_requests_cannot_bypass_quota(engine, monkeypatch):
