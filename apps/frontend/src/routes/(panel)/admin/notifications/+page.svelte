@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { api, apiGetPaged, ApiError } from "$lib/api/client";
   import type { User } from "$lib/types";
@@ -48,6 +48,9 @@
   let searching = false;
   let searchError = "";
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  onDestroy(() => {
+    if (searchDebounce) clearTimeout(searchDebounce);
+  });
 
   function searchUsers() {
     if (searchDebounce) clearTimeout(searchDebounce);

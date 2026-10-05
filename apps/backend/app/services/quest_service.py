@@ -14,6 +14,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -172,8 +173,20 @@ class QuestService:
             is_valid=is_valid,
             invalid_reason=reason,
         )
-        self.session.add(attempt)
-        await self.session.flush()
+        try:
+            async with self.session.begin_nested():
+                self.session.add(attempt)
+                await self.session.flush()
+        except IntegrityError:
+            # Race condition: concurrent submission recorded first; return existing gracefully
+            existing = (
+                await self.session.execute(
+                    select(QuestAttempt).where(
+                        QuestAttempt.quest_id == quest_id, QuestAttempt.user_id == user.id
+                    )
+                )
+            ).scalar_one()
+            return existing
 
         # Badge: completing the first quest (attempt recorded, any validity).
         from app.services.social_service import BadgeService

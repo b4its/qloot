@@ -54,10 +54,20 @@
       first.focus();
     }
   }
+
+  function handleBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget && !busy) {
+      close();
+    }
+  }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div
   class="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
+  on:click={handleBackdropClick}
+  role="presentation"
 >
   <div
     bind:this={panel}
@@ -67,7 +77,6 @@
     aria-labelledby={titleId}
     aria-describedby={description ? descriptionId : undefined}
     tabindex="-1"
-    on:keydown={onKeydown}
   >
     <div class="flex flex-none items-start justify-between gap-4 border-b pb-3">
       <div>

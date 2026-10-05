@@ -312,34 +312,16 @@
 
 <!-- Finalization confirmation modal -->
 {#if confirmingFinalize}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
-        <Icon name="triangle-exclamation" size="18px" />
-        <h3 class="font-display text-lg font-bold">Konfirmasi Finalisasi Quest</h3>
-      </div>
-      <p class="text-xs text-foreground/90 leading-relaxed">
-        Apakah Anda yakin ingin memfinalisasi pemenang untuk quest <strong
-          >"{confirmingFinalize.title}"</strong
-        >?
-      </p>
-      <p class="text-xs muted leading-relaxed">
-        Pemenang ditentukan deterministik dari skor tertinggi dan waktu submit tercepat. Hadiah
-        token OPT akan dialokasikan ke akun pemenang. Tindakan ini tidak dapat dibatalkan.
-      </p>
-      <div class="flex items-center justify-end gap-2 border-t pt-3">
-        <button class="btn-ghost text-xs" on:click={() => (confirmingFinalize = null)}>Batal</button
-        >
-        <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
-          on:click={() => confirmingFinalize && executeFinalize(confirmingFinalize)}
-          data-role="confirm-finalize"
-        >
-          Ya, Finalisasi Pemenang
-        </button>
-      </div>
-    </div>
-  </div>
+  <ConfirmDialog
+    title="Konfirmasi Finalisasi Quest"
+    description={`Apakah Anda yakin ingin memfinalisasi pemenang untuk quest "${confirmingFinalize.title}"?`}
+    hint="Pemenang ditentukan deterministik dari skor tertinggi dan waktu submit tercepat. Hadiah token OPT akan dialokasikan ke akun pemenang. Tindakan ini tidak dapat dibatalkan."
+    confirmLabel="Ya, Finalisasi Pemenang"
+    tone="primary"
+    confirmRole="confirm-finalize"
+    onConfirm={() => confirmingFinalize && executeFinalize(confirmingFinalize)}
+    close={() => (confirmingFinalize = null)}
+  />
 {/if}
 
 {#if deletingQuest}

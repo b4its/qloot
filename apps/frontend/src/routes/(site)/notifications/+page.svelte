@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { Notification, NotificationPage } from "$lib/types";
@@ -128,6 +128,10 @@
       void load();
     }, 200);
   }
+
+  onDestroy(() => {
+    if (debounce) clearTimeout(debounce);
+  });
 
   function setKind(kind: string) {
     if (activeKind === kind) return;

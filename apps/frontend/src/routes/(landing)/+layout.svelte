@@ -130,17 +130,17 @@
   </main>
 
   <!-- ================= LANDING FOOTER ================= -->
-  <footer class="cyber-rule mt-16 border-t border-white/5 bg-[#05060A] text-white">
-    <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-      <div class="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+  <footer class="cyber-rule mt-12 border-t border-white/5 bg-[#05060A] text-white">
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+      <div class="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
         <div class="flex items-center gap-2.5">
-          <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
-            <Icon name="graduation-cap" size="16px" />
+          <span class="brand-mark grid h-8 w-8 place-items-center rounded-sm">
+            <Icon name="graduation-cap" size="15px" />
           </span>
-          <span class="font-display text-lg font-bold uppercase">QLoot</span>
+          <span class="font-display text-base font-bold uppercase tracking-tight">QLoot</span>
         </div>
         <nav
-          class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/70"
+          class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-white/70 sm:text-sm"
           aria-label="Navigasi footer"
         >
           {#each anchors as item}
@@ -158,10 +158,10 @@
       </div>
 
       <div
-        class="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row"
+        class="mt-6 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 text-xs text-white/50 sm:flex-row"
       >
         <p>© {new Date().getFullYear()} QLoot. Dibuat untuk pengalaman belajar yang lebih baik.</p>
-        <span class="mono">ID · EN</span>
+        <span class="mono text-[11px]">ID · EN</span>
       </div>
     </div>
   </footer>

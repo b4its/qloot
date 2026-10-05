@@ -367,13 +367,13 @@ class CareerService:
         await self.session.flush()
         return existing
 
-    async def delete_grade(self, user_id: uuid.UUID, grade_id: uuid.UUID) -> None:
-        """Remove one of the caller's academic grades."""
+    async def delete_grade(self, operator: User, grade_id: uuid.UUID) -> None:
+        """Remove an academic grade (teacher or admin only)."""
+        if not (operator.has_role("admin") or operator.has_role("teacher")):
+            raise ForbiddenError("Hanya guru dan admin yang diizinkan menghapus nilai akademik")
         grade = (
             await self.session.execute(
-                select(AcademicGrade).where(
-                    AcademicGrade.id == grade_id, AcademicGrade.user_id == user_id
-                )
+                select(AcademicGrade).where(AcademicGrade.id == grade_id)
             )
         ).scalar_one_or_none()
         if grade is None:
@@ -383,19 +383,19 @@ class CareerService:
 
     async def update_grade(
         self,
-        user_id: uuid.UUID,
+        operator: User,
         grade_id: uuid.UUID,
         *,
         grade: int,
         subject: str | None = None,
         term: str | None = None,
     ) -> AcademicGrade:
-        """Edit one of the caller's grades (UIX-05)."""
+        """Edit an academic grade (teacher or admin only)."""
+        if not (operator.has_role("admin") or operator.has_role("teacher")):
+            raise ForbiddenError("Hanya guru dan admin yang diizinkan mengubah nilai akademik")
         row = (
             await self.session.execute(
-                select(AcademicGrade).where(
-                    AcademicGrade.id == grade_id, AcademicGrade.user_id == user_id
-                )
+                select(AcademicGrade).where(AcademicGrade.id == grade_id)
             )
         ).scalar_one_or_none()
         if row is None:
@@ -1095,14 +1095,40 @@ class CareerService:
             if resolved_id is None:
                 name = counselor
 
+        counselor_filter = (
+            (Consultation.counselor_user_id == resolved_id)
+            if resolved_id is not None
+            else (Consultation.counselor == name)
+        )
+
         if scheduled_at is None:
             slot = datetime.now(UTC) + timedelta(days=3)
-            existing = [
-                c
-                for c in await self.list_consultations(user.id)
-                if c.status in ("pending", "accepted") and c.counselor == name
-            ]
-            scheduled_at = slot + timedelta(hours=len(existing))
+            existing_count = (
+                await self.session.execute(
+                    select(func.count())
+                    .select_from(Consultation)
+                    .where(
+                        counselor_filter,
+                        Consultation.status.in_(("pending", "accepted")),
+                    )
+                )
+            ).scalar_one()
+            scheduled_at = slot + timedelta(hours=int(existing_count))
+        else:
+            conflict_stmt = (
+                select(Consultation)
+                .where(
+                    counselor_filter,
+                    Consultation.scheduled_at == scheduled_at,
+                    Consultation.status.in_(("pending", "accepted")),
+                )
+                .limit(1)
+            )
+            conflict = (await self.session.execute(conflict_stmt)).scalar_one_or_none()
+            if conflict is not None:
+                raise ConflictError(
+                    "Jadwal konsultasi pada waktu tersebut sudah terisi. Silakan pilih waktu lain."
+                )
 
         c = Consultation(
             user_id=user.id,

@@ -20,7 +20,7 @@
   } from "$lib/types";
   import { buildMissions, primaryMission } from "$lib/utils/mission";
   import { onboardingSteps, onboardingComplete } from "$lib/utils/mission";
-  import { auth } from "$lib/stores/auth";
+  import { auth, hasRole } from "$lib/stores/auth";
   import Icon from "$lib/components/Icon.svelte";
   import ProgressRing from "$lib/components/ProgressRing.svelte";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
@@ -70,6 +70,186 @@
   let gradeBusy = false;
   let gradeMsg = "";
 
+  $: canManageGrades = hasRole($auth.user, "teacher");
+
+  $: averageGradeScore = grades.length
+    ? Math.round(grades.reduce((sum, g) => sum + g.grade, 0) / grades.length)
+    : 0;
+
+  $: bestSubject = grades.length ? [...grades].sort((a, b) => b.grade - a.grade)[0] : null;
+
+  function gradeTier(score: number) {
+    if (score >= 85) {
+      return {
+        tier: "Predikat A",
+        badgeClass: "badge badge-mint",
+        statusText: "Sangat Baik (Tuntas)",
+      };
+    }
+    if (score >= 75) {
+      return {
+        tier: "Predikat B",
+        badgeClass: "badge badge-primary",
+        statusText: "Baik (Memenuhi KKM)",
+      };
+    }
+    if (score >= 60) {
+      return {
+        tier: "Predikat C",
+        badgeClass: "badge badge-amber",
+        statusText: "Cukup",
+      };
+    }
+    return {
+      tier: "Predikat D",
+      badgeClass: "badge badge-magenta",
+      statusText: "Perlu Bimbingan",
+    };
+  }
+
+  // Profil minat & pemetaan bakat akademik
+  const INTEREST_METADATA: Record<
+    string,
+    {
+      icon: string;
+      color: string;
+      bgClass: string;
+      borderHoverClass: string;
+      subjects: string;
+      desc: string;
+    }
+  > = {
+    Sains: {
+      icon: "flask",
+      color: "text-mint",
+      bgClass: "bg-mint/15 text-mint border-mint/30",
+      borderHoverClass: "hover:border-mint/50",
+      subjects: "Fisika · Kimia · Biologi",
+      desc: "Penalaran analitis, sains alam & eksplorasi ilmiah",
+    },
+    Teknik: {
+      icon: "microchip",
+      color: "text-primary",
+      bgClass: "bg-primary/15 text-primary border-primary/30",
+      borderHoverClass: "hover:border-primary/50",
+      subjects: "Matematika · Fisika",
+      desc: "Rekayasa teknologi, logika komputasi & sistem",
+    },
+    Bahasa: {
+      icon: "language",
+      color: "text-indigo-600 dark:text-indigo-400",
+      bgClass: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
+      borderHoverClass: "hover:border-indigo-500/50",
+      subjects: "B. Inggris · B. Indonesia",
+      desc: "Komunikasi global, literasi bahasa & sintaksis",
+    },
+    Sosial: {
+      icon: "users",
+      color: "text-amber-600 dark:text-amber-400",
+      bgClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+      borderHoverClass: "hover:border-amber-500/50",
+      subjects: "Sosiologi · Sejarah · Geografi",
+      desc: "Dinamika kemasyarakatan, sejarah & geososial",
+    },
+    Bisnis: {
+      icon: "chart-line",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bgClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+      borderHoverClass: "hover:border-emerald-500/50",
+      subjects: "Ekonomi · Matematika",
+      desc: "Manajemen finansial, kalkulasi pasar & ekonomi",
+    },
+    Seni: {
+      icon: "palette",
+      color: "text-magenta",
+      bgClass: "bg-magenta/15 text-magenta border-magenta/30",
+      borderHoverClass: "hover:border-magenta/50",
+      subjects: "Seni Budaya · Prakarya",
+      desc: "Kreativitas estetika, rancang visual & kreasi",
+    },
+  };
+
+  function interestTier(val: number) {
+    if (val >= 85) {
+      return {
+        level: "Sangat Tinggi",
+        badgeClass: "badge badge-mint",
+        barClass: "!bg-mint",
+        accent: "text-mint font-bold",
+      };
+    }
+    if (val >= 75) {
+      return {
+        level: "Tinggi",
+        badgeClass: "badge badge-primary",
+        barClass: "!bg-primary",
+        accent: "text-primary font-bold",
+      };
+    }
+    if (val >= 60) {
+      return {
+        level: "Cukup",
+        badgeClass: "badge badge-amber",
+        barClass: "!bg-amber",
+        accent: "text-amber font-bold",
+      };
+    }
+    return {
+      level: "Dasar",
+      badgeClass: "badge badge-neutral",
+      barClass: "!bg-neutral-500",
+      accent: "muted font-medium",
+    };
+  }
+
+  // Profil minat diurutkan dari skor tertinggi ke terendah
+  $: sortedRadar = acad?.radar
+    ? [...acad.radar].sort((a, b) => b.value - a.value || a.dimension.localeCompare(b.dimension))
+    : [];
+
+  $: topInterest = sortedRadar.length ? sortedRadar[0] : null;
+
+  // Metadata & visual styling wawasan akademik
+  function insightMeta(ins: { kind?: string; title: string; detail: string }) {
+    const kind = ins.kind || "";
+    const lowerTitle = ins.title.toLowerCase();
+
+    if (kind === "consistency" || lowerTitle.includes("kuat")) {
+      return {
+        category: "Kekuatan Unggulan",
+        badge: "Konsisten Kuat",
+        badgeClass: "badge badge-mint",
+        icon: "award",
+        bgClass: "bg-mint/15 text-mint border-mint/30",
+        borderHoverClass: "hover:border-mint/50",
+        cardRing: "ring-1 ring-mint/30 bg-mint/[0.02]",
+        guide: "Pertahankan performa dan jadikan fondasi pilihan jurusan",
+      };
+    }
+    if (kind === "attention" || lowerTitle.includes("perhatian")) {
+      return {
+        category: "Area Penguatan",
+        badge: "Perlu Fokus",
+        badgeClass: "badge badge-amber",
+        icon: "arrow-trend-up",
+        bgClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+        borderHoverClass: "hover:border-amber-500/50",
+        cardRing: "",
+        guide: "Fokus latihan materi dasar dan pengayaan konsep",
+      };
+    }
+    return {
+      category: "Proyeksi Akademik & Karir",
+      badge: "Peluang Rumpun",
+      badgeClass: "badge badge-primary",
+      icon: "compass",
+      bgClass: "bg-primary/15 text-primary border-primary/30",
+      borderHoverClass: "hover:border-primary/50",
+      cardRing: "",
+      guide: "Eksplorasi modul kurikulum dan simulasi program studi",
+    };
+  }
+
   async function reloadAcademic() {
     // Re-fetch after a grade write. If the refresh fails the write still
     // succeeded, so note it rather than silently showing stale academic data.
@@ -81,6 +261,10 @@
   }
 
   async function addGrade() {
+    if (!canManageGrades) {
+      gradeMsg = "Hanya guru dan admin yang diizinkan menginput nilai.";
+      return;
+    }
     gradeMsg = "";
     const value = Number(gradeValue);
     if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -105,7 +289,7 @@
   }
 
   async function editGrade(g: GradeRow) {
-    if (!g.id) return;
+    if (!canManageGrades || !g.id) return;
     // Inline editing replaces the old native prompt(): the row turns into an
     // input that saves on confirm, keeping the interaction themed and a11y-safe.
     editingGradeId = g.id;
@@ -116,7 +300,7 @@
   let gradeEditValue = 0;
 
   async function saveGradeEdit(g: GradeRow) {
-    if (!g.id || editingGradeId !== g.id) return;
+    if (!canManageGrades || !g.id || editingGradeId !== g.id) return;
     const value = Number(gradeEditValue);
     if (!Number.isFinite(value) || value < 0 || value > 100) {
       gradeMsg = "Nilai harus antara 0 dan 100.";
@@ -142,13 +326,13 @@
   }
 
   async function deleteGrade(g: GradeRow) {
-    if (!g.id) return;
+    if (!canManageGrades || !g.id) return;
     deletingGrade = g;
   }
 
   async function confirmDeleteGrade() {
     const g = deletingGrade;
-    if (!g?.id) return;
+    if (!canManageGrades || !g?.id) return;
     deletingGrade = null;
     gradeMsg = "";
     gradeBusy = true;
@@ -575,9 +759,30 @@
 
     <!-- grades editor -->
     <div class="card mt-4">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display font-bold">Nilai akademik</h2>
-        <div class="flex items-center gap-3">
+      <!-- Header section -->
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="tile-neutral h-9 w-9">
+            <Icon name="book-open" size="15px" class="text-primary" />
+          </span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-display font-bold">Rapor & Nilai Akademik</h2>
+              <span class="badge badge-mint gap-1 text-2xs py-0.5 px-2">
+                <Icon name="check" size="9px" /> Terverifikasi
+              </span>
+            </div>
+            <p class="mt-0.5 text-xs muted">
+              {#if canManageGrades}
+                Kelola nilai capaian rapor siswa untuk dashboard analitik dan panduan SNBP/SNBT.
+              {:else}
+                Nilai capaian rapor resmi yang terdaftar dan diverifikasi oleh guru untuk analisis
+                rekomendasi jurusan.
+              {/if}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2.5 self-end sm:self-auto">
           {#if grades.length}
             <a
               href={`${API_BASE}/api/v1/career/grades/export.csv`}
@@ -587,142 +792,390 @@
               <Icon name="download" size="11px" /> Ekspor CSV
             </a>
           {/if}
-          <a href="/career/roadmap" class="text-xs text-primary"
-            >Analisis jurusan <Icon name="arrow-right" size="10px" /></a
+          <a
+            href="/career/roadmap"
+            class="btn-ghost !py-1 text-xs text-primary hover:text-primary-focus"
           >
+            Analisis jurusan <Icon name="arrow-right" size="10px" />
+          </a>
         </div>
       </div>
-      <p class="mt-1 text-xs muted">
-        Masukkan nilai rapor: dipakai untuk dashboard, tren, dan rekomendasi jurusan.
-      </p>
-      <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
-        <select class="input" bind:value={gradeSubject} aria-label="Mata pelajaran">
-          {#each SUBJECTS as s}<option value={s}>{s}</option>{/each}
-        </select>
-        <input
-          class="input"
-          type="number"
-          min="0"
-          max="100"
-          bind:value={gradeValue}
-          aria-label="Nilai (0-100)"
-        />
-        <input
-          class="input"
-          placeholder="2025/2026-genap"
-          bind:value={gradeTerm}
-          aria-label="Semester"
-        />
-        <button class="btn-primary" on:click={addGrade} disabled={gradeBusy}>
-          {#if gradeBusy}<Icon name="spinner" spin size="12px" />{:else}<Icon
-              name="plus"
-              size="12px"
-            />{/if}
-          Simpan
-        </button>
-      </div>
+
+      <!-- Ringkasan Nilai Cepat (Jika ada nilai) -->
+      {#if grades.length}
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div class="card !p-3.5">
+            <p class="mono-label">Rata-rata Nilai</p>
+            <div class="mt-1 flex items-baseline gap-2">
+              <span class="font-display text-2xl font-bold">{averageGradeScore}</span>
+              <span class="text-xs muted">/ 100</span>
+              <span class={`ml-auto ${gradeTier(averageGradeScore).badgeClass} text-2xs`}>
+                {gradeTier(averageGradeScore).tier}
+              </span>
+            </div>
+          </div>
+          <div class="card !p-3.5">
+            <p class="mono-label">Mapel Unggulan</p>
+            <div class="mt-1 flex items-baseline justify-between">
+              <span class="truncate font-display text-sm font-bold text-mint">
+                {bestSubject?.subject ?? "-"}
+              </span>
+              {#if bestSubject}
+                <span class="mono text-sm font-bold">{bestSubject.grade}</span>
+              {/if}
+            </div>
+          </div>
+          <div class="card col-span-2 !p-3.5 sm:col-span-1">
+            <p class="mono-label">Total Mata Pelajaran</p>
+            <div class="mt-1 flex items-baseline justify-between">
+              <span class="font-display text-2xl font-bold">{grades.length}</span>
+              <span class="badge badge-neutral text-2xs">Semester Aktif</span>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Form Input Nilai Khusus Guru & Admin -->
+      {#if canManageGrades}
+        <div class="card mt-4 !p-3.5 !border-primary/30">
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-primary">
+            <Icon name="plus" size="11px" /> Input Nilai Akademik Siswa (Guru & Admin)
+          </div>
+          <div class="mt-2.5 grid gap-2 sm:grid-cols-[1fr_100px_150px_auto]">
+            <select class="input" bind:value={gradeSubject} aria-label="Mata pelajaran">
+              {#each SUBJECTS as s}<option value={s}>{s}</option>{/each}
+            </select>
+            <input
+              class="input"
+              type="number"
+              min="0"
+              max="100"
+              bind:value={gradeValue}
+              aria-label="Nilai (0-100)"
+            />
+            <input
+              class="input"
+              placeholder="2025/2026-genap"
+              bind:value={gradeTerm}
+              aria-label="Semester"
+            />
+            <button class="btn-primary" on:click={addGrade} disabled={gradeBusy}>
+              {#if gradeBusy}<Icon name="spinner" spin size="12px" />{:else}<Icon
+                  name="plus"
+                  size="12px"
+                />{/if}
+              Simpan
+            </button>
+          </div>
+        </div>
+      {/if}
+
       {#if gradeMsg}
         <p class="mt-2 text-xs muted" role="status" aria-live="polite">{gradeMsg}</p>
       {/if}
+
+      <!-- Daftar Kartu Nilai Rapor Modern -->
       {#if grades.length}
-        <div class="mt-3 flex flex-wrap gap-1.5">
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {#each grades as g}
-            {#if g.id && editingGradeId === g.id}
-              <span class="badge badge-indigo gap-1.5 py-1">
-                {g.subject}
-                <input
-                  class="input !w-16 !px-1.5 !py-0.5 text-xs"
-                  type="number"
-                  min="0"
-                  max="100"
-                  bind:value={gradeEditValue}
-                  aria-label={`Nilai baru ${g.subject}`}
-                />
-                <button
-                  class="hover:text-primary"
-                  on:click={() => saveGradeEdit(g)}
-                  disabled={gradeBusy}
-                  aria-label={`Simpan nilai ${g.subject}`}
-                >
-                  <Icon name={gradeBusy ? "spinner" : "check"} spin={gradeBusy} size="10px" />
-                </button>
-                <button
-                  class="hover:text-tertiary"
-                  on:click={cancelGradeEdit}
-                  disabled={gradeBusy}
-                  aria-label={`Batal ubah nilai ${g.subject}`}
-                >
-                  <Icon name="xmark" size="10px" />
-                </button>
-              </span>
-            {:else}
-              <span class="badge badge-neutral">
-                {g.subject} · {g.grade}
-                <span class="muted">({g.term})</span>
-                {#if g.id}
-                  <button
-                    class="ml-1 hover:text-primary"
-                    on:click={() => editGrade(g)}
-                    disabled={gradeBusy}
-                    aria-label={`Ubah nilai ${g.subject}`}
+            {@const tier = gradeTier(g.grade)}
+            <div
+              class="card flex flex-col justify-between !p-3.5 hover:border-primary/50 transition-all"
+            >
+              {#if g.id && editingGradeId === g.id && canManageGrades}
+                <!-- Mode Edit Inline Khusus Guru / Admin -->
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center justify-between">
+                    <span class="font-display text-sm font-bold">{g.subject}</span>
+                    <span class="badge badge-neutral text-2xs">{g.term}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input
+                      class="input !w-20 !px-2 !py-1 text-sm font-bold"
+                      type="number"
+                      min="0"
+                      max="100"
+                      bind:value={gradeEditValue}
+                      aria-label={`Nilai baru ${g.subject}`}
+                    />
+                    <button
+                      class="btn-primary !px-2.5 !py-1 text-xs"
+                      on:click={() => saveGradeEdit(g)}
+                      disabled={gradeBusy}
+                      aria-label={`Simpan nilai ${g.subject}`}
+                    >
+                      <Icon name={gradeBusy ? "spinner" : "check"} spin={gradeBusy} size="11px" />
+                    </button>
+                    <button
+                      class="btn-ghost !px-2.5 !py-1 text-xs"
+                      on:click={cancelGradeEdit}
+                      disabled={gradeBusy}
+                      aria-label={`Batal ubah nilai ${g.subject}`}
+                    >
+                      <Icon name="xmark" size="11px" />
+                    </button>
+                  </div>
+                </div>
+              {:else}
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 class="font-display text-sm font-bold">{g.subject}</h3>
+                      <span class="mono text-2xs muted">{g.term}</span>
+                    </div>
+                    <span class={`${tier.badgeClass} text-2xs font-bold py-0.5 px-2`}>
+                      {tier.tier}
+                    </span>
+                  </div>
+
+                  <div class="mt-3 flex items-baseline justify-between">
+                    <div class="flex items-baseline gap-1">
+                      <span class="font-display text-2xl font-bold">
+                        {g.grade}
+                      </span>
+                      <span class="text-xs muted">/ 100</span>
+                    </div>
+                    <span class="text-2xs muted font-medium">
+                      {tier.statusText}
+                    </span>
+                  </div>
+
+                  <!-- Visual Progress Bar QLoot -->
+                  <div
+                    class="track mt-2 h-1.5"
+                    role="progressbar"
+                    aria-label={`Nilai ${g.subject}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={g.grade}
                   >
-                    <Icon name="pen" size="9px" />
-                  </button>
-                  <button
-                    class="ml-1 hover:text-tertiary"
-                    on:click={() => deleteGrade(g)}
-                    disabled={gradeBusy}
-                    aria-label={`Hapus nilai ${g.subject}`}
-                  >
-                    <Icon name="xmark" size="9px" />
-                  </button>
+                    <span style={`width: ${Math.min(100, Math.max(0, g.grade))}%`}></span>
+                  </div>
+                </div>
+
+                <!-- Kontrol Guru/Admin: Ubah & Hapus -->
+                {#if canManageGrades && g.id}
+                  <div class="mt-3.5 flex items-center justify-end gap-1.5 border-t pt-2.5">
+                    <button
+                      class="btn-ghost !px-2 !py-1 text-2xs text-primary"
+                      on:click={() => editGrade(g)}
+                      disabled={gradeBusy}
+                      aria-label={`Ubah nilai ${g.subject}`}
+                    >
+                      <Icon name="pen" size="10px" /> Ubah
+                    </button>
+                    <button
+                      class="btn-ghost !px-2 !py-1 text-2xs text-magenta hover:underline"
+                      on:click={() => deleteGrade(g)}
+                      disabled={gradeBusy}
+                      aria-label={`Hapus nilai ${g.subject}`}
+                    >
+                      <Icon name="xmark" size="10px" /> Hapus
+                    </button>
+                  </div>
                 {/if}
-              </span>
-            {/if}
+              {/if}
+            </div>
           {/each}
+        </div>
+      {:else}
+        <div class="card mt-4 grid place-items-center py-10 text-center">
+          <Icon name="book-open" size="26px" class="muted" />
+          <h3 class="mt-2 font-display text-sm font-bold">Belum Ada Nilai Rapor</h3>
+          <p class="mx-auto mt-1 max-w-md text-xs muted">
+            {#if canManageGrades}
+              Gunakan formulir di atas untuk menginput nilai akademik siswa pertama kali.
+            {:else}
+              Nilai akademik akan diinput dan diverifikasi oleh guru mata pelajaran atau wali kelas
+              Anda.
+            {/if}
+          </p>
         </div>
       {/if}
 
       {#if acad?.insights?.length}
-        <div class="mt-4 border-t pt-3">
-          <p class="mono-label">Wawasan akademik</p>
-          <ul class="mt-2 space-y-2 text-sm">
-            {#each acad.insights as ins}
-              <li class="flex items-start gap-2">
-                <Icon name="lightbulb" size="12px" class="mt-0.5 text-primary flex-none" />
-                <span>
-                  <span class="font-medium">{ins.title}</span>
-                  <span class="muted">: {ins.detail}</span>
+        <div class="mt-6 border-t pt-5" data-role="academic-insights">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="tile-neutral h-8 w-8 !rounded-md">
+                  <Icon name="lightbulb" size="14px" class="text-primary" />
                 </span>
-              </li>
+                <h3 class="font-display text-base font-bold tracking-tight sm:text-lg">
+                  Wawasan & Evaluasi Akademik
+                </h3>
+                <span class="badge badge-neutral text-2xs !py-0.5 !px-2"> Evaluasi Cerdas </span>
+              </div>
+              <p class="mt-1 text-xs muted">
+                Poin analitik otomatis berdasarkan capaian nilai rapor terkini untuk strategi
+                akselerasi belajar.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            {#each acad.insights as ins}
+              {@const meta = insightMeta(ins)}
+              <div
+                class="card flex flex-col justify-between !p-4 transition-all duration-200 {meta.borderHoverClass} {meta.cardRing}"
+                data-insight={ins.kind || "general"}
+              >
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <span
+                      class="grid h-10 w-10 place-items-center rounded-md border {meta.bgClass}"
+                    >
+                      <Icon name={meta.icon} size="17px" />
+                    </span>
+                    <span class="{meta.badgeClass} text-2xs font-semibold !py-0.5 !px-2">
+                      {meta.badge}
+                    </span>
+                  </div>
+
+                  <p class="mono mt-3 text-2xs font-semibold uppercase tracking-wider text-primary">
+                    {meta.category}
+                  </p>
+                  <h4 class="mt-0.5 font-display text-base font-bold tracking-tight sm:text-lg">
+                    {ins.title}
+                  </h4>
+                  <p class="mt-1.5 text-xs leading-relaxed muted sm:text-sm">
+                    {ins.detail}
+                  </p>
+                </div>
+
+                <div class="mt-4 flex items-center gap-1.5 border-t pt-2.5 text-2xs muted">
+                  <Icon name="circle-check" size="11px" class="flex-none text-mint" />
+                  <span class="truncate">{meta.guide}</span>
+                </div>
+              </div>
             {/each}
-          </ul>
+          </div>
         </div>
       {/if}
 
-      {#if acad?.radar?.length}
-        <div class="mt-4 border-t pt-3">
-          <p class="mono-label">Profil minat</p>
-          <div class="mt-2 space-y-2">
-            {#each acad.radar as dim}
-              <div>
-                <div class="flex items-center justify-between text-xs">
-                  <span>{dim.dimension}</span>
-                  <span class="mono muted">{dim.value}</span>
-                </div>
-                <div
-                  class="mt-1 h-1.5 w-full overflow-hidden rounded-sm bg-ink/10"
-                  role="progressbar"
-                  aria-label={`Nilai minat ${dim.dimension}`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.max(0, Math.min(100, dim.value))}
-                >
+      {#if sortedRadar.length}
+        <div class="mt-6 border-t pt-5" data-role="interest-profile">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="tile-neutral h-8 w-8 !rounded-md">
+                  <Icon name="compass" size="14px" class="text-primary" />
+                </span>
+                <h3 class="font-display text-base font-bold tracking-tight sm:text-lg">
+                  Profil Minat & Bakat
+                </h3>
+                <span class="badge badge-neutral text-2xs !py-0.5 !px-2"> Terurut Tertinggi </span>
+              </div>
+              <p class="mt-1 text-xs muted">
+                Dihitung dari capaian nilai mata pelajaran pendukung untuk pemetaan rekomendasi
+                rumpun studi & karir.
+              </p>
+            </div>
+            {#if topInterest}
+              <div
+                class="flex items-center gap-2 self-start rounded-md border border-mint/40 bg-mint/10 px-3 py-1.5 sm:self-auto"
+              >
+                <Icon name="star" size="12px" class="text-mint" />
+                <span class="text-xs muted">Minat Terkuat:</span>
+                <span class="font-display text-xs font-bold uppercase tracking-wide text-mint">
+                  {topInterest.dimension} ({topInterest.value})
+                </span>
+              </div>
+            {/if}
+          </div>
+
+          <div class="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            {#each sortedRadar as dim, idx}
+              {@const meta = INTEREST_METADATA[dim.dimension] || {
+                icon: "compass",
+                color: "text-primary",
+                bgClass: "bg-primary/15 text-primary border-primary/30",
+                borderHoverClass: "hover:border-primary/50",
+                subjects: "Mata Pelajaran Terkait",
+                desc: "Dimensi peminatan akademik",
+              }}
+              {@const tier = interestTier(dim.value)}
+              <div
+                class="card flex flex-col justify-between !p-4 transition-all duration-200 {meta.borderHoverClass} {idx ===
+                0
+                  ? 'ring-1 ring-mint/40 bg-mint/[0.04]'
+                  : ''}"
+                data-dimension={dim.dimension}
+              >
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-2.5">
+                      <span
+                        class="grid h-10 w-10 place-items-center rounded-md border {meta.bgClass}"
+                      >
+                        <Icon name={meta.icon} size="17px" />
+                      </span>
+                      <div>
+                        <div class="flex items-center gap-2">
+                          <h4 class="font-display text-base font-bold tracking-tight">
+                            {dim.dimension}
+                          </h4>
+                          {#if idx === 0}
+                            <span
+                              class="badge badge-mint !text-[10px] !py-0.5 !px-1.5 font-bold uppercase tracking-wider"
+                            >
+                              Top 1
+                            </span>
+                          {:else if idx === 1}
+                            <span
+                              class="badge badge-primary !text-[10px] !py-0.5 !px-1.5 font-bold"
+                            >
+                              #2
+                            </span>
+                          {:else if idx === 2}
+                            <span
+                              class="badge badge-neutral !text-[10px] !py-0.5 !px-1.5 font-bold"
+                            >
+                              #3
+                            </span>
+                          {/if}
+                        </div>
+                        <p class="mono mt-0.5 text-2xs font-medium muted">
+                          {meta.subjects}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span class="{tier.badgeClass} text-2xs font-semibold !py-0.5 !px-2">
+                      {tier.level}
+                    </span>
+                  </div>
+
+                  <div class="mt-4 flex items-baseline justify-between">
+                    <div class="flex items-baseline gap-1.5">
+                      <span class="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+                        {dim.value}
+                      </span>
+                      <span class="mono text-xs font-semibold muted">/ 100</span>
+                    </div>
+                    <span class="mono text-xs {tier.accent}">
+                      {dim.value}% Potensi
+                    </span>
+                  </div>
+
                   <div
-                    class="h-full rounded-sm bg-primary"
-                    style={`width:${Math.max(0, Math.min(100, dim.value))}%`}
-                  ></div>
+                    class="track mt-2.5 h-2"
+                    role="progressbar"
+                    aria-label={`Nilai minat ${dim.dimension}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.max(0, Math.min(100, dim.value))}
+                  >
+                    <span
+                      class="transition-all duration-500 {tier.barClass}"
+                      style={`width:${Math.max(0, Math.min(100, dim.value))}%`}
+                    ></span>
+                  </div>
                 </div>
+
+                <p class="mt-3 border-t pt-2.5 text-xs leading-relaxed muted">
+                  {meta.desc}
+                </p>
               </div>
             {/each}
           </div>

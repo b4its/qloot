@@ -229,8 +229,8 @@
 
     <!-- Health warnings -->
     {#if failedRewards > 0 || negative.length > 0}
-      <div class="mt-4 card border-amber-500/40">
-        <div class="flex items-center gap-2 text-amber-400">
+      <div class="mt-4 card border-amber/40">
+        <div class="flex items-center gap-2 text-amber">
           <Icon name="triangle-exclamation" size="14px" />
           <p class="font-semibold text-sm">Perlu tindakan</p>
         </div>

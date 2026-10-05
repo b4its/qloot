@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import Icon from "$lib/components/Icon.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
@@ -165,6 +165,10 @@
       void load();
     }, 300);
   }
+
+  onDestroy(() => {
+    if (searchDebounce) clearTimeout(searchDebounce);
+  });
 
   function clearSearch() {
     query = "";

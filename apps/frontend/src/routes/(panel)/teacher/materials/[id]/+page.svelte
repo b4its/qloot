@@ -504,6 +504,7 @@
         <input
           class="input"
           placeholder="Tanyakan sesuatu tentang materi ini…"
+          aria-label="Tanyakan sesuatu tentang materi ini"
           bind:value={question}
           on:keydown={(e) => e.key === "Enter" && ask()}
         />

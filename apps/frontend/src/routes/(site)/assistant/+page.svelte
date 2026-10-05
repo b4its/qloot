@@ -3,7 +3,7 @@
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
   import { onMount, tick } from "svelte";
   import { API_BASE, API_PREFIX, api, ApiError } from "$lib/api/client";
-  import type { AssistantConversation, AssistantReply } from "$lib/types";
+  import type { AssistantConversation, AssistantReply, AssistantQuota } from "$lib/types";
 
   interface Msg {
     role: "user" | "bot";
@@ -15,9 +15,13 @@
     text: "Hai! Saya **Asisten Qlo**. Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
   };
 
+  const OUT_OF_CREDITS_MSG =
+    "Kredit AI (ORT) habis. Tukar OPT menjadi ORT di [halaman dompet](/wallet) untuk melanjutkan.";
+
   let messages: Msg[] = [GREETING];
   let input = "";
   let busy = false;
+  let isOutOfCredits = false;
   let error = "";
   let scroller: HTMLDivElement;
   // AI credit meter (1 request = 1 ORT), refreshed from each reply.
@@ -61,7 +65,11 @@
 
   function render(text: string): string {
     const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+    const linked = escaped.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" class="text-primary underline hover:opacity-80">$1</a>',
+    );
+    return linked.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
   }
 
   async function loadHistory() {
@@ -77,6 +85,36 @@
   }
   let historyError = "";
 
+  async function loadQuota() {
+    try {
+      const q = await api.get<AssistantQuota>("/career/assistant/quota");
+      if (typeof q?.ort_balance === "number") ortBalance = q.ort_balance;
+      if (typeof q?.free_requests_remaining === "number") freeRemaining = q.free_requests_remaining;
+
+      const outOfCredits =
+        q?.can_chat === false ||
+        (typeof q?.ort_balance === "number" &&
+          q.ort_balance <= 0 &&
+          typeof q?.free_requests_remaining === "number" &&
+          q.free_requests_remaining <= 0);
+
+      if (outOfCredits) {
+        isOutOfCredits = true;
+        if (messages.length === 1 && messages[0].role === "bot") {
+          messages = [...messages, { role: "bot", text: OUT_OF_CREDITS_MSG }];
+        }
+      } else if (
+        q?.can_chat === true ||
+        (typeof q?.ort_balance === "number" && q.ort_balance > 0) ||
+        (typeof q?.free_requests_remaining === "number" && q.free_requests_remaining > 0)
+      ) {
+        isOutOfCredits = false;
+      }
+    } catch {
+      /* ignore if quota endpoint unavailable */
+    }
+  }
+
   async function openConversation(id: string) {
     if (busy) return;
     try {
@@ -87,6 +125,9 @@
         text: m.content,
       }));
       if (messages.length === 0) messages = [GREETING];
+      if (isOutOfCredits && !messages.some((m) => m.text.includes("Kredit AI (ORT) habis"))) {
+        messages = [...messages, { role: "bot", text: OUT_OF_CREDITS_MSG }];
+      }
       await scroll();
     } catch (e) {
       error = e instanceof ApiError ? e.message : "Gagal memuat percakapan";
@@ -95,8 +136,12 @@
 
   function newConversation() {
     conversationId = null;
-    messages = [GREETING];
     error = "";
+    if (isOutOfCredits) {
+      messages = [GREETING, { role: "bot", text: OUT_OF_CREDITS_MSG }];
+    } else {
+      messages = [GREETING];
+    }
   }
 
   /** CARE-01: delete a saved conversation. */
@@ -113,8 +158,7 @@
     try {
       await api.delete(`/career/assistant/conversations/${id}`);
       if (conversationId === id) {
-        conversationId = null;
-        messages = [GREETING];
+        newConversation();
       }
       await loadHistory();
     } catch (e) {
@@ -127,6 +171,7 @@
    * endpoint if the stream cannot be established.
    */
   async function send(text?: string) {
+    if (isOutOfCredits) return;
     const q = (text ?? input).trim();
     if (!q || busy) return;
     input = "";
@@ -146,6 +191,15 @@
         },
         body: JSON.stringify({ message: q, conversation_id: conversationId }),
       });
+      if (res.status === 402) {
+        isOutOfCredits = true;
+        ortBalance = 0;
+        freeRemaining = 0;
+        messages = messages.map((m, i) =>
+          i === botIndex ? { ...m, text: OUT_OF_CREDITS_MSG } : m,
+        );
+        return;
+      }
       if (!res.ok || !res.body) throw new Error(`stream failed (${res.status})`);
 
       const reader = res.body.getReader();
@@ -169,12 +223,18 @@
               await scroll();
             }
             if (parsed.conversation_id) conversationId = parsed.conversation_id;
+            if (typeof parsed.ort_balance === "number") ortBalance = parsed.ort_balance;
+            if (typeof parsed.free_requests_remaining === "number")
+              freeRemaining = parsed.free_requests_remaining;
           } catch {
             /* ignore malformed frame */
           }
         }
       }
       if (!acc) throw new Error("empty stream");
+      if (ortBalance === 0 && (freeRemaining ?? 0) <= 0) {
+        isOutOfCredits = true;
+      }
       await loadHistory();
     } catch {
       // JSON fallback (negotiated failure): fetch the whole answer at once.
@@ -188,19 +248,32 @@
         if (typeof reply.ort_balance === "number") ortBalance = reply.ort_balance;
         if (typeof reply.free_requests_remaining === "number")
           freeRemaining = reply.free_requests_remaining;
+        if (ortBalance === 0 && (freeRemaining ?? 0) <= 0) {
+          isOutOfCredits = true;
+        }
         await loadHistory();
-      } catch (e) {
-        messages = messages.slice(0, -1);
-        const rawMsg = e instanceof ApiError ? e.message : "";
-        if (
-          rawMsg.includes("AI_PROVIDER") ||
-          rawMsg.includes("API_KEY") ||
-          rawMsg.includes("502")
-        ) {
-          error =
-            "Asisten sedang dalam pemeliharaan atau mode offline. Silakan coba lagi sebentar lagi.";
+      } catch (err) {
+        const rawMsg = err instanceof ApiError ? err.message : "";
+        const status = err instanceof ApiError ? err.status : 0;
+        if (status === 402 || rawMsg.includes("Kredit AI (ORT) habis")) {
+          isOutOfCredits = true;
+          ortBalance = 0;
+          freeRemaining = 0;
+          messages = messages.map((m, i) =>
+            i === botIndex ? { ...m, text: OUT_OF_CREDITS_MSG } : m,
+          );
         } else {
-          error = rawMsg || "Asisten tidak tersedia saat ini. Silakan coba lagi.";
+          messages = messages.slice(0, -1);
+          if (
+            rawMsg.includes("AI_PROVIDER") ||
+            rawMsg.includes("API_KEY") ||
+            rawMsg.includes("502")
+          ) {
+            error =
+              "Asisten sedang dalam pemeliharaan atau mode offline. Silakan coba lagi sebentar lagi.";
+          } else {
+            error = rawMsg || "Asisten tidak tersedia saat ini. Silakan coba lagi.";
+          }
         }
       }
     } finally {
@@ -223,6 +296,7 @@
 
   onMount(() => {
     loadHistory();
+    loadQuota();
   });
 </script>
 
@@ -245,11 +319,15 @@
         <a href="/career" class="btn-ghost">← Halaman karier</a>
       </div>
       {#if ortBalance !== null || (freeRemaining !== null && freeRemaining > 0)}
-        <div class="card !py-2 !px-3 text-xs">
+        <div class="card !py-2 !px-3 text-xs" class:!border-warning={isOutOfCredits}>
           <span class="mono-label">Kredit AI</span>
-          <span class="ml-2 font-semibold">{ortBalance ?? 0} ORT</span>
+          <span class="ml-2 font-semibold" class:text-warning={isOutOfCredits}
+            >{ortBalance ?? 0} ORT</span
+          >
           {#if freeRemaining}
             <span class="ml-2 muted">· {freeRemaining} gratis tersisa</span>
+          {:else if isOutOfCredits}
+            <span class="ml-2 text-warning">· Habis</span>
           {/if}
         </div>
       {/if}
@@ -308,12 +386,12 @@
               {c.title}
             </button>
             <button
-              class="btn-icon ml-0.5 !text-tertiary"
+              class="btn-icon ml-1 !h-7 !w-7 !text-tertiary hover:!text-danger"
               aria-label={`Hapus percakapan ${c.title}`}
               on:click={() => removeConversation(c.id)}
               disabled={busy}
             >
-              <Icon name="trash" size="9px" />
+              <Icon name="trash" size="10px" />
             </button>
           </span>
         {/each}
@@ -384,29 +462,56 @@
       <p class="px-5 pb-2 text-xs text-danger" role="alert" aria-live="assertive">{copyError}</p>
     {/if}
 
-    <div class="border-t px-5 py-3">
+    {#if isOutOfCredits}
+      <div
+        class="border-t border-warning/30 bg-warning/10 px-5 py-3 text-xs flex flex-wrap items-center justify-between gap-3 text-warning"
+        role="alert"
+        aria-live="polite"
+      >
+        <div class="flex items-center gap-2">
+          <Icon name="triangle-exclamation" size="13px" class="text-warning shrink-0" />
+          <span class="font-medium text-foreground">
+            Kredit AI (ORT) habis. Tukar OPT menjadi ORT di halaman dompet untuk melanjutkan.
+          </span>
+        </div>
+        <a href="/wallet" class="btn-primary !py-1 !px-3 text-xs whitespace-nowrap">
+          Buka Dompet →
+        </a>
+      </div>
+    {/if}
+
+    <div class="border-t px-5 py-3" class:opacity-50={isOutOfCredits}>
       <p class="mono-label" id="suggestions-label">Pertanyaan populer</p>
       <div class="mt-2 flex flex-wrap gap-2" aria-labelledby="suggestions-label">
         {#each suggestions as s}
-          <button class="btn-ghost !py-1 text-xs" on:click={() => send(s)} disabled={busy}
-            >{s}</button
+          <button
+            class="btn-ghost !py-1 text-xs"
+            on:click={() => send(s)}
+            disabled={busy || isOutOfCredits}
+            aria-disabled={busy || isOutOfCredits}>{s}</button
           >
         {/each}
       </div>
     </div>
 
-    <div class="flex items-center gap-2 border-t p-4">
+    <div class="flex items-center gap-2 border-t p-4" class:opacity-60={isOutOfCredits}>
       <label class="sr-only" for="assistant-input">Pertanyaan untuk Asisten Qlo</label>
       <input
         id="assistant-input"
         class="input"
-        placeholder="Tanyakan jurusan, kampus, atau karier…"
+        placeholder={isOutOfCredits
+          ? "Kredit AI (ORT) habis. Tukar OPT menjadi ORT di halaman dompet untuk melanjutkan."
+          : "Tanyakan jurusan, kampus, atau karier…"}
         bind:value={input}
-        on:keydown={(e) => e.key === "Enter" && send()}
-        disabled={busy}
+        on:keydown={(e) => e.key === "Enter" && !isOutOfCredits && send()}
+        disabled={busy || isOutOfCredits}
+        aria-disabled={busy || isOutOfCredits}
       />
-      <button class="btn-primary" on:click={() => send()} disabled={busy || !input.trim()}
-        >Kirim</button
+      <button
+        class="btn-primary"
+        on:click={() => send()}
+        disabled={busy || !input.trim() || isOutOfCredits}
+        aria-disabled={busy || !input.trim() || isOutOfCredits}>Kirim</button
       >
     </div>
   </div>

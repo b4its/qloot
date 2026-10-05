@@ -101,10 +101,22 @@ class WithdrawalService:
         log.info("withdrawal_requested", withdrawal_id=str(wd.id), amount=amount, fee=fee)
         return wd
 
+    async def _get_locked(self, withdrawal_id: uuid.UUID) -> WithdrawalRequest | None:
+        """Fetch withdrawal with row-level lock (FOR UPDATE).
+
+        Serializes state transitions to eliminate double-spend / double-refund race conditions.
+        """
+        stmt = (
+            select(WithdrawalRequest)
+            .where(WithdrawalRequest.id == withdrawal_id)
+            .with_for_update()
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
     async def approve(
         self, *, admin: User, withdrawal_id: uuid.UUID
     ) -> WithdrawalRequest:
-        wd = await self.session.get(WithdrawalRequest, withdrawal_id)
+        wd = await self._get_locked(withdrawal_id)
         if wd is None:
             raise NotFoundError("Withdrawal not found")
         if wd.status != "requested":
@@ -146,7 +158,7 @@ class WithdrawalService:
     async def reject(
         self, *, admin: User, withdrawal_id: uuid.UUID, reason: str | None
     ) -> WithdrawalRequest:
-        wd = await self.session.get(WithdrawalRequest, withdrawal_id)
+        wd = await self._get_locked(withdrawal_id)
         if wd is None:
             raise NotFoundError("Withdrawal not found")
         if wd.status != "requested":
@@ -168,7 +180,7 @@ class WithdrawalService:
         return wd
 
     async def cancel(self, *, user: User, withdrawal_id: uuid.UUID) -> WithdrawalRequest:
-        wd = await self.session.get(WithdrawalRequest, withdrawal_id)
+        wd = await self._get_locked(withdrawal_id)
         if wd is None or wd.user_id != user.id:
             raise NotFoundError("Withdrawal not found")
         if wd.status not in _CANCELLABLE:

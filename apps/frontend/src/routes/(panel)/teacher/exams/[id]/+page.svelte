@@ -757,7 +757,12 @@
             {@const qi = questions.indexOf(q)}
             {#if editingQ === q.id}
               <li class="border-b pb-2 last:border-0">
-                <input class="input" bind:value={editQ.prompt} />
+                <input
+                  class="input"
+                  placeholder="Pertanyaan soal"
+                  aria-label="Pertanyaan soal"
+                  bind:value={editQ.prompt}
+                />
                 {#if editQ.qtype === "multiple_choice" || editQ.qtype === "multi_select"}
                   <div class="mt-2 space-y-2">
                     {#each editQ.options as opt, oi}
@@ -780,6 +785,7 @@
                           class="input !py-1"
                           bind:value={opt.text}
                           placeholder="Teks pilihan"
+                          aria-label={`Teks pilihan ${OPTION_LABELS[oi]}`}
                         />
                         <button
                           type="button"
@@ -802,7 +808,11 @@
                     </button>
                   </div>
                 {:else if editQ.qtype === "true_false"}
-                  <select class="input mt-2 !w-auto !py-1" bind:value={editQ.tf}>
+                  <select
+                    class="input mt-2 !w-auto !py-1"
+                    bind:value={editQ.tf}
+                    aria-label="Jawaban benar atau salah"
+                  >
                     <option value="true">Benar</option>
                     <option value="false">Salah</option>
                   </select>
@@ -814,6 +824,7 @@
                       type="number"
                       step="any"
                       bind:value={editQ.numericValue}
+                      aria-label="Nilai jawaban numerik"
                     />
                     <span class="mono-label">Toleransi</span>
                     <input
@@ -822,30 +833,35 @@
                       min="0"
                       step="any"
                       bind:value={editQ.numericTolerance}
+                      aria-label="Toleransi numerik"
                     />
                   </div>
                 {:else if editQ.qtype === "fill_blank"}
                   <input
                     class="input mt-2"
                     placeholder="Jawaban diterima, pisahkan dengan koma"
+                    aria-label="Jawaban diterima, pisahkan dengan koma"
                     bind:value={editQ.fillAnswers}
                   />
                 {:else if editQ.qtype === "ordering"}
                   <textarea
                     class="input mt-2 min-h-[80px]"
                     placeholder="Item dalam urutan benar, satu per baris"
+                    aria-label="Item dalam urutan benar, satu per baris"
                     bind:value={editQ.orderItems}
                   ></textarea>
                 {:else if editQ.qtype === "matching"}
                   <textarea
                     class="input mt-2 min-h-[80px]"
                     placeholder="Pasangan kunci=nilai, satu per baris"
+                    aria-label="Pasangan kunci=nilai, satu per baris"
                     bind:value={editQ.matchPairs}
                   ></textarea>
                 {:else}
                   <textarea
                     class="input mt-2 min-h-[60px]"
                     placeholder="Kunci jawaban"
+                    aria-label="Kunci jawaban"
                     bind:value={editQ.correct_answer}
                   ></textarea>
                 {/if}
@@ -857,6 +873,7 @@
                     min="0"
                     max="100"
                     bind:value={editQ.weight}
+                    aria-label="Bobot soal dalam persen"
                   />
                 </div>
                 <div class="mt-2 flex gap-2">
@@ -1015,7 +1032,7 @@
         <div class="mt-3 space-y-2 border-t pt-3">
           <div class="flex items-center gap-2">
             <span class="mono-label">Tipe soal</span>
-            <select class="input !w-auto !py-1" bind:value={newQ.qtype}>
+            <select class="input !w-auto !py-1" bind:value={newQ.qtype} aria-label="Tipe soal baru">
               <option value="essay">Esai (dinilai AI)</option>
               <option value="multiple_choice">Pilihan ganda</option>
               <option value="true_false">Benar/Salah</option>
@@ -1026,7 +1043,12 @@
               <option value="ordering">Mengurutkan</option>
             </select>
           </div>
-          <input class="input" placeholder="Pertanyaan baru" bind:value={newQ.prompt} />
+          <input
+            class="input"
+            placeholder="Pertanyaan baru"
+            aria-label="Pertanyaan baru"
+            bind:value={newQ.prompt}
+          />
           {#if newQ.qtype === "multiple_choice" || newQ.qtype === "multi_select"}
             <div class="space-y-2">
               {#each newQ.options as opt, oi}
@@ -1044,7 +1066,12 @@
                     <Icon name={opt.is_correct ? "circle-check" : "circle"} size="11px" />
                   </button>
                   <span class="mono text-xs muted">{OPTION_LABELS[oi]}</span>
-                  <input class="input !py-1" bind:value={opt.text} placeholder="Teks pilihan" />
+                  <input
+                    class="input !py-1"
+                    bind:value={opt.text}
+                    placeholder="Teks pilihan"
+                    aria-label={`Teks pilihan ${OPTION_LABELS[oi]}`}
+                  />
                   <button
                     type="button"
                     class="btn-icon !text-tertiary flex-none"
@@ -1065,7 +1092,11 @@
               </button>
             </div>
           {:else if newQ.qtype === "true_false"}
-            <select class="input !w-auto !py-1" bind:value={newQ.tf}>
+            <select
+              class="input !w-auto !py-1"
+              bind:value={newQ.tf}
+              aria-label="Jawaban benar atau salah"
+            >
               <option value="true">Benar</option>
               <option value="false">Salah</option>
             </select>
@@ -1077,6 +1108,7 @@
                 type="number"
                 step="any"
                 bind:value={newQ.numericValue}
+                aria-label="Nilai jawaban numerik"
               />
               <span class="mono-label">Toleransi</span>
               <input
@@ -1085,30 +1117,35 @@
                 min="0"
                 step="any"
                 bind:value={newQ.numericTolerance}
+                aria-label="Toleransi numerik"
               />
             </div>
           {:else if newQ.qtype === "fill_blank"}
             <input
               class="input"
               placeholder="Jawaban diterima, pisahkan dengan koma"
+              aria-label="Jawaban diterima, pisahkan dengan koma"
               bind:value={newQ.fillAnswers}
             />
           {:else if newQ.qtype === "ordering"}
             <textarea
               class="input min-h-[80px]"
               placeholder="Item dalam urutan benar, satu per baris"
+              aria-label="Item dalam urutan benar, satu per baris"
               bind:value={newQ.orderItems}
             ></textarea>
           {:else if newQ.qtype === "matching"}
             <textarea
               class="input min-h-[80px]"
               placeholder="Pasangan kunci=nilai, satu per baris"
+              aria-label="Pasangan kunci=nilai, satu per baris"
               bind:value={newQ.matchPairs}
             ></textarea>
           {:else}
             <textarea
               class="input min-h-[70px]"
               placeholder="Kunci jawaban / acuan"
+              aria-label="Kunci jawaban / acuan"
               bind:value={newQ.correct_answer}
             ></textarea>
           {/if}
@@ -1120,6 +1157,7 @@
               min="0"
               max="100"
               bind:value={newQ.weight}
+              aria-label="Bobot soal dalam persen"
             />
           </div>
           <button class="btn-primary" on:click={addQuestion} disabled={busy === "q-add"}>

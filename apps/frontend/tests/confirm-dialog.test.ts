@@ -77,4 +77,26 @@ describe("ConfirmDialog", () => {
     expect(document.querySelector('[data-role="confirm-action"]')).toBeNull();
     cleanup();
   });
+
+  it("invokes close when Escape is pressed on the window", async () => {
+    const close = vi.fn();
+    render(ConfirmDialog, {
+      props: { title: "T", onConfirm: vi.fn(), close },
+    });
+    await fireEvent.keyDown(window, { key: "Escape" });
+    expect(close).toHaveBeenCalledOnce();
+    cleanup();
+  });
+
+  it("invokes close when clicking outside the dialog card (on backdrop overlay)", async () => {
+    const close = vi.fn();
+    render(ConfirmDialog, {
+      props: { title: "T", onConfirm: vi.fn(), close },
+    });
+    const backdrop = document.querySelector('[role="presentation"]') as HTMLElement;
+    expect(backdrop).toBeTruthy();
+    await fireEvent.click(backdrop);
+    expect(close).toHaveBeenCalledOnce();
+    cleanup();
+  });
 });

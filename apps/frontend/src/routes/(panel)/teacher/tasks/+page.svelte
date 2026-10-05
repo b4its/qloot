@@ -371,6 +371,7 @@
         type="text"
         class="input text-xs !py-1.5 w-full"
         placeholder="Cari tugas..."
+        aria-label="Cari tugas"
         bind:value={searchQuery}
         on:keydown={(e) => e.key === "Enter" && applyFilters()}
       />
@@ -483,10 +484,16 @@
           </div>
           {#if editId === t.id}
             <div class="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2">
-              <input class="input sm:col-span-2" placeholder="Judul" bind:value={editDraft.title} />
+              <input
+                class="input sm:col-span-2"
+                placeholder="Judul"
+                aria-label="Judul tugas"
+                bind:value={editDraft.title}
+              />
               <input
                 class="input sm:col-span-2"
                 placeholder="Deskripsi"
+                aria-label="Deskripsi tugas"
                 bind:value={editDraft.description}
               />
               <label class="block">

@@ -12,6 +12,7 @@ from app.schemas.common import ORMModel
 
 
 class GradeIn(BaseModel):
+    user_id: uuid.UUID | None = None
     subject: str = Field(min_length=1, max_length=64)
     grade: int = Field(ge=0, le=100)
     term: str = Field(default="2025/2026-genap", max_length=32)
@@ -222,3 +223,9 @@ class AssistantConversationOut(ORMModel):
 
 class AssistantConversationDetailOut(AssistantConversationOut):
     messages: list[AssistantMessageOut] = Field(default_factory=list)
+
+
+class AssistantQuotaOut(BaseModel):
+    ort_balance: int = 0
+    free_requests_remaining: int = 0
+    can_chat: bool = True

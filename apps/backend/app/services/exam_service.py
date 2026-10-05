@@ -569,9 +569,26 @@ class ExamService:
         return answer
 
     async def submit_attempt(self, attempt_id: uuid.UUID, user: User) -> ExamAttempt:
-        attempt = await self._get_own_attempt(attempt_id, user)
+        # Lock attempt row with pessimistic row-level lock (FOR UPDATE)
+        # to serialize concurrent submissions and sweeper auto-submits.
+        stmt = (
+            select(ExamAttempt)
+            .where(ExamAttempt.id == attempt_id)
+            .with_for_update()
+        )
+        attempt = (await self.session.execute(stmt)).scalar_one_or_none()
+        if attempt is None:
+            raise NotFoundError("Attempt not found")
         if attempt.user_id != user.id:
-            raise ForbiddenError("You cannot submit this attempt")
+            if user.has_role("admin"):
+                pass
+            elif not user.has_role("teacher"):
+                raise ForbiddenError("You cannot submit this attempt")
+            else:
+                exam = await self.session.get(Exam, attempt.exam_id)
+                if exam is None or exam.owner_id != user.id:
+                    raise ForbiddenError("You do not own this exam")
+
         # Idempotent submit: if already submitted/graded, return as-is.
         if attempt.status in ("submitted", "graded", "grading_failed"):
             return attempt

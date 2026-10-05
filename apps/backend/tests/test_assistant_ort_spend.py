@@ -58,3 +58,16 @@ async def test_assistant_free_tier_does_not_spend_ort(client, monkeypatch):
     # Free tier exhausted, no ORT -> blocked.
     second = await client.post("/api/v1/career/assistant", json={"message": "Lagi"})
     assert second.status_code == 402, second.text
+
+
+async def test_assistant_quota_endpoint(client, monkeypatch):
+    monkeypatch.setattr(settings, "ai_free_requests", 0)
+    await register_actor(client, "asst_quota@ex.com", "student")
+
+    # With 0 free requests and 0 ORT balance
+    quota_resp = await client.get("/api/v1/career/assistant/quota")
+    assert quota_resp.status_code == 200
+    data = quota_resp.json()
+    assert data["ort_balance"] == 0
+    assert data["free_requests_remaining"] == 0
+    assert data["can_chat"] is False

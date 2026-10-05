@@ -35,12 +35,12 @@ describe("dashboard inline grade editing (no native prompt)", () => {
     del.mockReset();
     auth.setUser({
       id: "u1",
-      email: "s@x.com",
-      full_name: "Student",
+      email: "t@x.com",
+      full_name: "Teacher User",
       is_active: true,
       chain_user_ref: "0x0",
       created_at: "2026-01-01T00:00:00Z",
-      roles: ["student"],
+      roles: ["teacher"],
     });
     get.mockImplementation((path: string) => {
       if (path === "/career/grades") return Promise.resolve(grades);
@@ -75,5 +75,22 @@ describe("dashboard inline grade editing (no native prompt)", () => {
     await fireEvent.click(confirm);
 
     await waitFor(() => expect(del).toHaveBeenCalledWith("/career/grades/g2"));
+  });
+
+  it("hides edit, delete, and input controls for student role (read-only transcript)", async () => {
+    auth.setUser({
+      id: "u_student",
+      email: "student@x.com",
+      full_name: "Student User",
+      is_active: true,
+      chain_user_ref: "0x0",
+      created_at: "2026-01-01T00:00:00Z",
+      roles: ["student"],
+    });
+    render(DashboardPage);
+    await waitFor(() => expect(screen.getAllByText("Matematika").length).toBeGreaterThan(0));
+    expect(screen.queryByLabelText("Ubah nilai Matematika")).toBeNull();
+    expect(screen.queryByLabelText("Hapus nilai Fisika")).toBeNull();
+    expect(screen.queryByText("Input Nilai Akademik Siswa (Guru & Admin)")).toBeNull();
   });
 });

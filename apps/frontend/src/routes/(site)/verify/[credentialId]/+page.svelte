@@ -75,7 +75,7 @@
         <p class="alert-error mt-5" role="alert" aria-live="assertive">{error}</p>
       {:else if result && result.valid}
         <!-- Trust banner -->
-        <div class="mt-5 flex items-center gap-3 rounded-sm border border-emerald-500/40 p-3">
+        <div class="mt-5 flex items-center gap-3 rounded-sm border border-mint/40 p-3">
           <span class="tile-neutral h-10 w-10">
             <Icon name="circle-check" size="18px" class="text-mint" />
           </span>

@@ -407,16 +407,23 @@
           {#each lessons as l, i}
             {#if editingLesson === l.id}
               <li class="border-b py-2 last:border-0">
-                <input class="input" bind:value={editLesson.title} placeholder="Judul materi" />
+                <input
+                  class="input"
+                  bind:value={editLesson.title}
+                  placeholder="Judul materi"
+                  aria-label="Judul materi"
+                />
                 <input
                   class="input mt-2"
                   type="url"
                   bind:value={editLesson.video_url}
                   placeholder="URL video (opsional)"
+                  aria-label="URL video materi (opsional)"
                 />
                 <textarea
                   class="input mt-2 min-h-[60px]"
                   placeholder="Konten (Markdown)"
+                  aria-label="Konten materi (Markdown)"
                   bind:value={editLesson.content_md}
                 ></textarea>
                 <label class="mt-2 flex items-center gap-2 text-xs">
@@ -484,16 +491,23 @@
         </ol>
 
         <div class="mt-3 space-y-2 border-t pt-3">
-          <input class="input" placeholder="Judul materi baru" bind:value={newLesson.title} />
+          <input
+            class="input"
+            placeholder="Judul materi baru"
+            aria-label="Judul materi baru"
+            bind:value={newLesson.title}
+          />
           <input
             class="input"
             type="url"
             placeholder="URL video (opsional)"
+            aria-label="URL video materi baru (opsional)"
             bind:value={newLesson.video_url}
           />
           <textarea
             class="input min-h-[70px]"
             placeholder="Konten (Markdown)"
+            aria-label="Konten materi baru (Markdown)"
             bind:value={newLesson.content_md}
           ></textarea>
           <label class="flex items-center gap-2 text-xs">

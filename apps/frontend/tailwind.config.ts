@@ -71,7 +71,16 @@ export default {
         mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
       fontSize: {
+        "2xs": ["10px", { lineHeight: "1.3", letterSpacing: "0.04em" }],
         caption: ["11px", { lineHeight: "1.4", letterSpacing: "0.18em" }],
+      },
+      screens: {
+        // Material Design 3 Window Size Classes (alongside standard Tailwind breakpoints).
+        compact: { max: "599px" },
+        medium: { min: "600px", max: "839px" },
+        expanded: { min: "840px", max: "1199px" },
+        large: { min: "1200px", max: "1599px" },
+        xlarge: { min: "1600px" },
       },
       borderRadius: {
         // Cyberpunk leans angular: keep radii small and sharp.

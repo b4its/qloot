@@ -8,6 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends
 
 from app.api.deps import CurrentUser, DbSession, LimitParam, OffsetParam, TeacherUser
+from app.core.errors import ForbiddenError
 from app.core.logging import get_logger
 from app.db.session import transaction
 from app.middleware.rate_limit import rate_limit
@@ -15,6 +16,7 @@ from app.schemas.career import (
     AssistantConversationDetailOut,
     AssistantConversationOut,
     AssistantMessageOut,
+    AssistantQuotaOut,
     ChatIn,
     ChatOut,
     ConsultationIn,
@@ -62,9 +64,14 @@ async def list_grades(
 
 @router.post("/grades", response_model=GradeOut)
 async def upsert_grade(payload: GradeIn, user: CurrentUser, db: DbSession):
+    target_user_id = user.id
+    if payload.user_id and payload.user_id != user.id:
+        if not (user.has_role("admin") or user.has_role("teacher")):
+            raise ForbiddenError("Hanya guru dan admin yang dapat menginput nilai siswa lain")
+        target_user_id = payload.user_id
     async with transaction(db):
         return await CareerService(db).upsert_grade(
-            user.id, payload.subject, payload.grade, payload.term
+            target_user_id, payload.subject, payload.grade, payload.term
         )
 
 
@@ -85,18 +92,22 @@ async def export_grades_csv(user: CurrentUser, db: DbSession):
 async def update_grade(
     grade_id: uuid.UUID, payload: GradeUpdate, user: CurrentUser, db: DbSession
 ):
-    """Edit one of the caller's grades (UIX-05)."""
+    """Edit an academic grade (teacher and admin only)."""
+    if not (user.has_role("admin") or user.has_role("teacher")):
+        raise ForbiddenError("Hanya guru dan admin yang diizinkan mengubah nilai akademik")
     async with transaction(db):
         return await CareerService(db).update_grade(
-            user.id, grade_id, grade=payload.grade, subject=payload.subject, term=payload.term
+            user, grade_id, grade=payload.grade, subject=payload.subject, term=payload.term
         )
 
 
 @router.delete("/grades/{grade_id}", response_model=Message)
 async def delete_grade(grade_id: uuid.UUID, user: CurrentUser, db: DbSession):
-    """Remove one of your own academic grades."""
+    """Remove an academic grade (teacher and admin only)."""
+    if not (user.has_role("admin") or user.has_role("teacher")):
+        raise ForbiddenError("Hanya guru dan admin yang diizinkan menghapus nilai akademik")
     async with transaction(db):
-        await CareerService(db).delete_grade(user.id, grade_id)
+        await CareerService(db).delete_grade(user, grade_id)
     return Message(message="Grade deleted")
 
 
@@ -462,6 +473,21 @@ async def assistant_stream(payload: ChatIn, user: CurrentUser, db: DbSession):
         _events(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/assistant/quota", response_model=AssistantQuotaOut)
+async def get_assistant_quota(user: CurrentUser, db: DbSession):
+    """Current AI credit balance and free-tier allowance."""
+    from app.services.ai_usage_service import AiUsageService
+
+    usage = AiUsageService(db)
+    free_remaining = await usage.free_requests_remaining(user.id)
+    ort_balance = await RewardEngine(db).asset_balance(user.id, "ORT")
+    return AssistantQuotaOut(
+        ort_balance=ort_balance,
+        free_requests_remaining=free_remaining,
+        can_chat=(free_remaining > 0) or (ort_balance > 0),
     )
 
 

@@ -85,7 +85,7 @@
   $: metrics = [
     { label: "Total Quest", value: quests.length },
     { label: "Quest Aktif", value: openQuestsCount, tone: "text-mint" },
-    { label: "Quest Selesai", value: finalizedQuestsCount, tone: "text-indigo-400" },
+    { label: "Quest Selesai", value: finalizedQuestsCount, tone: "text-primary" },
     { label: "Total Pool Hadiah", value: `${totalRewardsPool} OPT`, tone: "text-highlight" },
   ];
 
@@ -329,11 +329,11 @@
                       >
                         <span class="font-medium flex items-center gap-1.5">
                           {#if w.rank === 1}
-                            <span class="text-amber-400 font-bold">🥇 1</span>
+                            <span class="text-amber font-bold">🥇 1</span>
                           {:else if w.rank === 2}
-                            <span class="text-slate-300 font-bold">🥈 2</span>
+                            <span class="text-ink2 font-bold">🥈 2</span>
                           {:else if w.rank === 3}
-                            <span class="text-amber-600 font-bold">🥉 3</span>
+                            <span class="text-highlight font-bold">🥉 3</span>
                           {:else}
                             <span class="font-mono font-bold">#{w.rank}</span>
                           {/if}
@@ -452,11 +452,11 @@
                 <tr class="hover:bg-surface/50 transition-colors">
                   <td class="py-2.5 px-3 font-mono font-bold">
                     {#if e.rank === 1}
-                      <span class="text-amber-400">🥇 1</span>
+                      <span class="text-amber">🥇 1</span>
                     {:else if e.rank === 2}
-                      <span class="text-slate-300">🥈 2</span>
+                      <span class="text-ink2">🥈 2</span>
                     {:else if e.rank === 3}
-                      <span class="text-amber-600">🥉 3</span>
+                      <span class="text-highlight">🥉 3</span>
                     {:else}
                       #{e.rank}
                     {/if}

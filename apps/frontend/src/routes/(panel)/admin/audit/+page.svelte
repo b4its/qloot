@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import { formatDate } from "$lib/utils/format";
@@ -72,6 +72,10 @@
     if (searchDebounce) clearTimeout(searchDebounce);
     searchDebounce = setTimeout(applyFilter, 250);
   }
+
+  onDestroy(() => {
+    if (searchDebounce) clearTimeout(searchDebounce);
+  });
 
   function toggleExpand(id: string) {
     if (expanded.has(id)) expanded.delete(id);

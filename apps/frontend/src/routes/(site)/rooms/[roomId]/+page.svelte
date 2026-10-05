@@ -313,9 +313,7 @@
             {statusLabel(room.status)}
           </span>
           {#if room.is_locked}
-            <span
-              class="badge border border-amber-500/40 text-amber-400 text-xs flex items-center gap-1"
-            >
+            <span class="badge badge-amber text-xs flex items-center gap-1">
               <Icon name="lock" size="9px" />
               <span>Terkunci</span>
             </span>
@@ -408,7 +406,7 @@
               </button>
             {:else}
               <button
-                class="btn-ghost !py-1.5 text-xs text-amber-400"
+                class="btn-ghost !py-1.5 text-xs text-amber"
                 on:click={lockRoom}
                 disabled={busy === "lock"}
               >
@@ -543,11 +541,11 @@
                     <tr class="hover:bg-surface/50 transition-colors">
                       <td class="py-2.5 px-3 font-mono font-bold">
                         {#if e.rank === 1}
-                          <span class="text-amber-400">🥇 1</span>
+                          <span class="text-amber">🥇 1</span>
                         {:else if e.rank === 2}
-                          <span class="text-slate-300">🥈 2</span>
+                          <span class="text-ink2">🥈 2</span>
                         {:else if e.rank === 3}
-                          <span class="text-amber-600">🥉 3</span>
+                          <span class="text-highlight">🥉 3</span>
                         {:else}
                           {e.rank}
                         {/if}
@@ -602,11 +600,11 @@
                   <tr class="hover:bg-surface/50 transition-colors">
                     <td class="py-2.5 px-3 font-mono font-bold">
                       {#if e.rank === 1}
-                        <span class="text-amber-400">🥇 1</span>
+                        <span class="text-amber">🥇 1</span>
                       {:else if e.rank === 2}
-                        <span class="text-slate-300">🥈 2</span>
+                        <span class="text-ink2">🥈 2</span>
                       {:else if e.rank === 3}
-                        <span class="text-amber-600">🥉 3</span>
+                        <span class="text-highlight">🥉 3</span>
                       {:else}
                         {e.rank}
                       {/if}

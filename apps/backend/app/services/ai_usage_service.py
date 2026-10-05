@@ -66,8 +66,13 @@ class AiUsageService:
         if existing is not None:
             return  # already metered for this job
 
-        free_remaining = await self.free_requests_remaining(user.id)
         engine = RewardEngine(self.session)
+        # Lock user's wallet account row before inspecting free-tier quota.
+        # This serializes concurrent AI requests for the same user, preventing
+        # free quota bypass via TOCTOU race conditions.
+        await engine.get_or_create_account(user.id)
+
+        free_remaining = await self.free_requests_remaining(user.id)
         needs_debit = free_remaining <= 0
         if needs_debit:
             balance = await engine.asset_balance(user.id, "ORT")

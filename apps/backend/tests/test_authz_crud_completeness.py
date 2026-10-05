@@ -5,7 +5,7 @@ Covers authorization/visibility + CRUD-symmetry gaps:
   - a private room's ranking 404s for non-members
   - a quest cannot reference an exam the caller does not own
   - community comments can be deleted (author/admin only)
-  - career grades can be deleted (owner only)
+  - career grades can be deleted by teachers and admins only (forbidden for students)
 """
 
 from __future__ import annotations
@@ -171,7 +171,7 @@ async def test_cannot_delete_another_users_comment(client):
 
 
 # --- career grade delete --------------------------------------------------
-async def test_delete_own_grade(client):
+async def test_student_cannot_delete_grade(client):
     await _register(client, "g3_student@ex.com", "student")
     up = await client.post(
         "/api/v1/career/grades",
@@ -182,12 +182,11 @@ async def test_delete_own_grade(client):
     assert grade_id is not None
 
     dele = await client.delete(f"/api/v1/career/grades/{grade_id}")
-    assert dele.status_code == 200, dele.text
-    grades = await client.get("/api/v1/career/grades")
-    assert all(g["subject"] != "Matematika" for g in grades.json())
+    assert dele.status_code == 403, dele.text
+    assert "guru dan admin" in dele.text or "teacher" in dele.text.lower()
 
 
-async def test_cannot_delete_another_users_grade(client):
+async def test_teacher_can_delete_student_grade(client):
     await _register(client, "g3_owner@ex.com", "student")
     grade_id = (
         await client.post(
@@ -196,6 +195,6 @@ async def test_cannot_delete_another_users_grade(client):
     ).json()["id"]
     await client.post("/api/v1/auth/logout")
 
-    await _register(client, "g3_other@ex.com", "student")
-    denied = await client.delete(f"/api/v1/career/grades/{grade_id}")
-    assert denied.status_code == 404, denied.text
+    await _register(client, "g3_teacher@ex.com", "teacher")
+    resp = await client.delete(f"/api/v1/career/grades/{grade_id}")
+    assert resp.status_code == 200, resp.text

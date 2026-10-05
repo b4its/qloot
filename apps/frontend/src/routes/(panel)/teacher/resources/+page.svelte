@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { api, ApiError } from "$lib/api/client";
   import type { ResourceItem } from "$lib/types";
@@ -47,6 +47,9 @@
 
   // Debounced search so typing filters without hammering the API.
   let debounce: ReturnType<typeof setTimeout> | null = null;
+  onDestroy(() => {
+    if (debounce) clearTimeout(debounce);
+  });
 
   function onSearch() {
     if (debounce) clearTimeout(debounce);
@@ -228,15 +231,35 @@
   <div class="card mt-6">
     <h2 class="font-display font-bold">Tambah sumber daya</h2>
     <div class="mt-3 grid gap-2 sm:grid-cols-2">
-      <input class="input" placeholder="Kode (unik)" bind:value={form.code} />
-      <select class="input" bind:value={form.category}>
+      <input
+        class="input"
+        placeholder="Kode (unik)"
+        aria-label="Kode sumber daya (unik)"
+        bind:value={form.code}
+      />
+      <select class="input" bind:value={form.category} aria-label="Kategori sumber daya">
         <option value="course">Pelajaran</option>
         <option value="extracurricular">Ekstrakurikuler</option>
         <option value="material">Materi</option>
       </select>
-      <input class="input sm:col-span-2" placeholder="Judul" bind:value={form.title} />
-      <input class="input" placeholder="Penyedia (opsional)" bind:value={form.provider} />
-      <input class="input" placeholder="Deskripsi (opsional)" bind:value={form.description} />
+      <input
+        class="input sm:col-span-2"
+        placeholder="Judul"
+        aria-label="Judul sumber daya"
+        bind:value={form.title}
+      />
+      <input
+        class="input"
+        placeholder="Penyedia (opsional)"
+        aria-label="Penyedia sumber daya"
+        bind:value={form.provider}
+      />
+      <input
+        class="input"
+        placeholder="Deskripsi (opsional)"
+        aria-label="Deskripsi sumber daya"
+        bind:value={form.description}
+      />
     </div>
     <button
       class="btn-primary mt-3 !py-1.5"
