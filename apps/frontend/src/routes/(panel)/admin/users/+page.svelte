@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { api, apiGetPaged, ApiError } from "$lib/api/client";
   import type { User } from "$lib/types";
@@ -63,6 +63,10 @@
       void load();
     }, 200);
   }
+
+  onDestroy(() => {
+    if (debounce) clearTimeout(debounce);
+  });
 
   function resetFilters() {
     query = "";

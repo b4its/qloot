@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
   import { api, ApiError } from "$lib/api/client";
   import type { ResourceItem, Recommendation } from "$lib/types";
@@ -74,6 +74,10 @@
       void load();
     }, 250);
   }
+
+  onDestroy(() => {
+    if (debounce) clearTimeout(debounce);
+  });
 
   function resetFilters() {
     query = "";

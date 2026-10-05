@@ -471,10 +471,12 @@
                               min="0"
                               max="100"
                               bind:value={d.score}
+                              aria-label="Override nilai dalam persen"
                             />
                             <input
                               class="input !py-1 text-sm"
                               placeholder="Umpan balik"
+                              aria-label="Umpan balik guru"
                               bind:value={d.feedback}
                             />
                             <button
