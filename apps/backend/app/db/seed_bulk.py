@@ -1,16 +1,19 @@
-"""Bulk seeder: pad the catalog to ~200 rows per table.
+"""Realistic support-data seeder for the QLoot demo.
 
-This complements the curated simulation in ``app.db.seed`` with a large,
-deterministic volume of data so the UI, rankings and analytics are non-trivial:
+This module seeds the platform's *supporting* data — accounts, the badge
+catalogue, study rooms, tasks, the community feed, career/BK data, wallet
+ledger, notifications and ops/blockchain rows — with believable content instead
+of ``… #001`` filler.
 
-  - exactly 5 teachers and 50 students spread across classes
-  - ~200 rows in each "content" table (courses, lessons, materials, exams,
-    questions, rooms, quests, tasks, badges, notifications, career tables,
-    wallet ledger entries, ...)
+It deliberately does **not** create the curriculum catalogue or the learning
+history: those live in :mod:`app.db.seed_timeline`, which replays the real flow
+(class → lessons → exams → grading → rewards → certificates) across a real
+calendar at 100–200 learning records per month. ``main`` here covers everything
+else, then delegates the timeline to make the demo coherent.
 
-Everything is idempotent: re-running only inserts what is missing, so it is
-safe to run repeatedly against a live database. IDs are derived from stable
-seeds (uuid5) so rows keep the same identity across runs.
+Everything is deterministic (uuid5 ids from stable seeds) and idempotent
+(row-count guards + stable ids), so it is safe to run repeatedly against a live
+database.
 
 Run with: ``python -m app.db.seed_bulk`` (or via ``app.db.seed``).
 """
@@ -18,9 +21,7 @@ Run with: ``python -m app.db.seed_bulk`` (or via ``app.db.seed``).
 from __future__ import annotations
 
 import asyncio
-import io
 import random
-import urllib.request
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -31,7 +32,10 @@ from app.core.logging import get_logger
 
 log = get_logger("seed_bulk")
 
-TARGET = 200  # rows per table
+# Kept for backwards-compatibility with callers/tests that import it. The
+# timeline seeder decides its own volume; this is only a loose upper bound used
+# by a couple of "fill to N" helpers below.
+TARGET = 200
 
 # Stable namespace so regenerating produces the same UUIDs.
 NS = uuid.UUID("6f3d1c1a-0000-4000-8000-000000000001")
@@ -41,7 +45,9 @@ def det_uuid(*parts: str) -> uuid.UUID:
     return uuid.uuid5(NS, "|".join(parts))
 
 
-# --- names -----------------------------------------------------------------
+# --- realistic people ------------------------------------------------------
+# A wider, more genuine Indonesian name pool so the 50-student roster reads like
+# a real cohort rather than "Budi Santoso" repeated.
 _FIRST = [
     "Adi",
     "Budi",
@@ -110,83 +116,22 @@ _LAST = [
     "Permata",
     "Lestari",
     "Firmansyah",
+    "Ramadhan",
+    "Saputra",
+    "Anggraini",
+    "Maulana",
+    "Handayani",
 ]
 
+# Class roster matches the curriculum in :mod:`app.db.content`.
 CLASSES = [
-    ("1A", "IPA"),
-    ("1B", "IPA"),
-    ("2A", "IPA"),
-    ("2D", "IPS"),
-    ("3A", "IPA"),
-    ("3B", "IPS"),
+    ("10A", "IPA"),
+    ("10B", "IPS"),
+    ("11A", "IPA"),
+    ("11B", "IPS"),
+    ("12A", "IPA"),
+    ("12B", "IPS"),
 ]
-SUBJECTS = [
-    "Matematika",
-    "Fisika",
-    "Kimia",
-    "Biologi",
-    "B. Indonesia",
-    "B. Inggris",
-    "Sejarah",
-    "Ekonomi",
-    "Sosiologi",
-    "Geografi",
-]
-
-# Real, text-rich PDFs from the internet (open course notes). If the network is
-# unavailable the seeder falls back to a locally generated PDF so it always
-# succeeds offline.
-PDF_SOURCES = [
-    "https://web.stanford.edu/class/cs224n/readings/cs224n-2019-notes01-wordvecs1.pdf",
-    "https://web.stanford.edu/class/cs224n/readings/cs224n-2019-notes02-wordvecs2.pdf",
-    "https://web.stanford.edu/class/cs224n/readings/cs224n-2019-notes03-neuralnets.pdf",
-    "https://web.stanford.edu/class/cs224n/readings/cs224n-2019-notes04-dependencyparsing.pdf",
-    "https://web.stanford.edu/class/cs224n/readings/cs224n-2019-notes05-language-models.pdf",
-]
-
-
-def _cache_pdf(url: str) -> tuple[bytes, str] | None:
-    """Download a PDF and return (bytes, extracted_text), or None on failure."""
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "QLoot-Seeder/1.0"})
-        data = urllib.request.urlopen(req, timeout=25).read()
-        if not data.startswith(b"%PDF"):
-            return None
-        from pypdf import PdfReader
-
-        reader = PdfReader(io.BytesIO(data))
-        text = "\n".join((page.extract_text() or "") for page in reader.pages)
-        return data, text[:500_000]
-    except Exception as exc:  # noqa: BLE001
-        log.warning("pdf_fetch_failed", url=url, error=str(exc))
-        return None
-
-
-def _fallback_pdf(text: str) -> bytes:
-    """Locally generated, valid PDF used when the network is unavailable."""
-    stream = b"BT /F1 11 Tf 72 760 Td 14 TL (" + text.encode("latin-1", "ignore") + b") Tj ET"
-    objs = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
-        b"/Resources << /Font << /F1 5 0 R >> >> >>",
-        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    ]
-    out = bytearray(b"%PDF-1.4\n")
-    offsets = [0]
-    for i, o in enumerate(objs, 1):
-        offsets.append(len(out))
-        out += b"%d 0 obj\n" % i + o + b"\nendobj\n"
-    xref = len(out)
-    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
-    for off in offsets[1:]:
-        out += b"%010d 00000 n \n" % off
-    out += b"trailer << /Root 1 0 R /Size %d >>\nstartxref\n%d\n%%%%EOF" % (
-        len(objs) + 1,
-        xref,
-    )
-    return bytes(out)
 
 
 async def _get_or_create_user(
@@ -228,9 +173,7 @@ async def _get_or_create_user(
     from app.services.wallet_service import default_wallet_address
 
     session.add(
-        WalletAccount(
-            user_id=uid, token_id=0, withdrawal_address=default_wallet_address() or None
-        )
+        WalletAccount(user_id=uid, token_id=0, withdrawal_address=default_wallet_address() or None)
     )
     await session.flush()
     return user
@@ -245,7 +188,6 @@ async def seed_accounts(session: AsyncSession):
     """
     from app.models.identity import Role, User, UserRole
 
-    # Existing teachers/students (any origin).
     teacher_role_id = (
         await session.execute(select(Role.id).where(Role.name == "teacher"))
     ).scalar_one()
@@ -271,17 +213,15 @@ async def seed_accounts(session: AsyncSession):
     teachers: list[User] = []
     i = 1
     while teacher_count + len(teachers) < 5:
-        # Skip the curated "teacher2" slot name by using teacherN@ numbering.
         email = f"teacher{i + 2}@qloot.example"
-        t = await _get_or_create_user(session, email, f"{_FIRST[i]} {_LAST[i]} (Guru)", "teacher")
+        t = await _get_or_create_user(session, email, f"{_FIRST[i]} {_LAST[i]}", "teacher")
         teachers.append(t)
         i += 1
 
     students = []
     n = student_total
-    i = 1
     while n < 50:
-        cc, ct = CLASSES[(n) % len(CLASSES)]
+        cc, ct = CLASSES[n % len(CLASSES)]
         email = f"student{n + 1:02d}@qloot.example"
         s = await _get_or_create_user(
             session,
@@ -293,9 +233,7 @@ async def seed_accounts(session: AsyncSession):
         )
         students.append(s)
         n += 1
-        i += 1
 
-    # Always return the full roster (used by later steps for memberships).
     all_teachers = list(
         (await session.execute(select(User).where(User.email.like("teacher%@qloot.example"))))
         .scalars()
@@ -314,174 +252,480 @@ async def _count(session: AsyncSession, model) -> int:
     return int((await session.execute(select(func.count()).select_from(model))).scalar_one())
 
 
-async def seed_courses_and_lessons(session: AsyncSession, teachers, students) -> None:
-    from app.models.learning import Course, CourseMember, Lesson
+async def _all_students(session: AsyncSession) -> list:
+    from app.models.identity import User
 
-    rng = random.Random(42)
-    existing = {c[0] for c in (await session.execute(select(Course.title))).all()}
-    made = 0
-    for i in range(1, TARGET + 1):
-        cc, ct = CLASSES[i % len(CLASSES)]
-        subject = SUBJECTS[i % len(SUBJECTS)]
-        title = f"{subject} — Kelas {cc} #{i:03d}"
-        if title in existing:
+    return list(
+        (await session.execute(select(User).where(User.email.like("student%@qloot.example"))))
+        .scalars()
+        .all()
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rooms (real study rooms, not "Ruang Belajar #042")
+# ---------------------------------------------------------------------------
+ROOM_BANK: list[tuple[str, str]] = [
+    ("Ruang Belajar Matematika Malam", "Diskusi soal dan latihan bersama tiap Selasa & Kamis."),
+    ("Klub Debat Bahasa Inggris", "Latihan speaking & debat mingguan dalam bahasa Inggris."),
+    ("Sesi Tanya Jawab UTBK", "Bedah soal UTBK per subtes bersama kakak alumni."),
+    ("Lab Fisika Virtual", "Praktikum kinematika & listrik yang bisa diikuti dari rumah."),
+    ("Ruang Bimbingan Karier", "Sesi sharing jurusan kuliah dan dunia kerja."),
+    ("Kelas Literasi & Menulis", "Belajar menulis esai, cerpen, dan karya ilmiah remaja."),
+    ("Belajar Bareng Biologi", "Rangkuman materi sel, genetika, dan sistem organ."),
+    ("Diskusi Ekonomi & Bisnis", "Simulasi pasar, kewirausahaan, dan literasi keuangan."),
+]
+
+
+async def seed_rooms(session: AsyncSession, teachers, students) -> None:
+    from app.models.room import Room, RoomMember
+
+    existing = {c for (c,) in (await session.execute(select(Room.code))).all()}
+    rng = random.Random(7)
+    for i, (name, _desc) in enumerate(ROOM_BANK):
+        code = f"RM{i + 1:04d}"
+        if code in existing:
             continue
         owner = teachers[i % len(teachers)]
-        course = Course(
-            id=det_uuid("course", str(i)),
-            title=title,
-            slug=f"{subject.lower().replace(' ', '-').replace('.', '')}-{cc.lower()}-{i:03d}",
-            description=f"Materi {subject} untuk kelas {cc} ({ct}). Batch {i}.",
-            owner_id=owner.id,
-            is_published=True,
-            class_code=cc,
-            class_type=ct,
-            subject=subject,
-        )
-        session.add(course)
-        session.add(CourseMember(course_id=course.id, user_id=owner.id, role="teacher"))
-        # A few students per class join the course.
-        for s in students:
-            if s.class_code == cc and rng.random() < 0.6:
-                session.add(CourseMember(course_id=course.id, user_id=s.id, role="student"))
-        made += 1
-        if made % 50 == 0:
-            await session.flush()
-            log.info("bulk_courses", progress=made)
-    await session.flush()
-
-    # Lessons: ~3 per course -> well over 200.
-    existing_lessons = int(
-        (await session.execute(select(func.count()).select_from(Lesson))).scalar_one()
-    )
-    if existing_lessons >= TARGET:
-        return
-    courses = list((await session.execute(select(Course).order_by(Course.created_at))).scalars())
-    n = existing_lessons
-    for course in courses:
-        for pos in range(3):
-            if n >= TARGET * 3:
-                break
-            session.add(
-                Lesson(
-                    id=det_uuid("lesson", str(course.id), str(pos)),
-                    course_id=course.id,
-                    title=f"Pertemuan {pos + 1}: {course.subject or 'Umum'}",
-                    content_md=(
-                        f"# {course.title}\n\nMateri pertemuan {pos + 1} untuk {course.subject}."
-                    ),
-                    position=pos,
-                    is_published=True,
-                )
-            )
-            n += 1
-    await session.flush()
-    log.info("bulk_lessons_ready", count=n)
-
-
-async def seed_materials(session: AsyncSession, teachers) -> None:
-    """~200 materials whose extracted text comes from real internet PDFs."""
-    from app.models.learning import LearningMaterial
-
-    if await _count(session, LearningMaterial) >= TARGET:
-        return
-
-    # Pull the real PDFs once, then reuse their bytes/text across materials.
-    sources: list[tuple[bytes, str]] = []
-    for url in PDF_SOURCES:
-        got = _cache_pdf(url)
-        if got:
-            sources.append(got)
-            log.info("pdf_cached", url=url, size=len(got[0]))
-    if not sources:
-        log.warning("pdf_sources_unavailable_using_fallback")
-        text = (
-            "Materi pembelajaran QLoot mencakup matematika, sains, bahasa dan sosial. "
-            "Setiap materi disusun bertahap dari konsep dasar hingga penerapan. "
-            "Fotosintesis mengubah cahaya matahari menjadi energi kimia di kloroplas."
-        )
-        sources = [(_fallback_pdf(text), text)]
-
-    from app.services.storage import build_key, sha256_hex, storage
-
-    existing = int(
-        (await session.execute(select(func.count()).select_from(LearningMaterial))).scalar_one()
-    )
-    for i in range(existing + 1, TARGET + 1):
-        owner = teachers[i % len(teachers)]
-        data, text = sources[i % len(sources)]
-        filename = f"materi-online-{i:03d}.pdf"
-        key = build_key(owner.id, filename)
-        storage.put(key, data, "application/pdf")
+        room_id = det_uuid("room", name)
         session.add(
-            LearningMaterial(
-                id=det_uuid("material", str(i)),
+            Room(
+                id=room_id,
+                name=name,
+                code=code,
                 owner_id=owner.id,
-                filename=filename,
-                content_type="application/pdf",
-                size_bytes=len(data),
-                checksum_sha256=sha256_hex(data + str(i).encode()),
-                storage_key=key,
-                extracted_text=text,
-                status="ready",
+                status="open",
+                max_participants=60,
+                is_public=True,
+            )
+        )
+        session.add(RoomMember(room_id=room_id, user_id=owner.id, role="teacher", is_present=True))
+        for s in rng.sample(students, k=min(len(students), 12)):
+            session.add(RoomMember(room_id=room_id, user_id=s.id, role="student", is_present=True))
+    await session.flush()
+    log.info("bulk_rooms_ready", rooms=len(ROOM_BANK))
+
+
+# ---------------------------------------------------------------------------
+# Tasks (real tasks, mirroring the app's kinds)
+# ---------------------------------------------------------------------------
+async def seed_tasks(session: AsyncSession, teachers, students) -> None:
+    from app.db.content import TASK_BANK
+    from app.models.quest import Task
+
+    existing = {t for (t,) in (await session.execute(select(Task.title))).all()}
+    for i, (title, desc, kind, reward) in enumerate(TASK_BANK):
+        if title in existing:
+            continue
+        session.add(
+            Task(
+                id=det_uuid("task", title),
+                title=title,
+                description=desc,
+                owner_id=teachers[i % len(teachers)].id,
+                kind=kind,
+                reward_amount=reward,
+                is_active=True,
             )
         )
     await session.flush()
-    log.info("bulk_materials_ready")
+    log.info("bulk_tasks_ready", tasks=len(TASK_BANK))
 
 
-async def seed_exams_and_questions(session: AsyncSession, teachers) -> None:
-    from app.models.exam import Exam, Question
+# ---------------------------------------------------------------------------
+# Quests (real, themed competitions) + rules
+# ---------------------------------------------------------------------------
+QUEST_BANK: list[tuple[str, str]] = [
+    ("Kuis Cepat Matematika", "Peringkat 1 menang — soal eksponen & barisan."),
+    ("Tantangan Fisika Kinematika", "Selesaikan soal gerak tercepat dan tepat."),
+    ("Lomba Kuis Biologi Sel", "Kompetisi singkat materi sel & genetika."),
+    ("Olimpiade Ekonomi Mini", "Uji pemahaman pasar dan kebijakan ekonomi."),
+    ("Duel Sejarah Kemerdekaan", "Jawab soal sejarah paling banyak dengan benar."),
+    ("Kuis Bahasa Inggris Kilat", "Descriptive & narrative dalam waktu singkat."),
+]
 
-    if await _count(session, Exam) < TARGET:
-        existing = {t for (t,) in (await session.execute(select(Exam.title))).all()}
-        for i in range(1, TARGET + 1):
-            title = f"Ujian Simulasi #{i:03d}"
-            if title in existing:
-                continue
-            owner = teachers[i % len(teachers)]
+
+async def seed_quests(session: AsyncSession, teachers, exams) -> list:
+    from app.models.quest import Quest, QuestRule
+
+    existing = {t for (t,) in (await session.execute(select(Quest.title))).all()}
+    quests = []
+    for i, (title, desc) in enumerate(QUEST_BANK):
+        if title in existing:
+            continue
+        exam = exams[i % len(exams)] if exams else None
+        q = Quest(
+            id=det_uuid("quest", title),
+            title=title,
+            description=desc,
+            owner_id=teachers[i % len(teachers)].id,
+            exam_id=exam.id if exam else None,
+            status="open",
+            kind="exam",
+            top_n_winners=3,
+            opens_at=datetime(2025, 1 + (i % 6), 1, tzinfo=UTC),
+        )
+        session.add(q)
+        for rank, amt in enumerate([100, 60, 40], start=1):
+            session.add(QuestRule(quest_id=q.id, rank=rank, reward_amount=amt))
+        quests.append(q)
+    await session.flush()
+    log.info("bulk_quests_ready", quests=len(quests))
+    return list((await session.execute(select(Quest))).scalars().all())
+
+
+# ---------------------------------------------------------------------------
+# Community feed (real posts/comments/likes, dated across 2025+)
+# ---------------------------------------------------------------------------
+async def seed_community(session: AsyncSession, students) -> None:
+    from app.db.content import COMMUNITY_COMMENTS, COMMUNITY_POSTS
+    from app.models.community import CommunityComment, CommunityLike, CommunityPost
+
+    if await _count(session, CommunityPost) >= TARGET:
+        return
+    rng = random.Random(31)
+    # Spread posts across a realistic window (weekly cadence since Jan 2025).
+    base = datetime(2025, 1, 6, 10, 0, tzinfo=UTC)
+    posts: list[CommunityPost] = []
+    for i in range(TARGET):
+        topic, body = COMMUNITY_POSTS[i % len(COMMUNITY_POSTS)]
+        author = students[i % len(students)]
+        created = base + timedelta(days=i * 3, hours=rng.randint(0, 8))
+        post = CommunityPost(
+            id=det_uuid("cpost", str(i)),
+            author_id=author.id,
+            topic=topic,
+            body=body,
+            like_count=0,
+            comment_count=0,
+            created_at=created,
+        )
+        session.add(post)
+        posts.append(post)
+    await session.flush()
+
+    for i, post in enumerate(posts):
+        n_comments = i % 3  # 0-2 comments, realistic for a small class feed
+        for c in range(n_comments):
+            commenter = students[(i + c + 1) % len(students)]
             session.add(
-                Exam(
-                    id=det_uuid("exam", str(i)),
-                    title=title,
-                    owner_id=owner.id,
-                    duration_minutes=30 + (i % 60),
-                    status="published",
-                    is_active=True,
-                    passing_score_bp=6000,
-                    instructions="Jawab ringkas dan jelas.",
+                CommunityComment(
+                    id=det_uuid("ccomment", str(i), str(c)),
+                    post_id=post.id,
+                    author_id=commenter.id,
+                    body=COMMUNITY_COMMENTS[(i + c) % len(COMMUNITY_COMMENTS)],
+                    created_at=post.created_at + timedelta(hours=1 + c),
                 )
             )
-        await session.flush()
-
-    # Questions: ~3 per exam (600 total, >= 200).
-    if await _count(session, Question) >= TARGET:
-        return
-    exams = list((await session.execute(select(Exam))).scalars())
-    for exam in exams:
-        for pos in range(3):
+        post.comment_count = n_comments
+        likers = rng.sample(students, k=min(len(students), i % 8))
+        for li, s in enumerate(likers):
             session.add(
-                Question(
-                    id=det_uuid("question", str(exam.id), str(pos)),
-                    exam_id=exam.id,
-                    owner_id=exam.owner_id,
-                    prompt=f"[{exam.title}] Jelaskan konsep utama bagian {pos + 1}.",
-                    correct_answer=(
-                        "Pembahasan konsep utama beserta contoh penerapannya pada materi terkait."
+                CommunityLike(
+                    id=det_uuid("clike", str(i), str(li)),
+                    post_id=post.id,
+                    user_id=s.id,
+                    created_at=post.created_at + timedelta(minutes=30 * (li + 1)),
+                )
+            )
+        post.like_count = len(likers)
+    await session.flush()
+    log.info("bulk_community_ready", posts=len(posts))
+
+
+# ---------------------------------------------------------------------------
+# Badges (earnable XP milestones — unchanged behaviour, real catalog)
+# ---------------------------------------------------------------------------
+async def seed_badges(session: AsyncSession) -> None:
+    from app.models.social import Badge
+    from app.services.social_service import XP_MILESTONES, _milestone_badge_row
+
+    existing = {c for (c,) in (await session.execute(select(Badge.code))).all()}
+    made = 0
+    for _xp, code, name, desc, icon, points in XP_MILESTONES:
+        if code in existing:
+            continue
+        session.add(Badge(**_milestone_badge_row(code, name, desc, icon, points)))
+        made += 1
+    await session.flush()
+    log.info("bulk_badges_ready", added=made)
+
+
+# ---------------------------------------------------------------------------
+# Career: grades, personality, consultations, recommendations, resources
+# ---------------------------------------------------------------------------
+async def seed_career(session: AsyncSession, students) -> None:
+    from app.db.content import CAREER_RESOURCES, CONSULTATION_TOPICS, COUNSELORS, MAJORS, TERMS
+    from app.models.career import (
+        AcademicGrade,
+        CareerRecommendation,
+        Consultation,
+        PersonalityResult,
+        ResourceItem,
+    )
+    from app.models.identity import Role, User, UserRole
+
+    # --- Academic grades: realistic per-subject spread, multiple terms -------
+    subject_pool = ["Matematika", "Fisika", "Kimia", "Biologi", "B. Indonesia", "B. Inggris"]
+    existing_keys = {
+        (g.user_id, g.subject, g.term)
+        for g in (await session.execute(select(AcademicGrade))).scalars()
+    }
+    rng = random.Random(11)
+    for si, s in enumerate(students):
+        # A per-student "ability" so grades correlate across subjects/terms.
+        ability = rng.randint(68, 92)
+        subjects = subject_pool[:4] if (si % 2 == 0) else subject_pool[2:6]
+        for subject in subjects:
+            for term_idx, term in enumerate(TERMS):
+                key = (s.id, subject, term)
+                if key in existing_keys:
+                    continue
+                existing_keys.add(key)
+                # Small per-subject offset + gentle term-on-term drift.
+                grade = max(
+                    55,
+                    min(99, ability + rng.randint(-8, 8) + term_idx),
+                )
+                session.add(
+                    AcademicGrade(
+                        id=det_uuid("grade", str(s.id), subject, term),
+                        user_id=s.id,
+                        subject=subject,
+                        grade=grade,
+                        term=term,
+                    )
+                )
+    await session.flush()
+
+    # --- Personality: one per student, plausible OCEAN spread ---------------
+    existing_personality = {
+        p.user_id for p in (await session.execute(select(PersonalityResult))).scalars()
+    }
+    for _si, s in enumerate(students):
+        if s.id in existing_personality:
+            continue
+        rng = random.Random(f"ocean:{s.id}")
+        vals = [rng.randint(2, 5) for _ in range(5)]
+        session.add(
+            PersonalityResult(
+                id=det_uuid("personality", str(s.id)),
+                user_id=s.id,
+                openness=vals[0] * 20,
+                conscientiousness=vals[1] * 20,
+                extraversion=vals[2] * 20,
+                agreeableness=vals[3] * 20,
+                neuroticism=vals[4] * 20,
+                summary="Profil kepribadian Big Five (asesmen mandiri).",
+                answers=vals * 6,
+            )
+        )
+    await session.flush()
+
+    # --- Consultations: real topics, every status represented ----------------
+    counselor_user = (
+        (
+            await session.execute(
+                select(User)
+                .join(UserRole, UserRole.user_id == User.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(Role.name == "teacher")
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    existing_consult = {
+        c.id for c in (await session.execute(select(Consultation))).scalars()
+    }
+    statuses = ["pending", "accepted", "completed", "cancelled"]
+    # Fixed anchor so re-runs produce identical (idempotent) timestamps.
+    consult_base = datetime(2025, 1, 8, 9, 0, tzinfo=UTC)
+    for i in range(min(TARGET, len(students) * 4)):
+        s = students[i % len(students)]
+        topic = CONSULTATION_TOPICS[i % len(CONSULTATION_TOPICS)]
+        status = statuses[i % len(statuses)]
+        scheduled = consult_base + timedelta(days=i, hours=i % 8)
+        consult_id = det_uuid("consult", str(i))
+        if consult_id in existing_consult:
+            continue
+        existing_consult.add(consult_id)
+        session.add(
+            Consultation(
+                id=consult_id,
+                user_id=s.id,
+                counselor=COUNSELORS[i % len(COUNSELORS)],
+                counselor_user_id=counselor_user.id if counselor_user else None,
+                topic=topic,
+                scheduled_at=scheduled,
+                status=status,
+                completed_at=(scheduled + timedelta(hours=1) if status == "completed" else None),
+                notes="Catatan sesi bimbingan konseling.",
+            )
+        )
+    await session.flush()
+
+    # --- Recommendations: tailored to the student's strongest subjects ------
+    existing_rec = {
+        (r.user_id, r.major, r.rank)
+        for r in (await session.execute(select(CareerRecommendation))).scalars()
+    }
+    grades_by_user: dict[uuid.UUID, list[AcademicGrade]] = {}
+    for g in (await session.execute(select(AcademicGrade))).scalars():
+        grades_by_user.setdefault(g.user_id, []).append(g)
+    for s in students:
+        rows = grades_by_user.get(s.id, [])
+        top = sorted(rows, key=lambda g: g.grade, reverse=True)[:3]
+        top_subjects = [g.subject for g in top]
+        # Rank majors by how many of the student's top subjects they match.
+        ranked = sorted(
+            MAJORS,
+            key=lambda m: -len(set(m["rationale_best_for"]) & set(top_subjects)),
+        )
+        for rank, major in enumerate(ranked[:3], start=1):
+            rec_key = (s.id, major["major"], rank)
+            if rec_key in existing_rec:
+                continue
+            existing_rec.add(rec_key)
+            match = len(set(major["rationale_best_for"]) & set(top_subjects))
+            base = 70 + match * 8
+            session.add(
+                CareerRecommendation(
+                    id=det_uuid("crec", str(s.id), str(major["major"]), str(rank)),
+                    user_id=s.id,
+                    major=str(major["major"]),
+                    fit_score=min(98, base + 2),
+                    academic_fit=min(98, base + 4),
+                    personality_fit=min(98, base),
+                    rationale=(
+                        f"Cocok dengan kekuatan akademik pada "
+                        f"{', '.join(top_subjects) or 'mapel inti'} "
+                        f"dan profil kepribadian Anda."
                     ),
-                    position=pos,
-                    source="ai",
-                    review_status="approved",
+                    universities=list(major["universities"]),
+                    admission_paths=list(major["admission_paths"]),
+                    skills=list(major["skills"]),
+                    careers=list(major["careers"]),
+                    rank=rank,
+                    status=["draft", "in_review", "approved"][rank % 3],
+                    created_at=consult_base + timedelta(days=rank * 3),
                 )
             )
     await session.flush()
-    log.info("bulk_exams_questions_ready")
 
-    await _seed_mc_quiz(session, teachers)
+    # --- Resources: the curated catalogue (idempotent by code) --------------
+    existing_res = {c for (c,) in (await session.execute(select(ResourceItem.code))).all()}
+    for spec in CAREER_RESOURCES:
+        code = str(spec["code"])
+        if code in existing_res:
+            continue
+        session.add(
+            ResourceItem(
+                id=det_uuid("resource", code),
+                code=code,
+                category=str(spec["category"]),
+                title=str(spec["title"]),
+                description=str(spec["description"]),
+                provider=str(spec["provider"]),
+                is_free=bool(spec["is_free"]),
+                tags=list(spec["tags"]),
+            )
+        )
+    await session.flush()
+    log.info("bulk_career_ready")
 
 
+# ---------------------------------------------------------------------------
+# Notifications (real, kind-appropriate copy)
+# ---------------------------------------------------------------------------
+async def seed_notifications(session: AsyncSession, students, teachers) -> None:
+    from app.models.social import Notification
+
+    if await _count(session, Notification) >= TARGET:
+        return
+    everyone = students + teachers
+    rng = random.Random(23)
+    # (kind, title template, body template)
+    templates = [
+        ("reward", "Kamu mendapat {n} OPT", "Hadiah dari aktivitas belajar tersimpan di dompetmu."),
+        ("quest", "Quest baru dibuka", "Ada kompetisi baru — ikut untuk naik peringkat!"),
+        ("badge", "Badge baru terbuka", "Konsisten belajar membuka lencana baru untukmu."),
+        ("room", "Undangan ruang belajar", "Gurumu mengundangmu ke sesi belajar daring."),
+        ("system", "Jadwal ujian diperbarui", "Periksa jadwal ujian terbaru di dasbor."),
+        ("notification", "Materi baru diunggah", "Guru menambahkan materi baru di kelasmu."),
+    ]
+    base = datetime(2025, 1, 2, 8, 0, tzinfo=UTC)
+    for i in range(TARGET):
+        u = everyone[i % len(everyone)]
+        kind, title_t, body_t = templates[i % len(templates)]
+        created = base + timedelta(days=i, hours=rng.randint(0, 10))
+        session.add(
+            Notification(
+                id=det_uuid("notif", str(i)),
+                user_id=u.id,
+                kind=kind,
+                title=title_t.format(n=rng.choice([5, 10, 20, 50])),
+                body=body_t,
+                data={"index": i},
+                read_at=(created + timedelta(hours=2)) if rng.random() < 0.55 else None,
+                created_at=created,
+            )
+        )
+    await session.flush()
+    log.info("bulk_notifications_ready")
+
+
+# ---------------------------------------------------------------------------
+# Wallet ledger (mirrors real reward credit entries)
+# ---------------------------------------------------------------------------
+async def seed_ledger(session: AsyncSession, students) -> None:
+    from app.models.wallet import WalletAccount, WalletLedgerEntry
+
+    existing_ids = {e for (e,) in (await session.execute(select(WalletLedgerEntry.id))).all()}
+    accounts = {a.user_id: a for a in (await session.execute(select(WalletAccount))).scalars()}
+    rng = random.Random(29)
+    base = datetime(2025, 1, 3, 9, 0, tzinfo=UTC)
+    made = 0
+    for s in students:
+        acc = accounts.get(s.id)
+        if acc is None:
+            continue
+        balance = 0
+        for j in range(4):
+            amount = rng.choice([5, 10, 15, 20, 40, 60, 100])
+            balance += amount
+            created = base + timedelta(days=j * 30 + (made % 25))
+            entry_id = det_uuid("ledger", str(s.id), str(j))
+            if entry_id in existing_ids:
+                continue
+            existing_ids.add(entry_id)
+            session.add(
+                WalletLedgerEntry(
+                    id=entry_id,
+                    account_id=acc.id,
+                    token_id=0,
+                    entry_type="credit",
+                    amount=amount,
+                    balance_after=balance,
+                    reference_type="reward",
+                    reference_id=f"seed-{s.id}-{j}",
+                    reward_key=None,
+                    description="Hadiah aktivitas belajar.",
+                    created_at=created,
+                )
+            )
+            made += 1
+        acc.cached_balance = balance
+    await session.flush()
+    log.info("bulk_ledger_ready", entries=made)
+
+
+# ---------------------------------------------------------------------------
+# Multiple-choice quiz (kept: referenced by tests) — real questions
+# ---------------------------------------------------------------------------
 async def _seed_mc_quiz(session: AsyncSession, teachers) -> None:
-    """Seed one published multiple-choice quiz (gamified, instantly graded)."""
+    """Seed one published multiple-choice quiz with real questions."""
     from app.models.exam import Exam, Question, QuestionOption
 
     title = "Kuis Pilihan Ganda — Pengetahuan Umum"
@@ -507,31 +751,11 @@ async def _seed_mc_quiz(session: AsyncSession, teachers) -> None:
     await session.flush()
 
     mc_items = [
-        (
-            "Ibu kota Indonesia adalah?",
-            ["Jakarta", "Bandung", "Surabaya", "Medan"],
-            0,
-        ),
-        (
-            "Planet terdekat dengan Matahari adalah?",
-            ["Venus", "Merkurius", "Bumi", "Mars"],
-            1,
-        ),
-        (
-            "Hasil dari 7 × 8 adalah?",
-            ["54", "56", "48", "64"],
-            1,
-        ),
-        (
-            "Lambang unsur kimia air adalah?",
-            ["CO2", "O2", "H2O", "NaCl"],
-            2,
-        ),
-        (
-            "Pulau terbesar di Indonesia adalah?",
-            ["Jawa", "Sumatra", "Kalimantan", "Sulawesi"],
-            2,
-        ),
+        ("Ibu kota Indonesia adalah?", ["Jakarta", "Bandung", "Surabaya", "Medan"], 0),
+        ("Planet terdekat dengan Matahari adalah?", ["Venus", "Merkurius", "Bumi", "Mars"], 1),
+        ("Hasil dari 7 × 8 adalah?", ["54", "56", "48", "64"], 1),
+        ("Lambang unsur kimia air adalah?", ["CO2", "O2", "H2O", "NaCl"], 2),
+        ("Pulau terbesar di Indonesia adalah?", ["Jawa", "Sumatra", "Kalimantan", "Sulawesi"], 2),
     ]
     for pos, (prompt, choices, correct_idx) in enumerate(mc_items):
         qid = det_uuid("question", str(exam_id), str(pos))
@@ -565,370 +789,6 @@ async def _seed_mc_quiz(session: AsyncSession, teachers) -> None:
     log.info("bulk_mc_quiz_ready")
 
 
-async def seed_rooms(session: AsyncSession, teachers, students) -> None:
-    from app.models.room import Room, RoomMember
-
-    if await _count(session, Room) < TARGET:
-        existing = {c for (c,) in (await session.execute(select(Room.code))).all()}
-        for i in range(1, TARGET + 1):
-            code = f"RM{i:04d}"
-            if code in existing:
-                continue
-            owner = teachers[i % len(teachers)]
-            session.add(
-                Room(
-                    id=det_uuid("room", str(i)),
-                    name=f"Ruang Belajar #{i:03d}",
-                    code=code,
-                    owner_id=owner.id,
-                    status="open",
-                    max_participants=100,
-                    is_public=True,
-                )
-            )
-        await session.flush()
-
-    if await _count(session, RoomMember) >= TARGET:
-        return
-    rooms = list((await session.execute(select(Room))).scalars())
-    # Existing (room, user) pairs so re-running never violates the unique key.
-    existing_pairs = {
-        (rm.room_id, rm.user_id) for rm in (await session.execute(select(RoomMember))).scalars()
-    }
-    rng = random.Random(7)
-    for room in rooms:
-        if (room.id, room.owner_id) not in existing_pairs:
-            session.add(
-                RoomMember(room_id=room.id, user_id=room.owner_id, role="teacher", is_present=True)
-            )
-            existing_pairs.add((room.id, room.owner_id))
-        for s in rng.sample(students, k=3):
-            pair = (room.id, s.id)
-            if pair in existing_pairs:
-                continue
-            session.add(RoomMember(room_id=room.id, user_id=s.id, role="student", is_present=True))
-            existing_pairs.add(pair)
-    await session.flush()
-    log.info("bulk_rooms_ready")
-
-
-async def seed_quests_and_tasks(session: AsyncSession, teachers) -> None:
-    from app.models.quest import Quest, QuestRule, Task
-
-    if await _count(session, Quest) < TARGET:
-        existing = {t for (t,) in (await session.execute(select(Quest.title))).all()}
-        for i in range(1, TARGET + 1):
-            title = f"Quest Harian #{i:03d}"
-            if title in existing:
-                continue
-            q = Quest(
-                id=det_uuid("quest", str(i)),
-                title=title,
-                description="Kumpulkan poin sebanyak mungkin untuk naik peringkat.",
-                owner_id=teachers[i % len(teachers)].id,
-                status="open" if i % 3 else "draft",
-                top_n_winners=3,
-            )
-            session.add(q)
-            for rank, amt in enumerate([100, 60, 40], start=1):
-                session.add(QuestRule(quest_id=q.id, rank=rank, reward_amount=amt))
-        await session.flush()
-
-    if await _count(session, Task) >= TARGET:
-        return
-    kinds = ["daily", "learning", "exam"]
-    for i in range(1, TARGET + 1):
-        session.add(
-            Task(
-                id=det_uuid("task", str(i)),
-                title=f"Tugas {kinds[i % 3].title()} #{i:03d}",
-                description="Selesaikan aktivitas untuk mendapatkan OPT.",
-                owner_id=teachers[i % len(teachers)].id,
-                kind=kinds[i % 3],
-                reward_amount=5 + (i % 20),
-                is_active=True,
-            )
-        )
-    await session.flush()
-    log.info("bulk_quests_tasks_ready")
-
-
-async def seed_career(session: AsyncSession, students) -> None:
-    from app.models.career import AcademicGrade, Consultation, PersonalityResult, ResourceItem
-
-    terms = ["2024/2025-ganjil", "2024/2025-genap", "2025/2026-ganjil", "2025/2026-genap"]
-
-    # Grades: 4 subjects x 4 terms x 50 students = 800 rows.
-    if await _count(session, AcademicGrade) < TARGET:
-        rng = random.Random(11)
-        # Skip (user, subject, term) combos the curated simulation already made.
-        existing_keys = {
-            (g.user_id, g.subject, g.term)
-            for g in (await session.execute(select(AcademicGrade))).scalars()
-        }
-        for s in students:
-            for subject in ["Fisika", "Matematika", "Kimia", "B. Inggris"]:
-                for term in terms:
-                    key = (s.id, subject, term)
-                    if key in existing_keys:
-                        continue
-                    existing_keys.add(key)
-                    session.add(
-                        AcademicGrade(
-                            id=det_uuid("grade", str(s.id), subject, term),
-                            user_id=s.id,
-                            subject=subject,
-                            grade=rng.randint(55, 98),
-                            term=term,
-                        )
-                    )
-        await session.flush()
-
-    # Personality: one per student (50) plus padding to 200 via stored answers.
-    if await _count(session, PersonalityResult) < TARGET:
-        rng = random.Random(13)
-        i = 0
-        while i < TARGET:
-            s = students[i % len(students)]
-            i += 1
-            vals = [rng.randint(1, 5) for _ in range(5)]
-            session.add(
-                PersonalityResult(
-                    id=det_uuid("personality", str(i)),
-                    user_id=s.id,
-                    openness=vals[0] * 20,
-                    conscientiousness=vals[1] * 20,
-                    extraversion=vals[2] * 20,
-                    agreeableness=vals[3] * 20,
-                    neuroticism=vals[4] * 20,
-                    summary="Profil kepribadian (simulasi).",
-                    answers=vals,
-                )
-            )
-        await session.flush()
-
-    if await _count(session, Consultation) < TARGET:
-        from app.models.identity import Role, User, UserRole
-
-        # CI-04: seed a counselor as a *real* teacher user so the BK panel has
-        # an owner, and cover every status the UI can render (including
-        # completed, which the old seeder never produced).
-        counselor_user = (
-            await session.execute(
-                select(User)
-                .join(UserRole, UserRole.user_id == User.id)
-                .join(Role, Role.id == UserRole.role_id)
-                .where(Role.name == "teacher")
-                .limit(1)
-            )
-        ).scalars().first()
-        counselor_name = counselor_user.full_name if counselor_user else "Bu Ratna Wijaya"
-        counselors = [counselor_name, "Pak Aditya Nugraha"]
-        statuses = ["pending", "accepted", "completed", "cancelled"]
-        for i in range(1, TARGET + 1):
-            s = students[i % len(students)]
-            status = statuses[i % len(statuses)]
-            session.add(
-                Consultation(
-                    id=det_uuid("consult", str(i)),
-                    user_id=s.id,
-                    counselor=counselors[i % 2],
-                    counselor_user_id=counselor_user.id if counselor_user else None,
-                    topic="Konsultasi pemilihan jurusan",
-                    scheduled_at=datetime.now(UTC) + timedelta(days=3 + i % 10),
-                    status=status,
-                    completed_at=(
-                        datetime.now(UTC) - timedelta(hours=i) if status == "completed" else None
-                    ),
-                    notes="Sesi simulasi.",
-                )
-            )
-        await session.flush()
-
-    # Resources: keep the curated catalog, pad to 200 with generated entries.
-    if await _count(session, ResourceItem) < TARGET:
-        existing = {c for (c,) in (await session.execute(select(ResourceItem.code))).all()}
-        cats = ["course", "extracurricular", "material"]
-        for i in range(1, TARGET + 1):
-            code = f"res-auto-{i:03d}"
-            if code in existing:
-                continue
-            cat = cats[i % 3]
-            session.add(
-                ResourceItem(
-                    id=det_uuid("resource", str(i)),
-                    code=code,
-                    category=cat,
-                    title=f"{cat.title()} Rekomendasi #{i:03d}",
-                    description="Rekomendasi belajar (simulasi).",
-                    provider="QLoot",
-                    is_free=bool(i % 2),
-                    tags=[SUBJECTS[i % len(SUBJECTS)]],
-                )
-            )
-        await session.flush()
-    log.info("bulk_career_ready")
-
-
-async def seed_notifications(session: AsyncSession, students, teachers) -> None:
-    from app.models.social import Notification
-
-    if await _count(session, Notification) >= TARGET:
-        return
-    everyone = students + teachers
-    rng = random.Random(23)
-    kinds = ["system", "reward", "quest", "badge", "room"]
-    for i in range(1, TARGET + 1):
-        u = everyone[i % len(everyone)]
-        session.add(
-            Notification(
-                id=det_uuid("notif", str(i)),
-                user_id=u.id,
-                kind=kinds[i % len(kinds)],
-                title=f"Pemberitahuan #{i:03d}",
-                body="Kabar terbaru dari QLoot (simulasi).",
-                data={"index": i},
-                read_at=datetime.now(UTC) if rng.random() < 0.4 else None,
-            )
-        )
-    await session.flush()
-    log.info("bulk_notifications_ready")
-
-
-async def seed_ledger(session: AsyncSession, students) -> None:
-    from app.models.wallet import WalletAccount, WalletLedgerEntry
-
-    if await _count(session, WalletLedgerEntry) >= TARGET:
-        return
-    accounts = {a.user_id: a for a in (await session.execute(select(WalletAccount))).scalars()}
-    rng = random.Random(29)
-    made = 0
-    for s in students:
-        acc = accounts.get(s.id)
-        if acc is None:
-            continue
-        balance = 0
-        for j in range(4):
-            amount = rng.randint(5, 50)
-            balance += amount
-            session.add(
-                WalletLedgerEntry(
-                    id=det_uuid("ledger", str(s.id), str(j)),
-                    account_id=acc.id,
-                    token_id=0,
-                    entry_type="credit",
-                    amount=amount,
-                    balance_after=balance,
-                    reference_type="reward",
-                    reference_id=f"seed-{s.id}-{j}",
-                    reward_key=None,
-                    description="Reward simulasi (seed).",
-                )
-            )
-            made += 1
-        acc.cached_balance = balance
-    await session.flush()
-    log.info("bulk_ledger_ready", entries=made)
-
-
-async def seed_badges(session: AsyncSession) -> None:
-    """Seed the *earnable* XP-milestone badges.
-
-    These are exactly the badges the gamification milestone check awards (see
-    ``BadgeService.sync_xp_milestones``), so every catalogued badge can actually
-    be earned. (Previously this padded the catalog with 200 unreachable
-    ``achv-***`` rows that flooded the badge page with permanently-locked cards.)
-    """
-    from app.models.social import Badge
-    from app.services.social_service import XP_MILESTONES, _milestone_badge_row
-
-    existing = {c for (c,) in (await session.execute(select(Badge.code))).all()}
-    made = 0
-    for _xp, code, name, desc, icon, points in XP_MILESTONES:
-        if code in existing:
-            continue
-        session.add(Badge(**_milestone_badge_row(code, name, desc, icon, points)))
-        made += 1
-    await session.flush()
-    log.info("bulk_badges_ready", added=made)
-
-
-async def seed_community(session: AsyncSession, students) -> None:
-    """Seed the community feed with ~200 posts + comments + likes."""
-    from app.models.community import CommunityComment, CommunityLike, CommunityPost
-    from app.services.community_service import TOPICS
-
-    if await _count(session, CommunityPost) >= TARGET:
-        return
-    rng = random.Random(31)
-    bodies = [
-        "Tips menyusun portofolio: mulai dari masalah, bukan dari visual.",
-        "Rekaman sesi minggu ini sudah tersedia di kelas. Silakan disimak!",
-        "Kumpulan dataset publik untuk latihan visualisasi — cek tautan di kelas.",
-        "Bagaimana cara efektif belajar untuk ujian? Ini strategi saya…",
-        "Baru selesai quest pertama, seru! Ada tips menaikkan skor?",
-        "Materi Fisika pekan ini menantang. Mari diskusi di kolom komentar.",
-        "Sertifikat digital sekarang bisa diverifikasi lewat tautan unik, keren!",
-        "Berbagi ringkasan bab 3 — semoga membantu teman-teman sekelas.",
-        "Kuis AI-nya lumayan akurat untuk latihan esai. Rekomendasi!",
-        "Ada yang ingin belajar bareng di ruang simulasi sore ini?",
-    ]
-    made = 0
-    comment_made = 0
-    like_made = 0
-    posts: list[CommunityPost] = []
-    for i in range(1, TARGET + 1):
-        author = students[i % len(students)]
-        topic = TOPICS[i % len(TOPICS)]
-        post = CommunityPost(
-            id=det_uuid("cpost", str(i)),
-            author_id=author.id,
-            topic=topic,
-            body=f"{bodies[i % len(bodies)]} (#{i:03d})",
-            like_count=0,
-            comment_count=0,
-            created_at=datetime.now(UTC) - timedelta(hours=i),
-        )
-        session.add(post)
-        posts.append(post)
-        made += 1
-
-    # Flush posts FIRST so comment/like rows (which have a FK but no ORM
-    # relationship) never reference un-flushed posts.
-    await session.flush()
-
-    for i, post in enumerate(posts, start=1):
-        # 0-3 comments per post.
-        n_comments = i % 4
-        for c in range(n_comments):
-            commenter = students[(i + c) % len(students)]
-            session.add(
-                CommunityComment(
-                    id=det_uuid("ccomment", str(i), str(c)),
-                    post_id=post.id,
-                    author_id=commenter.id,
-                    body="Setuju! Terima kasih berbaginya.",
-                    created_at=datetime.now(UTC) - timedelta(hours=i, minutes=-c),
-                )
-            )
-            comment_made += 1
-        post.comment_count = n_comments
-        # A few likes spread across students (deterministic ids).
-        likers = rng.sample(students, k=min(len(students), i % 6))
-        for li, s in enumerate(likers):
-            session.add(
-                CommunityLike(
-                    id=det_uuid("clike", str(i), str(li)),
-                    post_id=post.id,
-                    user_id=s.id,
-                )
-            )
-            like_made += 1
-        post.like_count = len(likers)
-    await session.flush()
-    log.info("bulk_community_ready", posts=made, comments=comment_made, likes=like_made)
-
-
 async def main() -> None:
     from app.db.session import session_scope
     from app.services.social_service import BadgeService
@@ -938,22 +798,30 @@ async def main() -> None:
         await BadgeService(session).ensure_catalog()
         teachers, students = await seed_accounts(session)
         await seed_badges(session)
-        await seed_courses_and_lessons(session, teachers, students)
-        await seed_materials(session, teachers)
-        await seed_exams_and_questions(session, teachers)
+        await seed_tasks(session, teachers, students)
         await seed_rooms(session, teachers, students)
-        await seed_quests_and_tasks(session, teachers)
         await seed_career(session, students)
         await seed_notifications(session, students, teachers)
         await seed_community(session, students)
         await seed_ledger(session, students)
 
-        # Part 2: fill the remaining tables (attempts, grading, certificates,
-        # quest outcomes, leaderboards, audit/ops and blockchain tables).
+        # Curriculum catalogue, then quests over those exams, then the monthly
+        # learning history (100-200 records/mo) so quest entries land in months.
+        from app.db import seed_timeline
+        from app.models.exam import Exam
+
+        await seed_timeline.seed_catalogue(session, teachers)
+        exams = list(
+            (await session.execute(select(Exam).where(Exam.status == "published"))).scalars().all()
+        )
+        await seed_quests(session, teachers, exams)
+        await _seed_mc_quiz(session, teachers)
+        await seed_timeline.seed_activity_timeline(session)
+        await seed_timeline.seed_certificates_timeline(session)
+
+        # Ops + blockchain + remaining small tables (realistic, dated).
         from app.db import seed_bulk_extra as extra
 
-        await extra.seed_attempts_and_grading(session, students)
-        await extra.seed_progress_and_certificates(session, students)
         await extra.seed_quest_outcomes(session, students)
         await extra.seed_progress_boards(session, students, teachers)
         await extra.seed_ops_tables(session, students, teachers)

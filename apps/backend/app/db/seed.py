@@ -168,83 +168,52 @@ async def main() -> None:
     teacher2 = await _ensure_user("teacher2@qloot.example", "Sari Guru", "teacher")
 
     # Students are assigned to classes (class_code) and programmes (class_type).
+    # Class codes match the curriculum in ``app.db.content`` (10A/11B/…).
     student_specs = [
-        ("student1@qloot.example", "Siswa 1A", "1A", "IPA"),
-        ("student2@qloot.example", "Siswa 1A", "1A", "IPA"),
-        ("student3@qloot.example", "Siswa 2D", "2D", "IPS"),
-        ("student4@qloot.example", "Siswa 2D", "2D", "IPS"),
-        ("student5@qloot.example", "Siswa 3A", "3A", "IPA"),
+        ("student1@qloot.example", "Siswa 10A", "10A", "IPA"),
+        ("student2@qloot.example", "Siswa 10A", "10A", "IPA"),
+        ("student3@qloot.example", "Siswa 10B", "10B", "IPS"),
+        ("student4@qloot.example", "Siswa 10B", "10B", "IPS"),
+        ("student5@qloot.example", "Siswa 11A", "11A", "IPA"),
     ]
     students: list[User] = []
     for email, name, cc, ct in student_specs:
         students.append(await _ensure_user(email, name, "student", class_code=cc, class_type=ct))
 
     # --- subjects (pelajaran) targeted at classes -------------------------
-    # (title, subject, class_code, class_type, description, lessons, owner)
-    subject_specs: list[tuple[str, str, str, str | None, str, list[tuple[str, str]], str]] = [
+    # The catalogue itself is built from the real curriculum in ``app.db.content``
+    # (see ``app.db.seed_timeline.seed_catalogue``). Here we only ensure the
+    # curated 10A subjects exist early so the hand-simulated flow below has
+    # something to attach to. Content is real (not "…#001" filler).
+    primary_specs: list[tuple[str, str, str, str, str, list[tuple[str, str]], str]] = [
         (
-            "Matematika 1A",
+            "Matematika — Kelas 10A",
             "Matematika",
-            "1A",
+            "10A",
             "IPA",
-            "Aljabar dasar, bilangan, dan logika matematika untuk kelas 1A.",
+            "Eksponen, barisan, fungsi kuadrat, statistika, dan peluang untuk kelas 10A.",
             [
                 (
-                    "Bilangan & Operasi",
-                    "# Bilangan\nOperasi dasar pada bilangan bulat dan pecahan.",
+                    "Bilangan Berpangkat & Bentuk Akar",
+                    "# Bilangan Berpangkat\nSifat eksponen dan bentuk akar.",
                 ),
-                ("Aljabar Dasar", "# Aljabar\nPengenalan variabel dan persamaan linear."),
-                ("Logika Matematika", "# Logika\nPernyataan, konjungsi, disjungsi, dan implikasi."),
+                (
+                    "Persamaan & Pertidaksamaan Linear",
+                    "# Persamaan Linear\nMenyelesaikan persamaan dan pertidaksamaan.",
+                ),
+                ("Barisan & Deret Aritmetika", "# Barisan\nSuku ke-n dan jumlah n suku."),
             ],
             "teacher",
         ),
         (
-            "Bahasa Indonesia 1A",
-            "Bahasa Indonesia",
-            "1A",
+            "B. Indonesia — Kelas 10A",
+            "B. Indonesia",
+            "10A",
             "IPA",
-            "Membaca, menulis, dan tata bahasa untuk kelas 1A.",
+            "Teks eksposisi, cerpen, karya ilmiah, dan puisi untuk kelas 10A.",
             [
-                ("Teks Deskripsi", "# Teks Deskripsi\nCiri dan struktur teks deskripsi."),
-                ("Puisi", "# Puisi\nUnsur intrinsik dan ekstrinsik puisi."),
-            ],
-            "teacher",
-        ),
-        (
-            "Ekonomi 2D",
-            "Ekonomi",
-            "2D",
-            "IPS",
-            "Dasar-dasar ilmu ekonomi untuk kelas 2D.",
-            [
-                (
-                    "Kebutuhan & Kelangkaan",
-                    "# Ekonomi\nKonsep kebutuhan, keinginan, dan kelangkaan.",
-                ),
-                ("Permintaan & Penawaran", "# Pasar\nHukum permintaan dan penawaran."),
-            ],
-            "teacher2",
-        ),
-        (
-            "Sosiologi 2D",
-            "Sosiologi",
-            "2D",
-            "IPS",
-            "Interaksi sosial dan struktur masyarakat untuk kelas 2D.",
-            [
-                ("Interaksi Sosial", "# Interaksi\nBentuk dan faktor interaksi sosial."),
-            ],
-            "teacher2",
-        ),
-        (
-            "Fisika 3A",
-            "Fisika",
-            "3A",
-            "IPA",
-            "Mekanika dan gelombang untuk kelas 3A.",
-            [
-                ("Kinematika", "# Kinematika\nGerak lurus dan percepatan."),
-                ("Dinamika", "# Dinamika\nHukum Newton dan gaya."),
+                ("Teks Eksposisi", "# Teks Eksposisi\nStruktur dan ciri kebahasaan."),
+                ("Teks Cerpen", "# Cerpen\nUnsur intrinsik dan ekstrinsik."),
             ],
             "teacher",
         ),
@@ -252,7 +221,7 @@ async def main() -> None:
             "Pengumuman Sekolah",
             "Umum",
             "UMUM",
-            None,
+            "",
             "Informasi yang berlaku untuk semua kelas.",
             [
                 ("Jadwal Ujian Akhir", "# Jadwal\nUjian akhir semester dilaksanakan minggu depan."),
@@ -266,7 +235,7 @@ async def main() -> None:
 
         owner_map = {"teacher": teacher, "teacher2": teacher2}
         svc = CourseService(session)
-        for title, subject, cls_code, cls_type, desc, lessons, owner_key in subject_specs:
+        for title, subject, cls_code, cls_type, desc, lessons, owner_key in primary_specs:
             owner = owner_map[owner_key]
             existing_subject = (
                 await session.execute(
@@ -279,14 +248,13 @@ async def main() -> None:
                     title=title,
                     subject=subject,
                     class_code=cls_code,
-                    class_type=cls_type,
+                    class_type=cls_type or None,
                     description=desc,
                     is_published=True,
                 )
                 log.info("seed_subject_created", subject=title, class_code=cls_code)
             else:
                 course = existing_subject
-            # Ensure lessons exist (idempotent per lesson).
             existing_lessons = {
                 lesson.title
                 for lesson in (
@@ -308,10 +276,12 @@ async def main() -> None:
                 )
         await session.flush()
 
-        # The primary class-1A subject is used for the exam/quest simulation.
+        # The primary class-10A subject is used for the exam/quest simulation.
         primary = (
             await session.execute(
-                select(Course).where(Course.class_code == "1A", Course.title == "Matematika 1A")
+                select(Course).where(
+                    Course.class_code == "10A", Course.title == "Matematika — Kelas 10A"
+                )
             )
         ).scalar_one()
 
@@ -340,23 +310,25 @@ async def main() -> None:
         from app.models.quest import Quest
 
         exam = (
-            await session.execute(select(Exam).where(Exam.title == "Ujian Simulasi Dasar"))
+            await session.execute(
+                select(Exam).where(Exam.title == "Ujian Matematika — Eksponen & Barisan")
+            )
         ).scalar_one_or_none()
         if exam is None:
             esvc = ExamService(session)
             exam = await esvc.create(
                 teacher,
-                title="Ujian Simulasi Dasar",
+                title="Ujian Matematika — Eksponen & Barisan",
                 duration_minutes=45,
                 passing_score_bp=6000,
                 course_id=course_id,
-                instructions="Jawab dengan ringkas dan jelas.",
+                instructions="Pilih jawaban yang paling tepat dan kerjakan dengan teliti.",
             )
             for i, (prompt, answer) in enumerate(
                 [
-                    ("Apa itu variabel dalam pemrograman?", "Wadah untuk menyimpan nilai."),
-                    ("Apa fungsi algoritma?", "Urutan langkah menyelesaikan masalah."),
-                    ("Mengapa fungsi penting?", "Agar kode dapat dipakai ulang."),
+                    ("Nilai dari 3² × 3³ adalah?", "B"),
+                    ("U₅ barisan 4, 7, 10, … adalah?", "B"),
+                    ("Himpunan penyelesaian x² − 5x + 6 = 0 adalah?", "B"),
                 ]
             ):
                 session.add(
@@ -366,8 +338,9 @@ async def main() -> None:
                         material_id=mat1_id,
                         prompt=prompt,
                         correct_answer=answer,
+                        qtype="multiple_choice",
                         position=i,
-                        source="ai",
+                        source="manual",
                         review_status="approved",
                     )
                 )
@@ -376,7 +349,7 @@ async def main() -> None:
             log.info("seed_exam_created", exam=str(exam.id))
 
         quest = (
-            await session.execute(select(Quest).where(Quest.title == "Quest Simulasi Cepat"))
+            await session.execute(select(Quest).where(Quest.title == "Kuis Cepat Matematika"))
         ).scalar_one_or_none()
         if quest is None:
             qsvc = QuestService(session)
@@ -387,8 +360,8 @@ async def main() -> None:
                     {"rank": 2, "reward_amount": 60},
                     {"rank": 3, "reward_amount": 40},
                 ],
-                title="Quest Simulasi Cepat",
-                description="Selesaikan ujian secepat mungkin dengan nilai terbaik.",
+                title="Kuis Cepat Matematika",
+                description="Selesaikan ujian matematika secepat mungkin dengan nilai terbaik.",
                 exam_id=exam.id,
                 top_n_winners=3,
                 status="open",
@@ -401,12 +374,12 @@ async def main() -> None:
         from app.models.room import Room
 
         room = (
-            await session.execute(select(Room).where(Room.name == "Ruang Simulasi"))
+            await session.execute(select(Room).where(Room.name == "Lab Matematika 10A"))
         ).scalar_one_or_none()
         if room is None:
             rsvc = RoomService(session)
             room = await rsvc.create(
-                teacher, name="Ruang Simulasi", max_participants=50, is_public=True
+                teacher, name="Lab Matematika 10A", max_participants=50, is_public=True
             )
             await rsvc.open(room.id, teacher)
             for s in students[:3]:
@@ -510,10 +483,12 @@ async def _simulate_activity(teacher: User, students: list[User]) -> None:
 
     async with session_scope() as session:
         exam = (
-            await session.execute(select(Exam).where(Exam.title == "Ujian Simulasi Dasar"))
+            await session.execute(
+                select(Exam).where(Exam.title == "Ujian Matematika — Eksponen & Barisan")
+            )
         ).scalar_one_or_none()
         quest = (
-            await session.execute(select(Quest).where(Quest.title == "Quest Simulasi Cepat"))
+            await session.execute(select(Quest).where(Quest.title == "Kuis Cepat Matematika"))
         ).scalar_one_or_none()
         if exam is None or quest is None:
             return
@@ -539,7 +514,9 @@ async def _simulate_activity(teacher: User, students: list[User]) -> None:
     for student, score_bp, duration in zip(students[:3], scores, durations, strict=False):
         async with session_scope() as session:
             exam = (
-                await session.execute(select(Exam).where(Exam.title == "Ujian Simulasi Dasar"))
+                await session.execute(
+                    select(Exam).where(Exam.title == "Ujian Matematika — Eksponen & Barisan")
+                )
             ).scalar_one()
             from app.models.exam import Question
 
@@ -593,7 +570,7 @@ async def _simulate_activity(teacher: User, students: list[User]) -> None:
 
         async with session_scope() as session:
             quest = (
-                await session.execute(select(Quest).where(Quest.title == "Quest Simulasi Cepat"))
+                await session.execute(select(Quest).where(Quest.title == "Kuis Cepat Matematika"))
             ).scalar_one()
             await QuestService(session).record_attempt(
                 quest.id, student, exam_attempt_id=attempt.id
@@ -603,7 +580,7 @@ async def _simulate_activity(teacher: User, students: list[User]) -> None:
     # Finalize the quest -> rewards, badges, notifications.
     async with session_scope() as session:
         quest = (
-            await session.execute(select(Quest).where(Quest.title == "Quest Simulasi Cepat"))
+            await session.execute(select(Quest).where(Quest.title == "Kuis Cepat Matematika"))
         ).scalar_one()
         owner = (
             await session.execute(select(User).where(User.email == "teacher@qloot.example"))
