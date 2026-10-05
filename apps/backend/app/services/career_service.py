@@ -1095,14 +1095,40 @@ class CareerService:
             if resolved_id is None:
                 name = counselor
 
+        counselor_filter = (
+            (Consultation.counselor_user_id == resolved_id)
+            if resolved_id is not None
+            else (Consultation.counselor == name)
+        )
+
         if scheduled_at is None:
             slot = datetime.now(UTC) + timedelta(days=3)
-            existing = [
-                c
-                for c in await self.list_consultations(user.id)
-                if c.status in ("pending", "accepted") and c.counselor == name
-            ]
-            scheduled_at = slot + timedelta(hours=len(existing))
+            existing_count = (
+                await self.session.execute(
+                    select(func.count())
+                    .select_from(Consultation)
+                    .where(
+                        counselor_filter,
+                        Consultation.status.in_(("pending", "accepted")),
+                    )
+                )
+            ).scalar_one()
+            scheduled_at = slot + timedelta(hours=int(existing_count))
+        else:
+            conflict_stmt = (
+                select(Consultation)
+                .where(
+                    counselor_filter,
+                    Consultation.scheduled_at == scheduled_at,
+                    Consultation.status.in_(("pending", "accepted")),
+                )
+                .limit(1)
+            )
+            conflict = (await self.session.execute(conflict_stmt)).scalar_one_or_none()
+            if conflict is not None:
+                raise ConflictError(
+                    "Jadwal konsultasi pada waktu tersebut sudah terisi. Silakan pilih waktu lain."
+                )
 
         c = Consultation(
             user_id=user.id,
