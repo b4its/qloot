@@ -19,6 +19,7 @@
   } from "$lib/utils/format";
   import Pagination from "$lib/components/Pagination.svelte";
   import Icon from "$lib/components/Icon.svelte";
+  import CoinIcon from "$lib/components/CoinIcon.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import { opt } from "$lib/stores/opt";
   import { onRealtime } from "$lib/stores/realtime";
@@ -494,8 +495,9 @@
     <div class="mt-6 grid gap-4 sm:grid-cols-3">
       <div class="card">
         <div class="mono-label">Tersedia</div>
-        <div class="mt-1 font-display text-3xl font-bold text-highlight">
-          {formatNumber(wallet.available)}
+        <div class="mt-1 flex items-center gap-2 font-display text-3xl font-bold text-highlight">
+          <CoinIcon size="26px" />
+          <span>{formatNumber(wallet.available)}</span>
         </div>
         <div class="text-xs muted">OPT (token id {wallet.token_id})</div>
         <button
@@ -588,10 +590,16 @@
         </p>
         <div class="mt-3 grid gap-3 text-sm sm:grid-cols-3">
           <div>
-            <span class="badge badge-indigo">OPT</span>
+            <div class="flex items-center gap-1.5">
+              <CoinIcon size="16px" />
+              <span class="badge badge-indigo">OPT</span>
+            </div>
             <p class="mt-1 font-medium">OryphemToken</p>
             <p class="text-xs muted">Mata uang dasar · tanpa batas</p>
-            <p class="mt-1 font-mono text-highlight">{formatNumber(assetBalance("OPT"))}</p>
+            <p class="mt-1 flex items-center gap-1.5 font-mono text-highlight">
+              <CoinIcon size="14px" />
+              <span>{formatNumber(assetBalance("OPT"))}</span>
+            </p>
           </div>
           <div>
             <span class="badge badge-indigo">QTC</span>

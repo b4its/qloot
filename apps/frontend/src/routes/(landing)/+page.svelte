@@ -3,6 +3,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import StatCounter from "$lib/components/StatCounter.svelte";
   import CertificateBadge from "$lib/components/CertificateBadge.svelte";
+  import CoinIcon from "$lib/components/CoinIcon.svelte";
   import WalletChip from "$lib/components/WalletChip.svelte";
   import BrandLogo from "$lib/components/BrandLogo.svelte";
   import Mascot from "$lib/components/Mascot.svelte";
@@ -124,7 +125,10 @@
               <h3 class="mt-2 font-display text-sm font-bold">Pelajaran Kelas 1A</h3>
               <p class="text-[11px] muted">Matematika & Fisika interaktif.</p>
               <div class="mt-3 flex items-center justify-between border-t pt-2">
-                <span class="text-[11px] font-semibold text-highlight">+50 OPT Hadiah</span>
+                <span class="flex items-center gap-1 text-[11px] font-semibold text-highlight">
+                  <CoinIcon size="14px" />
+                  <span>+50 OPT Hadiah</span>
+                </span>
                 <a href="/courses" class="btn-primary !px-2.5 !py-1 text-[11px]">Buka</a>
               </div>
             </div>

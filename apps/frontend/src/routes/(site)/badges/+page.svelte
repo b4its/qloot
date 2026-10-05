@@ -28,7 +28,7 @@
     first_quest: "bullseye",
     quiz_master: "brain",
     top_3: "medal",
-    first_reward: "gem",
+    first_reward: "coins",
     room_regular: "tent",
     perfect_exam: "star",
     learner: "book-open-reader",

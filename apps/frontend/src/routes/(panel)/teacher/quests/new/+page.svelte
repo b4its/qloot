@@ -6,6 +6,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import { formatNumber } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import CoinIcon from "$lib/components/CoinIcon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import PageAlerts from "$lib/components/PageAlerts.svelte";
 
@@ -150,8 +151,8 @@
 
       <div class="mt-4">
         <div class="flex items-center justify-between">
-          <span class="mono-label">Hadiah OPT per peringkat</span>
-          <span class="mono-label text-[10px]">Total pool: {formatNumber(totalPool)} OPT</span>
+          <span class="mono-label flex items-center gap-1.5"><CoinIcon size="14px" /> Hadiah OPT per peringkat</span>
+          <span class="mono-label text-[10px] flex items-center gap-1"><CoinIcon size="11px" /> Total pool: {formatNumber(totalPool)} OPT</span>
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-2">
           {#each ranks as amount, i (i)}

@@ -4,6 +4,7 @@
   import type { Task } from "$lib/types";
   import { formatDate, paginate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import CoinIcon from "$lib/components/CoinIcon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
@@ -270,7 +271,10 @@
           </div>
 
           <div class="flex items-center gap-3 shrink-0">
-            <span class="mono font-bold text-sm text-highlight">+{t.reward_amount} OPT</span>
+            <span class="mono flex items-center gap-1.5 text-sm font-bold text-highlight">
+              <CoinIcon size="15px" />
+              <span>+{t.reward_amount} OPT</span>
+            </span>
             {#if completed[t.id]}
               <span
                 class="badge badge-mint text-xs py-1 px-2.5 flex items-center gap-1.5 font-medium"

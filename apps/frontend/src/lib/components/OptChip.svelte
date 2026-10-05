@@ -39,7 +39,7 @@
   aria-label={`Saldo ${$opt.available} OPT, buka dompet`}
 >
   <span class="brand-mark-cool grid h-6 w-6 flex-none place-items-center rounded-sm">
-    <Icon name="coins" size="11px" />
+    <Icon name="coins" size="14px" />
   </span>
   <span class="flex flex-col items-start leading-tight">
     {#if !compact}<span class="text-[10px] muted">OPT</span>{/if}

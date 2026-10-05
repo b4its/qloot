@@ -5,6 +5,7 @@
   import { auth } from "$lib/stores/auth";
   import { formatNumber } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import CoinIcon from "$lib/components/CoinIcon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import SearchInput from "$lib/components/SearchInput.svelte";
@@ -193,8 +194,9 @@
           {/if}
           <div>
             <p class="mono-label">OPT diperoleh</p>
-            <p class="font-display text-2xl font-bold text-highlight">
-              {formatNumber(me.opc_balance)}
+            <p class="font-display text-2xl font-bold text-highlight flex items-center gap-1.5">
+              <CoinIcon size="20px" />
+              <span>{formatNumber(me.opc_balance)}</span>
             </p>
           </div>
         </div>
@@ -261,7 +263,12 @@
             <th class="px-5 py-3" scope="col">#</th>
             <th class="px-5 py-3" scope="col">Pengguna</th>
             <th class="px-5 py-3 text-right" scope="col">Skor</th>
-            <th class="px-5 py-3 text-right" scope="col">OPT</th>
+            <th class="px-5 py-3 text-right" scope="col">
+              <span class="inline-flex items-center justify-end gap-1">
+                <CoinIcon size="12px" />
+                <span>OPT</span>
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>

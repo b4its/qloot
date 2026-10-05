@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
+  import CoinIcon from "$lib/components/CoinIcon.svelte";
   import Skeleton from "$lib/components/Skeleton.svelte";
   import { onMount } from "svelte";
   import { api, ApiError } from "$lib/api/client";
@@ -285,8 +286,9 @@
               <div class="rounded-sm border surface p-3 space-y-2">
                 <div class="flex items-center justify-between text-xs">
                   <span class="mono-label text-[10px] text-primary">Struktur Hadiah Token</span>
-                  <span class="font-mono text-[11px] text-highlight font-bold">
-                    Total {q.rules.reduce((acc, r) => acc + (r.reward_amount || 0), 0)} OPT
+                  <span class="font-mono text-[11px] text-highlight font-bold flex items-center gap-1">
+                    <CoinIcon size="13px" />
+                    <span>Total {q.rules.reduce((acc, r) => acc + (r.reward_amount || 0), 0)} OPT</span>
                   </span>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -298,7 +300,10 @@
                         {#if r.rank === 1}🥇 Juara 1{:else if r.rank === 2}🥈 Juara 2{:else if r.rank === 3}🥉
                           Juara 3{:else}#{r.rank}{/if}
                       </span>
-                      <span class="font-mono font-bold text-highlight">{r.reward_amount} OPT</span>
+                      <span class="font-mono font-bold text-highlight flex items-center gap-1">
+                        <CoinIcon size="12px" />
+                        <span>{r.reward_amount} OPT</span>
+                      </span>
                     </div>
                   {/each}
                 </div>
@@ -349,7 +354,10 @@
                         </span>
                         <div class="flex items-center gap-2 font-mono">
                           <span class="text-primary font-bold">{bpToPercent(w.score_bp)}</span>
-                          <span class="text-highlight font-bold">{w.reward_amount} OPT</span>
+                          <span class="text-highlight font-bold flex items-center gap-1">
+                            <CoinIcon size="12px" />
+                            <span>{w.reward_amount} OPT</span>
+                          </span>
                         </div>
                       </div>
                     {/each}

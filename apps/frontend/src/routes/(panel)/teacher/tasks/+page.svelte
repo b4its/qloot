@@ -6,6 +6,7 @@
   import { auth, hasRole } from "$lib/stores/auth";
   import { formatDate, paginate } from "$lib/utils/format";
   import Icon from "$lib/components/Icon.svelte";
+  import CoinIcon from "$lib/components/CoinIcon.svelte";
   import Pagination from "$lib/components/Pagination.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
@@ -318,8 +319,8 @@
         <div class="mt-1 font-display text-xl font-bold text-highlight">{scheduledCount}</div>
       </div>
       <div class="card p-3">
-        <span class="mono-label text-[10px]">Total Pool OPT</span>
-        <div class="mt-1 font-display text-xl font-bold text-highlight">{totalPool} OPT</div>
+        <span class="mono-label text-[10px] flex items-center gap-1"><CoinIcon size="11px" /> Total Pool OPT</span>
+        <div class="mt-1 font-display text-xl font-bold text-highlight flex items-center gap-1.5"><CoinIcon size="18px" /> {totalPool} OPT</div>
       </div>
     </div>
   {/if}
@@ -343,7 +344,7 @@
         </select>
       </label>
       <label class="block">
-        <span class="mono-label">Hadiah OPT</span>
+        <span class="mono-label flex items-center gap-1"><CoinIcon size="12px" /> Hadiah OPT</span>
         <input class="input mt-1" type="number" min="0" bind:value={newTask.reward_amount} />
       </label>
       <label class="block">
@@ -444,8 +445,9 @@
                     </span>
                   {/if}
                 </div>
-                <p class="text-sm muted">
-                  +{t.reward_amount} OPT · {t.is_active ? "aktif" : "nonaktif"}
+                <p class="text-sm muted flex items-center gap-1">
+                  <CoinIcon size="12px" />
+                  <span>+{t.reward_amount} OPT · {t.is_active ? "aktif" : "nonaktif"}</span>
                 </p>
                 {#if t.starts_at}
                   <p class="text-xs muted">Mulai {formatDate(t.starts_at)}</p>
