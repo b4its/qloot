@@ -352,54 +352,50 @@
 
   <!-- ================= FOOTER ================= -->
   {#if showMarketingChrome}
-    <footer class="cyber-rule mt-16 border-t border-white/5 bg-[#05060A] text-white">
-      <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-        <div class="grid gap-10 lg:grid-cols-5">
+    <footer class="cyber-rule mt-12 border-t border-white/5 bg-[#05060A] text-white">
+      <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
+        <div class="grid gap-8 sm:gap-10 lg:grid-cols-5">
           <div class="lg:col-span-2">
             <div class="flex items-center gap-2.5">
-              <span class="brand-mark grid h-9 w-9 place-items-center rounded-sm">
-                <Icon name="graduation-cap" size="16px" />
+              <span class="brand-mark grid h-8 w-8 place-items-center rounded-sm">
+                <Icon name="graduation-cap" size="15px" />
               </span>
-              <span class="font-display text-lg font-bold uppercase">QLoot</span>
+              <span class="font-display text-base font-bold uppercase tracking-tight">QLoot</span>
             </div>
-            <p class="mt-4 max-w-sm text-sm text-white/60">
+            <p class="mt-3 max-w-sm text-xs leading-relaxed text-white/60 sm:text-sm">
               Platform e-learning kelas dengan gamifikasi, AI, dan teknologi on-chain. Pelajaran per
               kelas, sertifikat digital, dan komunitas dalam satu tempat.
             </p>
-            <div class="mt-5 max-w-sm">
-              <p class="text-xs text-white/50">
-                Dapatkan info kelas baru lewat dashboard. Cek juga
-                <a class="text-primary hover:underline" href="/faq">FAQ</a> dan
-                <a class="text-primary hover:underline" href="/community">komunitas</a>.
+            <form
+              class="mt-4 flex max-w-sm items-center gap-2"
+              on:submit|preventDefault={subscribe}
+            >
+              <input
+                class="input !border-white/10 !bg-surface/5 text-xs text-white placeholder:text-white/40 !py-1.5"
+                placeholder="Email untuk info kelas baru"
+                aria-label="Email untuk info kelas baru"
+                type="email"
+                bind:value={newsletterEmail}
+                required
+              />
+              <button
+                class="btn-primary flex-none !py-1.5 px-3 text-xs"
+                type="submit"
+                aria-label="Kirim permintaan info"
+              >
+                <Icon name="paper-plane" size="12px" />
+              </button>
+            </form>
+            {#if newsletterMsg}
+              <p class="mt-1.5 text-xs text-primary" role="status" aria-live="polite">
+                {newsletterMsg}
               </p>
-              <form class="mt-3 flex items-center gap-2" on:submit|preventDefault={subscribe}>
-                <input
-                  class="input !border-white/10 !bg-surface/5 text-white placeholder:text-white/40"
-                  placeholder="Email untuk info kelas baru"
-                  aria-label="Email untuk info kelas baru"
-                  type="email"
-                  bind:value={newsletterEmail}
-                  required
-                />
-                <button
-                  class="btn-primary flex-none"
-                  type="submit"
-                  aria-label="Kirim permintaan info"
-                >
-                  <Icon name="paper-plane" size="13px" />
-                </button>
-              </form>
-              {#if newsletterMsg}
-                <p class="mt-2 text-xs text-primary" role="status" aria-live="polite">
-                  {newsletterMsg}
-                </p>
-              {/if}
-            </div>
+            {/if}
           </div>
 
           <div>
             <p class="mono-label !text-primary">Belajar</p>
-            <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <ul class="mt-2.5 space-y-1.5 text-xs text-white/70 sm:text-sm">
               <li>
                 <a class="transition-colors hover:text-primary" href="/courses">Daftar Pelajaran</a>
               </li>
@@ -417,7 +413,7 @@
 
           <div>
             <p class="mono-label !text-primary">Perusahaan</p>
-            <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <ul class="mt-2.5 space-y-1.5 text-xs text-white/70 sm:text-sm">
               <li><a class="transition-colors hover:text-primary" href="/about">Tentang</a></li>
               <li>
                 <a class="transition-colors hover:text-primary" href="/business">Untuk Bisnis</a>
@@ -429,7 +425,7 @@
 
           <div>
             <p class="mono-label !text-primary">Sumber Daya</p>
-            <ul class="mt-3 space-y-2 text-sm text-white/70">
+            <ul class="mt-2.5 space-y-1.5 text-xs text-white/70 sm:text-sm">
               <li><a class="transition-colors hover:text-primary" href="/faq">FAQ</a></li>
               <li>
                 <a class="transition-colors hover:text-primary" href="/certificates">Sertifikat</a>
@@ -450,7 +446,7 @@
         </div>
 
         <div
-          class="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row"
+          class="mt-8 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-4 text-xs text-white/50 sm:flex-row"
         >
           <p>
             © {new Date().getFullYear()} QLoot. Dibuat untuk pengalaman belajar yang lebih baik.
@@ -461,21 +457,21 @@
               class="text-white/70 transition-colors hover:text-primary"
               aria-label="Komunitas QLoot"
             >
-              <Icon name="users" size="16px" />
+              <Icon name="users" size="15px" />
             </a>
             <a
               href="/certificates"
               class="text-white/70 transition-colors hover:text-primary"
               aria-label="Verifikasi sertifikat"
             >
-              <Icon name="certificate" size="16px" />
+              <Icon name="certificate" size="15px" />
             </a>
             <a
               href="/career"
               class="text-white/70 transition-colors hover:text-primary"
               aria-label="Panduan karier"
             >
-              <Icon name="compass" size="16px" />
+              <Icon name="compass" size="15px" />
             </a>
             <span class="mono ml-1 text-white/40">Bahasa: Indonesia</span>
           </div>
