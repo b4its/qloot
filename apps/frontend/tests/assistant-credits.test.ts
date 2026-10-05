@@ -82,7 +82,7 @@ describe("assistant AI credits and chat locking", () => {
     expect(walletLink?.textContent).toContain("halaman dompet");
 
     // Check input is disabled and has warning placeholder
-    const input = screen.getByLabelText(/pertanyaan untuk asisten qlo/i) as HTMLInputElement;
+    const input = screen.getByLabelText(/pertanyaan untuk asisten qlu/i) as HTMLInputElement;
     expect(input.disabled).toBe(true);
     expect(input.placeholder).toContain("Kredit AI (ORT) habis");
 
@@ -123,7 +123,7 @@ describe("assistant AI credits and chat locking", () => {
     try {
       render(AssistantPage);
 
-      const input = screen.getByLabelText(/pertanyaan untuk asisten qlo/i) as HTMLInputElement;
+      const input = screen.getByLabelText(/pertanyaan untuk asisten qlu/i) as HTMLInputElement;
       await waitFor(() => expect(input.disabled).toBe(false));
 
       await fireEvent.input(input, { target: { value: "Mau tanya rekomendasi jurusan" } });
@@ -176,7 +176,7 @@ describe("assistant AI credits and chat locking", () => {
     try {
       render(AssistantPage);
 
-      const input = screen.getByLabelText(/pertanyaan untuk asisten qlo/i) as HTMLInputElement;
+      const input = screen.getByLabelText(/pertanyaan untuk asisten qlu/i) as HTMLInputElement;
       await waitFor(() => expect(input.disabled).toBe(false));
 
       await fireEvent.input(input, { target: { value: "Halo asisten" } });
@@ -227,7 +227,7 @@ describe("assistant AI credits and chat locking", () => {
     expect(log?.textContent).toContain("Kredit AI (ORT) habis");
 
     // Input still disabled
-    const input = screen.getByLabelText(/pertanyaan untuk asisten qlo/i) as HTMLInputElement;
+    const input = screen.getByLabelText(/pertanyaan untuk asisten qlu/i) as HTMLInputElement;
     expect(input.disabled).toBe(true);
   });
 });

@@ -111,3 +111,14 @@ def test_matcher_identity_and_fallback():
     fallback = matcher.fallback_guide()
     assert "Asisten Qlo" in fallback["answer"]
     assert "Jalur Masuk PTN" in fallback["answer"]
+
+
+def test_matcher_qlu_identity_and_greeting():
+    matcher = RuleBasedMatcher(assistant_name="Asisten Qlu")
+    res_id = matcher.match("siapa kamu sebenarnya?")
+    assert res_id is not None
+    assert "Asisten Qlu" in res_id["answer"]
+
+    res_greet = matcher.match("halo selamat pagi qlu")
+    assert res_greet is not None
+    assert "Asisten Qlu" in res_greet["answer"]

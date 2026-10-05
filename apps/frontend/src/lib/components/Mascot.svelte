@@ -24,9 +24,11 @@
     | "fearful";
 
   export type MascotPose = "front" | "side" | "back";
+  export type MascotCharacter = "qlo" | "qlu" | "cat" | "human";
 </script>
 
 <script lang="ts">
+  export let character: MascotCharacter = "qlo";
   export let expression: MascotExpression = "cool";
   export let pose: MascotPose = "front";
   export let mode: "expression" | "pose" = "expression";
@@ -36,12 +38,23 @@
   export let interactive = false;
   export let speech: string | undefined = undefined;
   export let speechPosition: "top" | "right" | "bottom" | "left" = "right";
-  export let alt = "Mascot Qlo";
+  export let alt: string | undefined = undefined;
   let className = "";
   export { className as class };
 
-  $: src =
-    mode === "pose" ? `/mascot/poses/${pose}.webp` : `/mascot/expressions/${expression}.webp`;
+  $: isCat = character === "qlu" || character === "cat";
+  $: defaultAlt = isCat ? "Mascot Qlu" : "Mascot Qlo";
+  $: effectiveAlt = alt || defaultAlt;
+
+  $: src = isCat
+    ? mode === "pose"
+      ? `/mascot/qlu/${pose}.webp`
+      : expression === "thinking" || expression === "curious" || expression === "confused"
+        ? `/mascot/qlu/side.webp`
+        : `/mascot/qlu/front.webp`
+    : mode === "pose"
+      ? `/mascot/poses/${pose}.webp`
+      : `/mascot/expressions/${expression}.webp`;
 
   $: sizeClasses =
     size === "xs"
@@ -78,7 +91,7 @@
   <!-- Mascot Image -->
   <img
     {src}
-    {alt}
+    alt={effectiveAlt}
     class="object-contain pointer-events-none {sizeClasses}"
     class:glow-mascot={glow}
     loading="lazy"
@@ -89,7 +102,7 @@
   <!-- Optional Speech Bubble -->
   {#if speech}
     <div
-      class="speech-bubble absolute z-20 whitespace-nowrap rounded-lg border border-primary/30 bg-surface/95 px-3 py-1.5 text-xs font-semibold text-ink shadow-lg backdrop-blur-md dark:border-primary/40 dark:bg-elevated/95"
+      class="speech-bubble absolute z-20 pointer-events-none whitespace-nowrap rounded-lg border border-primary/30 bg-surface/95 px-3 py-1.5 text-xs font-semibold text-ink shadow-lg backdrop-blur-md dark:border-primary/40 dark:bg-elevated/95"
       class:bottom-full={speechPosition === "top"}
       class:mb-2={speechPosition === "top"}
       class:left-full={speechPosition === "right"}

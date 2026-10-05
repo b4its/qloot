@@ -41,4 +41,26 @@ describe("Mascot component", () => {
     const aura = container.querySelector(".blur-xl");
     expect(aura).toBeTruthy();
   });
+
+  it("renders cat mascot Qlu with proper alt and front pose by default", () => {
+    const { container } = render(Mascot, { props: { character: "qlu" } });
+    const img = container.querySelector("img");
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute("src")).toBe("/mascot/qlu/front.webp");
+    expect(img?.getAttribute("alt")).toBe("Mascot Qlu");
+  });
+
+  it("renders cat mascot Qlu side pose for thinking expression", () => {
+    const { container } = render(Mascot, { props: { character: "qlu", expression: "thinking" } });
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("src")).toBe("/mascot/qlu/side.webp");
+  });
+
+  it("renders specific poses for Qlu when mode is 'pose'", () => {
+    const { container } = render(Mascot, {
+      props: { character: "qlu", mode: "pose", pose: "side" },
+    });
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("src")).toBe("/mascot/qlu/side.webp");
+  });
 });

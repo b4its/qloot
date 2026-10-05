@@ -545,11 +545,11 @@
             <Icon name="book-open-reader" size="12px" /> Lanjutkan Pelajaran
           </a>
           <a href="/assistant" class="btn-ghost !py-1.5 !px-3.5 text-xs">
-            <Icon name="comment-dots" size="12px" /> Tanya Asisten Qlo
+            <Icon name="comment-dots" size="12px" /> Tanya Asisten Qlu
           </a>
         </div>
       </div>
-      <div class="flex-none">
+      <div class="flex-none self-center sm:self-auto">
         <Mascot
           expression="cool"
           size="xl"
@@ -557,7 +557,7 @@
           float
           interactive
           speech="Siap selesaikan misi hari ini?"
-          speechPosition="left"
+          speechPosition="top"
           alt="Mascot Qlo"
           class="drop-shadow-lg"
         />

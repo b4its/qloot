@@ -128,7 +128,7 @@ class Settings(BaseSettings):
     # Avatar image upload cap (AUTH-04) — much smaller than material PDFs.
     avatar_max_bytes: int = 2 * 1024 * 1024
     # Display name of the built-in study/career assistant.
-    assistant_name: str = "Asisten Qlo"
+    assistant_name: str = "Asisten Qlu"
     # Free AI requests granted per user before ORT is charged (1 request = 1 ORT).
     # Tracked per user in Redis (degrades to "no free tier" if Redis is down).
     ai_free_requests: int = 3

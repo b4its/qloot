@@ -52,7 +52,7 @@ def fuzzy_word_match(word: str, target: str, threshold: float = 0.78) -> bool:
 class RuleBasedMatcher:
     """Intelligent rule-based and fuzzy knowledge matching engine."""
 
-    def __init__(self, assistant_name: str = "Asisten Qlo") -> None:
+    def __init__(self, assistant_name: str = "Asisten Qlu") -> None:
         self.assistant_name = assistant_name
         self.rules: list[RuleEntry] = self._build_knowledge_base()
 
@@ -62,7 +62,7 @@ class RuleBasedMatcher:
             # 1. Identity & Greeting
             RuleEntry(
                 id="identity",
-                primary_keywords=("siapa", "nama", "qlo", "qloot", "pembuat", "pencipta"),
+                primary_keywords=("siapa", "nama", "qlu", "qlo", "qloot", "pembuat", "pencipta"),
                 secondary_keywords=("asisten", "bot", "ai", "bantuan", "fungsi"),
                 phrases=(
                     "siapa kamu",
@@ -95,6 +95,8 @@ class RuleBasedMatcher:
                 ),
                 secondary_keywords=("bantu", "tanya"),
                 phrases=(
+                    "halo qlu",
+                    "hai qlu",
                     "halo qlo",
                     "hai qlo",
                     "selamat pagi",
