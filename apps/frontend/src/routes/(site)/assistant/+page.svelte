@@ -386,12 +386,12 @@
               {c.title}
             </button>
             <button
-              class="btn-icon ml-0.5 !text-tertiary"
+              class="btn-icon ml-1 !h-7 !w-7 !text-tertiary hover:!text-danger"
               aria-label={`Hapus percakapan ${c.title}`}
               on:click={() => removeConversation(c.id)}
               disabled={busy}
             >
-              <Icon name="trash" size="9px" />
+              <Icon name="trash" size="10px" />
             </button>
           </span>
         {/each}

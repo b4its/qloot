@@ -615,26 +615,26 @@
           <label class="block">
             <span class="mono-label">Jumlah ({swapAsset})</span>
             <input class="input mt-1" type="number" min="1" bind:value={swapAmount} />
-            <div class="mt-1 flex items-center gap-1 text-[11px]">
+            <div class="mt-1 flex items-center gap-1.5 text-xs">
               <span class="muted">Preset:</span>
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-1.5 text-[11px]"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setSwapAmount(1)}>1</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-1.5 text-[11px]"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setSwapAmount(5)}>5</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-1.5 text-[11px]"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setSwapAmount(10)}>10</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-1.5 text-[11px] text-primary"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px] text-primary"
                 on:click={setMaxSwap}>Maks</button
               >
             </div>
@@ -766,22 +766,22 @@
               <span class="muted">Cepat:</span>
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setWithdrawPercent(25)}>25%</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setWithdrawPercent(50)}>50%</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setWithdrawPercent(75)}>75%</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs text-primary font-medium"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px] text-primary"
                 on:click={() => setWithdrawPercent(100)}>Maks</button
               >
             </div>
@@ -951,22 +951,22 @@
               <span class="muted">Cepat:</span>
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setTransferPercent(25)}>25%</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setTransferPercent(50)}>50%</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px]"
                 on:click={() => setTransferPercent(75)}>75%</button
               >
               <button
                 type="button"
-                class="btn-ghost !py-0.5 !px-2 text-xs text-primary font-medium"
+                class="btn-ghost !py-1 !px-2.5 text-xs font-semibold rounded-xs min-h-[32px] sm:min-h-[28px] text-primary"
                 on:click={() => setTransferPercent(100)}>Maks</button
               >
             </div>

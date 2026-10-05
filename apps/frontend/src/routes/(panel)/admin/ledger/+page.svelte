@@ -99,8 +99,8 @@
   {#if !loading}
     <div
       class="card mt-4 flex items-center gap-3 border {healthy
-        ? 'border-emerald-500/40'
-        : 'border-amber-500/40'}"
+        ? 'border-mint/40'
+        : 'border-amber/40'}"
       data-role="ledger-health"
     >
       <span class="tile-neutral h-10 w-10">

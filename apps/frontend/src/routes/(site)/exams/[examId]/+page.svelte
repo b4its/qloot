@@ -202,9 +202,9 @@
 
     <!-- Resume an in-progress attempt -->
     {#if inProgress}
-      <div class="card mt-4 border-amber-500/40">
+      <div class="card mt-4 border-amber/40">
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-2 text-amber-400">
+          <div class="flex items-center gap-2 text-amber">
             <Icon name="hourglass-half" size="15px" />
             <span class="text-sm font-medium">Ada pengerjaan yang belum diselesaikan.</span>
           </div>

@@ -460,7 +460,7 @@
                     class="btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5 transition-colors border {flagged[
                       q.id
                     ]
-                      ? '!border-amber-400 !text-amber-400 !bg-amber-400/10'
+                      ? '!border-amber !text-amber !bg-amber/10'
                       : ''}"
                     on:click={() => toggleFlag(q.id)}
                     aria-pressed={flagged[q.id] ?? false}
@@ -674,7 +674,7 @@
               class="relative h-11 w-11 rounded-sm border font-mono text-sm font-medium transition-all {isCur
                 ? 'border-primary bg-primary text-[#05060A]'
                 : isFlag
-                  ? 'border-amber-400 bg-amber-400/20 text-amber-300'
+                  ? 'border-amber bg-amber/20 text-amber'
                   : isAns
                     ? 'border-secondary bg-secondary/10 text-secondary'
                     : 'border-border/60 opacity-60'}"
@@ -686,7 +686,7 @@
               {i + 1}
               {#if isFlag}
                 <span
-                  class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-background"
+                  class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber ring-2 ring-background"
                 ></span>
               {/if}
             </button>
@@ -704,7 +704,7 @@
             <span>Belum diisi</span>
           </div>
           <div class="flex items-center gap-1.5">
-            <span class="h-2.5 w-2.5 rounded-xs border border-amber-400 bg-amber-400/30"></span>
+            <span class="h-2.5 w-2.5 rounded-xs border border-amber bg-amber/30"></span>
             <span>Ragu-ragu</span>
           </div>
           <div class="flex items-center gap-1.5">

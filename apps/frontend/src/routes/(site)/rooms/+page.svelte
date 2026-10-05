@@ -237,7 +237,7 @@
       </div>
       <div class="card p-3">
         <span class="mono-label text-[10px]">Ruang Terkunci</span>
-        <div class="mt-1 font-display text-xl font-bold text-amber-500">{lockedRoomsCount}</div>
+        <div class="mt-1 font-display text-xl font-bold text-amber">{lockedRoomsCount}</div>
       </div>
       <div class="card p-3">
         <span class="mono-label text-[10px]">Ruang Publik</span>
@@ -545,9 +545,7 @@
                     {statusLabel(room.status)}
                   </span>
                   {#if room.is_locked}
-                    <span
-                      class="badge border border-amber-500/40 text-amber-400 text-[9px] flex items-center gap-1"
-                    >
+                    <span class="badge badge-amber text-[9px] flex items-center gap-1">
                       <Icon name="lock" size="8px" />
                       <span>Terkunci</span>
                     </span>

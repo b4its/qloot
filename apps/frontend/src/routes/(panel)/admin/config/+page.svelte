@@ -98,8 +98,8 @@
     <!-- Status banner -->
     <div
       class="card mt-4 flex flex-wrap items-center gap-3 border {isProduction
-        ? 'border-emerald-500/40'
-        : 'border-amber-500/40'}"
+        ? 'border-mint/40'
+        : 'border-amber/40'}"
       data-role="env-banner"
     >
       <span class="tile-neutral h-10 w-10">

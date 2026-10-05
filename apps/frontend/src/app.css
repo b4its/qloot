@@ -278,8 +278,20 @@ html.theme-init * {
   }
   @media (pointer: coarse), (max-width: 640px) {
     .btn {
-      min-height: 44px;
+      min-height: 48px;
     }
+    .btn-icon {
+      min-height: 48px;
+      min-width: 48px;
+    }
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+    min-height: 36px;
+  }
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+    min-height: 48px;
   }
   .btn:disabled {
     @apply cursor-not-allowed opacity-50;
@@ -336,6 +348,17 @@ html.theme-init * {
   .btn-ghost:hover:not(:disabled) {
     color: rgb(var(--accent));
     background-color: rgb(var(--accent) / 0.08);
+  }
+  .btn-tonal {
+    @apply btn border;
+    color: rgb(var(--accent));
+    background-color: rgb(var(--accent) / 0.12);
+    border-color: rgb(var(--accent) / 0.3);
+  }
+  .btn-tonal:hover:not(:disabled) {
+    background-color: rgb(var(--accent) / 0.22);
+    border-color: rgb(var(--accent) / 0.6);
+    box-shadow: 0 0 16px -4px rgb(var(--accent) / 0.6);
   }
   .btn-icon {
     @apply grid h-10 w-10 place-items-center rounded-sm border transition-all duration-200;
@@ -462,6 +485,20 @@ html.theme-init * {
   .badge-neutral {
     background-color: rgb(var(--ink) / 0.06);
     color: rgb(var(--ink2));
+  }
+  .badge-primary {
+    background-color: rgb(var(--accent) / 0.16);
+    color: #005aa3;
+  }
+  html.dark .badge-primary {
+    color: #66b1ff;
+  }
+  .badge-danger {
+    background-color: rgba(255, 0, 60, 0.16);
+    color: #c0196a;
+  }
+  html.dark .badge-danger {
+    color: #ff5c7a;
   }
 
   /* Alerts -------------------------------------------------------------- */

@@ -60,7 +60,7 @@
           </p>
           {#if resetToken}
             <div class="card mt-4 !p-4">
-              <p class="mono-label text-amber-400">Mode pengembangan</p>
+              <p class="mono-label text-amber">Mode pengembangan</p>
               <p class="mt-1 text-xs muted">
                 Tidak ada email sungguhan yang dikirim pada mode ini. Token di bawah hanya untuk
                 pengujian: jangan bagikan ke siapa pun.

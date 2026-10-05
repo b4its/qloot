@@ -313,8 +313,8 @@
 <!-- Finalization confirmation modal -->
 {#if confirmingFinalize}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-    <div class="card w-full max-w-md space-y-4 border-amber-500/40 shadow-2xl">
-      <div class="flex items-center gap-2 text-amber-400">
+    <div class="card w-full max-w-md space-y-4 border-amber/40 shadow-2xl">
+      <div class="flex items-center gap-2 text-amber">
         <Icon name="triangle-exclamation" size="18px" />
         <h3 class="font-display text-lg font-bold">Konfirmasi Finalisasi Quest</h3>
       </div>
@@ -331,7 +331,7 @@
         <button class="btn-ghost text-xs" on:click={() => (confirmingFinalize = null)}>Batal</button
         >
         <button
-          class="btn-primary !bg-amber-500 !text-black text-xs font-semibold"
+          class="btn-primary !bg-amber !text-[#05060A] text-xs font-semibold"
           on:click={() => confirmingFinalize && executeFinalize(confirmingFinalize)}
           data-role="confirm-finalize"
         >
