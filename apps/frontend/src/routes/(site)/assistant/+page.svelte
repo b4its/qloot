@@ -13,7 +13,7 @@
 
   const GREETING: Msg = {
     role: "bot",
-    text: "Hai! Saya **Asisten Qlo**. Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
+    text: "Hai! Saya **Asisten Qlu**. Tanyakan jurusan, kampus, jalur masuk (SNBP/SNBT), atau prospek karier.",
   };
 
   const OUT_OF_CREDITS_MSG =
@@ -310,7 +310,7 @@
   });
 </script>
 
-<svelte:head><title>Asisten Qlo | QLoot</title></svelte:head>
+<svelte:head><title>Asisten Qlu | QLoot</title></svelte:head>
 
 <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
   <div class="flex flex-wrap items-center justify-between gap-4">
@@ -322,13 +322,13 @@
         glow
         float
         interactive
-        alt="Asisten Qlo"
+        alt="Maskot Qlo"
         speech={busy ? "Sedang menganalisis..." : undefined}
         speechPosition="bottom"
       />
       <div>
         <p class="mono-label">Panduan Karier · AI Assistant</p>
-        <h1 class="mt-1 font-display text-3xl font-bold">Asisten Qlo</h1>
+        <h1 class="mt-1 font-display text-3xl font-bold">Asisten Qlu</h1>
         <p class="mt-1 text-sm muted">
           Asisten bimbingan belajar & karier untuk pertanyaan jurusan, kampus, dan prospek karier.
         </p>
@@ -435,7 +435,7 @@
       bind:this={scroller}
       role="log"
       aria-live="polite"
-      aria-label="Percakapan dengan Asisten Qlo"
+      aria-label="Percakapan dengan Asisten Qlu"
     >
       {#each messages as m, i (i)}
         <div class="flex items-start gap-3" class:flex-row-reverse={m.role === "user"}>
@@ -445,7 +445,7 @@
                 character="qlu"
                 pose={!m.text && busy ? "side" : "front"}
                 size="xs"
-                alt="Qlo"
+                alt="Maskot Qlo"
               />
             </div>
           {:else}
@@ -525,7 +525,7 @@
     </div>
 
     <div class="flex items-center gap-2 border-t p-4" class:opacity-60={isOutOfCredits}>
-      <label class="sr-only" for="assistant-input">Pertanyaan untuk Asisten Qlo</label>
+      <label class="sr-only" for="assistant-input">Pertanyaan untuk Asisten Qlu</label>
       <input
         id="assistant-input"
         class="input"
@@ -550,7 +550,7 @@
 {#if deletingConversation}
   <ConfirmDialog
     title="Hapus Percakapan"
-    description="Percakapan ini akan dihapus dari riwayat Asisten Qlo."
+    description="Percakapan ini akan dihapus dari riwayat Asisten Qlu."
     confirmLabel="Ya, Hapus"
     onConfirm={confirmRemoveConversation}
     close={() => (deletingConversation = null)}

@@ -40,7 +40,7 @@ def test_fuzzy_word_match():
 
 
 def test_matcher_exact_and_fuzzy_admissions():
-    matcher = RuleBasedMatcher(assistant_name="Asisten Qlo")
+    matcher = RuleBasedMatcher(assistant_name="Asisten Qlu")
 
     # SNBP vs SNBT
     res = matcher.match("Bedanya SNBP dan SNBT apa ya?")
@@ -62,7 +62,7 @@ def test_matcher_exact_and_fuzzy_admissions():
 
 
 def test_matcher_majors_and_campuses():
-    matcher = RuleBasedMatcher(assistant_name="Asisten Qlo")
+    matcher = RuleBasedMatcher(assistant_name="Asisten Qlu")
 
     # Computer Science
     res_cs = matcher.match("prospek kerja lulusan ilmu komputer dan teknik informatika")
@@ -81,7 +81,7 @@ def test_matcher_majors_and_campuses():
 
 
 def test_matcher_scholarships_and_tips():
-    matcher = RuleBasedMatcher(assistant_name="Asisten Qlo")
+    matcher = RuleBasedMatcher(assistant_name="Asisten Qlu")
 
     # KIP Kuliah
     res_kip = matcher.match("bagaimana cara mendaftar beasisswa kip kuliah?")
@@ -95,12 +95,12 @@ def test_matcher_scholarships_and_tips():
 
 
 def test_matcher_identity_and_fallback():
-    matcher = RuleBasedMatcher(assistant_name="Asisten Qlo")
+    matcher = RuleBasedMatcher(assistant_name="Asisten Qlu")
 
     # Identity
     res_id = matcher.match("siapa kamu sebenarnya?")
     assert res_id is not None
-    assert "Asisten Qlo" in res_id["answer"]
+    assert "Asisten Qlu" in res_id["answer"]
 
     # Greeting
     res_greet = matcher.match("halo selamat pagi qlo")
@@ -109,16 +109,16 @@ def test_matcher_identity_and_fallback():
 
     # Fallback guide when query is unrelated
     fallback = matcher.fallback_guide()
-    assert "Asisten Qlo" in fallback["answer"]
+    assert "Asisten Qlu" in fallback["answer"]
     assert "Jalur Masuk PTN" in fallback["answer"]
 
 
-def test_matcher_qlo_identity_and_greeting():
-    matcher = RuleBasedMatcher(assistant_name="Asisten Qlo")
+def test_matcher_qlu_identity_and_greeting():
+    matcher = RuleBasedMatcher(assistant_name="Asisten Qlu")
     res_id = matcher.match("siapa kamu sebenarnya?")
     assert res_id is not None
-    assert "Asisten Qlo" in res_id["answer"]
+    assert "Asisten Qlu" in res_id["answer"]
 
     res_greet = matcher.match("halo selamat pagi qlo")
     assert res_greet is not None
-    assert "Asisten Qlo" in res_greet["answer"]
+    assert "Asisten Qlu" in res_greet["answer"]

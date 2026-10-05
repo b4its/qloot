@@ -52,7 +52,7 @@ def fuzzy_word_match(word: str, target: str, threshold: float = 0.78) -> bool:
 class RuleBasedMatcher:
     """Intelligent rule-based and fuzzy knowledge matching engine."""
 
-    def __init__(self, assistant_name: str = "Asisten Qlo") -> None:
+    def __init__(self, assistant_name: str = "Asisten Qlu") -> None:
         self.assistant_name = assistant_name
         self.rules: list[RuleEntry] = self._build_knowledge_base()
 

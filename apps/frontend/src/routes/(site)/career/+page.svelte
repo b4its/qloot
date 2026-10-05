@@ -128,7 +128,7 @@
     },
     {
       href: "/assistant",
-      label: "Asisten Qlo",
+      label: "Asisten Qlu",
       desc: "Tanya seputar jurusan, kampus, dan karier",
       icon: "robot",
       status: null,

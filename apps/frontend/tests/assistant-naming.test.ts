@@ -12,14 +12,14 @@ vi.mock("../src/lib/api/client", () => ({
 
 import AssistantPage from "$routes-site/assistant/+page.svelte";
 
-describe("Asisten Qlo page", () => {
+describe("Asisten Qlu page", () => {
   beforeEach(() => cleanup());
 
-  it("names the assistant 'Asisten Qlo' and never the old 'Kulo' alias", () => {
+  it("names the assistant 'Asisten Qlu' and never the old 'Kulo' alias", () => {
     render(AssistantPage);
     // Heading + intro both use the correct name.
-    expect(screen.getByRole("heading", { name: /Asisten Qlo/ })).toBeTruthy();
-    expect(document.body.textContent).toContain("Asisten Qlo");
+    expect(screen.getByRole("heading", { name: /Asisten Qlu/ })).toBeTruthy();
+    expect(document.body.textContent).toContain("Asisten Qlu");
     // The deprecated alias must be gone everywhere on the page.
     expect(document.body.textContent).not.toContain("Kulo");
   });
