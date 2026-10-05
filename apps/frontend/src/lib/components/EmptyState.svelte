@@ -20,7 +20,7 @@
   /** "empty" | "error" */
   export let tone: "empty" | "error" = "empty";
   /** Optional Mascot expression. If true or string, renders Mascot Qlo */
-  export let mascot: MascotExpression | boolean = true;
+  export let mascot: MascotExpression | boolean = false;
 
   $: mascotExpr =
     typeof mascot === "string"

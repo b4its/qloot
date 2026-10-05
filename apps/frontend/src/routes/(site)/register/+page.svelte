@@ -5,7 +5,6 @@
   import Icon from "$lib/components/Icon.svelte";
   import PasswordInput from "$lib/components/PasswordInput.svelte";
   import BrandLogo from "$lib/components/BrandLogo.svelte";
-  import Mascot from "$lib/components/Mascot.svelte";
 
   let email = "";
   let full_name = "";
@@ -66,9 +65,8 @@
   <div class="relative z-10 w-full max-w-md">
     <div class="grad-border">
       <div class="card !p-7">
-        <div class="mb-4 flex items-center justify-between">
+        <div class="mb-4">
           <BrandLogo variant="full" height="h-7" />
-          <Mascot expression="happy" size="sm" alt="Qlo" />
         </div>
         <h1 class="mt-4 font-display text-2xl font-bold">Mulai perjalananmu</h1>
         <p class="mt-1 text-sm muted">Gratis. Tanpa kartu kredit. Sertifikat digital menanti.</p>
