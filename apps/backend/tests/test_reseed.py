@@ -120,3 +120,4 @@ async def test_clean_database_preserves_users_and_wipes_courses(session: AsyncSe
     assert u_after.email == "reseed_test_teacher@example.com"
     assert c_after is None
     assert w_balance == 0
+    await session.commit()

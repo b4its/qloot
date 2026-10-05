@@ -312,13 +312,15 @@ async def test_certificates_issue_on_course_completion(session):
     await session.flush()
 
     student = students[0]
-    # Pick a course matching the student's class and complete all its lessons.
     course = (
         await session.execute(
-            select(Course).where(Course.class_code == student.class_code).limit(1)
+            select(Course)
+            .where(Course.class_code == student.class_code, Course.owner_id == teacher.id)
+            .limit(1)
         )
     ).scalar_one()
     lessons = list((await session.execute(select(Lesson).where(Lesson.course_id == course.id))).scalars())
+    assert lessons, "seeded course must have lessons"
     when = datetime(2025, 3, 15, 10, 0, tzinfo=UTC)
     for lesson in lessons:
         session.add(

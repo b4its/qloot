@@ -189,7 +189,7 @@ async def test_assistant_rule_based_replies(client, monkeypatch):
         ("Bedanya SNBP dan SNBT?", "SNBP"),
         ("Prospek ilmu komputer?", "Ilmu Komputer"),
         ("universitas terbaik untuk teknik", "ITB"),
-        ("siapa kamu?", "Asisten Qlo"),
+        ("siapa kamu?", settings.assistant_name),
     ]:
         r = await client.post("/api/v1/career/assistant", json={"message": msg})
         assert r.status_code == 200, r.text

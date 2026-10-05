@@ -81,7 +81,7 @@ async def test_assistant_skips_ai_for_mock_provider(session, monkeypatch):
     reply = await CareerService(session).assistant_reply(user, "siapa kamu?")
 
     assert fake.calls == 0
-    assert "Asisten Qlo" in reply["answer"]
+    assert settings.assistant_name in reply["answer"]
     # The old "Kulo" alias must no longer be advertised.
     assert "Kulo" not in reply["answer"]
 
