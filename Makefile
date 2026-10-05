@@ -32,6 +32,7 @@ ASSET ?=
 REQUESTS ?=
 # Host-reachable RPC for local networks (see the Blockchain section).
 RPC ?= http://127.0.0.1:8545
+ARGS ?=
 
 COMPOSE_DEV = $(COMPOSE) -f $(COMPOSE_FILE)
 COMPOSE_PROD = $(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_PROD_FILE)
@@ -327,6 +328,17 @@ db-seed: ## Seed demo + bulk data (in container)
 .PHONY: db-seed-bulk
 db-seed-bulk: ## Only the bulk padding (>=200 rows/table) (in container)
 	$(COMPOSE_DEV) run --rm seed python -m app.db.seed_bulk
+
+.PHONY: reseed
+reseed: db-reseed ## Reseed database with realistic timeline data (preserves users)
+
+.PHONY: db-reseed
+db-reseed: ## Reseed database with realistic timeline data (in container, preserves users)
+	$(COMPOSE_DEV) run --rm -v ./apps/backend/app:/app/app seed python -m app.db.reseed $(ARGS)
+
+.PHONY: db-reseed-local
+db-reseed-local: ## Reseed database locally using host Python (preserves users)
+	cd apps/backend && .venv/bin/python -m app.db.reseed $(ARGS)
 
 .PHONY: db-backup
 db-backup: ## Backup database to FILE=backup.sql

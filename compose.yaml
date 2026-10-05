@@ -97,6 +97,8 @@ services:
     <<: [*backend-build, *backend-env]
     command: ["python", "-m", "app.db.seed"]
     restart: "no"
+    volumes:
+      - ./apps/backend/app:/app/app
     depends_on:
       postgres:
         condition: service_healthy
